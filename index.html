@@ -67,7 +67,6 @@
         .back-btn { background: transparent; color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-bottom: 15px; }
         .action-btn { background: var(--accent-blue); border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; color: #0b0f19; margin-top: 10px; }
 
-        /* V4.0 EXTRA TASKS STYLING */
         .extra-task-container { margin-top: 30px; border-top: 2px dashed var(--card-border); padding-top: 20px; display: none; }
         .task-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg-color); padding: 10px 15px; border: 1px solid var(--card-border); border-radius: 6px; margin-bottom: 8px; }
         .task-term { font-weight: 500; font-size: 0.95rem; }
@@ -113,13 +112,10 @@
                     <button class="back-btn" onclick="showDashboard()">← Zurück</button>
                     <div id="player-container"></div>
                     
-                    <!-- V4.0 Extra Tasks Container -->
                     <div id="extra-tasks-container" class="extra-task-container">
                         <div class="panel-title" style="color: var(--accent-blue); margin-bottom: 20px;">Master-Challenges</div>
-                        
                         <div id="categorization-task" style="margin-bottom: 30px;"></div>
                         <div id="synapses-task" style="margin-bottom: 20px;"></div>
-                        
                         <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%;">Fall abschließen & XP sichern</button>
                     </div>
                 </div>
@@ -141,7 +137,11 @@
 
         const defaultSkills = { "Triage": { hits:0, total:0 }, "Diagnostics": { hits:0, total:0 }, "Pharmacology": { hits:0, total:0 }, "Pathophysiology": { hits:0, total:0 } };
 
-        document.addEventListener('DOMContentLoaded', () => { initUserData(); loadManifest(); renderSkillsSidebar(); });
+        document.addEventListener('DOMContentLoaded', () => { 
+            initUserData(); 
+            loadManifest(); 
+            renderSkillsSidebar(); 
+        });
 
         function initUserData() {
             if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
@@ -191,69 +191,52 @@
             }
         }
 
-       async function loadManifest() {
+        async function loadManifest() {
             try {
-                // Versuche die manifest.json zu laden
                 const res = await fetch('./manifest.json?nocache=' + new Date().getTime());
-                if (!res.ok) throw new Error(`HTTP Status: ${res.status}`);
+                if (!res.ok) throw new Error('Manifest fetch failed');
                 const data = await res.json();
                 currentCases = data.cases;
-            } catch (err) {
-                console.warn('CORS- oder Ladefehler bei manifest.json, nutze integriertes Notfall-Manifest:', err);
-                // Integriertes Fallback-Manifest, damit das Dashboard sofort geladen wird
+            } catch (err) { 
+                console.warn("Ladefehler manifest.json - Greife auf integrierten Notfall-Fallback zurück.");
                 currentCases = [
-                    {
-                        "id": "NEURO_DEMENZ_001",
-                        "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter",
-                        "medical_field": "Neurologie",
-                        "bloom_level": "Evaluation & Synthese",
-                        "difficulty": 5,
-                        "xp_reward": 500,
-                        "file_path": "cases/neuro_demenz_001.json"
-                    }
+                    { "id": "NEURO_DEMENZ_001", "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter", "medical_field": "Neurologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/neuro_demenz_001.json" },
+                    { "id": "HAEMATO_LYMPH_001", "title": "Kiefer-Tumor: Der genetische Motor im Keimzentrum", "medical_field": "Hämatopathologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/haemato_lymph_001.json" },
+                    { "id": "HAEMATO_LYMPH_002", "title": "MALT-Evolution: Vom chronischen Infekt zur Autonomie", "medical_field": "Hämatopathologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 450, "file_path": "cases/haemato_lymph_002.json" }
                 ];
             }
-            renderTabs();
+            renderTabs(); 
             filterAndRenderCases('Alle');
-        }
         }
 
         function renderTabs() {
             const container = document.getElementById('filter-tabs');
-            const fields = ['Alle', ...new Set(currentCases.map(c => c.medical_field))];
+            const fields = ['Alle', ...new Set(currentCases.map(c => c.medical_field || 'Allgemein'))];
             container.innerHTML = fields.map(f => `<button class="tab-btn ${f === activeFilter ? 'active' : ''}" onclick="activeFilter='${f}'; renderTabs(); filterAndRenderCases('${f}');">${f}</button>`).join('');
         }
 
         function filterAndRenderCases(field) {
             const grid = document.getElementById('case-grid');
             const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-            const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => c.medical_field === field);
-            
-            grid.innerHTML = filtered.map(c => {
-                // Defensive Programmierung gegen undefined-Einträge im Manifest
-                const fieldName = c.medical_field || 'Allgemeinmedizin';
-                const titleText = c.title || 'Unbenannter Simulationsfall';
-                const reward = c.xp_reward || 200;
-                
-                return `
-                    <div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')">
-                        <div>
-                            <span class="tag">${fieldName}</span>
-                            <h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${titleText}</h3>
-                        </div>
-                        <div style="font-size:0.75rem; color: var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;">
-                            <span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span>
-                            <span>+${reward} XP</span>
-                        </div>
+            const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => (c.medical_field || 'Allgemein') === field);
+            grid.innerHTML = filtered.map(c => `
+                <div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')">
+                    <div>
+                        <span class="tag">${c.medical_field || 'Allgemein'}</span>
+                        <h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${c.title || 'Simulation'}</h3>
                     </div>
-                `;
-            }).join('');
-        }
+                    <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;">
+                        <span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span>
+                        <span>+${c.xp_reward || 200} XP</span>
+                    </div>
+                </div>
+            `).join('');
         }
 
         async function openCase(filePath, caseId) {
             try {
                 const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
+                if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
                 activeCaseData = await res.json();
                 stealthAuditCompleted = false;
                 document.getElementById('dashboard-view').style.display = 'none';
@@ -261,7 +244,9 @@
                 document.getElementById('extra-tasks-container').style.display = 'none';
                 document.getElementById('finish-case-btn').style.display = 'none';
                 renderTimeline();
-            } catch (err) { alert('Ladefehler'); }
+            } catch (err) { 
+                alert('Netzwerk- oder Pfadfehler: Die Datei (' + filePath + ') konnte nicht geladen werden. Bitte prüfe, ob die Datei exakt in diesem Ordner auf GitHub existiert.'); 
+            }
         }
 
         function parseStealthText(text, hotspots, stepIndex) {
@@ -326,14 +311,11 @@
         }
 
         function checkAuditCompletion() {
-            // Simplified check: If all timelines have been revealed, trigger extra tasks
-            // For production, count resolved errors vs total errors.
             stealthAuditCompleted = true; 
             if (activeCaseData.extra_tasks) renderExtraTasks();
             else document.getElementById('finish-case-btn').style.display = 'block';
         }
 
-        // --- V4.0 EXTRA TASKS LOGIC ---
         function renderExtraTasks() {
             const container = document.getElementById('extra-tasks-container');
             container.style.display = 'block';
@@ -372,7 +354,7 @@
         window.evalCategorization = function() {
             let allCorrect = true;
             document.querySelectorAll('.cat-select').forEach(sel => {
-                if (sel.classList.contains('correct')) return; // already solved
+                if (sel.classList.contains('correct')) return;
                 if (sel.value === sel.getAttribute('data-correct')) {
                     sel.classList.remove('incorrect'); sel.classList.add('correct');
                     applyXpDelta(25, 'Taxonomie Treffer'); trackSkill('Pathophysiology', true);
@@ -419,8 +401,16 @@
             showDashboard();
         }
 
-        function showDashboard() { document.getElementById('player-view').style.display = 'none'; document.getElementById('dashboard-view').style.display = 'block'; filterAndRenderCases(activeFilter); }
-        function switchTab(tab) { document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); event.target.classList.add('active'); }
+        function showDashboard() { 
+            document.getElementById('player-view').style.display = 'none'; 
+            document.getElementById('dashboard-view').style.display = 'block'; 
+            filterAndRenderCases(activeFilter); 
+        }
+        
+        function switchTab(tab) { 
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); 
+            event.target.classList.add('active'); 
+        }
     </script>
 </body>
 </html>
