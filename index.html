@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinical Forensics Hub 2.0</title>
+    <title>Clinical Forensics Hub 2.1 - Stealth Mode</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -26,82 +26,35 @@
             line-height: 1.6;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
+        .container { max-width: 900px; margin: 0 auto; }
 
         header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 20px;
-            margin-bottom: 25px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 25px;
         }
 
         .user-stats {
-            display: flex;
-            gap: 20px;
-            background: var(--card-bg);
-            padding: 10px 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
+            display: flex; gap: 20px; background: var(--card-bg); padding: 10px 20px;
+            border-radius: 8px; border: 1px solid var(--border-color);
         }
 
-        .stat-badge {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-        .stat-badge strong {
-            color: var(--accent-blue);
-        }
+        .stat-badge { font-size: 0.9rem; color: var(--text-muted); }
+        .stat-badge strong { color: var(--accent-blue); }
 
-        .filter-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-        }
-
+        .filter-tabs { display: flex; gap: 10px; margin-bottom: 25px; overflow-x: auto; padding-bottom: 5px; }
         .tab-btn {
-            background: var(--card-bg);
-            color: var(--text-muted);
-            border: 1px solid var(--border-color);
-            padding: 8px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            transition: all 0.2s;
+            background: var(--card-bg); color: var(--text-muted); border: 1px solid var(--border-color);
+            padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
         }
-
-        .tab-btn:hover, .tab-btn.active {
-            border-color: var(--accent-blue);
-            color: var(--text-main);
-        }
+        .tab-btn:hover, .tab-btn.active { border-color: var(--accent-blue); color: var(--text-main); }
         .tab-btn.active { background: var(--accent-blue); color: var(--bg-color); }
 
-        .case-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-        }
-
+        .case-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
         .case-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px;
+            padding: 20px; display: flex; flex-direction: column; justify-content: space-between;
+            cursor: pointer; transition: transform 0.2s, border-color 0.2s;
         }
-
         .case-card:hover { transform: translateY(-4px); border-color: var(--accent-blue); }
 
         .tag-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
@@ -118,32 +71,43 @@
 
         .timeline-step { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; margin-bottom: 15px; }
         .step-header { font-size: 0.85rem; color: var(--accent-blue); text-transform: uppercase; font-weight: 700; margin-bottom: 12px; }
-        .step-content { font-size: 1.1rem; margin-bottom: 15px; padding: 15px; background: #0f172a; border-radius: 6px; border-left: 3px solid var(--border-color); }
+        .step-content { font-size: 1.1rem; margin-bottom: 15px; padding: 15px; background: #0f172a; border-radius: 6px; border-left: 3px solid var(--border-color); user-select: none; }
 
-        /* V2.0 HOTSPOT STYLING */
-        .hotspot {
-            background: rgba(56, 189, 248, 0.15);
-            border-bottom: 2px dashed var(--accent-blue);
+        /* V2.1 STEALTH MODE STYLING */
+        .stealth-word, .stealth-hotspot {
             cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 4px;
             transition: all 0.2s ease;
-            font-weight: 600;
-            color: var(--accent-blue);
+            display: inline-block;
+            margin-right: 4px; /* Ersetzt das Leerzeichen für sauberes Klicken */
         }
-        .hotspot:hover { background: rgba(56, 189, 248, 0.3); }
         
-        .hotspot.resolved-noise {
-            background: transparent;
-            border-bottom: 2px solid var(--border-color);
-            color: var(--text-muted);
-            cursor: default;
+        /* Ein extrem subtiler Hover-Effekt, damit man merkt, dass der Text interaktiv ist */
+        .stealth-word:hover, .stealth-hotspot:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
         }
-        .hotspot.resolved-signal {
+
+        /* Wenn der User auf ein irrelevantes Wort klickt (Generic Noise) */
+        .resolved-generic {
+            color: #475569; /* Verblasst */
+            pointer-events: none;
+        }
+
+        /* Wenn der User einen definierten, aber nicht fehlerhaften Hotspot klickt */
+        .resolved-noise {
+            color: var(--text-muted);
+            text-decoration: line-through;
+            pointer-events: none;
+        }
+
+        /* Wenn der User den FATALEN Fehler findet */
+        .resolved-signal {
             background: rgba(239, 68, 68, 0.2);
-            border-bottom: 2px solid var(--error);
             color: #fca5a5;
-            cursor: default;
+            font-weight: bold;
+            border-radius: 4px;
+            padding: 0 4px;
+            pointer-events: none;
         }
 
         .step-actions { display: flex; gap: 10px; }
@@ -162,8 +126,8 @@
     <div class="container">
         <header>
             <div>
-                <h1 style="margin: 0; font-size: 1.5rem;">Clinical Forensics Hub 2.0</h1>
-                <span style="color: var(--text-muted); font-size: 0.9rem;">Chart Auditing & Sokratische Analyse</span>
+                <h1 style="margin: 0; font-size: 1.5rem;">Clinical Forensics Hub</h1>
+                <span style="color: var(--text-muted); font-size: 0.9rem;">Sokratisches Chart Auditing</span>
             </div>
             <div class="user-stats">
                 <div class="stat-badge">Rang: <strong id="stat-rank">Assistenzarzt</strong></div>
@@ -285,9 +249,37 @@
             }
         }
 
-        // Hilfsfunktion zum Escapen von RegExp-Zeichen
         function escapeRegExp(string) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // V2.1 Der Stealth-Parser
+        function parseStealthText(text, hotspots, stepIndex) {
+            let parsedText = text;
+
+            // 1. Schütze die echten Hotspots durch Platzhalter (entfernt die eckigen Klammern)
+            if (hotspots && hotspots.length > 0) {
+                hotspots.forEach((hs, hsIndex) => {
+                    const regex = new RegExp(`\\[${escapeRegExp(hs.phrase)}\\]`, 'g');
+                    parsedText = parsedText.replace(regex, `__HOTSPOT_${hsIndex}__`);
+                });
+            }
+
+            // 2. Wickle jedes verbleibende Wort in einen generischen, unsichtbaren Klick-Container
+            parsedText = parsedText.split(/\s+/).map(word => {
+                if (word.startsWith('__HOTSPOT_')) return word; // Platzhalter ignorieren
+                return `<span class="stealth-word" onclick="handleGenericClick(this)">${word}</span>`;
+            }).join(''); // Kein Leerzeichen beim Join, da wir margin-right im CSS nutzen
+
+            // 3. Setze die echten Hotspots (getarnt) wieder ein
+            if (hotspots && hotspots.length > 0) {
+                hotspots.forEach((hs, hsIndex) => {
+                    const replacementHtml = `<span class="stealth-hotspot" id="hs-${stepIndex}-${hsIndex}" onclick="evaluateHotspot(${stepIndex}, ${hsIndex})">${hs.phrase}</span>`;
+                    parsedText = parsedText.replace(`__HOTSPOT_${hsIndex}__`, replacementHtml);
+                });
+            }
+
+            return parsedText;
         }
 
         function renderTimeline(caseId) {
@@ -295,7 +287,7 @@
             container.innerHTML = `
                 <div style="margin-bottom: 25px;">
                     <h2>${activeCaseData.metadata.title}</h2>
-                    <p style="color: var(--text-muted);">Untersuche den klinischen Text. Klicke auf kritische Entscheidungen, Befunde oder Medikamente, um Fehler (Signal) von irrelevanten Befunden (Noise) zu unterscheiden.</p>
+                    <p style="color: var(--text-muted);"><strong>Chart Audit:</strong> Analysiere den Text. Jedes Wort ist anklickbar. Finde die fatalen Entscheidungen oder Befunde, ignoriere irrelevantes Rauschen.</p>
                 </div>
                 <div id="steps-wrapper"></div>
             `;
@@ -306,22 +298,15 @@
                 stepDiv.className = 'timeline-step';
                 stepDiv.id = `step-${index}`;
 
-                let htmlContent = step.content;
-
-                // V2.0 Hotspot-Parsing: Wandelt [Phrase] in klickbare Spans um
-                if (step.hotspots && step.hotspots.length > 0) {
-                    step.hotspots.forEach((hs, hsIndex) => {
-                        const regex = new RegExp(`\\[${escapeRegExp(hs.phrase)}\\]`, 'g');
-                        htmlContent = htmlContent.replace(regex, `<span class="hotspot" id="hs-${index}-${hsIndex}" onclick="evaluateHotspot(${index}, ${hsIndex})">${hs.phrase}</span>`);
-                    });
-                }
+                // Text durch den Stealth-Parser jagen
+                let htmlContent = step.hotspots ? parseStealthText(step.content, step.hotspots, index) : step.content;
 
                 stepDiv.innerHTML = `
                     <div class="step-header">Schritt ${index + 1}: ${step.phase}</div>
                     <div class="step-content">${htmlContent}</div>
                     
                     ${!step.hotspots ? `
-                        <!-- Fallback für V1 Button-Fälle -->
+                        <!-- Fallback für alte V1 Fälle ohne Text-Audit -->
                         <div class="step-actions" id="actions-${index}">
                             <button class="action-btn btn-valid" onclick="evaluateLegacyStep(${index}, false)">Klinisch Korrekt</button>
                             <button class="action-btn btn-invalid" onclick="evaluateLegacyStep(${index}, true)">Fehlerhaft</button>
@@ -334,36 +319,39 @@
             });
         }
 
-        // V2.0 Hotspot Evaluierung
+        // Wenn auf ein irrelevantes Wort geklickt wird
+        window.handleGenericClick = function(el) {
+            el.classList.add('resolved-generic');
+        }
+
+        // V2.1 Stealth Hotspot Evaluierung
         window.evaluateHotspot = function(stepIndex, hotspotIndex) {
             const step = activeCaseData.timeline[stepIndex];
             const hs = step.hotspots[hotspotIndex];
             const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
             const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
 
-            // Verhindert mehrfaches Klicken
             if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
 
             feedbackBox.style.display = 'block';
 
             if (hs.is_error) {
-                // Sokratische Falle schnappt zu
+                // Der FATALE Fehler wurde gefunden
                 span.classList.add('resolved-signal');
                 feedbackBox.className = 'feedback-box feedback-error';
                 feedbackBox.innerHTML = `
-                    <strong>Fehler identifiziert!</strong> Du hast den kritischen Punkt markiert.<br><br>
+                    <strong>Treffer!</strong> Du hast die kritische Variable auditiert.<br><br>
                     <strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br>
                     <button class="action-btn btn-valid" style="margin-top: 10px;" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Ich habe es durchdacht - Synthese aufdecken</button>
                 `;
             } else {
-                // Noise geklickt (Klinisch ok)
+                // Ein definierter Hotspot (Noise) wurde geklickt
                 span.classList.add('resolved-noise');
                 feedbackBox.className = 'feedback-box feedback-neutral';
-                feedbackBox.innerHTML = `<strong>Klinisch vertretbar:</strong> ${hs.feedback} <br><em>Suche weiter im Text nach dem eigentlichen Fehler.</em>`;
+                feedbackBox.innerHTML = `<strong>Klinisch erfasst:</strong> ${hs.feedback} <br><em>Das ist nicht der gesuchte Fehler. Untersuche den Text weiter.</em>`;
             }
         }
 
-        // Zwingt den Nutzer, erst nachzudenken, bevor die finale Erklärung kommt
         window.revealSynthesis = function(stepIndex, hotspotIndex) {
             const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
             const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
@@ -372,7 +360,7 @@
             checkCompletion();
         }
 
-        // V1 Fallback für alte Fälle ohne Hotspots
+        // V1 Fallback
         window.evaluateLegacyStep = function(index, userThoughtError) {
             const step = activeCaseData.timeline[index];
             const feedbackBox = document.getElementById(`feedback-${index}`);
