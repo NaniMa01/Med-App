@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinical Forensics Hub</title>
+    <title>Clinical Forensics Hub 2.0</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -14,6 +14,7 @@
             --border-color: #334155;
             --success: #22c55e;
             --error: #ef4444;
+            --warning: #f59e0b;
         }
 
         body {
@@ -22,6 +23,7 @@
             color: var(--text-main);
             margin: 0;
             padding: 30px 20px;
+            line-height: 1.6;
         }
 
         .container {
@@ -76,16 +78,11 @@
             transition: all 0.2s;
         }
 
-        .tab-btn:hover {
+        .tab-btn:hover, .tab-btn.active {
             border-color: var(--accent-blue);
             color: var(--text-main);
         }
-
-        .tab-btn.active {
-            background: var(--accent-blue);
-            color: var(--bg-color);
-            border-color: var(--accent-blue);
-        }
+        .tab-btn.active { background: var(--accent-blue); color: var(--bg-color); }
 
         .case-grid {
             display: grid;
@@ -105,124 +102,59 @@
             transition: transform 0.2s, border-color 0.2s;
         }
 
-        .case-card:hover {
-            transform: translateY(-4px);
-            border-color: var(--accent-blue);
-        }
+        .case-card:hover { transform: translateY(-4px); border-color: var(--accent-blue); }
 
-        .tag-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
+        .tag-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
+        .tag { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #0f172a; color: var(--accent-blue); }
+        .status-badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; background: var(--border-color); color: var(--text-muted); }
+        .status-solved { background: rgba(34, 197, 94, 0.2); color: var(--success); }
 
-        .tag {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: #0f172a;
-            color: var(--accent-blue);
-        }
+        .case-title { font-size: 1.15rem; font-weight: 600; margin: 0 0 15px 0; line-height: 1.4; }
+        .card-footer { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 12px; }
 
-        .status-badge {
-            font-size: 0.75rem;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: var(--border-color);
-            color: var(--text-muted);
-        }
+        #player-view { display: none; }
+        .back-btn { background: transparent; color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-bottom: 20px; }
+        .back-btn:hover { background: rgba(56, 189, 248, 0.1); }
 
-        .status-solved {
-            background: rgba(34, 197, 94, 0.2);
-            color: var(--success);
-        }
+        .timeline-step { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; margin-bottom: 15px; }
+        .step-header { font-size: 0.85rem; color: var(--accent-blue); text-transform: uppercase; font-weight: 700; margin-bottom: 12px; }
+        .step-content { font-size: 1.1rem; margin-bottom: 15px; padding: 15px; background: #0f172a; border-radius: 6px; border-left: 3px solid var(--border-color); }
 
-        .case-title {
-            font-size: 1.15rem;
-            font-weight: 600;
-            margin: 0 0 15px 0;
-            line-height: 1.4;
-        }
-
-        .card-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border-color);
-            padding-top: 12px;
-        }
-
-        #player-view {
-            display: none;
-        }
-
-        .back-btn {
-            background: transparent;
-            color: var(--accent-blue);
-            border: 1px solid var(--accent-blue);
-            padding: 8px 16px;
-            border-radius: 6px;
+        /* V2.0 HOTSPOT STYLING */
+        .hotspot {
+            background: rgba(56, 189, 248, 0.15);
+            border-bottom: 2px dashed var(--accent-blue);
             cursor: pointer;
-            margin-bottom: 20px;
-        }
-        .back-btn:hover {
-            background: rgba(56, 189, 248, 0.1);
-        }
-
-        .timeline-step {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 15px;
-        }
-
-        .step-header {
-            font-size: 0.85rem;
-            color: var(--accent-blue);
-            text-transform: uppercase;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .step-content {
-            font-size: 1.05rem;
-            line-height: 1.5;
-            margin-bottom: 15px;
-        }
-
-        .step-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        button.action-btn {
-            padding: 8px 14px;
-            border-radius: 6px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
             font-weight: 600;
-            cursor: pointer;
-            border: none;
+            color: var(--accent-blue);
         }
-
-        .btn-valid { background: #065f46; color: #34d399; }
-        .btn-valid:hover { background: #047857; }
+        .hotspot:hover { background: rgba(56, 189, 248, 0.3); }
         
-        .btn-invalid { background: #7f1d1d; color: #fca5a5; }
-        .btn-invalid:hover { background: #991b1b; }
-
-        .feedback-box {
-            margin-top: 15px;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            display: none;
+        .hotspot.resolved-noise {
+            background: transparent;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--text-muted);
+            cursor: default;
         }
+        .hotspot.resolved-signal {
+            background: rgba(239, 68, 68, 0.2);
+            border-bottom: 2px solid var(--error);
+            color: #fca5a5;
+            cursor: default;
+        }
+
+        .step-actions { display: flex; gap: 10px; }
+        button.action-btn { padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; }
+        .btn-valid { background: #065f46; color: #34d399; }
+        .btn-invalid { background: #7f1d1d; color: #fca5a5; }
+
+        .feedback-box { margin-top: 15px; padding: 15px; border-radius: 6px; font-size: 0.95rem; display: none; }
         .feedback-success { background: rgba(34, 197, 94, 0.1); border-left: 4px solid var(--success); color: #86efac; }
         .feedback-error { background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--error); color: #fca5a5; }
+        .feedback-neutral { background: rgba(148, 163, 184, 0.1); border-left: 4px solid var(--text-muted); color: var(--text-main); }
     </style>
 </head>
 <body>
@@ -230,8 +162,8 @@
     <div class="container">
         <header>
             <div>
-                <h1 style="margin: 0; font-size: 1.5rem;">Clinical Forensics Hub</h1>
-                <span style="color: var(--text-muted); font-size: 0.9rem;">Sokratischer M&M-Simulator</span>
+                <h1 style="margin: 0; font-size: 1.5rem;">Clinical Forensics Hub 2.0</h1>
+                <span style="color: var(--text-muted); font-size: 0.9rem;">Chart Auditing & Sokratische Analyse</span>
             </div>
             <div class="user-stats">
                 <div class="stat-badge">Rang: <strong id="stat-rank">Assistenzarzt</strong></div>
@@ -245,7 +177,7 @@
         </main>
 
         <section id="player-view">
-            <button class="back-btn" onclick="showDashboard()">← Zurück zur Übersicht</button>
+            <button class="back-btn" onclick="showDashboard()">← Zurück zum Dashboard</button>
             <div id="player-container"></div>
         </section>
     </div>
@@ -280,29 +212,21 @@
 
         async function loadManifest() {
             try {
-                // Lädt die echte manifest.json dynamisch vom Server
-                // Hängt einen dynamischen Zeitstempel an die URL an, was den Browser zwingt, den Cache zu ignorieren
                 const res = await fetch('./manifest.json?nocache=' + new Date().getTime());
-                if (!res.ok) throw new Error(`HTTP Fehler Status: ${res.status}`);
-                
+                if (!res.ok) throw new Error(`HTTP Fehler: ${res.status}`);
                 const data = await res.json();
                 currentCases = data.cases;
                 renderTabs();
                 filterAndRenderCases('Alle');
             } catch (err) {
                 console.error('Manifest-Ladefehler:', err);
-                document.getElementById('case-grid').innerHTML = `
-                    <div style="grid-column: 1 / -1; padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 8px; color: #fca5a5;">
-                        <strong>Ladefehler:</strong> Die <code>manifest.json</code> konnte nicht geladen werden.<br>
-                        <small>Details: ${err.message}</small>
-                    </div>`;
+                document.getElementById('case-grid').innerHTML = `<p style="color: var(--error);">Fehler beim Laden des Manifests.</p>`;
             }
         }
 
         function renderTabs() {
             const tabsContainer = document.getElementById('filter-tabs');
             const fields = ['Alle', ...new Set(currentCases.map(c => c.medical_field))];
-            
             tabsContainer.innerHTML = '';
             fields.forEach(field => {
                 const btn = document.createElement('button');
@@ -322,13 +246,7 @@
             const grid = document.getElementById('case-grid');
             grid.innerHTML = '';
             const solvedCases = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-
             const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => c.medical_field === field);
-
-            if (filtered.length === 0) {
-                grid.innerHTML = '<p style="color: var(--text-muted);">Keine Fälle in diesem Fachbereich verfügbar.</p>';
-                return;
-            }
 
             filtered.forEach(c => {
                 const isSolved = solvedCases.includes(c.id);
@@ -356,25 +274,28 @@
         async function openCase(filePath, caseId) {
             try {
                 const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
-                if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
-                
+                if (!res.ok) throw new Error('Datei nicht gefunden');
                 activeCaseData = await res.json();
                 
                 document.getElementById('dashboard-view').style.display = 'none';
                 document.getElementById('player-view').style.display = 'block';
-
                 renderTimeline(caseId);
             } catch (err) {
-                alert('Der Fall konnte unter ' + filePath + ' nicht geladen werden.');
+                alert('Der Fall konnte nicht geladen werden.');
             }
+        }
+
+        // Hilfsfunktion zum Escapen von RegExp-Zeichen
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         function renderTimeline(caseId) {
             const container = document.getElementById('player-container');
             container.innerHTML = `
-                <div style="margin-bottom: 20px;">
+                <div style="margin-bottom: 25px;">
                     <h2>${activeCaseData.metadata.title}</h2>
-                    <p style="color: var(--text-muted);">Prüfe die Schritte der Timeline auf klinische und pathophysiologische Konsistenz.</p>
+                    <p style="color: var(--text-muted);">Untersuche den klinischen Text. Klicke auf kritische Entscheidungen, Befunde oder Medikamente, um Fehler (Signal) von irrelevanten Befunden (Noise) zu unterscheiden.</p>
                 </div>
                 <div id="steps-wrapper"></div>
             `;
@@ -385,51 +306,92 @@
                 stepDiv.className = 'timeline-step';
                 stepDiv.id = `step-${index}`;
 
+                let htmlContent = step.content;
+
+                // V2.0 Hotspot-Parsing: Wandelt [Phrase] in klickbare Spans um
+                if (step.hotspots && step.hotspots.length > 0) {
+                    step.hotspots.forEach((hs, hsIndex) => {
+                        const regex = new RegExp(`\\[${escapeRegExp(hs.phrase)}\\]`, 'g');
+                        htmlContent = htmlContent.replace(regex, `<span class="hotspot" id="hs-${index}-${hsIndex}" onclick="evaluateHotspot(${index}, ${hsIndex})">${hs.phrase}</span>`);
+                    });
+                }
+
                 stepDiv.innerHTML = `
                     <div class="step-header">Schritt ${index + 1}: ${step.phase}</div>
-                    <div class="step-content">${step.content}</div>
-                    <div class="step-actions" id="actions-${index}">
-                        <span style="font-size:0.9rem; color: var(--text-muted); align-self:center;">Klinische Evaluierung:</span>
-                        <button class="action-btn btn-valid" onclick="evaluateStep(${index}, false)">Klinisch Korrekt</button>
-                        <button class="action-btn btn-invalid" onclick="evaluateStep(${index}, true)">Fehlerhaft / Kontraindiziert</button>
-                    </div>
+                    <div class="step-content">${htmlContent}</div>
+                    
+                    ${!step.hotspots ? `
+                        <!-- Fallback für V1 Button-Fälle -->
+                        <div class="step-actions" id="actions-${index}">
+                            <button class="action-btn btn-valid" onclick="evaluateLegacyStep(${index}, false)">Klinisch Korrekt</button>
+                            <button class="action-btn btn-invalid" onclick="evaluateLegacyStep(${index}, true)">Fehlerhaft</button>
+                        </div>
+                    ` : ''}
+                    
                     <div class="feedback-box" id="feedback-${index}"></div>
                 `;
                 wrapper.appendChild(stepDiv);
             });
         }
 
-        window.evaluateStep = function(index, userThoughtError) {
+        // V2.0 Hotspot Evaluierung
+        window.evaluateHotspot = function(stepIndex, hotspotIndex) {
+            const step = activeCaseData.timeline[stepIndex];
+            const hs = step.hotspots[hotspotIndex];
+            const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
+            const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
+
+            // Verhindert mehrfaches Klicken
+            if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
+
+            feedbackBox.style.display = 'block';
+
+            if (hs.is_error) {
+                // Sokratische Falle schnappt zu
+                span.classList.add('resolved-signal');
+                feedbackBox.className = 'feedback-box feedback-error';
+                feedbackBox.innerHTML = `
+                    <strong>Fehler identifiziert!</strong> Du hast den kritischen Punkt markiert.<br><br>
+                    <strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br>
+                    <button class="action-btn btn-valid" style="margin-top: 10px;" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Ich habe es durchdacht - Synthese aufdecken</button>
+                `;
+            } else {
+                // Noise geklickt (Klinisch ok)
+                span.classList.add('resolved-noise');
+                feedbackBox.className = 'feedback-box feedback-neutral';
+                feedbackBox.innerHTML = `<strong>Klinisch vertretbar:</strong> ${hs.feedback} <br><em>Suche weiter im Text nach dem eigentlichen Fehler.</em>`;
+            }
+        }
+
+        // Zwingt den Nutzer, erst nachzudenken, bevor die finale Erklärung kommt
+        window.revealSynthesis = function(stepIndex, hotspotIndex) {
+            const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
+            const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
+            feedbackBox.className = 'feedback-box feedback-success';
+            feedbackBox.innerHTML = `<strong>Pathophysiologische Synthese:</strong> ${hs.correct_pathophysiology}`;
+            checkCompletion();
+        }
+
+        // V1 Fallback für alte Fälle ohne Hotspots
+        window.evaluateLegacyStep = function(index, userThoughtError) {
             const step = activeCaseData.timeline[index];
             const feedbackBox = document.getElementById(`feedback-${index}`);
-            const actionsDiv = document.getElementById(`actions-${index}`);
-            
-            actionsDiv.style.display = 'none';
+            document.getElementById(`actions-${index}`).style.display = 'none';
             feedbackBox.style.display = 'block';
 
             if (userThoughtError === step.contains_error) {
-                if (step.contains_error) {
-                    feedbackBox.className = 'feedback-box feedback-success';
-                    feedbackBox.innerHTML = `<strong>Korrekt erkannt!</strong> ${step.correct_pathophysiology}`;
-                } else {
-                    feedbackBox.className = 'feedback-box feedback-success';
-                    feedbackBox.innerHTML = `<strong>Richtig!</strong> ${step.feedback}`;
-                }
+                feedbackBox.className = 'feedback-box feedback-success';
+                feedbackBox.innerHTML = `<strong>Korrekt!</strong> ${step.correct_pathophysiology || step.feedback}`;
                 checkCompletion();
             } else {
                 feedbackBox.className = 'feedback-box feedback-error';
-                if (step.contains_error) {
-                    feedbackBox.innerHTML = `<strong>Sokratischer Einspruch:</strong> Du hast diesen kritischen Schritt übersehen.<br><em>${step.socratic_trap.counter_question}</em>`;
-                } else {
-                    feedbackBox.className = 'feedback-box feedback-error';
-                    feedbackBox.innerHTML = `<strong>Sokratischer Einspruch:</strong> Du vermutest hier einen Fehler, obwohl dieser Schritt leitlinienkonform ist.<br>Überlege im Kontext der Pathophysiologie noch einmal, warum dieser Schritt stabil ist.`;
-                }
+                feedbackBox.innerHTML = `<strong>Denkfehler:</strong> ${step.socratic_trap?.counter_question || 'Überdenke die Pathophysiologie.'}`;
             }
         }
 
         function checkCompletion() {
             let currentXp = parseInt(localStorage.getItem('user_xp') || '0');
-            currentXp += activeCaseData.metadata.xp_reward || 250;
+            currentXp += activeCaseData.metadata?.xp_reward || 250;
             localStorage.setItem('user_xp', currentXp);
             
             let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
