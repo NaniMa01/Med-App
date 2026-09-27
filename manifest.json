@@ -45,6 +45,24 @@
       "difficulty": 5,
       "xp_reward": 450,
       "file_path": "cases/neuro_ftd_ppa_002.json"
+    },
+    {
+      "id": "HAEMATO_LYMPH_001",
+      "title": "Kiefer-Tumor: Der genetische Motor im Keimzentrum",
+      "medical_field": "Hämatopathologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 500,
+      "file_path": "cases/haemato_lymph_001.json"
+    },
+    {
+      "id": "HAEMATO_LYMPH_002",
+      "title": "MALT-Evolution: Vom chronischen Infekt zur Autonomie",
+      "medical_field": "Hämatopathologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 450,
+      "file_path": "cases/haemato_lymph_002.json"
     }
   ]
 }
