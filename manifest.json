@@ -63,6 +63,20 @@
       "difficulty": 5,
       "xp_reward": 450,
       "file_path": "cases/haemato_lymph_002.json"
+    },
+    {
+  "version": "4.0",
+  "cases": [
+    {
+      "id": "NEURO_DEMENZ_001",
+      "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter",
+      "medical_field": "Neurologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 500,
+      "file_path": "cases/neuro_demenz_001.json"
     }
+  ]
+}
   ]
 }
