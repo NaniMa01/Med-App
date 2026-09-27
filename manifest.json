@@ -1,1 +1,23 @@
-
+{
+  "version": "1.1",
+  "cases": [
+    {
+      "id": "NEURO_001",
+      "title": "Neurokognitive Störungen II: FTLD & Sprachabbau",
+      "medical_field": "Neurologie",
+      "bloom_level": "Evaluieren",
+      "difficulty": 4,
+      "xp_reward": 250,
+      "file_path": "cases/neuro_ftd_001.json"
+    },
+    {
+      "id": "NEURO_002_ADV",
+      "title": "FTLD Advanced: Das FTD-ALS-Kontinuum & Neuroleptika-Falle",
+      "medical_field": "Neurologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 500,
+      "file_path": "cases/neuro_ftd_002_adv.json"
+    }
+  ]
+}
