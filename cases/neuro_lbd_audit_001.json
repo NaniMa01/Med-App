@@ -1,0 +1,76 @@
+{
+  "case_id": "NEURO_LBD_AUDIT_001",
+  "metadata": {
+    "title": "Chart Audit: Psychose im Alter & Die DaTSCAN-Falle",
+    "medical_field": "Neurologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 450
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Aufnahmebefund & Triage (Signal vs. Noise)",
+      "content": "Ein 74-jähriger Patient wird wegen zunehmender kognitiver Defizite und neu aufgetretener, detailreicher visueller Halluzinationen vorgestellt. Die Ehefrau berichtet über stark [fluktuierende Aufmerksamkeit]. Im Status fällt ein milder Rigor der oberen Extremitäten auf. Das cMRT zeigt [normale Hippocampus-Volumina]. Der Assistenzarzt diagnostiziert eine Alzheimer-Demenz mit psychotischer Exazerbation und verordnet zur akuten Symptomkontrolle [Haloperidol 2 mg p.o.].",
+      "hotspots": [
+        {
+          "phrase": "fluktuierende Aufmerksamkeit",
+          "is_error": false,
+          "feedback": "Richtig auditiert: Dies ist ein Kernsymptom, aber kein ärztlicher Fehler. Fluktuierende Aufmerksamkeit ist hochtypisch für eine Lewy-Body-Demenz."
+        },
+        {
+          "phrase": "normale Hippocampus-Volumina",
+          "is_error": false,
+          "feedback": "Klinisch korrekt erfasst. Im Gegensatz zur Alzheimer-Krankheit (mesiotemporale Atrophie) zeigt das MRT bei LBD typischerweise keine relevante Atrophie[cite: 5]."
+        },
+        {
+          "phrase": "Haloperidol 2 mg p.o.",
+          "is_error": true,
+          "socratic_trap": "Fataler Fehler identifiziert! Aber warum? Der Patient hat psychotische Symptome (Halluzinationen)[cite: 5]. Was passiert, wenn du einem Patienten mit diesem spezifischen Demenz-Syndrom einen potenten D2-Antagonisten gibst?",
+          "correct_pathophysiology": "Lebensgefahr: Neuroleptika-Hypersensitivitätssyndrom! Patienten mit Lewy-Body-Demenz (LBD) reagieren auf klassische Neuroleptika extrem sensitiv mit schwersten irreversiblen extrapyramidal-motorischen Krisen und Bewusstseinseintrübungen[cite: 5]."
+        }
+      ]
+    },
+    {
+      "step_id": 2,
+      "phase": "Apparative Diagnostik",
+      "content": "Nach dem sofortigen Absetzen des Neuroleptikums persistiert das Parkinsonsyndrom. Zur ätiologischen Sicherung wird ein FDG-PET veranlasst. Es zeigt einen [okzipitalen Hypometabolismus] mit [erhaltenem Metabolismus im posterioren Cingulum]. Ein zusätzlich durchgeführtes DaTSCAN zeigt überraschenderweise eine [normale Dopamintransporter-Dichte] in den Basalganglien. Der Stationsarzt bestätigt daraufhin endgültig die Diagnose einer Lewy-Body-Demenz.",
+      "hotspots": [
+        {
+          "phrase": "okzipitalen Hypometabolismus",
+          "is_error": false,
+          "feedback": "Korrekt auditiert. Das FDG-PET zeigt bei LBD typischerweise einen parieto-okzipitalen Hypometabolismus[cite: 5]."
+        },
+        {
+          "phrase": "erhaltenem Metabolismus im posterioren Cingulum",
+          "is_error": false,
+          "feedback": "Richtig. Das sogenannte 'posterior cingulate island sign' ist ein hochspezifischer FDG-PET-Befund für die Lewy-Body-Demenz[cite: 5]."
+        },
+        {
+          "phrase": "normale Dopamintransporter-Dichte",
+          "is_error": true,
+          "socratic_trap": "Hervorragend, du hast den diagnostischen Widerspruch gefunden! Der Arzt stellt die Diagnose LBD. Aber was misst das DaTSCAN genau und wie müsste der Befund bei einer echten LBD aussehen?",
+          "correct_pathophysiology": "Diagnostischer Fehlschluss: Bei einer Lewy-Body-Demenz liegt eine präsynaptische dopaminerge Degeneration vor. Das DaTSCAN (Dopamin-Transporter-Szintigraphie) MUSS zwingend eine verminderte Aufnahme in den Basalganglien zeigen[cite: 5]. Ist der Befund normal, ist die Diagnose LBD extrem unwahrscheinlich."
+        }
+      ]
+    },
+    {
+      "step_id": 3,
+      "phase": "Therapiedezision",
+      "content": "Unter der Annahme einer gesicherten LBD werden die kognitiven Einschränkungen leitliniengerecht mit einem [Acetylcholinesterasehemmer] anbehandelt. Zur Linderung des störenden, progredienten Parkinsonsyndroms entscheidet sich die Station für die Eindosierung eines [Dopaminagonisten], um die für L-Dopa typischen Spätkomplikationen zu vermeiden.",
+      "hotspots": [
+        {
+          "phrase": "Acetylcholinesterasehemmer",
+          "is_error": false,
+          "feedback": "Korrekt. Acetylcholinesterasehemmer sind bei leichten bis mittelschweren neurokognitiven Störungen (sowohl Alzheimer als auch LBD) indiziert[cite: 5]."
+        },
+        {
+          "phrase": "Dopaminagonisten",
+          "is_error": true,
+          "socratic_trap": "Korrekt auditiert! Dopaminagonisten werden bei idiopathischem Parkinson oft bevorzugt, um Dyskinesien zu vermeiden. Warum ist das bei LBD- oder Parkinson-Demenz-Patienten eine verheerende Idee?",
+          "correct_pathophysiology": "Pharmakologische Kontraindikation: Dopaminagonisten haben ein deutlich höheres Risiko, Verhaltensstörungen, Wahn und Halluzinationen auszulösen[cite: 5]. Bei Patienten mit LBD oder Parkinsondemenz ist (in niedriger Dosis) immer L-Dopa zu favorisieren[cite: 5]!"
+        }
+      ]
+    }
+  ]
+}
