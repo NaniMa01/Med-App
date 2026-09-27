@@ -191,13 +191,31 @@
             }
         }
 
-        async function loadManifest() {
+       async function loadManifest() {
             try {
+                // Versuche die manifest.json zu laden
                 const res = await fetch('./manifest.json?nocache=' + new Date().getTime());
+                if (!res.ok) throw new Error(`HTTP Status: ${res.status}`);
                 const data = await res.json();
                 currentCases = data.cases;
-                renderTabs(); filterAndRenderCases('Alle');
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.warn('CORS- oder Ladefehler bei manifest.json, nutze integriertes Notfall-Manifest:', err);
+                // Integriertes Fallback-Manifest, damit das Dashboard sofort geladen wird
+                currentCases = [
+                    {
+                        "id": "NEURO_DEMENZ_001",
+                        "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter",
+                        "medical_field": "Neurologie",
+                        "bloom_level": "Evaluation & Synthese",
+                        "difficulty": 5,
+                        "xp_reward": 500,
+                        "file_path": "cases/neuro_demenz_001.json"
+                    }
+                ];
+            }
+            renderTabs();
+            filterAndRenderCases('Alle');
+        }
         }
 
         function renderTabs() {
