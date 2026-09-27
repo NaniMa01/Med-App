@@ -1,1 +1,84 @@
-
+{
+  "case_id": "HAEMATO_LYMPH_002",
+  "metadata": {
+    "title": "MALT-Evolution: Vom chronischen Infekt zur Autonomie",
+    "medical_field": "Pathologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 450
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Primärdiagnostik",
+      "content": "Ein 58-jähriger Patient mit chronischer Dyspepsie unterzieht sich einer Gastroskopie. Die Histologie zeigt eine chronische Gastritis durch Helicobacter pylori[cite: 5]. Die molekulare Analyse offenbart eine [Ag-abhängige Expansion eines transformierten B-Zell-Klons][cite: 5]. Der Onkologe diagnostiziert ein frühes extranodales Marginalzonenlymphom (MALT) und verordnet umgehend eine [aggressive Polychemotherapie][cite: 5].",
+      "hotspots": [
+        {
+          "phrase": "Ag-abhängige Expansion eines transformierten B-Zell-Klons",
+          "is_error": false,
+          "skill_tag": "Pathophysiology",
+          "feedback": "Richtig auditiert: In der Frühphase ist das MALT-Lymphom noch auf den anhaltenden Antigen-Reiz (Ag) der Bakterien angewiesen[cite: 5]."
+        },
+        {
+          "phrase": "aggressive Polychemotherapie",
+          "is_error": true,
+          "skill_tag": "Pharmacology",
+          "socratic_trap": "Therapeutischer Overkill! Wenn das Tumorwachstum noch strikt von der Präsenz des Helicobacter-Antigens abhängt, was ist die logische Erstlinientherapie[cite: 5]?",
+          "correct_pathophysiology": "Ein frühes, antigen-abhängiges MALT-Lymphom (antimicrobial-sensitive) kann oft allein durch eine antibiotische Eradikationstherapie des H. pylori geheilt werden[cite: 5]. Eine Chemotherapie ist hier völlig verfrüht und toxisch[cite: 5]."
+        }
+      ]
+    },
+    {
+      "step_id": 2,
+      "phase": "Klonale Evolution",
+      "content": "Der Patient entzieht sich der Erstbehandlung. Jahre später wächst der Tumor massiv. Die Biopsie zeigt nun eine [t(11;18) Translokation][cite: 5], die zu einer massiven [BCR-unabhängigen Aktivierung des NF-kB-Signalwegs][cite: 5] führt. Der Hausarzt erfährt davon und leitet nun verspätet eine [antibiotische Eradikationstherapie][cite: 5] ein.",
+      "hotspots": [
+        {
+          "phrase": "t(11;18) Translokation",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Richtig auditiert: Die Translokation API2::MALT1 ist ein klassisches sekundäres genetisches Ereignis bei der Progression von MALT-Lymphomen[cite: 5]."
+        },
+        {
+          "phrase": "BCR-unabhängigen Aktivierung des NF-kB-Signalwegs",
+          "is_error": false,
+          "skill_tag": "Pathophysiology",
+          "feedback": "Korrekt: Dies ist der molekulare Mechanismus, wie sich das Lymphom vom Antigen-Reiz abkoppelt[cite: 5]."
+        },
+        {
+          "phrase": "antibiotische Eradikationstherapie",
+          "is_error": true,
+          "skill_tag": "Pharmacology",
+          "socratic_trap": "Logik-Falle! Wenn der Tumor den B-Zell-Rezeptor (BCR) durch die NF-kB-Mutation umgangen hat, reagiert er dann noch auf den Entzug des bakteriellen Antigens[cite: 5]?",
+          "correct_pathophysiology": "Nein. Durch die genetischen Aberrationen (wie t(11;18)) wird das Lymphom 'antimicrobial-insensitive' (Antigen-unabhängig)[cite: 5]. Die Tumorzellen wachsen autonom weiter; Antibiotika sind in diesem Stadium wirkungslos[cite: 5]."
+        }
+      ]
+    },
+    {
+      "step_id": 3,
+      "phase": "Differenzialdiagnostische Pathologie",
+      "content": "Aufgrund einiger großer, mehrkerniger Zellen wird differenzialdiagnostisch ein [Klassisches Hodgkin-Lymphom (cHL)][cite: 5] erwogen. Um dies immunhistochemisch abzusichern, fordert der Pathologe eine [CD20-Färbung][cite: 5] an, da er eine [starke Expression auf den Reed-Sternberg-Zellen][cite: 5] erwartet, um die B-Zell-Herkunft zweifelsfrei zu belegen.",
+      "hotspots": [
+        {
+          "phrase": "Klassisches Hodgkin-Lymphom (cHL)",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Korrekt: cHL muss bei unklaren großzelligen Proliferationen ausgeschlossen werden, da es eine völlig andere Therapie (ABVD) erfordert[cite: 5]."
+        },
+        {
+          "phrase": "CD20-Färbung",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Die Anforderung ist richtig, um die B-Zell-Marker zu überprüfen. Der Denkfehler liegt in der Erwartungshaltung des Pathologen."
+        },
+        {
+          "phrase": "starke Expression auf den Reed-Sternberg-Zellen",
+          "is_error": true,
+          "skill_tag": "Diagnostics",
+          "socratic_trap": "Phänotyp-Falle! Die Reed-Sternberg-Zelle stammt zwar von einer B-Zelle ab, aber leugnet sie diese Herkunft in der Immunhistochemie[cite: 5]?",
+          "correct_pathophysiology": "Klassische Reed-Sternberg-Zellen sind 'verkrüppelte' B-Zellen, die ihr B-Zell-Programm weitestgehend verloren haben[cite: 5]. Sie sind in aller Regel negativ für CD20 und exprimieren stattdessen CD30 und CD15[cite: 5]."
+        }
+      ]
+    }
+  ]
+}
