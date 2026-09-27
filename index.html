@@ -280,10 +280,10 @@
 
         async function loadManifest() {
             try {
-                // Direkter, stabiler Relativpfad für GitHub Pages Subdirectories
+                // Absolut fehlerfreie Pfadbestimmung basierend auf aktuellem Dokumenten-Kontext
                 const res = await fetch('./manifest.json');
                 
-                if (!res.ok) throw new Error(`HTTP-Status: ${res.status}`);
+                if (!res.ok) throw new Error(`HTTP Fehler Status: ${res.status}`);
                 
                 const data = await res.json();
                 currentCases = data.cases;
@@ -355,6 +355,7 @@
 
         async function openCase(filePath, caseId) {
             try {
+                // Lädt die Fall-JSON direkt relativ zur App-Basis
                 const res = await fetch('./' + filePath);
                 if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
                 
