@@ -1,0 +1,94 @@
+{
+  "case_id": "NEURO_FTD_PPA_002",
+  "metadata": {
+    "title": "PPA-Diskrepanz: Semantischer Verlust & Molekulare Pathologie",
+    "medical_field": "Neurologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 450
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Klinische Phänomenologie (Signal vs. Noise)",
+      "content": "Ein 57-jähriger Patient stellt sich vor, weil er 'Wörter verliert'[cite: 4]. Im Gespräch spricht er flüssig und grammatikalisch korrekt, fragt jedoch: 'Was bedeutet das Wort Thermometer?' und erkennt bekannte Objekte nicht mehr[cite: 4]. Das [Nachsprechen komplexer Sätze] ist intakt[cite: 4]. Beim Lesen von 'Garage' zeigt sich eine [Oberflächendyslexie mit buchstabenweisem Lesen][cite: 4]. Der Assistenzarzt diagnostiziert eine [amnestische Alzheimer-Demenz] aufgrund des 'Gedächtnisverlusts'.",
+      "contains_error": true,
+      "hotspots": [
+        {
+          "phrase": "Nachsprechen komplexer Sätze",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Richtig auditiert: Ein intaktes Nachsprechen bei erhaltener Grammatik schließt eine nicht-flüssige PPA (nfvPPA) und logopenische PPA weitgehend aus[cite: 4]."
+        },
+        {
+          "phrase": "Oberflächendyslexie mit buchstabenweisem Lesen",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Klinisch treffend: Die Oberflächendyslexie ist ein zentrales Begleitmerkmal der semantischen PPA (Wörter werden lautgetreu statt ganzheitlich gelesen)[cite: 4]."
+        },
+        {
+          "phrase": "amnestische Alzheimer-Demenz",
+          "is_error": true,
+          "skill_tag": "Triage",
+          "socratic_trap": "Kategorieller Denkfehler! Welches Gedächtnissystem ist hier gestört? Vergleiche den Verlust von Fakten-/Wortwissen mit dem Verlust autobiografischer Kontexte[cite: 4].",
+          "correct_pathophysiology": "Der Patient leidet an einem isolierten Abbau des semantischen Gedächtnisses (Wortbedeutungen, Objektwissen ohne Zeit-/Raumbezug)[cite: 4]. Das episodische Gedächtnis (Kardinalsymptom der Alzheimer-Krankheit) ist intakt[cite: 4]. Dies definiert die semantische PPA (svPPA)[cite: 4]."
+        }
+      ],
+      "socratic_trap": {
+        "counter_question": "Welche Gedächtnisdomäne kodiert Wortbedeutungen und Objektwissen unabhängig von Raum und Zeit[cite: 4]?"
+      },
+      "correct_pathophysiology": "Das semantische Gedächtnis ist bei svPPA primär betroffen, während das episodische Gedächtnis intakt bleibt[cite: 4]."
+    },
+    {
+      "step_id": 2,
+      "phase": "Neuroanatomische Korrelation",
+      "content": "Das cMRT zeigt eine [ausgeprägte fokale Atrophie des linken Temporalpol][cite: 4]. Der Gyrus frontalis inferior und das Operculum sind unauffällig[cite: 4]. Der Stationsarzt vermutet eine [Läsion der Broca-Region] und verordnet zur Progressionsverlangsamung [Donepezil 10 mg/d].",
+      "contains_error": true,
+      "hotspots": [
+        {
+          "phrase": "ausgeprägte fokale Atrophie des linken Temporalpol",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Exzellent auditiert: Die links-betonte Atrophie des anterioren Temporallappens ist das pathognomonische neuroanatomische Korrelat der svPPA[cite: 4]."
+        },
+        {
+          "phrase": "Läsion der Broca-Region",
+          "is_error": true,
+          "skill_tag": "Pathophysiology",
+          "socratic_trap": "Anatomischer Widerspruch! Welches PPA-Syndrom korreliert mit dem linksseitigen Gyrus frontalis inferior (Broca-Areal), und wie unterscheidet sich dessen Sprachproduktion[cite: 4]?",
+          "correct_pathophysiology": "Die Broca-Region (Gyrus frontalis inferior links) ist das Substrat der nicht-flüssigen PPA (nfvPPA) und führt zu Agrammatismus und Sprechapraxie[cite: 4]. Die svPPA betrifft den linken Temporalpol[cite: 4]."
+        },
+        {
+          "phrase": "Donepezil 10 mg/d",
+          "is_error": true,
+          "skill_tag": "Pharmacology",
+          "socratic_trap": "Pharmakologische Falle: Warum sind Cholinesterasehemmer bei Erkrankungen des FTLD-Spektrums nicht indiziert?",
+          "correct_pathophysiology": "Bei FTLD liegt kein primäres Acetylcholindefizit vor. Acetylcholinesterasehemmer sind wirkungslos und können Verhaltensstörungen (Agitation, Enthemmung) sogar aggravieren."
+        }
+      ],
+      "socratic_trap": {
+        "counter_question": "Welche Hirnregion atrophiert bei der semantischen Variante der PPA[cite: 4]?"
+      },
+      "correct_pathophysiology": "Die Atrophie betrifft bei Rechtshändern typischerweise den linken Temporalpol[cite: 4]."
+    },
+    {
+      "step_id": 3,
+      "phase": "Neuropathologie & Genetik",
+      "content": "Im interdisziplinären Kolloquium wird die zugrundeliegende Proteinopathie diskutiert. Der Konsiliarius erklärt: 'Da es sich um eine primär progressive Aphasie aus dem FTLD-Spektrum handelt, liegt dem klinischen Phänomen mit an Sicherheit grenzender Wahrscheinlichkeit eine [Akkumulation von hyperphosphoryliertem Tau-Protein (FTLD-Tau)] zugrunde'[cite: 4].",
+      "contains_error": true,
+      "hotspots": [
+        {
+          "phrase": "Akkumulation von hyperphosphoryliertem Tau-Protein (FTLD-Tau)",
+          "is_error": true,
+          "skill_tag": "Pathophysiology",
+          "socratic_trap": "Molekularer Irrtum! Welche pathologische Proteinablagerung findet sich histopathologisch bei der überwiegenden Mehrheit der svPPA-Fälle im Gegensatz zur nfvPPA[cite: 4]?",
+          "correct_pathophysiology": "Dissoziation der Neuropathologie: Während die nfvPPA meist eine Tauopathie ist, liegt der semantischen PPA (svPPA) fast immer eine TDP-43-Proteinopathie (Transactive response DNA binding protein 43 kDa) zugrunde[cite: 4]."
+        }
+      ],
+      "socratic_trap": {
+        "counter_question": "Welches Aggregatprotein dominiert bei der semantischen PPA (svPPA) im Vergleich zur nfvPPA[cite: 4]?"
+      },
+      "correct_pathophysiology": "Die svPPA ist überwiegend mit TDP-43 assoziiert, die nfvPPA hingegen überwiegend mit Tau[cite: 4]."
+    }
+  ]
+}
