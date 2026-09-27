@@ -18,6 +18,15 @@
       "difficulty": 5,
       "xp_reward": 500,
       "file_path": "cases/neuro_ftd_002_adv.json"
+    },
+    {
+      "id": "NEURO_LBD_AUDIT_001",
+      "title": "Chart Audit: Psychose im Alter & Die DaTSCAN-Falle",
+      "medical_field": "Neurologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 450,
+      "file_path": "cases/neuro_lbd_audit_001.json"
     }
   ]
 }
