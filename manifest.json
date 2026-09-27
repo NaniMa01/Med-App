@@ -27,6 +27,24 @@
       "difficulty": 5,
       "xp_reward": 450,
       "file_path": "cases/neuro_lbd_audit_001.json"
+    },
+    {
+      "id": "NEURO_CJK_001",
+      "title": "Rasch progrediente Enzephalopathie: Die CJK-Trias & RT-QuIC",
+      "medical_field": "Neurologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 500,
+      "file_path": "cases/neuro_cjk_001.json"
+    },
+    {
+      "id": "NEURO_FTD_PPA_002",
+      "title": "PPA-Diskrepanz: Semantischer Verlust & Molekulare Pathologie",
+      "medical_field": "Neurologie",
+      "bloom_level": "Evaluation & Synthese",
+      "difficulty": 5,
+      "xp_reward": 450,
+      "file_path": "cases/neuro_ftd_ppa_002.json"
     }
   ]
 }
