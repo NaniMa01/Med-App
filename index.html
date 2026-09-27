@@ -14,7 +14,6 @@
             --border-color: #334155;
             --success: #22c55e;
             --error: #ef4444;
-            --warning: #f59e0b;
         }
 
         body {
@@ -36,7 +35,7 @@
             align-items: center;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         .user-stats {
@@ -54,6 +53,39 @@
         }
         .stat-badge strong {
             color: var(--accent-blue);
+        }
+
+        /* Filter-Reiter (Tabs) */
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .tab-btn {
+            background: var(--card-bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-blue);
+            color: var(--bg-color);
+            border-color: var(--accent-blue);
         }
 
         /* Dashboard Grid */
@@ -154,7 +186,7 @@
 
         .step-header {
             font-size: 0.85rem;
-            color: var(--accent-blue;);
+            color: var(--accent-blue);
             text-transform: uppercase;
             font-weight: 700;
             margin-bottom: 8px;
@@ -212,7 +244,9 @@
 
         <!-- Dashboard -->
         <main id="dashboard-view">
-            <h2 style="font-size: 1.2rem; margin-bottom: 20px;">Verfügbare Vorlesungsfälle</h2>
+            <!-- Dynamische Fachbereichs-Filterleiste -->
+            <div class="filter-tabs" id="filter-tabs"></div>
+
             <div class="case-grid" id="case-grid">Lade Fälle...</div>
         </main>
 
@@ -226,6 +260,7 @@
     <script>
         let currentCases = [];
         let activeCaseData = null;
+        let activeFilter = 'Alle';
 
         document.addEventListener('DOMContentLoaded', () => {
             initUserData();
@@ -255,18 +290,45 @@
                 const res = await fetch('manifest.json');
                 const data = await res.json();
                 currentCases = data.cases;
-                renderCaseGrid(currentCases);
+                renderTabs();
+                filterAndRenderCases('Alle');
             } catch (err) {
                 document.getElementById('case-grid').innerHTML = '<p style="color: var(--error);">Fehler beim Laden des Manifests.</p>';
             }
         }
 
-        function renderCaseGrid(cases) {
+        function renderTabs() {
+            const tabsContainer = document.getElementById('filter-tabs');
+            const fields = ['Alle', ...new Set(currentCases.map(c => c.medical_field))];
+            
+            tabsContainer.innerHTML = '';
+            fields.forEach(field => {
+                const btn = document.createElement('button');
+                btn.className = `tab-btn ${field === activeFilter ? 'active' : ''}`;
+                btn.innerText = field;
+                btn.onclick = () => {
+                    activeFilter = field;
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    filterAndRenderCases(field);
+                };
+                tabsContainer.appendChild(btn);
+            });
+        }
+
+        function filterAndRenderCases(field) {
             const grid = document.getElementById('case-grid');
             grid.innerHTML = '';
             const solvedCases = JSON.parse(localStorage.getItem('solved_cases') || '[]');
 
-            cases.forEach(c => {
+            const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => c.medical_field === field);
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-muted);">Keine Fälle in diesem Fachbereich verfügbar.</p>';
+                return;
+            }
+
+            filtered.forEach(c => {
                 const isSolved = solvedCases.includes(c.id);
                 const card = document.createElement('div');
                 card.className = 'case-card';
@@ -342,7 +404,6 @@
             feedbackBox.style.display = 'block';
 
             if (userThoughtError === step.contains_error) {
-                // Richtig entschieden!
                 if (step.contains_error) {
                     feedbackBox.className = 'feedback-box feedback-success';
                     feedbackBox.innerHTML = `<strong>Korrekt erkannt!</strong> ${step.correct_pathophysiology}`;
@@ -350,11 +411,8 @@
                     feedbackBox.className = 'feedback-box feedback-success';
                     feedbackBox.innerHTML = `<strong>Richtig!</strong> ${step.feedback}`;
                 }
-                
-                // Prüfen, ob alle Schritte gelöst sind
                 checkCompletion();
             } else {
-                // Falsch entschieden -> Sokratische Falle schnappt zu
                 feedbackBox.className = 'feedback-box feedback-error';
                 if (step.contains_error) {
                     feedbackBox.innerHTML = `<strong>Sokratischer Einspruch:</strong> Du hast diesen kritischen Schritt übersehen.<br><em>${step.socratic_trap.counter_question}</em>`;
@@ -365,7 +423,6 @@
         }
 
         function checkCompletion() {
-            // Einfache Logik: Wenn alle Schritte durchgearbeitet wurden, XP vergeben
             let currentXp = parseInt(localStorage.getItem('user_xp') || '0');
             currentXp += 250;
             localStorage.setItem('user_xp', currentXp);
@@ -381,7 +438,8 @@
         function showDashboard() {
             document.getElementById('player-view').style.display = 'none';
             document.getElementById('dashboard-view').style.display = 'block';
-            renderCaseGrid(currentCases);
+            updateStatsUI();
+            filterAndRenderCases(activeFilter);
         }
     </script>
 </body>
