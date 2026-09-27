@@ -37,6 +37,7 @@
             display: flex;
             flex-direction: column;
             padding: 20px;
+            box-sizing: border-box;
         }
 
         .brand {
@@ -90,6 +91,7 @@
             align-items: center;
             padding: 0 30px;
             background: var(--sidebar-bg);
+            position: relative;
         }
 
         .topbar-nav {
@@ -108,14 +110,41 @@
             color: var(--accent-blue);
         }
 
-        .search-bar {
+        .user-hud {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: relative;
+        }
+
+        .hud-stat {
             background: var(--bg-color);
             border: 1px solid var(--card-border);
             padding: 6px 14px;
             border-radius: 6px;
-            color: var(--text-muted);
             font-size: 0.85rem;
-            width: 200px;
+            color: var(--text-muted);
+        }
+        .hud-stat strong {
+            color: var(--accent-blue);
+        }
+
+        /* FLOATING SCORE POPUP ANIMATION */
+        .score-popup {
+            position: absolute;
+            right: 15px;
+            top: 45px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            pointer-events: none;
+            animation: floatUpFade 1.2s forwards ease-out;
+        }
+        .score-popup.negative { color: var(--error); }
+        .score-popup.positive { color: var(--success); }
+
+        @keyframes floatUpFade {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-25px); }
         }
 
         .content-body {
@@ -173,8 +202,7 @@
 
         .progress-fill {
             height: 100%;
-            background: var(--accent-blue);
-            transition: width 0.4s ease;
+            transition: width 0.4s ease, background-color 0.4s ease;
         }
 
         /* CASE GRID & CARDS */
@@ -239,7 +267,7 @@
         .feedback-box { margin-top: 15px; padding: 15px; border-radius: 8px; font-size: 0.9rem; display: none; }
         .feedback-success { background: rgba(34, 197, 94, 0.1); border-left: 3px solid var(--success); color: #86efac; }
         .feedback-error { background: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--error); color: #fca5a5; }
-        .feedback-neutral { background: rgba(148, 163, 184, 0.1); border-left: 3px solid var(--text-muted); color: var(--text-main); }
+        .feedback-neutral { background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--warning); color: #fde68a; }
 
         .filter-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
         .tab-btn { background: var(--bg-color); color: var(--text-muted); border: 1px solid var(--card-border); padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
@@ -274,8 +302,10 @@
                 <span>Analytics</span>
                 <span>Profile settings</span>
             </div>
-            <div>
-                <input type="text" class="search-bar" placeholder="Search cases...">
+            <div class="user-hud">
+                <div class="hud-stat">Rang: <strong id="stat-rank">Famulus</strong></div>
+                <div class="hud-stat">XP: <strong id="stat-xp">0</strong></div>
+                <div id="hud-popup-container"></div>
             </div>
         </topbar>
 
@@ -304,7 +334,7 @@
                 <div class="panel-title">Competence Matrix</div>
                 <div class="panel-subtitle">Precision & progress analytics</div>
                 <div id="skills-sidebar-container">
-                    <!-- Wird dynamisch befüllt -->
+                    <!-- Dynamic Bars -->
                 </div>
             </div>
         </div>
@@ -332,6 +362,38 @@
             if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
             if (!localStorage.getItem('solved_cases')) localStorage.setItem('solved_cases', JSON.stringify([]));
             if (!localStorage.getItem('user_skills')) localStorage.setItem('user_skills', JSON.stringify(defaultSkills));
+            updateStatsUI();
+        }
+
+        function updateStatsUI() {
+            const xp = parseInt(localStorage.getItem('user_xp') || '0');
+            const xpEl = document.getElementById('stat-xp');
+            const rankEl = document.getElementById('stat-rank');
+            if (xpEl) xpEl.innerText = xp;
+            
+            let rank = 'Famulus';
+            if (xp >= 1500) rank = 'Oberarzt';
+            else if (xp >= 800) rank = 'Facharzt';
+            else if (xp >= 300) rank = 'Assistenzarzt';
+            if (rankEl) rankEl.innerText = rank;
+        }
+
+        function applyXpDelta(delta, label) {
+            let currentXp = parseInt(localStorage.getItem('user_xp') || '0');
+            currentXp = Math.max(0, currentXp + delta);
+            localStorage.setItem('user_xp', currentXp);
+            updateStatsUI();
+            triggerFloatingPopup(delta, label);
+        }
+
+        function triggerFloatingPopup(delta, label) {
+            const container = document.getElementById('hud-popup-container');
+            if (!container) return;
+            const popup = document.createElement('div');
+            popup.className = `score-popup ${delta >= 0 ? 'positive' : 'negative'}`;
+            popup.innerText = `${delta >= 0 ? '+' : ''}${delta} XP (${label})`;
+            container.appendChild(popup);
+            setTimeout(() => popup.remove(), 1200);
         }
 
         function renderSkillsSidebar() {
@@ -341,14 +403,21 @@
 
             for (const [skill, data] of Object.entries(skills)) {
                 const percentage = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
+                let barColor = 'var(--accent-blue)';
+                if (data.total > 0) {
+                    if (percentage < 50) barColor = 'var(--error)';
+                    else if (percentage < 80) barColor = 'var(--warning)';
+                    else barColor = 'var(--success)';
+                }
+
                 container.innerHTML += `
                     <div class="skill-bar-container">
                         <div class="skill-header">
                             <span>${skill}</span>
-                            <span style="color: var(--accent-blue);">${percentage}%</span>
+                            <span style="color: ${barColor};">${percentage}% (${data.hits}/${data.total})</span>
                         </div>
                         <div class="progress-bg">
-                            <div class="progress-fill" style="width: ${percentage}%;"></div>
+                            <div class="progress-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
                         </div>
                     </div>
                 `;
@@ -356,10 +425,12 @@
         }
 
         function trackSkill(skillTag, isHit) {
-            let skills = JSON.parse(localStorage.getItem('user_skills'));
-            if(!skills[skillTag]) skills[skillTag] = { hits: 0, total: 0 };
+            let skills = JSON.parse(localStorage.getItem('user_skills')) || JSON.parse(JSON.stringify(defaultSkills));
+            if (!skills[skillTag]) skills[skillTag] = { hits: 0, total: 0 };
+            
             skills[skillTag].total += 1;
-            if(isHit) skills[skillTag].hits += 1;
+            if (isHit) skills[skillTag].hits += 1;
+            
             localStorage.setItem('user_skills', JSON.stringify(skills));
             renderSkillsSidebar();
         }
@@ -439,7 +510,7 @@
 
         function renderTimeline(caseId) {
             const container = document.getElementById('player-container');
-            container.innerHTML = `<div style="margin-bottom: 20px;"><div class="panel-title">${activeCaseData.metadata.title}</div><div class="panel-subtitle">Medical patient chart audit history — Klicke auf kritische Stellen im Text.</div></div><div id="steps-wrapper"></div>`;
+            container.innerHTML = `<div style="margin-bottom: 20px;"><div class="panel-title">${activeCaseData.metadata.title}</div><div class="panel-subtitle">Medical patient chart audit history — Klicke präzise auf fehlerhafte Befunde/Maßnahmen. Vorsicht: Fehlalarme und blindes Klicken kosten XP!</div></div><div id="steps-wrapper"></div>`;
             const wrapper = document.getElementById('steps-wrapper');
             activeCaseData.timeline.forEach((step, index) => {
                 const stepDiv = document.createElement('div');
@@ -450,8 +521,14 @@
             });
         }
 
-        window.handleGenericClick = function(el) { el.classList.add('resolved-generic'); }
+        // Generic Brute-Force Penalty
+        window.handleGenericClick = function(el) { 
+            if (el.classList.contains('resolved-generic')) return;
+            el.classList.add('resolved-generic');
+            applyXpDelta(-10, 'Unsystematischer Klick');
+        }
 
+        // Hotspot Evaluation with Penalties and Competence Tracking
         window.evaluateHotspot = function(stepIndex, hotspotIndex) {
             const step = activeCaseData.timeline[stepIndex];
             const hs = step.hotspots[hotspotIndex];
@@ -465,13 +542,17 @@
             if (hs.is_error) {
                 span.classList.add('resolved-signal');
                 trackSkill(tag, true);
+                applyXpDelta(+100, 'Signal aufgedeckt');
+                
                 feedbackBox.className = 'feedback-box feedback-error';
-                feedbackBox.innerHTML = `<strong>Fehler identifiziert!</strong><br><br><strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br><button style="background:var(--accent-blue); border:none; padding:6px 12px; border-radius:4px; font-weight:600; cursor:pointer;" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Synthese aufdecken</button>`;
+                feedbackBox.innerHTML = `<strong>Kritischer Behandlungsfehler aufgedeckt (+100 XP)!</strong><br><br><strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br><button style="background:var(--accent-blue); border:none; padding:6px 12px; border-radius:4px; font-weight:600; cursor:pointer;" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Pathophysiologische Synthese aufdecken</button>`;
             } else {
                 span.classList.add('resolved-noise');
                 trackSkill(tag, false);
+                applyXpDelta(-50, `Fehlalarm: ${tag}`);
+                
                 feedbackBox.className = 'feedback-box feedback-neutral';
-                feedbackBox.innerHTML = `<strong>Klinisch vertretbar:</strong> ${hs.feedback} <br><em>Suche weiter im Text.</em>`;
+                feedbackBox.innerHTML = `<strong>Fehlalarm (-50 XP in ${tag}):</strong> ${hs.feedback} <br><em>Diese Maßnahme war leitlinienkonform oder der Befund physiologisch erklärbar. Suche weiter.</em>`;
             }
         }
 
@@ -480,13 +561,19 @@
             const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
             feedbackBox.className = 'feedback-box feedback-success';
             feedbackBox.innerHTML = `<strong>Pathophysiologische Synthese:</strong> ${hs.correct_pathophysiology}`;
-            let currentXp = parseInt(localStorage.getItem('user_xp') || '0') + (activeCaseData.metadata?.xp_reward || 250);
-            localStorage.setItem('user_xp', currentXp);
+            
+            let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+            if (!solved.includes(activeCaseData.case_id)) {
+                solved.push(activeCaseData.case_id);
+                localStorage.setItem('solved_cases', JSON.stringify(solved));
+                applyXpDelta(activeCaseData.metadata?.xp_reward || 250, 'Fall gelöst');
+            }
         }
 
         function showDashboard() {
             document.getElementById('player-view').style.display = 'none';
             document.getElementById('dashboard-view').style.display = 'block';
+            filterAndRenderCases(activeFilter);
         }
 
         function switchTab(tab) {
