@@ -287,14 +287,23 @@
 
         async function loadManifest() {
             try {
-                // Neu:
-                const res = await fetch('./manifest.json');
+                // Robuste Pfad-Auflösung für GitHub Pages Subdirectories
+                const base = window.location.pathname.includes('/Med-App/') ? '/Med-App/' : './';
+                const res = await fetch(base + 'manifest.json');
+                
+                if (!res.ok) throw new Error(`HTTP-Fehler! Status: ${res.status}`);
+                
                 const data = await res.json();
                 currentCases = data.cases;
                 renderTabs();
                 filterAndRenderCases('Alle');
             } catch (err) {
-                document.getElementById('case-grid').innerHTML = '<p style="color: var(--error);">Fehler beim Laden des Manifests.</p>';
+                console.error('Manifest-Ladefehler:', err);
+                document.getElementById('case-grid').innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); border-radius: 8px; color: #fca5a5;">
+                        <strong>Ladefehler:</strong> Die <code>manifest.json</code> konnte nicht geladen werden.<br>
+                        <small>Details: ${err.message}</small>
+                    </div>`;
             }
         }
 
@@ -354,7 +363,10 @@
 
         async function openCase(filePath, caseId) {
             try {
-                const res = await fetch(filePath);
+                const base = window.location.pathname.includes('/Med-App/') ? '/Med-App/' : './';
+                const res = await fetch(base + filePath);
+                if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
+                
                 activeCaseData = await res.json();
                 
                 document.getElementById('dashboard-view').style.display = 'none';
@@ -362,7 +374,7 @@
 
                 renderTimeline(caseId);
             } catch (err) {
-                alert('Fall konnte nicht geladen werden.');
+                alert('Der Fall konnte unter ' + filePath + ' nicht geladen werden.');
             }
         }
 
@@ -386,7 +398,7 @@
                     <div class="step-header">Schritt ${index + 1}: ${step.phase}</div>
                     <div class="step-content">${step.content}</div>
                     <div class="step-actions" id="actions-${index}">
-                        <span style="font-size:0.9rem; color:var(--text-muted); align-self:center;">Klinische Evaluierung:</span>
+                        <span style="font-size:0.9rem; color: var(--text-muted); align-self:center;">Klinische Evaluierung:</span>
                         <button class="action-btn btn-valid" onclick="evaluateStep(${index}, false)">Klinisch Korrekt</button>
                         <button class="action-btn btn-invalid" onclick="evaluateStep(${index}, true)">Fehlerhaft / Kontraindiziert</button>
                     </div>
@@ -425,7 +437,7 @@
 
         function checkCompletion() {
             let currentXp = parseInt(localStorage.getItem('user_xp') || '0');
-            currentXp += 250;
+            currentXp += activeCaseData.xp_reward || 250;
             localStorage.setItem('user_xp', currentXp);
             
             let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
