@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediChecker - V4.0 Multimodal</title>
+    <title>MediChecker - V5.0 Case Forge</title>
     <style>
         :root {
             --bg-color: #0b0f19; --sidebar-bg: #0f172a; --card-bg: #131c31;
@@ -75,6 +75,10 @@
         .task-select:focus { border-color: var(--accent-blue); }
         .task-select.correct { border-color: var(--success); color: var(--success); pointer-events: none; }
         .task-select.incorrect { border-color: var(--error); color: var(--error); }
+        
+        /* FORGE SPECIFIC CSS */
+        .forge-textarea { width: 100%; height: 350px; background: #0f172a; color: #38bdf8; font-family: monospace; font-size: 0.9rem; padding: 15px; border: 1px solid var(--card-border); border-radius: 8px; resize: vertical; box-sizing: border-box; margin-bottom: 15px; outline: none; line-height: 1.5; }
+        .forge-textarea:focus { border-color: var(--accent-blue); }
     </style>
 </head>
 <body>
@@ -82,8 +86,8 @@
     <sidebar>
         <div class="brand"><span>⚡ MediChecker</span></div>
         <ul class="nav-links">
-            <li class="nav-item active" onclick="switchTab('dashboard')">Dashboard</li>
-            <li class="nav-item">Simulations</li>
+            <li class="nav-item active" onclick="switchTab('dashboard', this)">Dashboard</li>
+            <li class="nav-item" onclick="switchTab('forge', this)">Case Forge (Dev)</li>
             <li class="nav-item">Analytics</li>
         </ul>
     </sidebar>
@@ -101,6 +105,7 @@
         <div class="content-body">
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 
+                <!-- DASHBOARD VIEW -->
                 <div id="dashboard-view" class="panel">
                     <div class="panel-title">Verfügbare Fälle</div>
                     <div class="panel-subtitle">Sokratisches Audit & Master-Challenges</div>
@@ -108,8 +113,24 @@
                     <div class="case-grid" id="case-grid">Lade Fälle...</div>
                 </div>
 
+                <!-- CASE FORGE VIEW -->
+                <div id="forge-view" class="panel" style="display: none;">
+                    <div class="panel-title">In-App Case Forge</div>
+                    <div class="panel-subtitle">Füge den generierten JSON-Code aus dem KI-Chat hier ein, um den Fall sofort im Browser zu validieren und zu spielen, ohne GitHub-Upload.</div>
+                    
+                    <textarea id="forge-input" class="forge-textarea" placeholder="{&#10;  &#34;case_id&#34;: &#34;CUSTOM_001&#34;,&#10;  &#34;metadata&#34;: { ... },&#10;  &#34;timeline&#34;: [ ... ]&#10;}"></textarea>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
+                        <button class="action-btn" onclick="clearForge()" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-main);">Löschen</button>
+                    </div>
+                    
+                    <div id="forge-fb" class="feedback-box"></div>
+                </div>
+
+                <!-- PLAYER VIEW -->
                 <div id="player-view" class="panel" style="display: none;">
-                    <button class="back-btn" onclick="showDashboard()">← Zurück</button>
+                    <button class="back-btn" onclick="switchTab('dashboard', document.querySelector('.nav-item'))">← Zurück</button>
                     <div id="player-container"></div>
                     
                     <div id="extra-tasks-container" class="extra-task-container">
@@ -121,6 +142,7 @@
                 </div>
             </div>
 
+            <!-- SIDEBAR MATRIX -->
             <div class="panel" style="height: fit-content;">
                 <div class="panel-title">Competence Matrix</div>
                 <div class="panel-subtitle">Precision & progress analytics</div>
@@ -143,10 +165,24 @@
             renderSkillsSidebar(); 
         });
 
+        function switchTab(tab, el) { 
+            document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active')); 
+            if(el) el.classList.add('active'); 
+            
+            document.getElementById('dashboard-view').style.display = tab === 'dashboard' ? 'block' : 'none';
+            document.getElementById('forge-view').style.display = tab === 'forge' ? 'block' : 'none';
+            document.getElementById('player-view').style.display = 'none';
+
+            if(tab === 'dashboard') {
+                loadManifest(); // Reloads custom and manifest cases
+            }
+        }
+
         function initUserData() {
             if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
             if (!localStorage.getItem('solved_cases')) localStorage.setItem('solved_cases', JSON.stringify([]));
             if (!localStorage.getItem('user_skills')) localStorage.setItem('user_skills', JSON.stringify(defaultSkills));
+            if (!localStorage.getItem('custom_cases')) localStorage.setItem('custom_cases', JSON.stringify([]));
             updateStatsUI();
         }
 
@@ -198,16 +234,65 @@
                 const data = await res.json();
                 currentCases = data.cases;
             } catch (err) { 
-                console.warn("Ladefehler manifest.json - Greife auf integrierten Notfall-Fallback zurück.");
+                // Robuster Fallback
                 currentCases = [
-                    { "id": "NEURO_DEMENZ_001", "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter", "medical_field": "Neurologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/neuro_demenz_001.json" },
-                    { "id": "HAEMATO_LYMPH_001", "title": "Kiefer-Tumor: Der genetische Motor im Keimzentrum", "medical_field": "Hämatopathologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/haemato_lymph_001.json" },
-                    { "id": "HAEMATO_LYMPH_002", "title": "MALT-Evolution: Vom chronischen Infekt zur Autonomie", "medical_field": "Hämatopathologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 450, "file_path": "cases/haemato_lymph_002.json" }
+                    { "id": "NEURO_DEMENZ_001", "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter", "medical_field": "Neurologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/neuro_demenz_001.json" }
                 ];
             }
+
+            // V5.0: Injektion der in der Case Forge gebauten, lokalen JSON-Fälle
+            const customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+            customCases.forEach(cc => {
+                // Verhindert Duplikate, falls ein lokaler Fall dieselbe ID hat wie ein Manifest-Fall
+                currentCases = currentCases.filter(manifestCase => manifestCase.id !== cc.case_id);
+                
+                currentCases.push({
+                    "id": cc.case_id,
+                    "title": "🔨 " + (cc.metadata?.title || "Lokaler Fall"),
+                    "medical_field": cc.metadata?.medical_field || "Custom",
+                    "bloom_level": cc.metadata?.bloom_level || "Evaluation",
+                    "difficulty": cc.metadata?.difficulty || 5,
+                    "xp_reward": cc.metadata?.xp_reward || 300,
+                    "is_custom": true
+                });
+            });
+
             renderTabs(); 
             filterAndRenderCases('Alle');
         }
+
+        // --- V5.0 CASE FORGE LOGIK ---
+        function validateAndSaveCustomCase() {
+            const inputVal = document.getElementById('forge-input').value;
+            const fb = document.getElementById('forge-fb');
+            try {
+                const parsedCase = JSON.parse(inputVal);
+                
+                if (!parsedCase.case_id || !parsedCase.timeline) {
+                    throw new Error("Fehlende Pflichtfelder! Das JSON muss mindestens 'case_id' und 'timeline' enthalten.");
+                }
+
+                let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+                customCases = customCases.filter(c => c.case_id !== parsedCase.case_id); // Überschreibe falls ID existiert
+                customCases.push(parsedCase);
+                localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+                fb.style.display = 'block';
+                fb.className = 'feedback-box feedback-success';
+                fb.innerHTML = `<strong>Syntax Korrekt!</strong> Der Fall "${parsedCase.metadata?.title || parsedCase.case_id}" wurde validiert und deinem lokalen Dashboard hinzugefügt (erkennbar am 🔨-Icon). Gehe zum Dashboard, um ihn zu spielen!`;
+                
+            } catch (err) {
+                fb.style.display = 'block';
+                fb.className = 'feedback-box feedback-error';
+                fb.innerHTML = `<strong>JSON Parsing-Fehler:</strong> ${err.message}<br><em>Tipp: Achte auf fehlende Kommas oder falsche Anführungszeichen.</em>`;
+            }
+        }
+
+        function clearForge() {
+            document.getElementById('forge-input').value = '';
+            document.getElementById('forge-fb').style.display = 'none';
+        }
+        // -----------------------------
 
         function renderTabs() {
             const container = document.getElementById('filter-tabs');
@@ -235,17 +320,28 @@
 
         async function openCase(filePath, caseId) {
             try {
-                const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
-                if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
-                activeCaseData = await res.json();
+                // 1. Zuerst schauen, ob der Fall lokal in der Forge erstellt wurde
+                const customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+                const foundCustom = customCases.find(c => c.case_id === caseId);
+
+                if (foundCustom) {
+                    activeCaseData = foundCustom;
+                } else {
+                    // 2. Ansonsten aus Datei laden
+                    const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
+                    if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
+                    activeCaseData = await res.json();
+                }
+
                 stealthAuditCompleted = false;
                 document.getElementById('dashboard-view').style.display = 'none';
+                document.getElementById('forge-view').style.display = 'none';
                 document.getElementById('player-view').style.display = 'block';
                 document.getElementById('extra-tasks-container').style.display = 'none';
                 document.getElementById('finish-case-btn').style.display = 'none';
                 renderTimeline();
             } catch (err) { 
-                alert('Netzwerk- oder Pfadfehler: Die Datei (' + filePath + ') konnte nicht geladen werden. Bitte prüfe, ob die Datei exakt in diesem Ordner auf GitHub existiert.'); 
+                alert('Fehler beim Laden des Falls. Falls dies kein lokaler Fall ist, prüfe ob die Datei in /cases/ liegt.'); 
             }
         }
 
@@ -398,18 +494,7 @@
                 localStorage.setItem('solved_cases', JSON.stringify(solved));
                 applyXpDelta(activeCaseData.metadata?.xp_reward || 200, 'Fall abgeschlossen');
             }
-            showDashboard();
-        }
-
-        function showDashboard() { 
-            document.getElementById('player-view').style.display = 'none'; 
-            document.getElementById('dashboard-view').style.display = 'block'; 
-            filterAndRenderCases(activeFilter); 
-        }
-        
-        function switchTab(tab) { 
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); 
-            event.target.classList.add('active'); 
+            switchTab('dashboard', document.querySelector('.nav-item.active'));
         }
     </script>
 </body>
