@@ -210,7 +210,27 @@
             const grid = document.getElementById('case-grid');
             const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
             const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => c.medical_field === field);
-            grid.innerHTML = filtered.map(c => `<div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')"><div><span class="tag">${c.medical_field}</span><h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${c.title}</h3></div><div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;"><span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span><span>+${c.xp_reward} XP</span></div></div>`).join('');
+            
+            grid.innerHTML = filtered.map(c => {
+                // Defensive Programmierung gegen undefined-Einträge im Manifest
+                const fieldName = c.medical_field || 'Allgemeinmedizin';
+                const titleText = c.title || 'Unbenannter Simulationsfall';
+                const reward = c.xp_reward || 200;
+                
+                return `
+                    <div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')">
+                        <div>
+                            <span class="tag">${fieldName}</span>
+                            <h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${titleText}</h3>
+                        </div>
+                        <div style="font-size:0.75rem; color: var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;">
+                            <span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span>
+                            <span>+${reward} XP</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
         }
 
         async function openCase(filePath, caseId) {
