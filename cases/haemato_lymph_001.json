@@ -1,0 +1,72 @@
+{
+  "case_id": "HAEMATO_LYMPH_001",
+  "metadata": {
+    "title": "Kiefer-Tumor: Der genetische Motor im Keimzentrum",
+    "medical_field": "Pathologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 500
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Aufnahmebefund & Triage",
+      "content": "Ein 8-jähriger Junge aus Zentralafrika wird mit einer massiv und rasch wachsenden Kiefer-Raumforderung vorgestellt[cite: 5]. Die Biopsie zeigt eine [monomorphe Tumorzellpopulation mit Starry-Sky-Muster][cite: 5]. Die Verdopplungszeit der Tumorzellen liegt bei extrem kurzen 8 Stunden[cite: 5]. Trotz dieser massiven Proliferationsrate diagnostiziert der Pathologe ein [indolentes follikuläres Lymphom][cite: 5].",
+      "hotspots": [
+        {
+          "phrase": "monomorphe Tumorzellpopulation mit Starry-Sky-Muster",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Richtig auditiert: Das 'Starry-Sky'-Muster (Sternenhimmel) entsteht durch zahlreiche Kerntrümmermakrophagen, die apoptotische Zellen phagozytieren, und ist hochtypisch für das Burkitt-Lymphom[cite: 5]."
+        },
+        {
+          "phrase": "indolentes follikuläres Lymphom",
+          "is_error": true,
+          "skill_tag": "Triage",
+          "socratic_trap": "Kritischer Triage-Fehler! Wie passt eine Tumorverdopplungszeit von 8 Stunden zu einem 'indolenten' (schleichenden) Lymphom[cite: 5]?",
+          "correct_pathophysiology": "Ein follikuläres Lymphom wächst indolent und tritt vorwiegend bei älteren Erwachsenen auf[cite: 5]. Epidemiologie (Kind in Endemiegebiet), massiv aggressives Wachstum und Starry-Sky-Architektur beweisen eindeutig ein Burkitt-Lymphom[cite: 5]."
+        }
+      ]
+    },
+    {
+      "step_id": 2,
+      "phase": "Molekulargenetische Synthese",
+      "content": "Die zytogenetische Analyse zeigt eine fehlerhafte Aktivität des Enzyms [Activation-Induced Cytidine Deaminase (AID)][cite: 5]. Dies führte zu einer t(8;14) Translokation[cite: 5]. Der betreuende Arzt dokumentiert, dass durch diese t(8;14) Translokation das [anti-apoptotische BCL2-Gen][cite: 5] unter die Kontrolle des IgH-Lokus auf Chromosom 14 geraten ist[cite: 5].",
+      "hotspots": [
+        {
+          "phrase": "Activation-Induced Cytidine Deaminase (AID)",
+          "is_error": false,
+          "skill_tag": "Pathophysiology",
+          "feedback": "Korrekt: Die AID ist physiologisch für somatische Hypermutation und Klassenwechsel verantwortlich[cite: 5]. Ihre Doppelstrangbrüche können fälschlicherweise Onkogene rekrutieren[cite: 5]."
+        },
+        {
+          "phrase": "anti-apoptotische BCL2-Gen",
+          "is_error": true,
+          "skill_tag": "Pathophysiology",
+          "socratic_trap": "Genetische Verwechslung! Welches Onkogen ist das Ziel der t(8;14) Translokation beim Burkitt-Lymphom und welches bei t(14;18)[cite: 5]?",
+          "correct_pathophysiology": "Bei der t(8;14) Translokation (Burkitt-Lymphom) wird das MYC-Onkogen auf den IgH-Lokus verschoben, was zu unkontrollierter Proliferation (Zellzyklus-Aktivierung) führt[cite: 5]. Das BCL2-Gen (Apoptose-Blockade) ist hingegen von der t(14;18) Translokation beim follikulären Lymphom betroffen[cite: 5]."
+        }
+      ]
+    },
+    {
+      "step_id": 3,
+      "phase": "Pharmakologische Triage",
+      "content": "Aufgrund des rasanten Wachstums berät das Tumorboard über die Therapie. Da MYC die Proliferation extrem antreibt, die [Apoptose aber nicht blockiert ist][cite: 5], schlussfolgert der Onkologe, dass das Burkitt-Lymphom ein [schlechtes Ansprechen auf Zytostatika][cite: 5] zeigen wird und favorisiert eine rein palliative Behandlung.",
+      "hotspots": [
+        {
+          "phrase": "Apoptose aber nicht blockiert ist",
+          "is_error": false,
+          "skill_tag": "Pathophysiology",
+          "feedback": "Klinisch korrekt: Im Gegensatz zum follikulären Lymphom (wo BCL2 die Apoptose hemmt) sterben Burkitt-Zellen sehr leicht ab (daher die vielen Makrophagen)[cite: 5]."
+        },
+        {
+          "phrase": "schlechtes Ansprechen auf Zytostatika",
+          "is_error": true,
+          "skill_tag": "Pharmacology",
+          "socratic_trap": "Gefährlicher Therapie-Fehler! Warum ist ein Tumor, der extrem schnell teilt (MYC) und dessen Apoptosewege intakt sind, pharmakologisch besonders vulnerabel[cite: 5]?",
+          "correct_pathophysiology": "Das Gegenteil ist der Fall: Da die Apoptose-Mechanismen intakt sind und die Tumorzellen permanent im Zellzyklus rotieren, ist das Burkitt-Lymphom hochgradig chemosensitiv und mit adäquater Polychemotherapie oft heilbar[cite: 5]."
+        }
+      ]
+    }
+  ]
+}
