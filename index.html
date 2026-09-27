@@ -287,7 +287,8 @@
 
         async function loadManifest() {
             try {
-                const res = await fetch('manifest.json');
+                // Neu:
+                const res = await fetch('./manifest.json');
                 const data = await res.json();
                 currentCases = data.cases;
                 renderTabs();
