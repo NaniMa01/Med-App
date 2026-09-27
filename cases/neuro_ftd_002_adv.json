@@ -1,0 +1,39 @@
+{
+  "case_id": "NEURO_002_ADV",
+  "metadata": {
+    "title": "FTLD Advanced: Das FTD-ALS-Kontinuum & Neuroleptika-Falle",
+    "medical_field": "Neurologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 500
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Aufnahmebefund & Triage (Signal vs. Noise)",
+      "content": "62-jähriger Patient, vorstellig mit Apathie und Wesensänderung seit 12 Monaten. Zunehmender Verlust von Tischmanieren und Hyperoralität. Neurostatus: Leichter Rigor der oberen Extremitäten, keine Faszikulationen. Liquor-Diagnostik: Phospho-Tau (pTau181) unauffällig, Aβ42/Aβ40-Quotient normal. Der Assistenzarzt notiert: 'Ausschluss einer neurodegenerativen Demenz aufgrund normaler Liquor-Biomarker. V.a. schwere rezidivierende depressive Störung.'",
+      "contains_error": true,
+      "socratic_trap": {
+        "counter_question": "Sokratischer Einspruch: Du hast die Trugschluss-Falle übersehen. Die genannten Liquor-Biomarker (pTau, Aβ42/40) sind hochspezifisch für eine bestimmte Pathologie. Schließen unauffällige Alzheimer-Biomarker eine Verhaltensvariante der frontotemporalen Demenz (bvFTD) aus? Analysiere die Hyperoralität."
+      },
+      "correct_pathophysiology": "Fataler Analysefehler. Die Klinik (Hyperoralität, Apathie, Wesensänderung) ist hochverdächtig auf eine bvFTD. Normale Alzheimer-Biomarker beweisen nur, dass KEIN Morbus Alzheimer vorliegt, schließen aber eine FTLD keinesfalls aus."
+    },
+    {
+      "step_id": 2,
+      "phase": "Pharmakologische Intervention",
+      "content": "Aufgrund der zunehmenden Agitation und schweren Schlafstörungen auf Station verschreibt der Dienstarzt zur abendlichen Sedierung 2 mg Risperidon (atypisches Neuroleptikum).",
+      "contains_error": true,
+      "socratic_trap": {
+        "counter_question": "Stopp. Du hast diesen Schritt freigegeben. Hast du den neurologischen Status aus Schritt 1 (Rigor) im Kontext der FTLD bedacht? Was bewirkt ein potenter D2-Antagonist bei einer drohenden FTLD mit Parkinson-Syndrom?"
+      },
+      "correct_pathophysiology": "Absolut kontraindiziert. Patienten mit FTLD (insbesondere mit begleitender Parkinson-Symptomatik) haben ein extrem hohes Risiko für lebensbedrohliche extrapyramidal-motorische Nebenwirkungen (EPS) unter Neuroleptika. SSRI oder Trazodon wären hier (off-label) das Mittel der Wahl."
+    },
+    {
+      "step_id": 3,
+      "phase": "Genetische Pathophysiologie & Synthese",
+      "content": "Die Familienanamnese ergibt, dass der Vater des Patienten mit 65 Jahren an einer ALS (Amyotrophe Lateralsklerose) verstarb. Die genetische Beratung empfiehlt die Testung auf eine C9orf72-Repeat-Expansion, da diese Mutation sowohl die bvFTD als auch die familiäre ALS pathophysiologisch erklärt.",
+      "contains_error": false,
+      "feedback": "Exzellent evaluiert! Die C9orf72-Hexanukleotid-Repeat-Expansion ist das häufigste genetische Bindeglied im FTD-ALS-Kontinuum. Deine Verknüpfung von Neurodegeneration und Genetik ist auf Facharzt-Niveau."
+    }
+  ]
+}
