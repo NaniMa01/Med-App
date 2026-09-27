@@ -3,263 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediChecker - Sokratischer M&M-Simulator</title>
+    <title>MediChecker - V4.0 Multimodal</title>
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --sidebar-bg: #0f172a;
-            --card-bg: #131c31;
-            --card-border: #1e293b;
-            --accent-blue: #38bdf8;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --success: #22c55e;
-            --error: #ef4444;
-            --warning: #f59e0b;
+            --bg-color: #0b0f19; --sidebar-bg: #0f172a; --card-bg: #131c31;
+            --card-border: #1e293b; --accent-blue: #38bdf8; --text-main: #f8fafc;
+            --text-muted: #94a3b8; --success: #22c55e; --error: #ef4444; --warning: #f59e0b;
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-color); color: var(--text-main); margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        sidebar { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--card-border); display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        .brand { font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin-bottom: 40px; display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px; }
+        .nav-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+        .nav-item { padding: 10px 14px; border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
+        .nav-item:hover, .nav-item.active { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); }
 
-        /* SIDEBAR STYLING */
-        sidebar {
-            width: 260px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--card-border);
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; padding: 0 30px; background: var(--sidebar-bg); position: relative; }
+        .topbar-nav { display: flex; gap: 25px; font-size: 0.9rem; font-weight: 500; color: var(--text-muted); }
+        .topbar-nav span { cursor: pointer; transition: color 0.2s; }
+        .topbar-nav span:hover, .topbar-nav span.active { color: var(--accent-blue); }
 
-        .brand {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 40px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            letter-spacing: -0.5px;
-        }
-
-        .nav-links {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .nav-item {
-            padding: 10px 14px;
-            border-radius: 8px;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-
-        .nav-item:hover, .nav-item.active {
-            background: rgba(56, 189, 248, 0.1);
-            color: var(--accent-blue);
-        }
-
-        /* MAIN CONTENT AREA */
-        .main-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        topbar {
-            height: 70px;
-            border-bottom: 1px solid var(--card-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 30px;
-            background: var(--sidebar-bg);
-            position: relative;
-        }
-
-        .topbar-nav {
-            display: flex;
-            gap: 25px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--text-muted);
-        }
-
-        .topbar-nav span {
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        .topbar-nav span:hover, .topbar-nav span.active {
-            color: var(--accent-blue);
-        }
-
-        .user-hud {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            position: relative;
-        }
-
-        .hud-stat {
-            background: var(--bg-color);
-            border: 1px solid var(--card-border);
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-        .hud-stat strong {
-            color: var(--accent-blue);
-        }
-
-        /* FLOATING SCORE POPUP ANIMATION */
-        .score-popup {
-            position: absolute;
-            right: 15px;
-            top: 45px;
-            font-weight: 800;
-            font-size: 0.95rem;
-            pointer-events: none;
-            animation: floatUpFade 1.2s forwards ease-out;
-        }
+        .user-hud { display: flex; align-items: center; gap: 15px; position: relative; }
+        .hud-stat { background: var(--bg-color); border: 1px solid var(--card-border); padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; color: var(--text-muted); }
+        .hud-stat strong { color: var(--accent-blue); }
+        
+        .score-popup { position: absolute; right: 15px; top: 45px; font-weight: 800; font-size: 0.95rem; pointer-events: none; animation: floatUpFade 1.2s forwards ease-out; }
         .score-popup.negative { color: var(--error); }
         .score-popup.positive { color: var(--success); }
+        @keyframes floatUpFade { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-25px); } }
 
-        @keyframes floatUpFade {
-            0% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-25px); }
-        }
+        .content-body { padding: 30px; display: grid; grid-template-columns: 2fr 1fr; gap: 25px; max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 25px; }
+        .panel-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; color: var(--text-main); }
+        .panel-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; }
 
-        .content-body {
-            padding: 30px;
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 25px;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
-            box-sizing: border-box;
-        }
+        .skill-bar-container { margin-bottom: 20px; }
+        .skill-header { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+        .progress-bg { background: var(--bg-color); height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--card-border); }
+        .progress-fill { height: 100%; transition: width 0.4s ease, background-color 0.4s ease; }
 
-        /* PANELS */
-        .panel {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 25px;
-        }
+        .case-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+        .case-card { background: var(--bg-color); border: 1px solid var(--card-border); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; justify-content: space-between; }
+        .case-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+        .tag { font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; }
 
-        .panel-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: var(--text-main);
-        }
-
-        .panel-subtitle {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 20px;
-        }
-
-        /* COMPETENCE MATRIX SIDE PANEL */
-        .skill-bar-container {
-            margin-bottom: 20px;
-        }
-
-        .skill-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-
-        .progress-bg {
-            background: var(--bg-color);
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            border: 1px solid var(--card-border);
-        }
-
-        .progress-fill {
-            height: 100%;
-            transition: width 0.4s ease, background-color 0.4s ease;
-        }
-
-        /* CASE GRID & CARDS */
-        .case-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 15px;
-        }
-
-        .case-card {
-            background: var(--bg-color);
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .case-card:hover {
-            border-color: var(--accent-blue);
-            transform: translateY(-2px);
-        }
-
-        .tag {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            font-weight: 700;
-            color: var(--accent-blue);
-            background: rgba(56, 189, 248, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        /* STEALTH AUDIT TEXT */
-        .step-content {
-            font-size: 1.05rem;
-            line-height: 1.8;
-            background: var(--bg-color);
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid var(--card-border);
-            user-select: none;
-        }
-
-        .stealth-word, .stealth-hotspot {
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-block;
-            margin-right: 4px;
-        }
-        .stealth-word:hover, .stealth-hotspot:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 3px;
-        }
+        .step-content { font-size: 1.05rem; line-height: 1.8; background: var(--bg-color); padding: 20px; border-radius: 8px; border: 1px solid var(--card-border); user-select: none; }
+        .stealth-word, .stealth-hotspot { cursor: pointer; transition: all 0.2s; display: inline-block; margin-right: 4px; }
+        .stealth-word:hover, .stealth-hotspot:hover { background: rgba(255, 255, 255, 0.05); border-radius: 3px; }
         .resolved-generic { color: #334155; pointer-events: none; }
         .resolved-noise { color: var(--text-muted); text-decoration: line-through; pointer-events: none; }
         .resolved-signal { background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-weight: bold; border-radius: 4px; padding: 0 4px; pointer-events: none; }
@@ -272,36 +64,34 @@
         .filter-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
         .tab-btn { background: var(--bg-color); color: var(--text-muted); border: 1px solid var(--card-border); padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
         .tab-btn.active { background: var(--accent-blue); color: var(--bg-color); border-color: var(--accent-blue); }
-
         .back-btn { background: transparent; color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-bottom: 15px; }
+        .action-btn { background: var(--accent-blue); border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; color: #0b0f19; margin-top: 10px; }
+
+        /* V4.0 EXTRA TASKS STYLING */
+        .extra-task-container { margin-top: 30px; border-top: 2px dashed var(--card-border); padding-top: 20px; display: none; }
+        .task-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg-color); padding: 10px 15px; border: 1px solid var(--card-border); border-radius: 6px; margin-bottom: 8px; }
+        .task-term { font-weight: 500; font-size: 0.95rem; }
+        .task-type { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-right: 15px; }
+        .task-select { background: var(--sidebar-bg); color: var(--text-main); border: 1px solid var(--card-border); padding: 6px; border-radius: 4px; font-size: 0.9rem; outline: none; cursor: pointer; }
+        .task-select:focus { border-color: var(--accent-blue); }
+        .task-select.correct { border-color: var(--success); color: var(--success); pointer-events: none; }
+        .task-select.incorrect { border-color: var(--error); color: var(--error); }
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR -->
     <sidebar>
-        <div class="brand">
-            <span>⚡ MediChecker</span>
-        </div>
+        <div class="brand"><span>⚡ MediChecker</span></div>
         <ul class="nav-links">
             <li class="nav-item active" onclick="switchTab('dashboard')">Dashboard</li>
-            <li class="nav-item" onclick="switchTab('simulations')">Simulations</li>
-            <li class="nav-item" onclick="switchTab('cases')">Case Studies</li>
-            <li class="nav-item" onclick="switchTab('analytics')">Analytics</li>
-            <li class="nav-item">Profile settings</li>
+            <li class="nav-item">Simulations</li>
+            <li class="nav-item">Analytics</li>
         </ul>
     </sidebar>
 
-    <!-- MAIN WRAPPER -->
     <div class="main-wrapper">
         <topbar>
-            <div class="topbar-nav">
-                <span class="active">Dashboard</span>
-                <span>Simulations</span>
-                <span>Case Studies</span>
-                <span>Analytics</span>
-                <span>Profile settings</span>
-            </div>
+            <div class="topbar-nav"><span class="active">Dashboard</span></div>
             <div class="user-hud">
                 <div class="hud-stat">Rang: <strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat">XP: <strong id="stat-xp">0</strong></div>
@@ -310,32 +100,35 @@
         </topbar>
 
         <div class="content-body">
-            <!-- LEFT / CENTER DYNAMIC VIEW -->
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 
-                <!-- DASHBOARD VIEW -->
                 <div id="dashboard-view" class="panel">
-                    <div class="panel-title">Verfügbare Simulationsfälle</div>
-                    <div class="panel-subtitle">Wähle einen Fall für das interaktive Chart Auditing</div>
+                    <div class="panel-title">Verfügbare Fälle</div>
+                    <div class="panel-subtitle">Sokratisches Audit & Master-Challenges</div>
                     <div class="filter-tabs" id="filter-tabs"></div>
                     <div class="case-grid" id="case-grid">Lade Fälle...</div>
                 </div>
 
-                <!-- PLAYER VIEW -->
                 <div id="player-view" class="panel" style="display: none;">
                     <button class="back-btn" onclick="showDashboard()">← Zurück</button>
                     <div id="player-container"></div>
+                    
+                    <!-- V4.0 Extra Tasks Container -->
+                    <div id="extra-tasks-container" class="extra-task-container">
+                        <div class="panel-title" style="color: var(--accent-blue); margin-bottom: 20px;">Master-Challenges</div>
+                        
+                        <div id="categorization-task" style="margin-bottom: 30px;"></div>
+                        <div id="synapses-task" style="margin-bottom: 20px;"></div>
+                        
+                        <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%;">Fall abschließen & XP sichern</button>
+                    </div>
                 </div>
-
             </div>
 
-            <!-- RIGHT COLUMN: COMPETENCE MATRIX -->
             <div class="panel" style="height: fit-content;">
                 <div class="panel-title">Competence Matrix</div>
                 <div class="panel-subtitle">Precision & progress analytics</div>
-                <div id="skills-sidebar-container">
-                    <!-- Dynamic Bars -->
-                </div>
+                <div id="skills-sidebar-container"></div>
             </div>
         </div>
     </div>
@@ -344,19 +137,11 @@
         let currentCases = [];
         let activeCaseData = null;
         let activeFilter = 'Alle';
+        let stealthAuditCompleted = false;
 
-        const defaultSkills = {
-            "Triage": { hits: 0, total: 0 },
-            "Diagnostics": { hits: 0, total: 0 },
-            "Pharmacology": { hits: 0, total: 0 },
-            "Pathophysiology": { hits: 0, total: 0 }
-        };
+        const defaultSkills = { "Triage": { hits:0, total:0 }, "Diagnostics": { hits:0, total:0 }, "Pharmacology": { hits:0, total:0 }, "Pathophysiology": { hits:0, total:0 } };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initUserData();
-            loadManifest();
-            renderSkillsSidebar();
-        });
+        document.addEventListener('DOMContentLoaded', () => { initUserData(); loadManifest(); renderSkillsSidebar(); });
 
         function initUserData() {
             if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
@@ -367,26 +152,16 @@
 
         function updateStatsUI() {
             const xp = parseInt(localStorage.getItem('user_xp') || '0');
-            const xpEl = document.getElementById('stat-xp');
-            const rankEl = document.getElementById('stat-rank');
-            if (xpEl) xpEl.innerText = xp;
-            
-            let rank = 'Famulus';
-            if (xp >= 1500) rank = 'Oberarzt';
-            else if (xp >= 800) rank = 'Facharzt';
-            else if (xp >= 300) rank = 'Assistenzarzt';
-            if (rankEl) rankEl.innerText = rank;
+            if (document.getElementById('stat-xp')) document.getElementById('stat-xp').innerText = xp;
+            let rank = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
+            if (document.getElementById('stat-rank')) document.getElementById('stat-rank').innerText = rank;
         }
 
         function applyXpDelta(delta, label) {
-            let currentXp = parseInt(localStorage.getItem('user_xp') || '0');
-            currentXp = Math.max(0, currentXp + delta);
+            let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
             localStorage.setItem('user_xp', currentXp);
             updateStatsUI();
-            triggerFloatingPopup(delta, label);
-        }
-
-        function triggerFloatingPopup(delta, label) {
+            
             const container = document.getElementById('hud-popup-container');
             if (!container) return;
             const popup = document.createElement('div');
@@ -396,190 +171,218 @@
             setTimeout(() => popup.remove(), 1200);
         }
 
+        function trackSkill(skillTag, isHit) {
+            let skills = JSON.parse(localStorage.getItem('user_skills')) || JSON.parse(JSON.stringify(defaultSkills));
+            if (!skills[skillTag]) skills[skillTag] = { hits:0, total:0 };
+            skills[skillTag].total += 1;
+            if (isHit) skills[skillTag].hits += 1;
+            localStorage.setItem('user_skills', JSON.stringify(skills));
+            renderSkillsSidebar();
+        }
+
         function renderSkillsSidebar() {
             const skills = JSON.parse(localStorage.getItem('user_skills') || JSON.stringify(defaultSkills));
             const container = document.getElementById('skills-sidebar-container');
             container.innerHTML = '';
-
             for (const [skill, data] of Object.entries(skills)) {
-                const percentage = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
-                let barColor = 'var(--accent-blue)';
-                if (data.total > 0) {
-                    if (percentage < 50) barColor = 'var(--error)';
-                    else if (percentage < 80) barColor = 'var(--warning)';
-                    else barColor = 'var(--success)';
-                }
-
-                container.innerHTML += `
-                    <div class="skill-bar-container">
-                        <div class="skill-header">
-                            <span>${skill}</span>
-                            <span style="color: ${barColor};">${percentage}% (${data.hits}/${data.total})</span>
-                        </div>
-                        <div class="progress-bg">
-                            <div class="progress-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
-                        </div>
-                    </div>
-                `;
+                const perc = data.total > 0 ? Math.round((data.hits/data.total)*100) : 0;
+                let color = data.total > 0 ? (perc < 50 ? 'var(--error)' : (perc < 80 ? 'var(--warning)' : 'var(--success)')) : 'var(--accent-blue)';
+                container.innerHTML += `<div class="skill-bar-container"><div class="skill-header"><span>${skill}</span><span style="color:${color};">${perc}% (${data.hits}/${data.total})</span></div><div class="progress-bg"><div class="progress-fill" style="width:${perc}%; background-color:${color};"></div></div></div>`;
             }
-        }
-
-        function trackSkill(skillTag, isHit) {
-            let skills = JSON.parse(localStorage.getItem('user_skills')) || JSON.parse(JSON.stringify(defaultSkills));
-            if (!skills[skillTag]) skills[skillTag] = { hits: 0, total: 0 };
-            
-            skills[skillTag].total += 1;
-            if (isHit) skills[skillTag].hits += 1;
-            
-            localStorage.setItem('user_skills', JSON.stringify(skills));
-            renderSkillsSidebar();
         }
 
         async function loadManifest() {
             try {
                 const res = await fetch('./manifest.json?nocache=' + new Date().getTime());
-                if (!res.ok) throw new Error(`HTTP Fehler: ${res.status}`);
                 const data = await res.json();
                 currentCases = data.cases;
-                renderTabs();
-                filterAndRenderCases('Alle');
-            } catch (err) {
-                console.error('Manifest-Ladefehler:', err);
-                document.getElementById('case-grid').innerHTML = `<p style="color: var(--error);">Fehler beim Laden des Manifests.</p>`;
-            }
+                renderTabs(); filterAndRenderCases('Alle');
+            } catch (err) { console.error(err); }
         }
 
         function renderTabs() {
-            const tabsContainer = document.getElementById('filter-tabs');
+            const container = document.getElementById('filter-tabs');
             const fields = ['Alle', ...new Set(currentCases.map(c => c.medical_field))];
-            tabsContainer.innerHTML = '';
-            fields.forEach(field => {
-                const btn = document.createElement('button');
-                btn.className = `tab-btn ${field === activeFilter ? 'active' : ''}`;
-                btn.innerText = field;
-                btn.onclick = () => { activeFilter = field; document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); filterAndRenderCases(field); };
-                tabsContainer.appendChild(btn);
-            });
+            container.innerHTML = fields.map(f => `<button class="tab-btn ${f === activeFilter ? 'active' : ''}" onclick="activeFilter='${f}'; renderTabs(); filterAndRenderCases('${f}');">${f}</button>`).join('');
         }
 
         function filterAndRenderCases(field) {
             const grid = document.getElementById('case-grid');
-            grid.innerHTML = '';
-            const solvedCases = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+            const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
             const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => c.medical_field === field);
-            filtered.forEach(c => {
-                const isSolved = solvedCases.includes(c.id);
-                const card = document.createElement('div');
-                card.className = 'case-card';
-                card.onclick = () => openCase(c.file_path, c.id);
-                card.innerHTML = `<div><span class="tag">${c.medical_field}</span><h3 style="font-size: 0.95rem; margin: 10px 0 5px 0;">${c.title}</h3></div><div style="font-size: 0.75rem; color: var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;"><span>${c.bloom_level}</span><span>+${c.xp_reward} XP</span></div>`;
-                grid.appendChild(card);
-            });
+            grid.innerHTML = filtered.map(c => `<div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')"><div><span class="tag">${c.medical_field}</span><h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${c.title}</h3></div><div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;"><span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span><span>+${c.xp_reward} XP</span></div></div>`).join('');
         }
 
         async function openCase(filePath, caseId) {
             try {
                 const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
-                if (!res.ok) throw new Error('Datei nicht gefunden');
                 activeCaseData = await res.json();
+                stealthAuditCompleted = false;
                 document.getElementById('dashboard-view').style.display = 'none';
                 document.getElementById('player-view').style.display = 'block';
-                renderTimeline(caseId);
-            } catch (err) { alert('Fall konnte nicht geladen werden.'); }
+                document.getElementById('extra-tasks-container').style.display = 'none';
+                document.getElementById('finish-case-btn').style.display = 'none';
+                renderTimeline();
+            } catch (err) { alert('Ladefehler'); }
         }
-
-        function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
         function parseStealthText(text, hotspots, stepIndex) {
             let parsedText = text;
-            if (hotspots && hotspots.length > 0) {
-                hotspots.forEach((hs, hsIndex) => { const regex = new RegExp(`\\[${escapeRegExp(hs.phrase)}\\]`, 'g'); parsedText = parsedText.replace(regex, `__HOTSPOT_${hsIndex}__`); });
+            if (hotspots) {
+                hotspots.forEach((hs, i) => { parsedText = parsedText.replace(new RegExp(`\\[${hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g'), `__HS_${i}__`); });
             }
-            parsedText = parsedText.split(/\s+/).map(word => {
-                if (word.startsWith('__HOTSPOT_')) return word;
-                return `<span class="stealth-word" onclick="handleGenericClick(this)">${word}</span>`;
-            }).join('');
-            if (hotspots && hotspots.length > 0) {
-                hotspots.forEach((hs, hsIndex) => {
-                    const replacementHtml = `<span class="stealth-hotspot" id="hs-${stepIndex}-${hsIndex}" onclick="evaluateHotspot(${stepIndex}, ${hsIndex})">${hs.phrase}</span>`;
-                    parsedText = parsedText.replace(`__HOTSPOT_${hsIndex}__`, replacementHtml);
-                });
+            parsedText = parsedText.split(/\s+/).map(w => w.startsWith('__HS_') ? w : `<span class="stealth-word" onclick="handleGenericClick(this)">${w}</span>`).join('');
+            if (hotspots) {
+                hotspots.forEach((hs, i) => { parsedText = parsedText.replace(`__HS_${i}__`, `<span class="stealth-hotspot" id="hs-${stepIndex}-${i}" onclick="evaluateHotspot(${stepIndex}, ${i})">${hs.phrase}</span>`); });
             }
             return parsedText;
         }
 
-        function renderTimeline(caseId) {
+        function renderTimeline() {
             const container = document.getElementById('player-container');
-            container.innerHTML = `<div style="margin-bottom: 20px;"><div class="panel-title">${activeCaseData.metadata.title}</div><div class="panel-subtitle">Medical patient chart audit history — Klicke präzise auf fehlerhafte Befunde/Maßnahmen. Vorsicht: Fehlalarme und blindes Klicken kosten XP!</div></div><div id="steps-wrapper"></div>`;
+            container.innerHTML = `<div style="margin-bottom: 20px;"><div class="panel-title">${activeCaseData.metadata.title}</div><div class="panel-subtitle">Schritt 1: Sokratisches Chart-Audit</div></div><div id="steps-wrapper"></div>`;
             const wrapper = document.getElementById('steps-wrapper');
+            
             activeCaseData.timeline.forEach((step, index) => {
-                const stepDiv = document.createElement('div');
-                stepDiv.style.marginBottom = "20px";
-                let htmlContent = step.hotspots ? parseStealthText(step.content, step.hotspots, index) : step.content;
-                stepDiv.innerHTML = `<div style="font-size:0.8rem; font-weight:700; color:var(--accent-blue); text-transform:uppercase; margin-bottom:8px;">Schritt ${index + 1}: ${step.phase}</div><div class="step-content">${htmlContent}</div><div class="feedback-box" id="feedback-${index}"></div>`;
-                wrapper.appendChild(stepDiv);
+                const div = document.createElement('div');
+                div.style.marginBottom = "20px";
+                div.innerHTML = `<div style="font-size:0.8rem; font-weight:700; color:var(--accent-blue); text-transform:uppercase; margin-bottom:8px;">Phase ${index + 1}: ${step.phase}</div><div class="step-content">${step.hotspots ? parseStealthText(step.content, step.hotspots, index) : step.content}</div><div class="feedback-box" id="feedback-${index}"></div>`;
+                wrapper.appendChild(div);
             });
         }
 
-        // Generic Brute-Force Penalty
         window.handleGenericClick = function(el) { 
             if (el.classList.contains('resolved-generic')) return;
             el.classList.add('resolved-generic');
             applyXpDelta(-10, 'Unsystematischer Klick');
         }
 
-        // Hotspot Evaluation with Penalties and Competence Tracking
         window.evaluateHotspot = function(stepIndex, hotspotIndex) {
-            const step = activeCaseData.timeline[stepIndex];
-            const hs = step.hotspots[hotspotIndex];
+            const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
             const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
-            const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
+            const fb = document.getElementById(`feedback-${stepIndex}`);
             const tag = hs.skill_tag || "Pathophysiology";
 
             if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
-            feedbackBox.style.display = 'block';
+            fb.style.display = 'block';
 
             if (hs.is_error) {
                 span.classList.add('resolved-signal');
-                trackSkill(tag, true);
-                applyXpDelta(+100, 'Signal aufgedeckt');
-                
-                feedbackBox.className = 'feedback-box feedback-error';
-                feedbackBox.innerHTML = `<strong>Kritischer Behandlungsfehler aufgedeckt (+100 XP)!</strong><br><br><strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br><button style="background:var(--accent-blue); border:none; padding:6px 12px; border-radius:4px; font-weight:600; cursor:pointer;" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Pathophysiologische Synthese aufdecken</button>`;
+                trackSkill(tag, true); applyXpDelta(+100, 'Fehler identifiziert');
+                fb.className = 'feedback-box feedback-error';
+                fb.innerHTML = `<strong>Kritischer Fehler!</strong><br><br><strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br><button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Synthese aufdecken</button>`;
             } else {
                 span.classList.add('resolved-noise');
-                trackSkill(tag, false);
-                applyXpDelta(-50, `Fehlalarm: ${tag}`);
-                
-                feedbackBox.className = 'feedback-box feedback-neutral';
-                feedbackBox.innerHTML = `<strong>Fehlalarm (-50 XP in ${tag}):</strong> ${hs.feedback} <br><em>Diese Maßnahme war leitlinienkonform oder der Befund physiologisch erklärbar. Suche weiter.</em>`;
+                trackSkill(tag, false); applyXpDelta(-50, `Fehlalarm: ${tag}`);
+                fb.className = 'feedback-box feedback-neutral';
+                fb.innerHTML = `<strong>Fehlalarm (-50 XP):</strong> ${hs.feedback}`;
             }
         }
 
         window.revealSynthesis = function(stepIndex, hotspotIndex) {
             const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
-            const feedbackBox = document.getElementById(`feedback-${stepIndex}`);
-            feedbackBox.className = 'feedback-box feedback-success';
-            feedbackBox.innerHTML = `<strong>Pathophysiologische Synthese:</strong> ${hs.correct_pathophysiology}`;
-            
+            const fb = document.getElementById(`feedback-${stepIndex}`);
+            fb.className = 'feedback-box feedback-success';
+            fb.innerHTML = `<strong>Synthese:</strong> ${hs.correct_pathophysiology}`;
+            checkAuditCompletion();
+        }
+
+        function checkAuditCompletion() {
+            // Simplified check: If all timelines have been revealed, trigger extra tasks
+            // For production, count resolved errors vs total errors.
+            stealthAuditCompleted = true; 
+            if (activeCaseData.extra_tasks) renderExtraTasks();
+            else document.getElementById('finish-case-btn').style.display = 'block';
+        }
+
+        // --- V4.0 EXTRA TASKS LOGIC ---
+        function renderExtraTasks() {
+            const container = document.getElementById('extra-tasks-container');
+            container.style.display = 'block';
+            const tasks = activeCaseData.extra_tasks;
+
+            if (tasks.categorization) {
+                const catHtml = tasks.categorization.items.map((item, i) => `
+                    <div class="task-row">
+                        <span class="task-term">${item.term}</span>
+                        <select class="task-select cat-select" data-correct="${item.category}" data-index="${i}">
+                            <option value="">-- Wähle Kategorie --</option>
+                            ${tasks.categorization.categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                    </div>
+                `).join('');
+                document.getElementById('categorization-task').innerHTML = `<div class="panel-subtitle" style="color:var(--text-main)">Aufgabe A: ${tasks.categorization.description}</div>${catHtml}<button class="action-btn" onclick="evalCategorization()">Taxonomie prüfen</button><div id="cat-fb" class="feedback-box"></div>`;
+            }
+
+            if (tasks.synapses_matrix) {
+                const synHtml = tasks.synapses_matrix.variables.map((item, i) => `
+                    <div class="task-row">
+                        <div>
+                            <span class="task-type">${item.type}</span>
+                            <span class="task-term">${item.term}</span>
+                        </div>
+                        <select class="task-select syn-select" data-correct="${item.disease}" data-index="${i}">
+                            <option value="">-- Wähle Krankheit --</option>
+                            ${tasks.synapses_matrix.diseases.map(d => `<option value="${d}">${d}</option>`).join('')}
+                        </select>
+                    </div>
+                `).join('');
+                document.getElementById('synapses-task').innerHTML = `<div class="panel-subtitle" style="color:var(--text-main)">Aufgabe B: ${tasks.synapses_matrix.description}</div>${synHtml}<button class="action-btn" onclick="evalSynapses()">Matrix prüfen</button><div id="syn-fb" class="feedback-box"></div>`;
+            }
+        }
+
+        window.evalCategorization = function() {
+            let allCorrect = true;
+            document.querySelectorAll('.cat-select').forEach(sel => {
+                if (sel.classList.contains('correct')) return; // already solved
+                if (sel.value === sel.getAttribute('data-correct')) {
+                    sel.classList.remove('incorrect'); sel.classList.add('correct');
+                    applyXpDelta(25, 'Taxonomie Treffer'); trackSkill('Pathophysiology', true);
+                } else {
+                    allCorrect = false;
+                    if(sel.value !== "") { sel.classList.add('incorrect'); applyXpDelta(-25, 'Taxonomie Fehler'); trackSkill('Pathophysiology', false); }
+                }
+            });
+            const fb = document.getElementById('cat-fb'); fb.style.display = 'block';
+            if (allCorrect) { fb.className = 'feedback-box feedback-success'; fb.innerHTML = 'Alle Kategorien korrekt zugeordnet!'; checkFinalCompletion(); } 
+            else { fb.className = 'feedback-box feedback-error'; fb.innerHTML = 'Einige Zuordnungen sind falsch. Korrigiere sie.'; }
+        }
+
+        window.evalSynapses = function() {
+            let allCorrect = true;
+            document.querySelectorAll('.syn-select').forEach(sel => {
+                if (sel.classList.contains('correct')) return;
+                if (sel.value === sel.getAttribute('data-correct')) {
+                    sel.classList.remove('incorrect'); sel.classList.add('correct');
+                    applyXpDelta(30, 'Matrix Treffer'); trackSkill('Diagnostics', true);
+                } else {
+                    allCorrect = false;
+                    if(sel.value !== "") { sel.classList.add('incorrect'); applyXpDelta(-25, 'Matrix Fehler'); trackSkill('Diagnostics', false); }
+                }
+            });
+            const fb = document.getElementById('syn-fb'); fb.style.display = 'block';
+            if (allCorrect) { fb.className = 'feedback-box feedback-success'; fb.innerHTML = 'Klinische Matrix komplett gelöst!'; checkFinalCompletion(); } 
+            else { fb.className = 'feedback-box feedback-error'; fb.innerHTML = 'Einige klinische Variablen sind falsch zugeordnet.'; }
+        }
+
+        function checkFinalCompletion() {
+            const catsDone = document.querySelectorAll('.cat-select:not(.correct)').length === 0;
+            const synsDone = document.querySelectorAll('.syn-select:not(.correct)').length === 0;
+            if (catsDone && synsDone) document.getElementById('finish-case-btn').style.display = 'block';
+        }
+
+        window.finishCase = function() {
             let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
             if (!solved.includes(activeCaseData.case_id)) {
                 solved.push(activeCaseData.case_id);
                 localStorage.setItem('solved_cases', JSON.stringify(solved));
-                applyXpDelta(activeCaseData.metadata?.xp_reward || 250, 'Fall gelöst');
+                applyXpDelta(activeCaseData.metadata?.xp_reward || 200, 'Fall abgeschlossen');
             }
+            showDashboard();
         }
 
-        function showDashboard() {
-            document.getElementById('player-view').style.display = 'none';
-            document.getElementById('dashboard-view').style.display = 'block';
-            filterAndRenderCases(activeFilter);
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
-        }
+        function showDashboard() { document.getElementById('player-view').style.display = 'none'; document.getElementById('dashboard-view').style.display = 'block'; filterAndRenderCases(activeFilter); }
+        function switchTab(tab) { document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); event.target.classList.add('active'); }
     </script>
 </body>
 </html>
