@@ -281,7 +281,8 @@
         async function loadManifest() {
             try {
                 // Lädt die echte manifest.json dynamisch vom Server
-                const res = await fetch('./manifest.json');
+                // Hängt einen dynamischen Zeitstempel an die URL an, was den Browser zwingt, den Cache zu ignorieren
+                const res = await fetch('./manifest.json?nocache=' + new Date().getTime());
                 if (!res.ok) throw new Error(`HTTP Fehler Status: ${res.status}`);
                 
                 const data = await res.json();
@@ -354,7 +355,7 @@
 
         async function openCase(filePath, caseId) {
             try {
-                const res = await fetch('./' + filePath);
+                const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
                 if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
                 
                 activeCaseData = await res.json();
