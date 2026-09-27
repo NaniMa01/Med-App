@@ -1,0 +1,116 @@
+{
+  "case_id": "NEURO_DEMENZ_001",
+  "metadata": {
+    "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter",
+    "medical_field": "Neurologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 500
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Aufnahmebefund & Differenzialdiagnostik",
+      "content": "Ein 72-jähriger Patient wird von seiner Ehefrau in der Memory Clinic vorgestellt. Sie berichtet über eine seit Monaten [progressive Kurzzeitgedächtnisstörung] sowie visuell-räumliche Orientierungsstörungen[cite: 5]. Der Patient zeigt zudem auffällige, lebhafte visuelle Halluzinationen und fluktuierende Aufmerksamkeit[cite: 5]. Der Assistenzarzt diagnostiziert eine klassische Alzheimer-Krankheit und verordnet zur akuten Beruhigung der Psychose [Haloperidol 5 mg i.m.].",
+      "hotspots": [
+        {
+          "phrase": "progressive Kurzzeitgedächtnisstörung",
+          "is_error": false,
+          "skill_tag": "Triage",
+          "feedback": "Richtig erfasst: Eine progrediente Störung des episodischen Gedächtnisses ist ein Kernmerkmal, lenkt hier aber im Zusammenspiel mit Halluzinationen von der primären Synukleinopathie ab[cite: 5]."
+        },
+        {
+          "phrase": "Haloperidol 5 mg i.m.",
+          "is_error": true,
+          "skill_tag": "Pharmacology",
+          "socratic_trap": "Fataler Behandlungsfehler! Der Patient zeigt Fluktuationen und visuelle Halluzinationen – klassische Kernsymptome einer Lewy-Body-Demenz (LBD)[cite: 5]. Was bewirkt ein potenter D2-Antagonist wie Haloperidol bei LBD-Patienten?",
+          "correct_pathophysiology": "Neuroleptika-Hypersensitivitätssyndrom: Patienten mit Lewy-Body-Demenz reagieren auf klassische Neuroleptika extrem empfindlich mit schweren, oft irreversiblen extrapyramidal-motorischen Krisen und Bewusstseinseintrübungen[cite: 5]."
+        }
+      ]
+    },
+    {
+      "step_id": 2,
+      "phase": "Apparative Diagnostik & Biomarker",
+      "content": "Nach Absetzen des Neuroleptikums erfolgt die erweiterte Diagnostik. Das cMRT zeigt [keine fokale mesiotemporale Atrophie][cite: 5]. Im FDG-PET findet sich ein ausgeprägter Glucose-Hypometabolismus im parieto-okzipitalen Cortex bei [erhaltenem Metabolismus im posterioren Cingulum (posterior cingulate island sign)][cite: 5]. Der Stationsarzt wertet dieses PET-Muster als [unspezifischen Altersabbau] und plant eine rein symptomatische Pflege.",
+      "hotspots": [
+        {
+          "phrase": "keine fokale mesiotemporale Atrophie",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Korrekt auditiert: Im Gegensatz zur Alzheimer-Krankheit zeigt das MRT bei reiner Lewy-Body-Demenz typischerweise keine ausgeprägte Hippocampus-Atrophie[cite: 5]."
+        },
+        {
+          "phrase": "erhaltenem Metabolismus im posterioren Cingulum (posterior cingulate island sign)",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Exzellent: Das 'posterior cingulate island sign' im FDG-PET ist ein hochspezifischer Biomarker zur Differenzierung der Lewy-Body-Demenz[cite: 5]."
+        },
+        {
+          "phrase": "unspezifischen Altersabbau",
+          "is_error": true,
+          "skill_tag": "Diagnostics",
+          "socratic_trap": "Diagnostischer Fehlschluss! Das 'posterior cingulate island sign' und der parieto-okzipitale Hypometabolismus sind hochgradig charakteristisch. Welches neurodegenerative Krankheitsbild wird hier verkannt[cite: 5]?",
+          "correct_pathophysiology": "Es handelt sich um den klassischen FDG-PET-Biomarker der Lewy-Body-Demenz (LBD). Dies als Altersnormvariante abzutun verkennt die zugrundeliegende Alpha-Synukleinopathie[cite: 5]."
+        }
+      ]
+    }
+  ],
+  "extra_tasks": {
+    "categorization": {
+      "description": "Ordne die folgenden pathologischen Proteine und Befunde ihren korrekten neurodegenerativen Hauptkategorien zu.",
+      "categories": [
+        "Alzheimer-Krankheit",
+        "Lewy-Body-Demenz",
+        "Frontotemporale Demenz"
+      ],
+      "items": [
+        {
+          "term": "Extrazelluläre Amyloid-Beta Plaques",
+          "category": "Alzheimer-Krankheit"
+        },
+        {
+          "term": "Alpha-Synuklein (Lewy-Körperchen)",
+          "category": "Lewy-Body-Demenz"
+        },
+        {
+          "term": "Intrazelluläre Tau-Tangles",
+          "category": "Alzheimer-Krankheit"
+        },
+        {
+          "term": "TDP-43 Proteinopathie",
+          "category": "Frontotemporale Demenz"
+        }
+      ]
+    },
+    "synapses_matrix": {
+      "description": "Ordne die folgenden klinischen und apparativen Variablen den korrekten Diagnosen bzw. Syndromen zu.",
+      "diseases": [
+        "Alzheimer-Krankheit",
+        "Lewy-Body-Demenz",
+        "Subkortikale vaskuläre Demenz"
+      ],
+      "variables": [
+        {
+          "term": "Phospho-Tau181 / Amyloid-Ratio im Liquor",
+          "type": "Liquor-Biomarker",
+          "disease": "Alzheimer-Krankheit"
+        },
+        {
+          "term": "DaTSCAN: Verminderte Dopamintransporter-Aufnahme",
+          "type": "Nuklearmedizin",
+          "disease": "Lewy-Body-Demenz"
+        },
+        {
+          "term": "Leukenzephalopathie & lakunäre Infarkte im MRT",
+          "type": "Bildgebung",
+          "disease": "Subkortikale vaskuläre Demenz"
+        },
+        {
+          "term": "REM-Schlaf-Verhaltensstörung & Fluktuationen",
+          "type": "Klinische Symptomatik",
+          "disease": "Lewy-Body-Demenz"
+        }
+      ]
+    }
+  }
+}
