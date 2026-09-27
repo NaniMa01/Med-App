@@ -1,0 +1,118 @@
+{
+  "case_id": "NEURO_CJK_001",
+  "metadata": {
+    "title": "Rasch progrediente Enzephalopathie: Die CJK-Trias & RT-QuIC",
+    "medical_field": "Neurologie",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 500
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Aufnahmebefund & Triage (Signal vs. Noise)",
+      "content": "Eine 64-jährige Patientin wird wegen eines kognitiven Abbaus vorgestellt, der sich rasant innerhalb von [acht Wochen] entwickelt hat[cite: 4]. Die Angehörigen berichten über Verwirrtheit und Gangunsicherheit. Bei der Visite fallen spontane [stimulussensitive Myoklonien bei Händeklatschen] auf[cite: 4]. Ein Vorbericht vermerkt eine [depressive Pseudodemenz] und empfiehlt die Fortführung von [Citalopram 20 mg/d].",
+      "contains_error": true,
+      "hotspots": [
+        {
+          "phrase": "acht Wochen",
+          "is_error": false,
+          "skill_tag": "Triage",
+          "feedback": "Richtig auditiert: Eine Demenzentwicklung über Wochen bis wenige Monate ist das WHO-Leitkriterium 1 der sporadischen Creutzfeldt-Jakob-Krankheit (sCJK) und schließt klassische Demenzen weitgehend aus[cite: 4]."
+        },
+        {
+          "phrase": "stimulussensitive Myoklonien bei Händeklatschen",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Klinisch korrekt erfasst: Durch akustische oder taktile Reize auslösbare Myoklonien gehören zu den Kernsymptomen der sCJK[cite: 4]."
+        },
+        {
+          "phrase": "depressive Pseudodemenz",
+          "is_error": true,
+          "skill_tag": "Triage",
+          "socratic_trap": "Kritischer Fehlschluss! Warum darf eine subakut progrediente Demenz mit Ataxie und Myoklonien unter keinen Umständen als 'Pseudodemenz' abgetan werden, selbst wenn initial depressive Symptome vorlagen[cite: 4]?",
+          "correct_pathophysiology": "Fataler Bias: Bei sCJK treten zu Beginn häufig psychiatrische und depressive Symptome auf[cite: 4]. Das Hinzutreten neurologischer Herdsymptome (Myoklonien, Ataxie) innert Wochen beweist jedoch einen fulminanten neurodegenerativen Zerfall und schließt ein rein affektives Geschehen aus[cite: 4]."
+        },
+        {
+          "phrase": "Citalopram 20 mg/d",
+          "is_error": false,
+          "skill_tag": "Pharmacology",
+          "feedback": "Klinisch zwar eine Fehlindikation aufgrund der Fehldiagnose, stellt hier aber nicht den primären pathophysiologischen Fehler dar."
+        }
+      ],
+      "socratic_trap": {
+        "counter_question": "Welche zelluläre Dynamik unterscheidet die spongiforme Enzephalopathie von einer depressiven Pseudodemenz[cite: 4]?"
+      },
+      "correct_pathophysiology": "Die exponentielle Umwandlung von PrP^C in PrP^Sc führt zu rapidem neuronalem Zelluntergang, Vakuolisierung und Gliose[cite: 4]."
+    },
+    {
+      "step_id": 2,
+      "phase": "Bildgebung & Neurophysiologie",
+      "content": "Im Notfall-MRT zeigen sich in diffusionsgewichteten Sequenzen (DWI) [bandförmige kortikale Hyperintensitäten] sowie eine [Signalverstärkung im Putamen und Nucleus caudatus][cite: 4]. Im EEG finden sich [triphasische periodische Sharp-Wave-Komplexe][cite: 4]. Der Dienstarzt wertet die kortikalen MRT-Veränderungen als [bewegungsbedingte Artefakte] und veranlasst zum Ausschluss einer Demenz ein cCT.",
+      "contains_error": true,
+      "hotspots": [
+        {
+          "phrase": "bandförmige kortikale Hyperintensitäten",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Korrekt: Das sogenannte 'Cortical Ribboning' in der DWI-Sequenz spiegelt die kortikale Diffusionsrestriktion bei sCJK wider[cite: 4]."
+        },
+        {
+          "phrase": "Signalverstärkung im Putamen und Nucleus caudatus",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Korrekt auditiert: Hyperintensitäten der Basalganglien in DWI und FLAIR sind etablierte MRT-Kriterien für sCJK[cite: 4]."
+        },
+        {
+          "phrase": "triphasische periodische Sharp-Wave-Komplexe",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Richtig: PSWC sind ein typischer elektrophysiologischer Spätbefund bei sporadischer CJK[cite: 4]."
+        },
+        {
+          "phrase": "bewegungsbedingte Artefakte",
+          "is_error": true,
+          "skill_tag": "Diagnostics",
+          "socratic_trap": "Diagnostischer Trugschluss! Auf welchem biophysikalischen Mechanismus beruht das Signal in der DWI-Sequenz bei CJK, und warum ist ein cCT hier völlig ungeeignet[cite: 4]?",
+          "correct_pathophysiology": "Die Vakuolisierung (spongiforme Degeneration) und neuronale Schwellung behindern die Brownsche Molekularbewegung des Wassers (Diffusionsrestriktion)[cite: 4]. Dies ist pathognomonisch in der MRT-DWI sichtbar[cite: 4]. Ein cCT besitzt hierfür keinerlei Sensitivität[cite: 4]."
+        }
+      ],
+      "socratic_trap": {
+        "counter_question": "Warum ist die DWI-Sequenz der MRT dem cCT bei Prionenerkrankungen diagnostisch überlegen[cite: 4]?"
+      },
+      "correct_pathophysiology": "Die Diffusionsrestriktion durch Mikro-Vakuolen wird nur im DWI-MRT abgebildet[cite: 4]."
+    },
+    {
+      "step_id": 3,
+      "phase": "Liquordiagnostik & Molekulare Synthese",
+      "content": "Die Lumbalpunktion ergibt eine normale Zellzahl. Der Liquor-Schnelltest weist [Protein 14-3-3] nach[cite: 4]. Die Station verzichtet auf die Anforderung eines [RT-QuIC-Assays], da sie das Protein 14-3-3 als [hochspezifischen Beweis] für das Vorliegen einer Prionenerkrankung einstuft[cite: 4].",
+      "contains_error": true,
+      "hotspots": [
+        {
+          "phrase": "Protein 14-3-3",
+          "is_error": false,
+          "skill_tag": "Diagnostics",
+          "feedback": "Richtig auditiert: 14-3-3 ist Teil der klassischen WHO-Kriterien[cite: 4]."
+        },
+        {
+          "phrase": "RT-QuIC-Assays",
+          "is_error": true,
+          "skill_tag": "Pathophysiology",
+          "socratic_trap": "Massiver Methodenfehler! Warum ist der RT-QuIC (Real-Time Quaking-Induced Conversion) der diagnostische Goldstandard im Liquor, und welcher funktionelle Unterschied besteht zu 14-3-3[cite: 4]?",
+          "correct_pathophysiology": "Der RT-QuIC weist direkt die fehlgefalteten Prionen durch induzierte Fehlfaltungsamplifikation nach und erreicht eine Spezifität von 99–100%[cite: 4]. Auf ihn darf nicht verzichtet werden[cite: 4]."
+        },
+        {
+          "phrase": "hochspezifischen Beweis",
+          "is_error": true,
+          "skill_tag": "Pathophysiology",
+          "socratic_trap": "Halt! Was zeigt das Protein 14-3-3 zellbiologisch an? Ist es spezifisch für Prionen[cite: 4]?",
+          "correct_pathophysiology": "Protein 14-3-3 ist lediglich ein unspezifischer Marker für raschen neuronalen Untergang und ist auch bei Hirninfarkten, Enzephalitiden oder ZNS-Blutungen positiv (geringe Spezifität)[cite: 4]."
+        }
+      ],
+      "socratic_trap": {
+        "counter_question": "Welcher Liquor-Biomarker weist das ursächliche Agens direkt nach[cite: 4]?"
+      },
+      "correct_pathophysiology": "Nur der RT-QuIC detektiert fehlgefaltetes PrP^Sc direkt mit nahezu 100%iger Spezifität[cite: 4]."
+    }
+  ]
+}
