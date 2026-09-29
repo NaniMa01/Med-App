@@ -161,13 +161,24 @@
                                 <option disabled>Light Mode (In Entwicklung)</option>
                             </select>
                         </div>
-                        <div class="panel" style="background: var(--bg-color);">
-                            <h4 style="margin-top: 0; color: var(--accent-blue);">Datenverwaltung</h4>
-                            <p style="font-size: 0.85rem; color: var(--text-muted);">Lokalen Speicher und Fortschritt verwalten.</p>
-                            <button class="action-btn secondary" onclick="if(confirm('Wirklich den gesamten XP- und Fall-Fortschritt löschen?')) { localStorage.clear(); location.reload(); }" style="width: 100%; border-color: var(--error); color: var(--error);">Fortschritt zurücksetzen</button>
-                        </div>
-                    </div>
+                      <div class="panel" style="background: var(--bg-color);">
+    <h4 style="margin-top: 0; color: var(--accent-blue);">Datenverwaltung</h4>
+    <p style="font-size: 0.85rem; color: var(--text-muted);">Trenne strikt zwischen deinem Lern-Fortschritt und deiner Case-Datenbank.</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button class="action-btn secondary" 
+                onclick="if(confirm('Wirklich deinen XP-Fortschritt, die Competence Matrix und den Status gelöster Fälle zurücksetzen? Deine eigenen Fälle aus der Forge bleiben erhalten!')) { localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" 
+                style="width: 100%; border-color: var(--warning); color: var(--warning);">
+            Lern-Fortschritt & XP zurücksetzen
+        </button>
 
+        <button class="action-btn secondary" 
+                onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle aus der Case Forge unwiderruflich löschen? Dein XP-Fortschritt bleibt unberührt!')) { localStorage.setItem('custom_cases', '[]'); location.reload(); }" 
+                style="width: 100%; border-color: var(--error); color: var(--error);">
+            Alle Custom-Fälle löschen
+        </button>
+    </div>
+</div>
                     <!-- AI Master Prompt -->
                     <div class="panel" style="background: var(--bg-color);">
                         <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt (V5.2 High-Stakes)</h4>
