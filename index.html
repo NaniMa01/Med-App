@@ -88,7 +88,11 @@
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
         
         .type-dot { position: absolute; top: 10px; left: 10px; width: 8px; height: 8px; border-radius: 50%; }
-        .dot-risk { background: #ef4444; } .dot-lab { background: #a855f7; } .dot-symptom { background: #22c55e; } .dot-treatment { background: #38bdf8; } .dot-default { background: #94a3b8; }
+        .dot-risk { background: #ef4444 !important; } /* ROT für Risikofaktoren */
+        .dot-lab { background: #a855f7 !important; } /* VIOLETT für Diagnostik/Patho */
+        .dot-symptom { background: #22c55e !important; } /* GRÜN für Symptome/Klinik */
+        .dot-treatment { background: #38bdf8 !important; } /* BLAU für Therapie/Management */
+        .dot-default { background: #94a3b8 !important; } /* GRAU als Fallback */
         
         .synapse-solved-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .synapse-solved-row { background: var(--success); color: #0b0f19; border-radius: 8px; padding: 12px; text-align: center; font-weight: 800; font-size: 0.95rem; animation: popIn 0.3s ease-out; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -645,11 +649,21 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
         function getDotClass(typeStr) {
             if(!typeStr) return 'dot-default';
             const t = typeStr.toLowerCase();
-            if(t.includes('risiko') || t.includes('risk') || t.includes('etiology')) return 'dot-risk';
+            
+            // Greift bei "Risiko", "Risikofaktor", "Risikofaktoren", "Risk", "Ursache" -> ROT
+            if(t.includes('risiko') || t.includes('risk') || t.includes('etiology') || t.includes('ursache')) return 'dot-risk';
+            
+            // Diagnostik & Pathologie -> VIOLETT
             if(t.includes('labor') || t.includes('diagnostik') || t.includes('lab') || t.includes('patho') || t.includes('genetik') || t.includes('anatomie')) return 'dot-lab';
-            if(t.includes('symptom') || t.includes('klinik')) return 'dot-symptom';
+            
+            // Klinik & Symptome -> GRÜN
+            if(t.includes('symptom') || t.includes('klinik') || t.includes('zeichen')) return 'dot-symptom';
+            
+            // Therapie & Management -> BLAU
             if(t.includes('therapie') || t.includes('treatment') || t.includes('management') || t.includes('pharmacology') || t.includes('verlauf')) return 'dot-treatment';
+            
             return 'dot-default';
+        }
         }
 
         window.toggleSynapseTile = function(index) {
