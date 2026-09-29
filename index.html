@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediChecker - V5.3 Topo-Engine</title>
+    <title>MediChecker - V5.3.1 Enterprise</title>
     <style>
         :root {
             --bg-color: #0b0f19; --sidebar-bg: #0f172a; --card-bg: #131c31;
@@ -80,7 +80,7 @@
         .task-select.correct { border-color: var(--success); color: var(--success); pointer-events: none; }
         .task-select.incorrect { border-color: var(--error); color: var(--error); }
         
-        .synapses-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 15px; margin-bottom: 20px; }
+        .synapses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 15px; margin-bottom: 20px; }
         .synapse-tile { background: var(--bg-color); border: 2px solid var(--card-border); border-radius: 8px; padding: 15px 10px; text-align: center; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; position: relative; cursor: pointer; transition: all 0.2s; user-select: none; display: flex; align-items: center; justify-content: center; min-height: 90px; color: var(--text-main); }
         .synapse-tile:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
         .synapse-tile.selected { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.15); transform: scale(0.95); }
@@ -121,7 +121,7 @@
 
     <div class="main-wrapper">
         <topbar>
-            <div class="topbar-nav"><span class="active">MediChecker V5.3 Topo-Engine</span></div>
+            <div class="topbar-nav"><span class="active">MediChecker V5.3.1 Topo-Engine</span></div>
             <div class="user-hud">
                 <div class="hud-stat">Rang: <strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat">XP: <strong id="stat-xp">0</strong></div>
@@ -163,43 +163,92 @@
                             <label style="font-size: 0.85rem; color: var(--text-muted);">Accent Color anpassen</label><br>
                             <input type="color" id="accent-color-picker" value="#38bdf8" onchange="changeAccentColor(this.value)" style="margin-top: 8px; cursor: pointer; width: 60px; height: 35px; border: none; background: transparent;">
                         </div>
+                        
+                        <!-- NEUES DATENVERWALTUNGS-MODUL -->
                         <div class="panel" style="background: var(--bg-color);">
                             <h4 style="margin-top: 0; color: var(--accent-blue);">Datenverwaltung</h4>
                             <p style="font-size: 0.85rem; color: var(--text-muted);">Trenne strikt zwischen deinem Lern-Fortschritt und deiner Case-Datenbank.</p>
+                            
                             <div style="display: flex; flex-direction: column; gap: 10px;">
-                                <button class="action-btn secondary" onclick="if(confirm('Lern-Fortschritt zurücksetzen? Custom-Fälle bleiben erhalten.')) { localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="width: 100%; border-color: var(--warning); color: var(--warning);">Lern-Fortschritt & XP zurücksetzen</button>
-                                <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE Custom-Fälle aus der Case Forge löschen?')) { localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="width: 100%; border-color: var(--error); color: var(--error);">Alle Custom-Fälle löschen</button>
+                                <button class="action-btn secondary" 
+                                        onclick="if(confirm('Wirklich deinen XP-Fortschritt, die Competence Matrix und den Status gelöster Fälle zurücksetzen? Deine eigenen Fälle aus der Forge bleiben erhalten!')) { localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" 
+                                        style="width: 100%; border-color: var(--warning); color: var(--warning);">
+                                    Lern-Fortschritt & XP zurücksetzen
+                                </button>
+
+                                <button class="action-btn secondary" 
+                                        onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle aus der Case Forge unwiderruflich löschen? Dein XP-Fortschritt bleibt unberührt!')) { localStorage.setItem('custom_cases', '[]'); location.reload(); }" 
+                                        style="width: 100%; border-color: var(--error); color: var(--error);">
+                                    Alle Custom-Fälle löschen
+                                </button>
                             </div>
                         </div>
                     </div>
 
                     <div class="panel" style="background: var(--bg-color);">
-                        <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt (V5.3 Topo-Engine)</h4>
-                        <textarea id="ai-prompt-text" class="forge-textarea" readonly>Du bist ein Elite-Facharzt und didaktischer Content-Architekt für einen sokratischen M&M-Simulator.
+                        <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt</h4>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">Kopiere diesen Prompt und füge ihn in deine KI ein, um perfekte, kompatible JSON-Fälle inklusive Topo-Lokalisation zu generieren.</p>
+                        <textarea id="ai-prompt-text" class="forge-textarea" readonly>Du bist ein Elite-Software-Architekt, Full-Stack-Entwickler und EdTech-Experte, spezialisiert auf hochskalierbare, gamifizierte Lern-Apps im medizinischen Sektor. Dein Partner und Auftraggeber ist ein Medizinstudent im 5. Studienjahr, der eine revolutionäre Mediziner-App entwickeln möchte. 
 
-DEINE AUFGABE: Transformiere medizinische Rohtexte in EINEN hochkomplexen Fall im JSON-Format INKL. "extra_tasks".
+Deine Kernaufgabe ist es, ihn Schritt für Schritt von diesem interaktiven Chat-Prototyp bis hin zum finalen, professionellen Release zu begleiten. Du lieferst präzise Architektur-Konzepte, Datenstrukturen, Gamification-Mechaniken und die exakten System-Prompts, die die App später im Hintergrund steuern muss.
 
-DESIGN-REGELN:
-1. Signal vs. Noise: Verstecke klinisches Rauschen [Noise] und [Fehler] in Klammern. `skill_tag` ist zwingend.
-2. Null-Fehler-Falle: Mindestens EIN Schritt MUSS fehlerfrei sein (nur `is_error: false` Hotspots, die verdächtig klingen, aber korrekt sind).
-3. Sokratische Falle: Wahre Fehler (`is_error: true`) erfordern eine sokratische Gegenfrage statt direkter Antworten.
+Die App muss folgende Kernanforderungen erfüllen:
+1. Quellenbasierte Dynamik: Die App verarbeitet PDF-Quellen lückenlos und passt das Lernthema sowie den Tiefgang vollautomatisch an. Es darf kein fachlicher Inhalt verloren gehen.
+2. Gamification & Level-System: Ein durchdachtes Stufenmodell, das Nutzer durch präzise Leistungen aufsteigen lässt.
+3. Sokratische Didaktik: Die KI-Engine darf niemals Antworten vorkauen, sondern muss den Lernenden sokratisch durch Fragen leiten.
+4. Intelligentes Feedback-System: Strukturierte Auswertung zu Stärken und Schwächen.
+5. Qualitätsanspruch: High-End-Produkt für den späteren Release.
 
-JSON-STRUKTUR:
+Du bist zudem ein Elite-Facharzt und didaktischer Content-Architekt für einen sokratischen M&M-Simulator auf universitärem Master-Niveau. 
+
+DEINE AUFGABE:
+Ich werde dir Rohtexte aus Vorlesungen zur Verfügung stellen. Du extrahierst das pathophysiologische Kernwissen und transformierst es in EINEN hochkomplexen, klinischen Fall im exakten JSON-Format INKLUSIVE "extra_tasks".
+
+DESIGN-REGELN FÜR DEN FALL (Bloom-Stufe 5-6):
+1. **Signal vs. Noise (Triage):** Verstecke in den Texten klinisches Rauschen (Noise) und fatale Fehler (Signal) in eckigen Klammern: `[...]`. Jeder Hotspot bekommt zwingend einen `skill_tag` ("Triage", "Diagnostics", "Pharmacology", "Pathophysiology").
+2. **Die Null-Fehler-Falle (Zwingend!):** Mindestens EIN Timeline-Schritt MUSS klinisch absolut makellos sein! Verstecke hier Hotspots, die extrem verdächtig klingen, aber VÖLLIG KORREKT sind (`is_error: false`).
+3. **Pathophysiologische Tiefe:** Begründe Entscheidungen immer mit der zugrundeliegenden Mechanik.
+4. **Die Sokratische Falle:** Wenn ein Hotspot ein Fehler ist (`is_error: true`), MUSS die `socratic_trap` den Lernenden hart hinterfragen.
+
+JSON-OUTPUT-STRUKTUR:
 {
-  "case_id": "ID_001",
+  "case_id": "[Eindeutige ID]",
   "metadata": { "title": "...", "medical_field": "...", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500 },
-  "timeline": [ { "step_id": 1, "phase": "...", "content": "Text mit [Noise] und [Fehler].", "hotspots": [ { "phrase": "Fehler", "is_error": true, "skill_tag": "Triage", "socratic_trap": "...", "correct_pathophysiology": "..." } ] } ],
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "...",
+      "content": "Text mit [Noise 1] und [Fatalem Fehler].",
+      "hotspots": [
+        { "phrase": "Noise 1", "is_error": false, "skill_tag": "Diagnostics", "feedback": "Korrekt auditiert: Diese Maßnahme ist absolut korrekt." },
+        { "phrase": "Fatalem Fehler", "is_error": true, "skill_tag": "Pharmacology", "socratic_trap": "Gegenfrage...", "correct_pathophysiology": "Die echte Erklärung..." }
+      ]
+    }
+  ],
   "extra_tasks": {
-    "categorization": { "description": "...", "categories": ["A", "B"], "items": [ { "term": "...", "category": "A" } ] },
-    "synapses_matrix": { "description": "...", "diseases": ["X", "Y"], "variables": [ { "term": "...", "type": "Klinik", "disease": "X" } ] },
+    "categorization": {
+      "description": "Ordne die Entitäten zu.",
+      "categories": ["Kat A", "Kat B", "Kat C"],
+      "items": [ { "term": "...", "category": "Kat A" } ]
+    },
+    "synapses_matrix": {
+      "description": "Verbinde die korrekten Kacheln der Krankheitsentität.",
+      "diseases": ["Krankheit A", "Krankheit B"],
+      "variables": [
+        { "term": "...", "type": "Risiko/Pathologie", "disease": "Krankheit A" }
+      ]
+    },
     "body_mapping": {
-      "description": "Markiere den primären Manifestationsort.",
-      "disease": "Erkrankungsname",
-      "target_regions": ["anterior_shoulder", "posterior_back_lower"],
-      "feedback_success": "...", "feedback_error": "..."
+      "description": "Markiere den primären Manifestationsort der Erkrankung auf dem Körperschema.",
+      "disease": "Krankheitsname",
+      "target_regions": ["anterior_shoulder", "anterior_face"],
+      "feedback_success": "Exzellent! Die Läsion betrifft genau diese Strukturen.",
+      "feedback_error": "Falsche Lokalisation. Betrachte das typische Verteilungsmuster der Erkrankung."
     }
   }
-}</textarea>
+}
+
+WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions': anterior_head, anterior_face, anterior_neck, anterior_shoulder, anterior_chest, anterior_abdomen, anterior_pelvis, anterior_arm_left, anterior_arm_right, anterior_leg_left, anterior_leg_right, posterior_head, posterior_back_upper, posterior_back_lower, posterior_arm_left, posterior_arm_right, posterior_leg_left, posterior_leg_right.</textarea>
                         <button class="action-btn" onclick="copyMasterPrompt()" style="margin-top: 10px;">Prompt kopieren</button>
                     </div>
                 </div>
@@ -217,7 +266,6 @@ JSON-STRUKTUR:
                             <div class="panel-subtitle" style="color:var(--text-main)" id="body-mapping-desc"></div>
                             <div class="body-map-wrapper">
                                 <div>
-                                    <!-- Anterior Map -->
                                     <svg class="body-schema" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
                                         <circle id="anterior_head" class="body-region" cx="50" cy="20" r="12" onclick="toggleBodyRegion(this.id)" />
                                         <rect id="anterior_face" class="body-region" x="43" y="15" width="14" height="10" rx="3" onclick="toggleBodyRegion(this.id)" />
@@ -234,7 +282,6 @@ JSON-STRUKTUR:
                                     <div class="schema-label">Anterior</div>
                                 </div>
                                 <div>
-                                    <!-- Posterior Map -->
                                     <svg class="body-schema" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
                                         <circle id="posterior_head" class="body-region" cx="50" cy="20" r="12" onclick="toggleBodyRegion(this.id)" />
                                         <path id="posterior_back_upper" class="body-region" d="M30 40 L70 40 L65 75 L35 75 Z" onclick="toggleBodyRegion(this.id)" />
@@ -285,6 +332,8 @@ JSON-STRUKTUR:
         let selectedSynapses = [];
         let totalSynapseDiseases = 0;
         let solvedSynapseDiseases = 0;
+        let tilesPerDisease = 4; // Dynamic Synapses Variable
+        
         let selectedBodyRegions = [];
         let bodyMappingSolved = false;
 
@@ -497,7 +546,7 @@ JSON-STRUKTUR:
             }
         }
 
-        // --- V5.3 EXTRA TASKS LOGIC ---
+        // --- V5.3.1 EXTRA TASKS LOGIC ---
         function renderExtraTasks() {
             const container = document.getElementById('extra-tasks-container');
             container.style.display = 'block';
@@ -511,11 +560,10 @@ JSON-STRUKTUR:
                 document.getElementById('topo-fb').style.display = 'none';
                 selectedBodyRegions = [];
                 bodyMappingSolved = false;
-                // Reset SVG
                 document.querySelectorAll('.body-region').forEach(el => { el.classList.remove('selected', 'correct', 'incorrect'); });
             } else {
                 mapContainer.style.display = 'none';
-                bodyMappingSolved = true; // Auto-pass if not present
+                bodyMappingSolved = true; 
             }
 
             // 2. Categorization
@@ -526,13 +574,22 @@ JSON-STRUKTUR:
             } else { document.getElementById('categorization-task').innerHTML = ''; }
 
             // 3. Synapses Grid
-            if (tasks.synapses_matrix && tasks.synapses_matrix.variables.length > 0) {
+            if (tasks.synapses_matrix && tasks.synapses_matrix.variables && tasks.synapses_matrix.diseases) {
                 const titleStr = (tasks.body_mapping && tasks.categorization) ? "Aufgabe C" : (tasks.body_mapping || tasks.categorization ? "Aufgabe B" : "Aufgabe A");
-                document.getElementById('synapses-desc').innerText = `${titleStr}: Verbinde 4 Kacheln, die zu einer Diagnose gehören (${tasks.synapses_matrix.description}).`;
+                document.getElementById('synapses-desc').innerText = `${titleStr}: Verbinde die passenden Kacheln zu den Krankheitsbildern (${tasks.synapses_matrix.description}).`;
                 document.getElementById('synapses-solved-area').innerHTML = '';
                 document.getElementById('syn-fb').style.display = 'none';
                 document.getElementById('synapses-task').style.display = 'block';
-                selectedSynapses = []; totalSynapseDiseases = tasks.synapses_matrix.diseases.length; solvedSynapseDiseases = 0;
+                
+                selectedSynapses = []; 
+                totalSynapseDiseases = tasks.synapses_matrix.diseases.length; 
+                solvedSynapseDiseases = 0;
+                
+                // Dynamische Berechnung für Abwärtskompatibilität!
+                let calcTiles = tasks.synapses_matrix.variables.length / tasks.synapses_matrix.diseases.length;
+                if (!Number.isInteger(calcTiles) || calcTiles < 2) calcTiles = 4;
+                tilesPerDisease = calcTiles;
+
                 let vars = [...tasks.synapses_matrix.variables];
                 for (let i = vars.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [vars[i], vars[j]] = [vars[j], vars[i]]; }
                 const grid = document.getElementById('synapses-grid');
@@ -558,7 +615,6 @@ JSON-STRUKTUR:
             const task = activeCaseData.extra_tasks.body_mapping;
             const fb = document.getElementById('topo-fb');
             
-            // Check if arrays match regardless of order
             const targets = task.target_regions;
             const isMatch = (selectedBodyRegions.length === targets.length) && selectedBodyRegions.every(r => targets.includes(r));
             
@@ -587,11 +643,12 @@ JSON-STRUKTUR:
         }
 
         function getDotClass(typeStr) {
+            if(!typeStr) return 'dot-default';
             const t = typeStr.toLowerCase();
             if(t.includes('risiko') || t.includes('risk') || t.includes('etiology')) return 'dot-risk';
-            if(t.includes('labor') || t.includes('diagnostik') || t.includes('lab') || t.includes('patho')) return 'dot-lab';
+            if(t.includes('labor') || t.includes('diagnostik') || t.includes('lab') || t.includes('patho') || t.includes('genetik') || t.includes('anatomie')) return 'dot-lab';
             if(t.includes('symptom') || t.includes('klinik')) return 'dot-symptom';
-            if(t.includes('therapie') || t.includes('treatment') || t.includes('management') || t.includes('pharmacology')) return 'dot-treatment';
+            if(t.includes('therapie') || t.includes('treatment') || t.includes('management') || t.includes('pharmacology') || t.includes('verlauf')) return 'dot-treatment';
             return 'dot-default';
         }
 
@@ -599,9 +656,9 @@ JSON-STRUKTUR:
             const tile = document.getElementById(`syn-tile-${index}`);
             if(!tile) return;
             if(tile.classList.contains('selected')) { tile.classList.remove('selected'); selectedSynapses = selectedSynapses.filter(t => t.id !== tile.id); return; }
-            if(selectedSynapses.length >= 4) return;
+            if(selectedSynapses.length >= tilesPerDisease) return;
             tile.classList.add('selected'); selectedSynapses.push(tile);
-            if(selectedSynapses.length === 4) setTimeout(evaluateSynapsesGroup, 300);
+            if(selectedSynapses.length === tilesPerDisease) setTimeout(evaluateSynapsesGroup, 300);
         }
 
         function evaluateSynapsesGroup() {
