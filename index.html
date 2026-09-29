@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediChecker - V5.2 Enterprise</title>
+    <title>MediChecker - V5.3 Topo-Engine</title>
     <style>
         :root {
             --bg-color: #0b0f19; --sidebar-bg: #0f172a; --card-bg: #131c31;
@@ -93,8 +93,17 @@
         .synapse-solved-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .synapse-solved-row { background: var(--success); color: #0b0f19; border-radius: 8px; padding: 12px; text-align: center; font-weight: 800; font-size: 0.95rem; animation: popIn 0.3s ease-out; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .synapse-solved-terms { font-size: 0.75rem; font-weight: 600; margin-top: 4px; opacity: 0.85; text-transform: uppercase; }
-        @keyframes popIn { 0% { opacity: 0; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
-        
+
+        /* V5.3 BODY MAPPING CSS */
+        .body-map-wrapper { display: flex; justify-content: center; gap: 40px; margin-top: 20px; margin-bottom: 20px; }
+        .body-schema { width: 200px; height: 400px; }
+        .body-region { fill: var(--bg-color); stroke: var(--card-border); stroke-width: 2; cursor: pointer; transition: all 0.2s; }
+        .body-region:hover { fill: rgba(56, 189, 248, 0.3); stroke: var(--accent-blue); }
+        .body-region.selected { fill: var(--accent-blue); stroke: #fff; }
+        .body-region.correct { fill: var(--success); stroke: #fff; pointer-events: none; }
+        .body-region.incorrect { fill: var(--error); stroke: #fff; }
+        .schema-label { text-align: center; font-size: 0.85rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 10px; }
+
         .forge-textarea { width: 100%; height: 350px; background: #0f172a; color: var(--text-main); font-family: monospace; font-size: 0.85rem; padding: 15px; border: 1px solid var(--card-border); border-radius: 8px; resize: vertical; box-sizing: border-box; margin-bottom: 15px; outline: none; line-height: 1.5; white-space: pre-wrap; }
         .forge-textarea:focus { border-color: var(--accent-blue); }
     </style>
@@ -112,7 +121,7 @@
 
     <div class="main-wrapper">
         <topbar>
-            <div class="topbar-nav"><span class="active">MediChecker V5.2</span></div>
+            <div class="topbar-nav"><span class="active">MediChecker V5.3 Topo-Engine</span></div>
             <div class="user-hud">
                 <div class="hud-stat">Rang: <strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat">XP: <strong id="stat-xp">0</strong></div>
@@ -143,93 +152,55 @@
                     <div id="forge-fb" class="feedback-box"></div>
                 </div>
 
-                <!-- SETTINGS VIEW (NEW) -->
+                <!-- SETTINGS VIEW -->
                 <div id="settings-view" class="panel" style="display: none;">
                     <div class="panel-title">Einstellungen & System-Architektur</div>
                     <div class="panel-subtitle">Passe das Interface an und verwalte den Master-Prompt für die KI-Engine.</div>
 
-                    <!-- UI Customization -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; margin-top: 20px;">
                         <div class="panel" style="background: var(--bg-color);">
                             <h4 style="margin-top: 0; color: var(--accent-blue);">Theme & Interface</h4>
                             <label style="font-size: 0.85rem; color: var(--text-muted);">Accent Color anpassen</label><br>
                             <input type="color" id="accent-color-picker" value="#38bdf8" onchange="changeAccentColor(this.value)" style="margin-top: 8px; cursor: pointer; width: 60px; height: 35px; border: none; background: transparent;">
-                            <br><br>
-                            <label style="font-size: 0.85rem; color: var(--text-muted);">Layout-Modus</label><br>
-                            <select class="task-select" style="margin-top: 5px; width: 100%;">
-                                <option>Dark Mode (Default)</option>
-                                <option disabled>Light Mode (In Entwicklung)</option>
-                            </select>
                         </div>
-                      <div class="panel" style="background: var(--bg-color);">
-    <h4 style="margin-top: 0; color: var(--accent-blue);">Datenverwaltung</h4>
-    <p style="font-size: 0.85rem; color: var(--text-muted);">Trenne strikt zwischen deinem Lern-Fortschritt und deiner Case-Datenbank.</p>
-    
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-        <button class="action-btn secondary" 
-                onclick="if(confirm('Wirklich deinen XP-Fortschritt, die Competence Matrix und den Status gelöster Fälle zurücksetzen? Deine eigenen Fälle aus der Forge bleiben erhalten!')) { localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" 
-                style="width: 100%; border-color: var(--warning); color: var(--warning);">
-            Lern-Fortschritt & XP zurücksetzen
-        </button>
+                        <div class="panel" style="background: var(--bg-color);">
+                            <h4 style="margin-top: 0; color: var(--accent-blue);">Datenverwaltung</h4>
+                            <p style="font-size: 0.85rem; color: var(--text-muted);">Trenne strikt zwischen deinem Lern-Fortschritt und deiner Case-Datenbank.</p>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <button class="action-btn secondary" onclick="if(confirm('Lern-Fortschritt zurücksetzen? Custom-Fälle bleiben erhalten.')) { localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="width: 100%; border-color: var(--warning); color: var(--warning);">Lern-Fortschritt & XP zurücksetzen</button>
+                                <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE Custom-Fälle aus der Case Forge löschen?')) { localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="width: 100%; border-color: var(--error); color: var(--error);">Alle Custom-Fälle löschen</button>
+                            </div>
+                        </div>
+                    </div>
 
-        <button class="action-btn secondary" 
-                onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle aus der Case Forge unwiderruflich löschen? Dein XP-Fortschritt bleibt unberührt!')) { localStorage.setItem('custom_cases', '[]'); location.reload(); }" 
-                style="width: 100%; border-color: var(--error); color: var(--error);">
-            Alle Custom-Fälle löschen
-        </button>
-    </div>
-</div>
-                    <!-- AI Master Prompt -->
                     <div class="panel" style="background: var(--bg-color);">
-                        <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt (V5.2 High-Stakes)</h4>
-                        <p style="font-size: 0.85rem; color: var(--text-muted);">Kopiere diesen Prompt und füge ihn in ChatGPT, Claude oder Gemini ein. Lade dann deine PDF-Vorlesungen hoch, um perfekte, kompatible JSON-Fälle für die Case Forge zu generieren.</p>
-                        
-                        <textarea id="ai-prompt-text" class="forge-textarea" readonly>Du bist ein Elite-Software-Architekt, Full-Stack-Entwickler und EdTech-Experte, spezialisiert auf hochskalierbare, gamifizierte Lern-Apps im medizinischen Sektor. Dein Partner und Auftraggeber ist ein Medizinstudent im 5. Studienjahr, der eine revolutionäre Mediziner-App entwickeln möchte. 
+                        <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt (V5.3 Topo-Engine)</h4>
+                        <textarea id="ai-prompt-text" class="forge-textarea" readonly>Du bist ein Elite-Facharzt und didaktischer Content-Architekt für einen sokratischen M&M-Simulator.
 
-Deine Kernaufgabe ist es, ihn Schritt für Schritt von diesem interaktiven Chat-Prototyp bis hin zum finalen, professionellen Release zu begleiten. Du lieferst präzise Architektur-Konzepte, Datenstrukturen, Gamification-Mechaniken und die exakten System-Prompts, die die App später im Hintergrund steuern muss.
+DEINE AUFGABE: Transformiere medizinische Rohtexte in EINEN hochkomplexen Fall im JSON-Format INKL. "extra_tasks".
 
-Du bist zudem ein Elite-Facharzt und didaktischer Content-Architekt für einen sokratischen M&M-Simulator (Morbidity & Mortality) auf universitärem Master-Niveau. 
+DESIGN-REGELN:
+1. Signal vs. Noise: Verstecke klinisches Rauschen [Noise] und [Fehler] in Klammern. `skill_tag` ist zwingend.
+2. Null-Fehler-Falle: Mindestens EIN Schritt MUSS fehlerfrei sein (nur `is_error: false` Hotspots, die verdächtig klingen, aber korrekt sind).
+3. Sokratische Falle: Wahre Fehler (`is_error: true`) erfordern eine sokratische Gegenfrage statt direkter Antworten.
 
-DEINE AUFGABE:
-Ich werde dir Rohtexte aus medizinischen Vorlesungen, Leitlinien oder Papern zur Verfügung stellen. Du extrahierst das pathophysiologische Kernwissen und transformierst es in EINEN hochkomplexen, klinischen Fall im exakten JSON-Format INKLUSIVE "extra_tasks" (Categorization & Synapses Matrix).
-
-DESIGN-REGELN FÜR DEN FALL (Bloom-Stufe 5-6):
-1. **Signal vs. Noise (Triage):** Verstecke in den Texten klinisches Rauschen (Noise) und fatale Fehler (Signal) in eckigen Klammern: `[...]`. Jeder Hotspot bekommt zwingend einen `skill_tag` ("Triage", "Diagnostics", "Pharmacology", "Pathophysiology").
-2. **Die Null-Fehler-Falle (Zwingend!):** Mindestens EIN Timeline-Schritt MUSS klinisch absolut makellos sein! Verstecke in diesem Schritt 2-3 Hotspots, die für Studenten extrem verdächtig, off-label oder kontraintuitiv klingen, aber pathophysiologisch und leitliniengerecht VÖLLIG KORREKT sind (`is_error: false`). Wenn der Student hier aus blindem Aktionismus klickt, wird er wegen eines Fehlalarms bestraft.
-3. **Pathophysiologische Tiefe:** Begründe richtige und falsche Entscheidungen niemals nur mit Leitlinien, sondern immer mit der zugrundeliegenden zellulären, pharmakologischen oder anatomischen Mechanik.
-4. **Die Sokratische Falle:** Wenn ein Hotspot ein echter Fehler ist (`is_error: true`), MUSS die `socratic_trap` den Lernenden hart hinterfragen. Keine direkten Antworten! Zwinge ihn, die Pathophysiologie neu zu überdenken.
-
-JSON-OUTPUT-STRUKTUR:
+JSON-STRUKTUR:
 {
-  "case_id": "[Eindeutige ID, z.B. KARDIO_002_ADV]",
+  "case_id": "ID_001",
   "metadata": { "title": "...", "medical_field": "...", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500 },
-  "timeline": [
-    {
-      "step_id": 1,
-      "phase": "...",
-      "content": "Text mit [Noise 1] und [Fatalem Fehler].",
-      "hotspots": [
-        { "phrase": "Noise 1", "is_error": false, "skill_tag": "Diagnostics", "feedback": "Korrekt auditiert: Diese Maßnahme wirkt ungewöhnlich, ist aber aufgrund von [Pathophysiologischer Grund] absolut korrekt." },
-        { "phrase": "Fatalem Fehler", "is_error": true, "skill_tag": "Pharmacology", "socratic_trap": "Gegenfrage...", "correct_pathophysiology": "Die echte Erklärung..." }
-      ]
-    }
-  ],
+  "timeline": [ { "step_id": 1, "phase": "...", "content": "Text mit [Noise] und [Fehler].", "hotspots": [ { "phrase": "Fehler", "is_error": true, "skill_tag": "Triage", "socratic_trap": "...", "correct_pathophysiology": "..." } ] } ],
   "extra_tasks": {
-    "categorization": {
-      "description": "Ordne die Entitäten den korrekten pathophysiologischen Hauptkategorien zu.",
-      "categories": ["Kat A", "Kat B", "Kat C"],
-      "items": [ { "term": "...", "category": "Kat A" } ]
-    },
-    "synapses_matrix": {
-      "description": "Verbinde die korrekten 4 Kacheln der jeweiligen Krankheitsentität (Risiko/Trigger, Klinik/Symptom, Diagnostik/Patho, Therapie/Management).",
-      "diseases": ["Krankheit A", "Krankheit B", "Krankheit C", "Krankheit D"],
-      "variables": [
-        { "term": "...", "type": "Risiko/Pathologie", "disease": "Krankheit A" }
-      ]
+    "categorization": { "description": "...", "categories": ["A", "B"], "items": [ { "term": "...", "category": "A" } ] },
+    "synapses_matrix": { "description": "...", "diseases": ["X", "Y"], "variables": [ { "term": "...", "type": "Klinik", "disease": "X" } ] },
+    "body_mapping": {
+      "description": "Markiere den primären Manifestationsort.",
+      "disease": "Erkrankungsname",
+      "target_regions": ["anterior_shoulder", "posterior_back_lower"],
+      "feedback_success": "...", "feedback_error": "..."
     }
   }
 }</textarea>
-                        <button class="action-btn" onclick="copyMasterPrompt()" style="margin-top: 10px;">Prompt in Zwischenablage kopieren</button>
+                        <button class="action-btn" onclick="copyMasterPrompt()" style="margin-top: 10px;">Prompt kopieren</button>
                     </div>
                 </div>
 
@@ -240,6 +211,46 @@ JSON-OUTPUT-STRUKTUR:
                     
                     <div id="extra-tasks-container" class="extra-task-container">
                         <div class="panel-title" style="color: var(--accent-blue); margin-bottom: 20px;">Master-Challenges</div>
+                        
+                        <!-- BODY MAPPING TASK (V5.3) -->
+                        <div id="body-mapping-task" style="margin-bottom: 30px; display: none;">
+                            <div class="panel-subtitle" style="color:var(--text-main)" id="body-mapping-desc"></div>
+                            <div class="body-map-wrapper">
+                                <div>
+                                    <!-- Anterior Map -->
+                                    <svg class="body-schema" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+                                        <circle id="anterior_head" class="body-region" cx="50" cy="20" r="12" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_face" class="body-region" x="43" y="15" width="14" height="10" rx="3" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_neck" class="body-region" x="45" y="32" width="10" height="8" onclick="toggleBodyRegion(this.id)" />
+                                        <path id="anterior_shoulder" class="body-region" d="M30 40 L70 40 L75 55 L25 55 Z" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_chest" class="body-region" x="35" y="55" width="30" height="25" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_abdomen" class="body-region" x="37" y="80" width="26" height="30" onclick="toggleBodyRegion(this.id)" />
+                                        <path id="anterior_pelvis" class="body-region" d="M37 110 L63 110 L50 125 Z" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_arm_left" class="body-region" x="70" y="55" width="10" height="40" rx="4" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_arm_right" class="body-region" x="20" y="55" width="10" height="40" rx="4" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_leg_left" class="body-region" x="52" y="115" width="12" height="65" rx="5" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="anterior_leg_right" class="body-region" x="36" y="115" width="12" height="65" rx="5" onclick="toggleBodyRegion(this.id)" />
+                                    </svg>
+                                    <div class="schema-label">Anterior</div>
+                                </div>
+                                <div>
+                                    <!-- Posterior Map -->
+                                    <svg class="body-schema" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+                                        <circle id="posterior_head" class="body-region" cx="50" cy="20" r="12" onclick="toggleBodyRegion(this.id)" />
+                                        <path id="posterior_back_upper" class="body-region" d="M30 40 L70 40 L65 75 L35 75 Z" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="posterior_back_lower" class="body-region" x="35" y="75" width="30" height="35" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="posterior_arm_left" class="body-region" x="20" y="45" width="10" height="40" rx="4" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="posterior_arm_right" class="body-region" x="70" y="45" width="10" height="40" rx="4" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="posterior_leg_left" class="body-region" x="36" y="110" width="12" height="65" rx="5" onclick="toggleBodyRegion(this.id)" />
+                                        <rect id="posterior_leg_right" class="body-region" x="52" y="110" width="12" height="65" rx="5" onclick="toggleBodyRegion(this.id)" />
+                                    </svg>
+                                    <div class="schema-label">Posterior</div>
+                                </div>
+                            </div>
+                            <button class="action-btn" onclick="evalBodyMapping()">Lokalisation prüfen</button>
+                            <div id="topo-fb" class="feedback-box"></div>
+                        </div>
+
                         <div id="categorization-task" style="margin-bottom: 30px;"></div>
                         
                         <div id="synapses-task" style="margin-bottom: 20px;">
@@ -268,52 +279,33 @@ JSON-OUTPUT-STRUKTUR:
         let activeCaseData = null;
         let activeFilter = 'Alle';
         
-        // V5.2 State Management
+        // State Management
         let clearedStepsCount = 0;
         let totalStepsCount = 0;
         let selectedSynapses = [];
         let totalSynapseDiseases = 0;
         let solvedSynapseDiseases = 0;
+        let selectedBodyRegions = [];
+        let bodyMappingSolved = false;
 
         const defaultSkills = { "Triage": { hits:0, total:0 }, "Diagnostics": { hits:0, total:0 }, "Pharmacology": { hits:0, total:0 }, "Pathophysiology": { hits:0, total:0 } };
 
         document.addEventListener('DOMContentLoaded', () => { 
-            initUserData(); 
-            loadManifest(); 
-            renderSkillsSidebar(); 
-            
-            // Lade gespeicherte Akzentfarbe
+            initUserData(); loadManifest(); renderSkillsSidebar(); 
             const savedColor = localStorage.getItem('theme_accent');
-            if(savedColor) {
-                document.getElementById('accent-color-picker').value = savedColor;
-                changeAccentColor(savedColor);
-            }
+            if(savedColor) { document.getElementById('accent-color-picker').value = savedColor; changeAccentColor(savedColor); }
         });
 
-        // UI Settings Functions
-        function changeAccentColor(color) {
-            document.documentElement.style.setProperty('--accent-blue', color);
-            localStorage.setItem('theme_accent', color);
-        }
-
-        function copyMasterPrompt() {
-            const promptText = document.getElementById('ai-prompt-text').value;
-            navigator.clipboard.writeText(promptText).then(() => {
-                alert('Master-Prompt erfolgreich in die Zwischenablage kopiert!');
-            }).catch(err => {
-                console.error('Fehler beim Kopieren: ', err);
-            });
-        }
+        function changeAccentColor(color) { document.documentElement.style.setProperty('--accent-blue', color); localStorage.setItem('theme_accent', color); }
+        function copyMasterPrompt() { navigator.clipboard.writeText(document.getElementById('ai-prompt-text').value).then(() => alert('Master-Prompt kopiert!')); }
 
         function switchTab(tab, el) { 
             document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active')); 
             if(el) el.classList.add('active'); 
-            
             document.getElementById('dashboard-view').style.display = tab === 'dashboard' ? 'block' : 'none';
             document.getElementById('forge-view').style.display = tab === 'forge' ? 'block' : 'none';
             document.getElementById('settings-view').style.display = tab === 'settings' ? 'block' : 'none';
             document.getElementById('player-view').style.display = 'none';
-
             if(tab === 'dashboard') loadManifest();
         }
 
@@ -336,7 +328,6 @@ JSON-OUTPUT-STRUKTUR:
             let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
             localStorage.setItem('user_xp', currentXp);
             updateStatsUI();
-            
             const container = document.getElementById('hud-popup-container');
             if (!container) return;
             const popup = document.createElement('div');
@@ -370,54 +361,32 @@ JSON-OUTPUT-STRUKTUR:
             try {
                 const res = await fetch('./manifest.json?nocache=' + new Date().getTime());
                 if (!res.ok) throw new Error('Manifest fetch failed');
-                const data = await res.json();
-                currentCases = data.cases;
+                currentCases = (await res.json()).cases;
             } catch (err) { 
                 currentCases = [
-                    { "id": "NEURO_DEMENZ_001", "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter", "medical_field": "Neurologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/neuro_demenz_001.json" },
-                    { "id": "HAEMATO_LYMPH_001", "title": "Kiefer-Tumor: Der genetische Motor im Keimzentrum", "medical_field": "Hämatopathologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/haemato_lymph_001.json" }
+                    { "id": "NEURO_DEMENZ_001", "title": "Kognitiver Abbau & Pharmakologische Stolperfallen im Alter", "medical_field": "Neurologie", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 500, "file_path": "cases/neuro_demenz_001.json" }
                 ];
             }
-
             const customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
             customCases.forEach(cc => {
                 currentCases = currentCases.filter(manifestCase => manifestCase.id !== cc.case_id);
-                currentCases.push({
-                    "id": cc.case_id,
-                    "title": "🔨 " + (cc.metadata?.title || "Lokaler Fall"),
-                    "medical_field": cc.metadata?.medical_field || "Custom",
-                    "bloom_level": cc.metadata?.bloom_level || "Evaluation",
-                    "difficulty": cc.metadata?.difficulty || 5,
-                    "xp_reward": cc.metadata?.xp_reward || 300,
-                    "is_custom": true
-                });
+                currentCases.push({ "id": cc.case_id, "title": "🔨 " + (cc.metadata?.title || "Lokaler Fall"), "medical_field": cc.metadata?.medical_field || "Custom", "bloom_level": cc.metadata?.bloom_level || "Evaluation", "difficulty": cc.metadata?.difficulty || 5, "xp_reward": cc.metadata?.xp_reward || 300, "is_custom": true });
             });
-
-            renderTabs(); 
-            filterAndRenderCases('Alle');
+            renderTabs(); filterAndRenderCases('Alle');
         }
 
-        // --- V5.0 CASE FORGE LOGIK ---
         function validateAndSaveCustomCase() {
             const inputVal = document.getElementById('forge-input').value;
             const fb = document.getElementById('forge-fb');
             try {
                 const parsedCase = JSON.parse(inputVal);
                 if (!parsedCase.case_id || !parsedCase.timeline) throw new Error("Fehlende Pflichtfelder!");
-                
                 let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
                 customCases = customCases.filter(c => c.case_id !== parsedCase.case_id);
                 customCases.push(parsedCase);
                 localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-                fb.style.display = 'block';
-                fb.className = 'feedback-box feedback-success';
-                fb.innerHTML = `<strong>Syntax Korrekt!</strong> Fall validiert und lokal gespeichert.`;
-            } catch (err) {
-                fb.style.display = 'block';
-                fb.className = 'feedback-box feedback-error';
-                fb.innerHTML = `<strong>Fehler:</strong> ${err.message}`;
-            }
+                fb.style.display = 'block'; fb.className = 'feedback-box feedback-success'; fb.innerHTML = `<strong>Syntax Korrekt!</strong> Fall validiert und lokal gespeichert.`;
+            } catch (err) { fb.style.display = 'block'; fb.className = 'feedback-box feedback-error'; fb.innerHTML = `<strong>Fehler:</strong> ${err.message}`; }
         }
 
         function clearForge() { document.getElementById('forge-input').value = ''; document.getElementById('forge-fb').style.display = 'none'; }
@@ -432,36 +401,19 @@ JSON-OUTPUT-STRUKTUR:
             const grid = document.getElementById('case-grid');
             const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
             const filtered = field === 'Alle' ? currentCases : currentCases.filter(c => (c.medical_field || 'Allgemein') === field);
-            grid.innerHTML = filtered.map(c => `
-                <div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')">
-                    <div>
-                        <span class="tag">${c.medical_field || 'Allgemein'}</span>
-                        <h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${c.title || 'Simulation'}</h3>
-                    </div>
-                    <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;">
-                        <span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span>
-                        <span>+${c.xp_reward || 200} XP</span>
-                    </div>
-                </div>
-            `).join('');
+            grid.innerHTML = filtered.map(c => `<div class="case-card" onclick="openCase('${c.file_path}', '${c.id}')"><div><span class="tag">${c.medical_field || 'Allgemein'}</span><h3 style="font-size:0.95rem; margin:10px 0 5px 0;">${c.title || 'Simulation'}</h3></div><div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:10px;"><span>${solved.includes(c.id) ? '✓ Gelöst' : 'Offen'}</span><span>+${c.xp_reward || 200} XP</span></div></div>`).join('');
         }
 
         async function openCase(filePath, caseId) {
             try {
                 const customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
                 const foundCustom = customCases.find(c => c.case_id === caseId);
-
-                if (foundCustom) {
-                    activeCaseData = foundCustom;
-                } else {
+                if (foundCustom) { activeCaseData = foundCustom; } else {
                     const res = await fetch('./' + filePath + '?nocache=' + new Date().getTime());
                     if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
                     activeCaseData = await res.json();
                 }
-
-                clearedStepsCount = 0;
-                totalStepsCount = activeCaseData.timeline.length;
-                
+                clearedStepsCount = 0; totalStepsCount = activeCaseData.timeline.length;
                 document.getElementById('dashboard-view').style.display = 'none';
                 document.getElementById('forge-view').style.display = 'none';
                 document.getElementById('settings-view').style.display = 'none';
@@ -474,30 +426,20 @@ JSON-OUTPUT-STRUKTUR:
 
         function parseStealthText(text, hotspots, stepIndex) {
             let parsedText = text;
-            if (hotspots) {
-                hotspots.forEach((hs, i) => { parsedText = parsedText.replace(new RegExp(`\\[${hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g'), `__HS_${i}__`); });
-            }
+            if (hotspots) { hotspots.forEach((hs, i) => { parsedText = parsedText.replace(new RegExp(`\\[${hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g'), `__HS_${i}__`); }); }
             parsedText = parsedText.split(/\s+/).map(w => w.startsWith('__HS_') ? w : `<span class="stealth-word" onclick="handleGenericClick(this)">${w}</span>`).join('');
-            if (hotspots) {
-                hotspots.forEach((hs, i) => { parsedText = parsedText.replace(`__HS_${i}__`, `<span class="stealth-hotspot" id="hs-${stepIndex}-${i}" onclick="evaluateHotspot(${stepIndex}, ${i})">${hs.phrase}</span>`); });
-            }
+            if (hotspots) { hotspots.forEach((hs, i) => { parsedText = parsedText.replace(`__HS_${i}__`, `<span class="stealth-hotspot" id="hs-${stepIndex}-${i}" onclick="evaluateHotspot(${stepIndex}, ${i})">${hs.phrase}</span>`); }); }
             return parsedText;
         }
 
         function renderTimeline() {
             const container = document.getElementById('player-container');
-            container.innerHTML = `<div style="margin-bottom: 20px;"><div class="panel-title">${activeCaseData.metadata.title}</div><div class="panel-subtitle">Sokratisches Chart-Audit: Analysiere den Text und klicke auf pathologische Fehler. Klicke "Abschnitt freigeben", wenn der Text klinisch einwandfrei ist.</div></div><div id="steps-wrapper"></div>`;
+            container.innerHTML = `<div style="margin-bottom: 20px;"><div class="panel-title">${activeCaseData.metadata.title}</div><div class="panel-subtitle">Sokratisches Chart-Audit: Analysiere den Text. Klicke "Abschnitt freigeben", wenn der Text klinisch einwandfrei ist.</div></div><div id="steps-wrapper"></div>`;
             const wrapper = document.getElementById('steps-wrapper');
-            
             activeCaseData.timeline.forEach((step, index) => {
                 const div = document.createElement('div');
                 div.style.marginBottom = "20px";
-                div.innerHTML = `
-                    <div style="font-size:0.8rem; font-weight:700; color:var(--accent-blue); text-transform:uppercase; margin-bottom:8px;">Phase ${index + 1}: ${step.phase}</div>
-                    <div class="step-content">${step.hotspots ? parseStealthText(step.content, step.hotspots, index) : step.content}</div>
-                    <div class="feedback-box" id="feedback-${index}"></div>
-                    <button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="margin-top: 15px; width: 100%;">Abschnitt freigeben (Kein Fehler)</button>
-                `;
+                div.innerHTML = `<div style="font-size:0.8rem; font-weight:700; color:var(--accent-blue); text-transform:uppercase; margin-bottom:8px;">Phase ${index + 1}: ${step.phase}</div><div class="step-content">${step.hotspots ? parseStealthText(step.content, step.hotspots, index) : step.content}</div><div class="feedback-box" id="feedback-${index}"></div><button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="margin-top: 15px; width: 100%;">Abschnitt freigeben (Kein Fehler)</button>`;
                 wrapper.appendChild(div);
             });
         }
@@ -518,15 +460,11 @@ JSON-OUTPUT-STRUKTUR:
             fb.style.display = 'block';
 
             if (hs.is_error) {
-                span.classList.add('resolved-signal');
-                trackSkill(tag, true); 
-                applyXpDelta(+100, 'Fehler identifiziert');
+                span.classList.add('resolved-signal'); trackSkill(tag, true); applyXpDelta(+100, 'Fehler identifiziert');
                 fb.className = 'feedback-box feedback-error';
                 fb.innerHTML = `<strong>Kritischer Fehler!</strong><br><br><strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br><button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Synthese aufdecken</button>`;
             } else {
-                span.classList.add('resolved-noise');
-                trackSkill(tag, false); 
-                applyXpDelta(-50, `Fehlalarm: ${tag}`);
+                span.classList.add('resolved-noise'); trackSkill(tag, false); applyXpDelta(-50, `Fehlalarm: ${tag}`);
                 fb.className = 'feedback-box feedback-neutral';
                 fb.innerHTML = `<strong>Fehlalarm (-50 XP):</strong> ${hs.feedback}`;
             }
@@ -537,102 +475,114 @@ JSON-OUTPUT-STRUKTUR:
             const fb = document.getElementById(`feedback-${stepIndex}`);
             fb.className = 'feedback-box feedback-success';
             fb.innerHTML = `<strong>Synthese:</strong> ${hs.correct_pathophysiology} <br><br><em>Suche weiter nach Fehlern oder gib den Abschnitt frei, wenn alle Fehler gefunden wurden.</em>`;
-            // Note: Completion is ONLY triggered by the "Abschnitt freigeben" button now.
         }
 
-        // --- V5.2 NULL-FEHLER LOGIK (CLEAR STEP) ---
         window.clearStep = function(stepIndex) {
             const step = activeCaseData.timeline[stepIndex];
-            
-            // Check if there are any UNRESOLVED true errors in this step
             let hasUnresolvedErrors = false;
             if (step.hotspots) {
-                hasUnresolvedErrors = step.hotspots.some((hs, i) => {
-                    const span = document.getElementById(`hs-${stepIndex}-${i}`);
-                    return hs.is_error && !span.classList.contains('resolved-signal');
-                });
+                hasUnresolvedErrors = step.hotspots.some((hs, i) => { const span = document.getElementById(`hs-${stepIndex}-${i}`); return hs.is_error && !span.classList.contains('resolved-signal'); });
             }
-
             const fb = document.getElementById(`feedback-${stepIndex}`);
             fb.style.display = 'block';
-
             if (hasUnresolvedErrors) {
-                // PENALTY: User tried to clear a step that still has fatal errors!
                 applyXpDelta(-100, 'Fahrlässige Freigabe');
-                fb.className = 'feedback-box feedback-error';
-                fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Du hast den Patienten gefährdet! Es befinden sich noch unentdeckte, kritische Fehler im Text. Suche weiter!`;
+                fb.className = 'feedback-box feedback-error'; fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Du hast den Patienten gefährdet! Es befinden sich noch unentdeckte, kritische Fehler im Text.`;
             } else {
-                // SUCCESS: User correctly identified that the text is clean (either Native Null-Fehler or found all errors)
                 applyXpDelta(+100, 'Souveränes Auditing');
-                fb.className = 'feedback-box feedback-success';
-                fb.innerHTML = `<strong>Souverän (+100 XP):</strong> Klinische Weitsicht bewiesen. Dieser Abschnitt ist nun als leitliniengerecht und fehlerfrei markiert.`;
-                
-                // Hide button and mark as cleared
+                fb.className = 'feedback-box feedback-success'; fb.innerHTML = `<strong>Souverän (+100 XP):</strong> Klinische Weitsicht bewiesen. Dieser Abschnitt ist nun als fehlerfrei markiert.`;
                 document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
                 clearedStepsCount++;
-                
-                if(clearedStepsCount === totalStepsCount) {
-                    // All text steps are cleared -> proceed to extra tasks
-                    if (activeCaseData.extra_tasks) {
-                        renderExtraTasks();
-                    } else {
-                        document.getElementById('finish-case-btn').style.display = 'block';
-                    }
-                }
+                if(clearedStepsCount === totalStepsCount) { if (activeCaseData.extra_tasks) { renderExtraTasks(); } else { document.getElementById('finish-case-btn').style.display = 'block'; } }
             }
         }
 
-        // --- V5.1 EXTRA TASKS & SYNAPSES GRID LOGIC ---
+        // --- V5.3 EXTRA TASKS LOGIC ---
         function renderExtraTasks() {
             const container = document.getElementById('extra-tasks-container');
             container.style.display = 'block';
             const tasks = activeCaseData.extra_tasks;
 
-            // Categorization
-            if (tasks.categorization) {
-                const catHtml = tasks.categorization.items.map((item, i) => `
-                    <div class="task-row">
-                        <span class="task-term">${item.term}</span>
-                        <select class="task-select cat-select" data-correct="${item.category}" data-index="${i}">
-                            <option value="">-- Wähle Kategorie --</option>
-                            ${tasks.categorization.categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-                        </select>
-                    </div>
-                `).join('');
-                document.getElementById('categorization-task').innerHTML = `<div class="panel-subtitle" style="color:var(--text-main)">Aufgabe A: ${tasks.categorization.description}</div>${catHtml}<button class="action-btn" onclick="evalCategorization()">Taxonomie prüfen</button><div id="cat-fb" class="feedback-box"></div>`;
+            // 1. Body Mapping Task
+            const mapContainer = document.getElementById('body-mapping-task');
+            if (tasks.body_mapping) {
+                mapContainer.style.display = 'block';
+                document.getElementById('body-mapping-desc').innerText = `Aufgabe A: ${tasks.body_mapping.description} (Krankheit: ${tasks.body_mapping.disease})`;
+                document.getElementById('topo-fb').style.display = 'none';
+                selectedBodyRegions = [];
+                bodyMappingSolved = false;
+                // Reset SVG
+                document.querySelectorAll('.body-region').forEach(el => { el.classList.remove('selected', 'correct', 'incorrect'); });
             } else {
-                document.getElementById('categorization-task').innerHTML = '';
+                mapContainer.style.display = 'none';
+                bodyMappingSolved = true; // Auto-pass if not present
             }
 
-            // Synapses Grid
+            // 2. Categorization
+            if (tasks.categorization) {
+                const titleStr = tasks.body_mapping ? "Aufgabe B" : "Aufgabe A";
+                const catHtml = tasks.categorization.items.map((item, i) => `<div class="task-row"><span class="task-term">${item.term}</span><select class="task-select cat-select" data-correct="${item.category}" data-index="${i}"><option value="">-- Wähle Kategorie --</option>${tasks.categorization.categories.map(c => `<option value="${c}">${c}</option>`).join('')}</select></div>`).join('');
+                document.getElementById('categorization-task').innerHTML = `<div class="panel-subtitle" style="color:var(--text-main)">${titleStr}: ${tasks.categorization.description}</div>${catHtml}<button class="action-btn" onclick="evalCategorization()">Taxonomie prüfen</button><div id="cat-fb" class="feedback-box"></div>`;
+            } else { document.getElementById('categorization-task').innerHTML = ''; }
+
+            // 3. Synapses Grid
             if (tasks.synapses_matrix && tasks.synapses_matrix.variables.length > 0) {
-                document.getElementById('synapses-desc').innerText = `Aufgabe B: Verbinde 4 Kacheln, die zu einer Diagnose gehören (${tasks.synapses_matrix.description}).`;
+                const titleStr = (tasks.body_mapping && tasks.categorization) ? "Aufgabe C" : (tasks.body_mapping || tasks.categorization ? "Aufgabe B" : "Aufgabe A");
+                document.getElementById('synapses-desc').innerText = `${titleStr}: Verbinde 4 Kacheln, die zu einer Diagnose gehören (${tasks.synapses_matrix.description}).`;
                 document.getElementById('synapses-solved-area').innerHTML = '';
                 document.getElementById('syn-fb').style.display = 'none';
-                
-                selectedSynapses = [];
-                totalSynapseDiseases = tasks.synapses_matrix.diseases.length;
-                solvedSynapseDiseases = 0;
-                
-                // Shuffle Array
+                document.getElementById('synapses-task').style.display = 'block';
+                selectedSynapses = []; totalSynapseDiseases = tasks.synapses_matrix.diseases.length; solvedSynapseDiseases = 0;
                 let vars = [...tasks.synapses_matrix.variables];
-                for (let i = vars.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [vars[i], vars[j]] = [vars[j], vars[i]];
-                }
-                
+                for (let i = vars.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [vars[i], vars[j]] = [vars[j], vars[i]]; }
                 const grid = document.getElementById('synapses-grid');
-                grid.innerHTML = vars.map((v, i) => {
-                    const dotClass = getDotClass(v.type);
-                    return `
-                        <div class="synapse-tile" id="syn-tile-${i}" data-disease="${v.disease}" data-term="${v.term}" onclick="toggleSynapseTile(${i})">
-                            <div class="type-dot ${dotClass}" title="${v.type}"></div>
-                            ${v.term}
-                        </div>
-                    `;
-                }).join('');
+                grid.innerHTML = vars.map((v, i) => `<div class="synapse-tile" id="syn-tile-${i}" data-disease="${v.disease}" data-term="${v.term}" onclick="toggleSynapseTile(${i})"><div class="type-dot ${getDotClass(v.type)}" title="${v.type}"></div>${v.term}</div>`).join('');
+            } else { document.getElementById('synapses-task').style.display = 'none'; }
+        }
+
+        // --- V5.3 BODY MAPPING FUNCTIONS ---
+        window.toggleBodyRegion = function(regionId) {
+            if(bodyMappingSolved) return;
+            const el = document.getElementById(regionId);
+            if(el.classList.contains('selected')) {
+                el.classList.remove('selected');
+                selectedBodyRegions = selectedBodyRegions.filter(id => id !== regionId);
             } else {
-                document.getElementById('synapses-task').style.display = 'none';
+                el.classList.add('selected');
+                selectedBodyRegions.push(regionId);
+            }
+        }
+
+        window.evalBodyMapping = function() {
+            if(bodyMappingSolved) return;
+            const task = activeCaseData.extra_tasks.body_mapping;
+            const fb = document.getElementById('topo-fb');
+            
+            // Check if arrays match regardless of order
+            const targets = task.target_regions;
+            const isMatch = (selectedBodyRegions.length === targets.length) && selectedBodyRegions.every(r => targets.includes(r));
+            
+            fb.style.display = 'block';
+            if(isMatch) {
+                applyXpDelta(50, 'Lokalisation korrekt');
+                trackSkill('Diagnostics', true);
+                fb.className = 'feedback-box feedback-success';
+                fb.innerHTML = `<strong>Perfekt!</strong> ${task.feedback_success}`;
+                selectedBodyRegions.forEach(id => { document.getElementById(id).classList.add('correct'); });
+                bodyMappingSolved = true;
+                checkFinalCompletion();
+            } else {
+                applyXpDelta(-25, 'Fehllokalisation');
+                trackSkill('Diagnostics', false);
+                fb.className = 'feedback-box feedback-error';
+                fb.innerHTML = `<strong>Inkorrekt.</strong> ${task.feedback_error}`;
+                selectedBodyRegions.forEach(id => { 
+                    const el = document.getElementById(id);
+                    el.classList.remove('selected');
+                    el.classList.add('incorrect');
+                    setTimeout(() => el.classList.remove('incorrect'), 800);
+                });
+                selectedBodyRegions = [];
             }
         }
 
@@ -648,63 +598,25 @@ JSON-OUTPUT-STRUKTUR:
         window.toggleSynapseTile = function(index) {
             const tile = document.getElementById(`syn-tile-${index}`);
             if(!tile) return;
-            
-            if(tile.classList.contains('selected')) {
-                tile.classList.remove('selected');
-                selectedSynapses = selectedSynapses.filter(t => t.id !== tile.id);
-                return;
-            }
-            
+            if(tile.classList.contains('selected')) { tile.classList.remove('selected'); selectedSynapses = selectedSynapses.filter(t => t.id !== tile.id); return; }
             if(selectedSynapses.length >= 4) return;
-            
-            tile.classList.add('selected');
-            selectedSynapses.push(tile);
-            
-            if(selectedSynapses.length === 4) {
-                setTimeout(evaluateSynapsesGroup, 300);
-            }
+            tile.classList.add('selected'); selectedSynapses.push(tile);
+            if(selectedSynapses.length === 4) setTimeout(evaluateSynapsesGroup, 300);
         }
 
         function evaluateSynapsesGroup() {
             const fb = document.getElementById('syn-fb');
             const targetDisease = selectedSynapses[0].dataset.disease;
             const isMatch = selectedSynapses.every(tile => tile.dataset.disease === targetDisease);
-            
             if(isMatch) {
-                applyXpDelta(100, 'Matrix Match');
-                trackSkill('Diagnostics', true);
-                
+                applyXpDelta(100, 'Matrix Match'); trackSkill('Diagnostics', true);
                 const terms = selectedSynapses.map(t => t.dataset.term).join(', ');
-                const solvedArea = document.getElementById('synapses-solved-area');
-                
-                solvedArea.innerHTML += `
-                    <div class="synapse-solved-row">
-                        ${targetDisease}
-                        <div class="synapse-solved-terms">${terms}</div>
-                    </div>
-                `;
-                
-                selectedSynapses.forEach(tile => tile.remove());
-                selectedSynapses = [];
-                solvedSynapseDiseases++;
-                
-                if(solvedSynapseDiseases === totalSynapseDiseases) {
-                    fb.style.display = 'block';
-                    fb.className = 'feedback-box feedback-success';
-                    fb.innerHTML = 'Synapses-Matrix vollständig und fehlerfrei gelöst!';
-                    checkFinalCompletion();
-                }
+                document.getElementById('synapses-solved-area').innerHTML += `<div class="synapse-solved-row">${targetDisease}<div class="synapse-solved-terms">${terms}</div></div>`;
+                selectedSynapses.forEach(tile => tile.remove()); selectedSynapses = []; solvedSynapseDiseases++;
+                if(solvedSynapseDiseases === totalSynapseDiseases) { fb.style.display = 'block'; fb.className = 'feedback-box feedback-success'; fb.innerHTML = 'Synapses-Matrix vollständig gelöst!'; checkFinalCompletion(); }
             } else {
-                applyXpDelta(-25, 'Matrix Fehlschlag');
-                trackSkill('Diagnostics', false);
-                
-                selectedSynapses.forEach(tile => {
-                    tile.classList.add('shake');
-                    setTimeout(() => {
-                        tile.classList.remove('shake');
-                        tile.classList.remove('selected');
-                    }, 400);
-                });
+                applyXpDelta(-25, 'Matrix Fehlschlag'); trackSkill('Diagnostics', false);
+                selectedSynapses.forEach(tile => { tile.classList.add('shake'); setTimeout(() => { tile.classList.remove('shake'); tile.classList.remove('selected'); }, 400); });
                 selectedSynapses = [];
             }
         }
@@ -713,13 +625,8 @@ JSON-OUTPUT-STRUKTUR:
             let allCorrect = true;
             document.querySelectorAll('.cat-select').forEach(sel => {
                 if (sel.classList.contains('correct')) return;
-                if (sel.value === sel.getAttribute('data-correct')) {
-                    sel.classList.remove('incorrect'); sel.classList.add('correct');
-                    applyXpDelta(25, 'Taxonomie Treffer'); trackSkill('Pathophysiology', true);
-                } else {
-                    allCorrect = false;
-                    if(sel.value !== "") { sel.classList.add('incorrect'); applyXpDelta(-25, 'Taxonomie Fehler'); trackSkill('Pathophysiology', false); }
-                }
+                if (sel.value === sel.getAttribute('data-correct')) { sel.classList.remove('incorrect'); sel.classList.add('correct'); applyXpDelta(25, 'Taxonomie Treffer'); trackSkill('Pathophysiology', true); } 
+                else { allCorrect = false; if(sel.value !== "") { sel.classList.add('incorrect'); applyXpDelta(-25, 'Taxonomie Fehler'); trackSkill('Pathophysiology', false); } }
             });
             const fb = document.getElementById('cat-fb'); fb.style.display = 'block';
             if (allCorrect) { fb.className = 'feedback-box feedback-success'; fb.innerHTML = 'Alle Kategorien korrekt zugeordnet!'; checkFinalCompletion(); } 
@@ -729,15 +636,15 @@ JSON-OUTPUT-STRUKTUR:
         function checkFinalCompletion() {
             const catsDone = document.querySelectorAll('.cat-select:not(.correct)').length === 0;
             const synsDone = (!activeCaseData.extra_tasks.synapses_matrix || solvedSynapseDiseases === totalSynapseDiseases);
+            const bodyDone = (!activeCaseData.extra_tasks.body_mapping || bodyMappingSolved);
             
-            if (catsDone && synsDone) document.getElementById('finish-case-btn').style.display = 'block';
+            if (catsDone && synsDone && bodyDone) document.getElementById('finish-case-btn').style.display = 'block';
         }
 
         window.finishCase = function() {
             let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
             if (!solved.includes(activeCaseData.case_id)) {
-                solved.push(activeCaseData.case_id);
-                localStorage.setItem('solved_cases', JSON.stringify(solved));
+                solved.push(activeCaseData.case_id); localStorage.setItem('solved_cases', JSON.stringify(solved));
                 applyXpDelta(activeCaseData.metadata?.xp_reward || 200, 'Fall abgeschlossen');
             }
             switchTab('dashboard', document.querySelector('.nav-item.active'));
