@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediChecker - V5.3.1 Enterprise</title>
+    <title>MediChecker - V5.4 Enterprise</title>
     <style>
         :root {
             --bg-color: #0b0f19; --sidebar-bg: #0f172a; --card-bg: #131c31;
@@ -88,11 +88,11 @@
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
         
         .type-dot { position: absolute; top: 10px; left: 10px; width: 8px; height: 8px; border-radius: 50%; }
-        .dot-risk { background: #ef4444 !important; } /* ROT für Risikofaktoren */
-        .dot-lab { background: #a855f7 !important; } /* VIOLETT für Diagnostik/Patho */
-        .dot-symptom { background: #22c55e !important; } /* GRÜN für Symptome/Klinik */
-        .dot-treatment { background: #38bdf8 !important; } /* BLAU für Therapie/Management */
-        .dot-default { background: #94a3b8 !important; } /* GRAU als Fallback */
+        .dot-risk { background: #ef4444 !important; } 
+        .dot-lab { background: #a855f7 !important; } 
+        .dot-symptom { background: #22c55e !important; } 
+        .dot-treatment { background: #38bdf8 !important; } 
+        .dot-default { background: #94a3b8 !important; }
         
         .synapse-solved-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .synapse-solved-row { background: var(--success); color: #0b0f19; border-radius: 8px; padding: 12px; text-align: center; font-weight: 800; font-size: 0.95rem; animation: popIn 0.3s ease-out; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -125,7 +125,7 @@
 
     <div class="main-wrapper">
         <topbar>
-            <div class="topbar-nav"><span class="active">MediChecker V5.3.1 Topo-Engine</span></div>
+            <div class="topbar-nav"><span class="active">MediChecker V5.4 Topo-Engine</span></div>
             <div class="user-hud">
                 <div class="hud-stat">Rang: <strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat">XP: <strong id="stat-xp">0</strong></div>
@@ -168,7 +168,7 @@
                             <input type="color" id="accent-color-picker" value="#38bdf8" onchange="changeAccentColor(this.value)" style="margin-top: 8px; cursor: pointer; width: 60px; height: 35px; border: none; background: transparent;">
                         </div>
                         
-                        <!-- NEUES DATENVERWALTUNGS-MODUL -->
+                        <!-- DATENVERWALTUNGS-MODUL -->
                         <div class="panel" style="background: var(--bg-color);">
                             <h4 style="margin-top: 0; color: var(--accent-blue);">Datenverwaltung</h4>
                             <p style="font-size: 0.85rem; color: var(--text-muted);">Trenne strikt zwischen deinem Lern-Fortschritt und deiner Case-Datenbank.</p>
@@ -192,16 +192,7 @@
                     <div class="panel" style="background: var(--bg-color);">
                         <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt</h4>
                         <p style="font-size: 0.85rem; color: var(--text-muted);">Kopiere diesen Prompt und füge ihn in deine KI ein, um perfekte, kompatible JSON-Fälle inklusive Topo-Lokalisation zu generieren.</p>
-                        <textarea id="ai-prompt-text" class="forge-textarea" readonly>Du bist ein Elite-Software-Architekt, Full-Stack-Entwickler und EdTech-Experte, spezialisiert auf hochskalierbare, gamifizierte Lern-Apps im medizinischen Sektor. Dein Partner und Auftraggeber ist ein Medizinstudent im 5. Studienjahr, der eine revolutionäre Mediziner-App entwickeln möchte. 
-
-Deine Kernaufgabe ist es, ihn Schritt für Schritt von diesem interaktiven Chat-Prototyp bis hin zum finalen, professionellen Release zu begleiten. Du lieferst präzise Architektur-Konzepte, Datenstrukturen, Gamification-Mechaniken und die exakten System-Prompts, die die App später im Hintergrund steuern muss.
-
-Die App muss folgende Kernanforderungen erfüllen:
-1. Quellenbasierte Dynamik: Die App verarbeitet PDF-Quellen lückenlos und passt das Lernthema sowie den Tiefgang vollautomatisch an. Es darf kein fachlicher Inhalt verloren gehen.
-2. Gamification & Level-System: Ein durchdachtes Stufenmodell, das Nutzer durch präzise Leistungen aufsteigen lässt.
-3. Sokratische Didaktik: Die KI-Engine darf niemals Antworten vorkauen, sondern muss den Lernenden sokratisch durch Fragen leiten.
-4. Intelligentes Feedback-System: Strukturierte Auswertung zu Stärken und Schwächen.
-5. Qualitätsanspruch: High-End-Produkt für den späteren Release.
+                        <textarea id="ai-prompt-text" class="forge-textarea" readonly>Du bist ein Elite-Software-Architekt, Full-Stack-Entwickler und EdTech-Experte, spezialisiert auf hochskalierbare, gamifizierte Lern-Apps im medizinischen Sektor. Dein Partner und Auftraggeber ist ein Medizinstudent im 5. Studienjahr. 
 
 Du bist zudem ein Elite-Facharzt und didaktischer Content-Architekt für einen sokratischen M&M-Simulator auf universitärem Master-Niveau. 
 
@@ -209,8 +200,8 @@ DEINE AUFGABE:
 Ich werde dir Rohtexte aus Vorlesungen zur Verfügung stellen. Du extrahierst das pathophysiologische Kernwissen und transformierst es in EINEN hochkomplexen, klinischen Fall im exakten JSON-Format INKLUSIVE "extra_tasks".
 
 DESIGN-REGELN FÜR DEN FALL (Bloom-Stufe 5-6):
-1. **Signal vs. Noise (Triage):** Verstecke in den Texten klinisches Rauschen (Noise) und fatale Fehler (Signal) in eckigen Klammern: `[...]`. Jeder Hotspot bekommt zwingend einen `skill_tag` ("Triage", "Diagnostics", "Pharmacology", "Pathophysiology").
-2. **Die Null-Fehler-Falle (Zwingend!):** Mindestens EIN Timeline-Schritt MUSS klinisch absolut makellos sein! Verstecke hier Hotspots, die extrem verdächtig klingen, aber VÖLLIG KORREKT sind (`is_error: false`).
+1. **Signal vs. Noise (Triage):** Verstecke im Text klinisches Rauschen (Noise) und fatale Fehler (Signal) in eckigen Klammern: `[...]`. Jeder Hotspot bekommt zwingend einen `skill_tag` ("Triage", "Diagnostics", "Pharmacology", "Pathophysiology").
+2. **Die Null-Fehler-Falle:** Mindestens EIN Timeline-Schritt MUSS klinisch absolut makellos sein! Verstecke hier Hotspots, die extrem verdächtig klingen, aber VÖLLIG KORREKT sind (`is_error: false`).
 3. **Pathophysiologische Tiefe:** Begründe Entscheidungen immer mit der zugrundeliegenden Mechanik.
 4. **Die Sokratische Falle:** Wenn ein Hotspot ein Fehler ist (`is_error: true`), MUSS die `socratic_trap` den Lernenden hart hinterfragen.
 
@@ -232,7 +223,7 @@ JSON-OUTPUT-STRUKTUR:
   "extra_tasks": {
     "categorization": {
       "description": "Ordne die Entitäten zu.",
-      "categories": ["Kat A", "Kat B", "Kat C"],
+      "categories": ["Kat A", "Kat B"],
       "items": [ { "term": "...", "category": "Kat A" } ]
     },
     "synapses_matrix": {
@@ -243,7 +234,7 @@ JSON-OUTPUT-STRUKTUR:
       ]
     },
     "body_mapping": {
-      "description": "Markiere den primären Manifestationsort der Erkrankung auf dem Körperschema.",
+      "description": "Markiere den primären Manifestationsort auf dem Körperschema.",
       "disease": "Krankheitsname",
       "target_regions": ["anterior_shoulder", "anterior_face"],
       "feedback_success": "Exzellent! Die Läsion betrifft genau diese Strukturen.",
@@ -265,7 +256,7 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
                     <div id="extra-tasks-container" class="extra-task-container">
                         <div class="panel-title" style="color: var(--accent-blue); margin-bottom: 20px;">Master-Challenges</div>
                         
-                        <!-- BODY MAPPING TASK (V5.3) -->
+                        <!-- BODY MAPPING TASK (V5.4) -->
                         <div id="body-mapping-task" style="margin-bottom: 30px; display: none;">
                             <div class="panel-subtitle" style="color:var(--text-main)" id="body-mapping-desc"></div>
                             <div class="body-map-wrapper">
@@ -466,7 +457,7 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
                     if (!res.ok) throw new Error('Fall-Datei nicht gefunden');
                     activeCaseData = await res.json();
                 }
-              clearedStepsCount = 0; totalStepsCount = activeCaseData.timeline.length;
+                clearedStepsCount = 0; totalStepsCount = activeCaseData.timeline.length;
                 document.getElementById('dashboard-view').style.display = 'none';
                 document.getElementById('forge-view').style.display = 'none';
                 document.getElementById('settings-view').style.display = 'none';
@@ -474,7 +465,7 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
                 document.getElementById('finish-case-btn').style.display = 'none';
                 renderTimeline();
                 
-                // Challenges sofort rendern, falls vorhanden
+                // Challenges sofort rendern, falls vorhanden (V5.4)
                 if (activeCaseData.extra_tasks) {
                     renderExtraTasks();
                 } else {
@@ -552,13 +543,11 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
                 fb.className = 'feedback-box feedback-success'; fb.innerHTML = `<strong>Souverän (+100 XP):</strong> Klinische Weitsicht bewiesen. Dieser Abschnitt ist nun als fehlerfrei markiert.`;
                 document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
                 clearedStepsCount++;
-                checkFinalCompletion(); // Prüft, ob jetzt ALLES (Text + Challenges) fertig ist
-            }
-        }
+                checkFinalCompletion(); // V5.4: Entkoppelte Freigabe
             }
         }
 
-        // --- V5.3.1 EXTRA TASKS LOGIC ---
+        // --- V5.4 EXTRA TASKS LOGIC ---
         function renderExtraTasks() {
             const container = document.getElementById('extra-tasks-container');
             container.style.display = 'block';
@@ -597,7 +586,6 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
                 totalSynapseDiseases = tasks.synapses_matrix.diseases.length; 
                 solvedSynapseDiseases = 0;
                 
-                // Dynamische Berechnung für Abwärtskompatibilität!
                 let calcTiles = tasks.synapses_matrix.variables.length / tasks.synapses_matrix.diseases.length;
                 if (!Number.isInteger(calcTiles) || calcTiles < 2) calcTiles = 4;
                 tilesPerDisease = calcTiles;
@@ -609,7 +597,7 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
             } else { document.getElementById('synapses-task').style.display = 'none'; }
         }
 
-        // --- V5.3 BODY MAPPING FUNCTIONS ---
+        // --- V5.4 BODY MAPPING FUNCTIONS ---
         window.toggleBodyRegion = function(regionId) {
             if(bodyMappingSolved) return;
             const el = document.getElementById(regionId);
@@ -657,21 +645,11 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
         function getDotClass(typeStr) {
             if(!typeStr) return 'dot-default';
             const t = typeStr.toLowerCase();
-            
-            // Greift bei "Risiko", "Risikofaktor", "Risikofaktoren", "Risk", "Ursache" -> ROT
             if(t.includes('risiko') || t.includes('risk') || t.includes('etiology') || t.includes('ursache')) return 'dot-risk';
-            
-            // Diagnostik & Pathologie -> VIOLETT
             if(t.includes('labor') || t.includes('diagnostik') || t.includes('lab') || t.includes('patho') || t.includes('genetik') || t.includes('anatomie')) return 'dot-lab';
-            
-            // Klinik & Symptome -> GRÜN
             if(t.includes('symptom') || t.includes('klinik') || t.includes('zeichen')) return 'dot-symptom';
-            
-            // Therapie & Management -> BLAU
             if(t.includes('therapie') || t.includes('treatment') || t.includes('management') || t.includes('pharmacology') || t.includes('verlauf')) return 'dot-treatment';
-            
             return 'dot-default';
-        }
         }
 
         window.toggleSynapseTile = function(index) {
@@ -713,19 +691,15 @@ WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions'
         }
 
         function checkFinalCompletion() {
-            // Prüft, ob alle Text-Abschnitte freigegeben wurden
+            // V5.4: Ultimative Abschluss-Prüfung
             const stepsDone = (clearedStepsCount === totalStepsCount);
-            
-            // Prüft, ob die Master-Challenges fehlerfrei sind (ignoriert sie sicher, falls sie im JSON nicht existieren)
             const catsDone = !activeCaseData.extra_tasks?.categorization || document.querySelectorAll('.cat-select:not(.correct)').length === 0;
             const synsDone = (!activeCaseData.extra_tasks?.synapses_matrix || solvedSynapseDiseases === totalSynapseDiseases);
             const bodyDone = (!activeCaseData.extra_tasks?.body_mapping || bodyMappingSolved);
             
-            // Button erscheint erst, wenn Text-Audit UND alle vorhandenen Challenges zu 100% gelöst sind
             if (stepsDone && catsDone && synsDone && bodyDone) {
                 document.getElementById('finish-case-btn').style.display = 'block';
             }
-        }
         }
 
         window.finishCase = function() {
