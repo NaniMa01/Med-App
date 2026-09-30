@@ -1423,83 +1423,126 @@
             }
         };
 
+        function validateAndSaveCustomCase() {
+            const rawVal = document.getElementById('forge-input').value.trim();
+            const fb = document.getElementById('forge-fb');
+            
+            if (!rawVal) {
+                fb.style.display = 'block';
+                fb.className = 'feedback-box feedback-error';
+                fb.innerHTML = '<strong>Fehler:</strong> Das Eingabefeld ist leer.';
+                return;
+            }
+
+            try {
+                // Typografische Anführungszeichen bereinigen
+                const sanitizedVal = rawVal
+                    .replace(/[\u201C\u201D]/g, '"')
+                    .replace(/[\u2018\u2019]/g, "'");
+
+                const parsedCase = JSON.parse(sanitizedVal);
+
+                if (!parsedCase.case_id) throw new Error("Feld 'case_id' fehlt im JSON.");
+                if (!parsedCase.timeline || !Array.isArray(parsedCase.timeline) || parsedCase.timeline.length === 0) {
+                    throw new Error("Feld 'timeline' fehlt oder enthält keine Schritte.");
+                }
+
+                // Custom-Fälle aus dem localStorage laden
+                let customCases = [];
+                try {
+                    customCases = JSON.parse(localStorage.getItem('custom_cases')) || [];
+                } catch (e) {
+                    customCases = [];
+                }
+
+                // Bestehende Version mit gleicher ID überschreiben
+                customCases = customCases.filter(c => c.case_id !== parsedCase.case_id);
+                customCases.push(parsedCase);
+                localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+                // Erfolgsmeldung
+                fb.style.display = 'block';
+                fb.className = 'feedback-box feedback-success';
+                fb.innerHTML = `<strong>Syntax Korrekt!</strong> Fall <code>${parsedCase.case_id}</code> erfolgreich gespeichert und im Dashboard verfügbar.`;
+
+                // Dashboard sofort aktualisieren (ohne den Absturz durch loadManifest!)
+                renderDashboardCases();
+
+            } catch (err) {
+                fb.style.display = 'block';
+                fb.className = 'feedback-box feedback-error';
+                fb.innerHTML = `<strong>Validierungsfehler:</strong> ${err.message}`;
+            }
+        }
+
+        // Dynamisches Rendern des Dashboards (integriert Standard- und Custom-Fälle)
         function renderDashboardCases() {
             const grid = document.getElementById('case-grid');
-            grid.innerHTML = `
+            if (!grid) return;
+
+            let customCases = [];
+            try {
+                customCases = JSON.parse(localStorage.getItem('custom_cases')) || [];
+            } catch (e) {
+                customCases = [];
+            }
+
+            // Basis-Karten
+            let html = `
                 <div class="case-card" onclick="switchTab('player', document.querySelectorAll('.nav-item')[1])">
                     <div>
                         <span class="tag">Interdisziplinär</span>
                         <h3>Akute Syndrome & Differenzialdiagnostische Triaden</h3>
                     </div>
                     <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:12px;">
-                        <span style="color:var(--color-symptom); font-weight:700;">● Aktiv</span>
+                        <span style="color:var(--color-symptom); font-weight:700;">● Aktiv (Demo)</span>
                         <span>+750 XP</span>
                     </div>
-                </div>
-                <div class="case-card" onclick="alert('Fall wird geladen...')">
-                    <div>
-                        <span class="tag">Neurologie</span>
-                        <h3>Kognitiver Abbau & Pharmakologische Stolperfallen</h3>
-                    </div>
-                    <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:12px;">
-                        <span>Offen</span>
-                        <span>+500 XP</span>
-                    </div>
                 </div>`;
+
+            // Alle aus der Fall-Schmiede importierten Fälle auflisten
+            customCases.forEach((c) => {
+                const title = c.metadata?.title || c.case_id;
+                const field = c.metadata?.medical_field || "Allgemein";
+                const xp = c.metadata?.xp_reward || 500;
+                
+                html += `
+                    <div class="case-card" onclick="loadCustomCaseIntoPlayer('${c.case_id}')">
+                        <div>
+                            <span class="tag">${field}</span>
+                            <h3>${title}</h3>
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:12px;">
+                            <span style="color:var(--accent-blue); font-weight:700;">● Custom Fall</span>
+                            <span>+${xp} XP</span>
+                        </div>
+                    </div>`;
+            });
+
+            grid.innerHTML = html;
         }
 
-       function validateAndSaveCustomCase() {
-    const rawVal = document.getElementById('forge-input').value.trim();
-    const fb = document.getElementById('forge-fb');
-    
-    if (!rawVal) {
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = '<strong>Fehler:</strong> Das Eingabefeld ist leer.';
-        return;
-    }
+        // Lädt den geklickten Custom-Fall direkt in die Engine
+        window.loadCustomCaseIntoPlayer = function(caseId) {
+            let customCases = JSON.parse(localStorage.getItem('custom_cases')) || [];
+            const found = customCases.find(c => c.case_id === caseId);
+            if (!found) return;
 
-    try {
-        // Sanitize typische Formatierungsfehler aus Copy-Paste (z. B. typografische Anführungszeichen)
-        const sanitizedVal = rawVal
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/[\u2018\u2019]/g, "'");
+            // Globales Case-Objekt ersetzen
+            Object.assign(activeCaseData, found);
 
-        const parsedCase = JSON.parse(sanitizedVal);
+            // Badge und Titel aktualisieren
+            const titleElem = document.getElementById('player-case-badge-title');
+            if (titleElem) titleElem.innerText = found.metadata?.title || found.case_id;
 
-        // Pflichtfelder prüfen
-        if (!parsedCase.case_id) throw new Error("Feld 'case_id' fehlt im JSON.");
-        if (!parsedCase.timeline || !Array.isArray(parsedCase.timeline) || parsedCase.timeline.length === 0) {
-            throw new Error("Feld 'timeline' fehlt oder enthält keine Schritte.");
-        }
+            // Alle Komponenten mit den neuen Daten neu aufbauen
+            if (typeof renderTimeline === 'function') renderTimeline();
+            if (typeof renderSynapsesMatrix === 'function') renderSynapsesMatrix();
+            if (typeof renderExtraTasks === 'function') renderExtraTasks();
 
-        // Sicherstellen, dass custom_cases existiert
-        let customCases = [];
-        try {
-            customCases = JSON.parse(localStorage.getItem('custom_cases')) || [];
-        } catch (e) {
-            customCases = [];
-        }
-
-        // Alten Fall mit gleicher ID entfernen, falls vorhanden
-        customCases = customCases.filter(c => c.case_id !== parsedCase.case_id);
-        customCases.push(parsedCase);
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-        // Feedback ausgeben
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-success';
-        fb.innerHTML = `<strong>Syntax Korrekt!</strong> Fall <code>${parsedCase.case_id}</code> erfolgreich gespeichert und im Dashboard verfügbar.`;
-
-        // Dashboard & Filter sofort im Hintergrund synchronisieren
-        loadManifest();
-
-    } catch (err) {
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `<strong>Validierungsfehler:</strong> ${err.message}`;
-    }
-}
+            // Direkt in den Challenge Hub wechseln
+            switchTab('player', document.querySelectorAll('.nav-item')[1]);
+        };
         
 
         function clearForge() {
