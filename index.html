@@ -1448,20 +1448,58 @@
                 </div>`;
         }
 
-        function validateAndSaveCustomCase() {
-            const inputVal = document.getElementById('forge-input').value;
-            const fb = document.getElementById('forge-fb');
-            try {
-                const parsed = JSON.parse(inputVal);
-                if (!parsed.case_id) throw new Error("case_id fehlt!");
-                fb.style.display = 'block';
-                fb.className = 'feedback-box feedback-success';
-                fb.innerHTML = '<strong>Validierung erfolgreich!</strong> Der Fall wurde syntaktisch geprüft.';
-            } catch (e) {
-                fb.style.display = 'block';
-                fb.className = 'feedback-box feedback-error';
-                fb.innerHTML = `<strong>Validierungsfehler:</strong> ${e.message}`;
-            }
+       function validateAndSaveCustomCase() {
+    const rawVal = document.getElementById('forge-input').value.trim();
+    const fb = document.getElementById('forge-fb');
+    
+    if (!rawVal) {
+        fb.style.display = 'block';
+        fb.className = 'feedback-box feedback-error';
+        fb.innerHTML = '<strong>Fehler:</strong> Das Eingabefeld ist leer.';
+        return;
+    }
+
+    try {
+        // Sanitize typische Formatierungsfehler aus Copy-Paste (z. B. typografische Anführungszeichen)
+        const sanitizedVal = rawVal
+            .replace(/[\u201C\u201D]/g, '"')
+            .replace(/[\u2018\u2019]/g, "'");
+
+        const parsedCase = JSON.parse(sanitizedVal);
+
+        // Pflichtfelder prüfen
+        if (!parsedCase.case_id) throw new Error("Feld 'case_id' fehlt im JSON.");
+        if (!parsedCase.timeline || !Array.isArray(parsedCase.timeline) || parsedCase.timeline.length === 0) {
+            throw new Error("Feld 'timeline' fehlt oder enthält keine Schritte.");
+        }
+
+        // Sicherstellen, dass custom_cases existiert
+        let customCases = [];
+        try {
+            customCases = JSON.parse(localStorage.getItem('custom_cases')) || [];
+        } catch (e) {
+            customCases = [];
+        }
+
+        // Alten Fall mit gleicher ID entfernen, falls vorhanden
+        customCases = customCases.filter(c => c.case_id !== parsedCase.case_id);
+        customCases.push(parsedCase);
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+        // Feedback ausgeben
+        fb.style.display = 'block';
+        fb.className = 'feedback-box feedback-success';
+        fb.innerHTML = `<strong>Syntax Korrekt!</strong> Fall <code>${parsedCase.case_id}</code> erfolgreich gespeichert und im Dashboard verfügbar.`;
+
+        // Dashboard & Filter sofort im Hintergrund synchronisieren
+        loadManifest();
+
+    } catch (err) {
+        fb.style.display = 'block';
+        fb.className = 'feedback-box feedback-error';
+        fb.innerHTML = `<strong>Validierungsfehler:</strong> ${err.message}`;
+    }
+}
         }
 
         function clearForge() {
