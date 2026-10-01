@@ -1,4 +1,4 @@
-// GLOBALE STATES FÜR ALLE MODULE ZUGÄNGLICH
+// GLOBALE STATES
 let activeCaseData = null;
 let selectedSynapses = [], totalSynapseDiseases = 0, solvedSynapseDiseases = 0, tilesPerDisease = 4;
 let selectedBodyRegions = [], bodyMappingSolved = false;
@@ -16,7 +16,7 @@ const defaultSkills = {
     "Pathophysiologie": { hits: 0, total: 0 }
 };
 
-// VOLLSTÄNDIGER DEFAULT-FALL
+// V6.0 BUILT-IN DEMO CASE (Cornell Edition)
 const BUILTIN_DEMO_CASE = {
     "case_id": "MYELON_MASTER_001_USB",
     "metadata": {
@@ -25,6 +25,24 @@ const BUILTIN_DEMO_CASE = {
         "bloom_level": "Evaluation & Synthese",
         "difficulty": 5,
         "xp_reward": 500
+    },
+    "case_overview": {
+        "topic": "Differenzialdiagnose Rückenmarkserkrankungen",
+        "cornell_notes": [
+            {
+                "cues": ["A. spinalis anterior", "Dissoziierte Empfindungsstörung", "Eulenaugen-Zeichen", "Wann? Perakut!"],
+                "notes": "<strong>Vaskuläre Myelopathien:</strong><br>Oft durch eine <em>Aortendissektion</em> (Verlegung der A. radicularis magna) ausgelöst.<br>Führt zur Ischämie der ventralen 2/3 des Myelons (Vorderhörner = Motorikausfall; Tractus spinothalamicus = Schmerz-/Temperaturausfall).<br><em>Warum bleibt der Lagesinn intakt?</em> Die Hinterstränge werden separat durch die posterioren Spinalarterien versorgt."
+            },
+            {
+                "cues": ["NMOSD", "LETM (≥3 Segmente)", "AQP4-IgG", "Wer? Meist Frauen", "Vorsicht: Kein Interferon!"],
+                "notes": "<strong>Autoimmun-Demyelinisierend:</strong><br>Neuromyelitis-optica-Spektrum-Erkrankungen sind primär <em>Astrozytopathien</em>. <br>Diagnostisch beweisend ist eine longitudinale extensive transversale Myelitis (LETM) im MRT sowie eine massive neutrophile Pleozytose (meist <em>ohne</em> oligoklonale Banden).<br>Normale MS-Basismedikation ist absolut kontraindiziert und triggert Schübe."
+            },
+            {
+                "cues": ["Funikuläre Myelose", "Lachgas (N2O)", "MMA erhöht", "Was? Spinale Ataxie"],
+                "notes": "<strong>Metabolisch/Toxisch:</strong><br>Degeneration der Hinterstränge und kortikospinalen Bahnen.<br><em>Mechanismus:</em> Lachgas oxidiert das Cobalt-Ion im Vitamin B12, was die Methionin-Synthase inaktiviert.<br><em>Marker:</em> Methylmalonsäure (MMA) ist massiv erhöht, selbst wenn der absolute B12-Wert im Serum noch normal erscheint."
+            }
+        ],
+        "summary": "Die Triage von Myelopathien erfordert exakte Klinik: Perakuter Schmerz weist auf eine Ischämie hin, eine LETM mit Neutrophilie auf eine NMOSD. Funktionelle B12-Mängel (z. B. durch Lachgas) müssen frühzeitig über MMA-Bestimmung aufgedeckt und substituiert werden."
     },
     "timeline": [
         {
@@ -54,6 +72,12 @@ const BUILTIN_DEMO_CASE = {
                 "options": ["Kurzstreckige posterolaterale Läsion <1 Segment", "Longitudinale extensive transversale Myelitis (LETM) ≥3 Segmente", "Bilaterale Hyperintensität der Vorderhörner (Eulenaugen-Zeichen)", "Symmetrisches umgekehrtes V-Zeichen der Hinterstränge"],
                 "correct_index": 1,
                 "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD. Typische MS-Plaques sind meist kurzstreckig."
+            },
+            {
+                "question": "Ein 24-jähriger Patient zeigt eine spinale Ataxie, Pallhypästhesie und gesteigerte Reflexe. Welcher toxische Trigger führt funktionell zum gleichen klinischen Bild wie eine klassische funikuläre Myelose?",
+                "options": ["Chronischer Cannabis-Konsum", "Inhalation von Distickstoffmonoxid (Lachgas)", "Exzessiver Konsum von Energy-Drinks (Taurin)", "Systemische Corticosteroid-Langzeittherapie"],
+                "correct_index": 1,
+                "explanation": "Lachgas (N2O) oxidiert das zentrale Cobalt-Ion von Vitamin B12. Dies inaktiviert das Vitamin B12 intrazellulär irreversibel und führt zur Demyelinisierung der Hinterstränge."
             }
         ]
     }
@@ -94,7 +118,8 @@ function initUserData() {
 function updateStatsUI() {
     const xp = parseInt(localStorage.getItem('user_xp') || '0');
     document.getElementById('stat-xp').innerText = xp;
-    document.getElementById('stat-rank').innerText = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
+    let rank = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
+    document.getElementById('stat-rank').innerText = rank;
 }
 
 function applyXpDelta(delta, label) {
@@ -185,9 +210,10 @@ window.toggleSuperFolder = function() {
 
 function renderDashboardCases() {
     let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) {}
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     const container = document.getElementById('dashboard-folders-container');
+
     let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
     const grouped = {};
     allCases.forEach(c => {
@@ -195,9 +221,11 @@ function renderDashboardCases() {
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(c);
     });
+
     container.innerHTML = Object.entries(grouped).map(([category, cases], catIdx) => {
         const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
         const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
+        
         const cardsHtml = cases.map(c => {
             const isSolved = solved.includes(c.case_id);
             return `
@@ -209,6 +237,7 @@ function renderDashboardCases() {
                     </div>
                 </div>`;
         }).join('');
+
         return `
             <div class="category-folder">
                 <div class="category-header" onclick="toggleFolder('${category}')">
@@ -247,6 +276,7 @@ window.loadCaseById = function(caseId) {
     document.getElementById('tab-btn-cat').style.display = (tasks.categorization && tasks.categorization.items?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-quiz').style.display = (tasks.master_quiz && tasks.master_quiz.length) ? 'flex' : 'none';
 
+    renderOverview();
     renderTimeline();
 
     if (tasks.synapses_matrix && tasks.synapses_matrix.variables?.length) { renderSynapsesMatrix(); } else { solvedSynapseDiseases = 1; totalSynapseDiseases = 1; }
@@ -263,11 +293,52 @@ window.loadCaseById = function(caseId) {
     if (tasks.master_quiz && tasks.master_quiz.length) { quizSolved = false; userQuizAnswers = {}; renderQuiz(); } else { quizSolved = true; }
 
     switchTab('player', document.getElementById('nav-player'));
-    switchPlayerMode('audit');
+    switchPlayerMode('overview');
     checkFinalCompletion();
 };
 
-function validateAndSaveCustomCase() {
+// --- V6.0 CORNELL NOTE OVERVIEW ENGINE ---
+window.renderOverview = function() {
+    const container = document.getElementById('overview-container');
+    const data = activeCaseData.case_overview;
+    if (!data) {
+        container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall ist keine Übersicht verfügbar.</div>';
+        return;
+    }
+
+    let notesHtml = '';
+    if(data.cornell_notes && Array.isArray(data.cornell_notes)) {
+        data.cornell_notes.forEach(note => {
+            notesHtml += `
+                <div class="cornell-grid">
+                    <div class="cornell-cues">
+                        ${note.cues.map(c => `<div class="cornell-cue-item">${c}</div>`).join('')}
+                    </div>
+                    <div class="cornell-notes">
+                        ${note.notes}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    const html = `
+        <div class="cornell-wrapper">
+            <div class="cornell-header">
+                <h2>${data.topic || 'Thematische Übersicht'}</h2>
+            </div>
+            ${notesHtml}
+            <div class="cornell-summary">
+                <h4>Zusammenfassung (Take-Home Message)</h4>
+                <p>${data.summary || ''}</p>
+            </div>
+        </div>
+    `;
+    container.innerHTML = html;
+};
+
+// --- FORGE LOGIK ---
+window.validateAndSaveCustomCase = function() {
     const rawVal = document.getElementById('forge-input').value.trim();
     const fb = document.getElementById('forge-fb');
     if (!rawVal) return;
@@ -282,16 +353,16 @@ function validateAndSaveCustomCase() {
         fb.style.display = 'block'; fb.className = 'feedback-box feedback-success'; fb.innerHTML = `<strong>Korrekt!</strong> Fall gespeichert.`;
         renderDashboardCases();
     } catch (err) { fb.style.display = 'block'; fb.className = 'feedback-box feedback-error'; fb.innerHTML = `Validierungsfehler: ${err.message}`; }
-}
+};
 
-function checkFinalCompletion() {
+window.checkFinalCompletion = function() {
     const stepsDone = (clearedStepsCount === totalStepsCount);
     const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
     const casDone = (cascadesSolvedCount === totalCascades);
     if (stepsDone && synDone && casDone && bodyMappingSolved && categorizationSolved && quizSolved) {
         document.getElementById('finish-case-btn').style.display = 'block';
     }
-}
+};
 
 window.finishCase = function() {
     let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
