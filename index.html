@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediChecker - V5.7 Master Enterprise</title>
+    <title>MediChecker - V5.8 Superfolder Enterprise</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
@@ -38,9 +38,7 @@
                 linear-gradient(180deg, #070b16 0%, #050811 100%);
             background-attachment: fixed;
             color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            display: flex; height: 100vh; overflow: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
@@ -50,15 +48,8 @@
         ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.5); }
 
         sidebar {
-            width: 270px;
-            background: var(--sidebar-bg);
-            backdrop-filter: var(--glass-blur);
-            border-right: 1px solid var(--card-border);
-            display: flex;
-            flex-direction: column;
-            padding: 24px 18px;
-            z-index: 20;
-            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
+            width: 270px; background: var(--sidebar-bg); backdrop-filter: var(--glass-blur); border-right: 1px solid var(--card-border);
+            display: flex; flex-direction: column; padding: 24px 18px; z-index: 20; box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
         }
         .brand { font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-bottom: 32px; display: flex; align-items: center; gap: 12px; }
         .brand-icon-wrap { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.3)); border: 1px solid rgba(56, 189, 248, 0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-blue); }
@@ -92,21 +83,27 @@
         .panel-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .panel-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 22px; line-height: 1.5; }
 
-        /* DASHBOARD FOLDER ARCHITEKTUR */
-        .category-folder { margin-bottom: 20px; border: 1px solid var(--card-border); border-radius: 14px; background: rgba(11, 17, 33, 0.5); overflow: hidden; }
-        .category-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: rgba(16, 24, 46, 0.7); cursor: pointer; user-select: none; transition: background 0.2s; }
-        .category-header:hover { background: rgba(30, 41, 59, 0.7); }
-        .category-title-wrap { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.95rem; color: var(--text-main); }
-        .category-arrow { font-size: 0.8rem; transition: transform 0.25s; color: var(--accent-blue); }
+        /* DASHBOARD SUPER FOLDER ARCHITEKTUR */
+        .super-folder { margin-bottom: 25px; border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; background: rgba(11, 17, 33, 0.4); overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        .super-folder-header { display: flex; align-items: center; gap: 12px; padding: 18px 24px; background: linear-gradient(90deg, rgba(16, 24, 46, 0.9), rgba(30, 41, 59, 0.8)); cursor: pointer; user-select: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .super-folder-title { font-size: 1.1rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .super-folder-icon { color: var(--accent-indigo); }
+        .super-folder-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+        .category-folder { border: 1px solid var(--card-border); border-radius: 12px; background: rgba(16, 24, 46, 0.5); overflow: hidden; }
+        .category-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: rgba(30, 41, 59, 0.4); cursor: pointer; user-select: none; transition: background 0.2s; }
+        .category-header:hover { background: rgba(51, 65, 85, 0.5); }
+        .category-title-wrap { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.9rem; color: var(--text-main); }
+        .category-arrow { font-size: 0.75rem; transition: transform 0.25s; color: var(--accent-blue); }
         .category-arrow.expanded { transform: rotate(90deg); }
         .category-badge { font-size: 0.72rem; padding: 3px 10px; border-radius: 20px; background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); font-weight: 700; font-family: 'JetBrains Mono'; }
-        .category-cases-body { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+        .category-cases-body { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; border-top: 1px solid var(--card-border); }
 
-        .case-card { background: rgba(16, 24, 46, 0.75); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.25s var(--ease-out); display: flex; flex-direction: column; justify-content: space-between; min-height: 130px; }
-        .case-card:hover { border-color: rgba(56, 189, 248, 0.45); transform: translateY(-3px); background: rgba(30, 41, 59, 0.85); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
+        .case-card { background: rgba(16, 24, 46, 0.8); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.25s var(--ease-out); display: flex; flex-direction: column; justify-content: space-between; min-height: 120px; }
+        .case-card:hover { border-color: rgba(56, 189, 248, 0.45); transform: translateY(-3px); background: rgba(30, 41, 59, 0.9); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
         .case-card h3 { font-size: 0.92rem; font-weight: 700; line-height: 1.4; margin: 8px 0; color: #f8fafc; }
-        .tag { font-size: 0.65rem; font-weight: 700; color: var(--accent-blue); background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 7px; border-radius: 6px; text-transform: uppercase; width: fit-content; }
 
+        /* NAV TABS */
         .challenge-nav-bar { display: flex; gap: 8px; margin-bottom: 22px; padding: 8px; background: rgba(11, 17, 33, 0.7); border: 1px solid var(--card-border); border-radius: 14px; overflow-x: auto; }
         .challenge-tab-btn { flex: 1; min-width: 140px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-radius: 10px; background: rgba(16, 24, 46, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); color: var(--text-muted); cursor: pointer; font-size: 0.82rem; font-weight: 700; transition: all 0.2s var(--ease-out); white-space: nowrap; }
         .challenge-tab-btn:hover { background: rgba(30, 41, 59, 0.8); color: var(--text-main); }
@@ -177,7 +174,7 @@
         .quiz-question-num { font-size: 0.75rem; font-weight: 800; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
         .quiz-question-text { font-size: 1rem; font-weight: 700; line-height: 1.5; color: var(--text-main); margin-bottom: 16px; }
         .quiz-options-grid { display: flex; flex-direction: column; gap: 10px; }
-        .quiz-opt-btn { background: rgba(16, 24, 46, 0.8); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 18px; text-align: left; color: var(--text-main); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
+        .quiz-opt-btn { background: rgba(16, 24, 46, 0.8); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 18px; text-align: left; color: var(--text-main); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
         .quiz-opt-btn:hover { border-color: var(--accent-blue); background: rgba(30, 41, 59, 0.8); }
         .quiz-opt-btn.selected { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.15); }
         .quiz-opt-btn.correct-highlight { border-color: var(--color-symptom) !important; background: rgba(34, 197, 94, 0.2) !important; color: #a7f3d0 !important; font-weight: 700; }
@@ -208,7 +205,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             </div>
             <span>MediChecker</span>
-            <span class="brand-badge">V5.7</span>
+            <span class="brand-badge">V5.8</span>
         </div>
         <div class="nav-section-label">Navigation</div>
         <ul class="nav-links">
@@ -221,14 +218,14 @@
             <div class="sidebar-pulse"></div>
             <div>
                 <div style="font-size: 0.78rem; font-weight: 700; color: #f1f5f9;">Engine Bereit</div>
-                <div style="font-size: 0.7rem; color: var(--text-dim);">Sokratischer Kern v5.7</div>
+                <div style="font-size: 0.7rem; color: var(--text-dim);">Sokratischer Kern v5.8</div>
             </div>
         </div>
     </sidebar>
 
     <div class="main-wrapper">
         <topbar>
-            <div class="topbar-engine-tag"><span class="dot"></span><span>V5.7 Folder & Master-Exam Architecture</span></div>
+            <div class="topbar-engine-tag"><span class="dot"></span><span>V5.8 Olat-Folder & Master-Exam Architecture</span></div>
             <div class="user-hud">
                 <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
@@ -239,11 +236,23 @@
         <div class="content-body">
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 
-                <!-- DASHBOARD VIEW MIT FOLDER ARCHITEKTUR -->
+                <!-- DASHBOARD VIEW MIT SUPER-FOLDER ARCHITEKTUR -->
                 <div class="panel" id="dashboard-view" style="display: block;">
                     <div class="panel-title">Klinische Module & Themen-Ordner</div>
                     <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-                    <div id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
+                    
+                    <div class="super-folder">
+                        <div class="super-folder-header" onclick="toggleSuperFolder()">
+                            <div class="super-folder-title">
+                                <svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                <span>Nervensystem und Sinnesorgane</span>
+                            </div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
+                        </div>
+                        <div class="super-folder-body" id="dashboard-folders-container">
+                            Lade Fall-Bibliothek...
+                        </div>
+                    </div>
                 </div>
 
                 <!-- PLAYER VIEW -->
@@ -339,7 +348,7 @@
                             <div class="panel-title" style="margin-bottom: 6px;">
                                 Master-Exam (Fachwissen-Prüfung)
                             </div>
-                            <div class="panel-subtitle">Beantworte die fallbezogenen Master-Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div>
+                            <div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div>
                             <div id="quiz-wrapper"></div>
                             <button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button>
                             <div class="feedback-box" id="quiz-fb"></div>
@@ -400,10 +409,10 @@
         let selectedBodyRegions = [], bodyMappingSolved = false;
         let cascadesSolvedCount = 0, totalCascades = 0;
         let categorizationSolved = false;
-        let quizSolved = false;
-        let userQuizAnswers = {};
+        let quizSolved = false, userQuizAnswers = {};
         let clearedStepsCount = 0, totalStepsCount = 0;
         let openFolders = {};
+        let superFolderOpen = true;
 
         const defaultSkills = {
             "Triage": { hits: 0, total: 0 },
@@ -412,6 +421,74 @@
             "Pathophysiologie": { hits: 0, total: 0 }
         };
 
+        // VOLLSTÄNDIGER DEFAULT-FALL ZUM SOFORTIGEN STARTEN
+        const BUILTIN_DEMO_CASE = {
+            "case_id": "MYELON_MASTER_001_USB",
+            "metadata": {
+                "title": "Akute & subakute Myelopathien: Vaskuläre, autoimmune und metabolische Querschnitte",
+                "medical_field": "29.2.10_Erkrankungen des Rückenmarks und des peripheren Nervensystems",
+                "bloom_level": "Evaluation & Synthese",
+                "difficulty": 5,
+                "xp_reward": 500
+            },
+            "timeline": [
+                {
+                    "step_id": 1,
+                    "phase": "Akutphase Notfallstation (Vaskulär & Null-Fehler)",
+                    "content": "Eine 45-jährige Patientin erwacht nachts mit reissenden thorakolumbalen Schmerzen und einer schlaffen Paraparese. Die Untersuchung demonstriert einen Harnverhalt sowie eine [beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn]. Der Dienstarzt veranlasst [ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion] sowie ein Spine-MRT mit Darstellung des [bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)].",
+                    "hotspots": [
+                        { "phrase": "beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt auditiert (Null-Fehler): A. spinalis anterior versorgt die vorderen zwei Drittel; die Hinterstränge bleiben intakt." },
+                        { "phrase": "ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion", "is_error": false, "skill_tag": "Triage", "feedback": "Korrekt: Eine Aortendissektion mit Verlegung der A. radicularis magna muss vital ausgeschlossen werden." },
+                        { "phrase": "bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Die stoffwechselaktiven Vorderhornneurone dekompensieren bei Ischämie zuerst." }
+                    ]
+                },
+                {
+                    "step_id": 2,
+                    "phase": "Autoimmun-entzündliche Differenzierung",
+                    "content": "Ein 77-jähriger Patient stellt sich mit einer subakuten Paraplegie ab T5 vor. Das Spine-MRT zeigt eine [longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente]. Im Liquor findet sich eine neutrophile Pleozytose ohne oligoklonale Banden. Die Stationsärztin diagnostiziert einen [primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta].",
+                    "hotspots": [
+                        { "phrase": "longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Richtig: Eine Myelonläsion ≥3 Segmente definiert eine LETM und schließt eine typische MS weitgehend aus." },
+                        { "phrase": "primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta", "is_error": true, "skill_tag": "Pharmakologie", "socratic_trap": "Welche autoimmunologische Entität verursacht eine LETM ohne OKB, und warum führt Interferon-beta hier zu fatalen Exazerbationen?", "correct_pathophysiology": "Das Bild entspricht einer Neuromyelitis-optica-Spektrum-Erkrankung (NMOSD, AQP4-IgG). Klassische MS-Medikamente wie Interferon-beta triggern bei NMOSD schwere Schübe und sind kontraindiziert!" }
+                    ]
+                }
+            ],
+            "extra_tasks": {
+                "master_quiz": [
+                    {
+                        "question": "Welcher Befund im Spinal-MRT spricht am ehesten für eine NMOSD und schließt eine klassische Multiple Sklerose weitgehend aus?",
+                        "options": ["Kurzstreckige posterolaterale Läsion <1 Segment", "Longitudinale extensive transversale Myelitis (LETM) ≥3 Segmente", "Bilaterale Hyperintensität der Vorderhörner (Eulenaugen-Zeichen)", "Symmetrisches umgekehrtes V-Zeichen der Hinterstränge"],
+                        "correct_index": 1,
+                        "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD. Typische MS-Plaques sind meist kurzstreckig."
+                    },
+                    {
+                        "question": "Ein 24-jähriger Patient zeigt eine spinale Ataxie, Pallhypästhesie und gesteigerte Reflexe. Welcher toxische Trigger führt funktionell zum gleichen klinischen Bild wie eine klassische funikuläre Myelose?",
+                        "options": ["Chronischer Cannabis-Konsum", "Inhalation von Distickstoffmonoxid (Lachgas)", "Exzessiver Konsum von Energy-Drinks (Taurin)", "Systemische Corticosteroid-Langzeittherapie"],
+                        "correct_index": 1,
+                        "explanation": "Lachgas (N2O) oxidiert das zentrale Cobalt-Ion von Vitamin B12. Dies inaktiviert das Vitamin B12 intrazellulär irreversibel und führt zur Demyelinisierung der Hinterstränge."
+                    },
+                    {
+                        "question": "Was misst die zentralmotorische Leitungszeit (ZMLZ) mittels motorisch evozierter Potentiale (MEP)?",
+                        "options": ["Die reine Leitungsgeschwindigkeit im peripheren Nervensystem", "Die Leitungszeit ausschließlich vom Vorderhorn bis zum Muskel", "Die Leitungszeit vom Motorkortex bis zu den spinalen Vorderhornzellen", "Die Latenzdifferenz der sensiblen Hinterstrangbahnen (N22-P40)"],
+                        "correct_index": 2,
+                        "explanation": "Die ZMLZ berechnet sich aus der Gesamtlatenz (Kortex -> Muskel) minus der peripheren Leitungszeit (Spinalwurzel -> Muskel) und prüft so isoliert die Pyramidenbahn (1. Motoneuron)."
+                    },
+                    {
+                        "question": "Eine 45-jährige Frau leidet nach Aortendissektion an einem Spinalis-anterior-Syndrom. Welche sensible Qualität bleibt hierbei charakteristischerweise erhalten?",
+                        "options": ["Schmerzempfinden", "Temperaturempfinden", "Lagesinn und Vibrationssinn", "Sowohl Schmerz- als auch Lagesinn sind komplett erloschen"],
+                        "correct_index": 2,
+                        "explanation": "Die Hinterstränge (Fasciculus gracilis/cuneatus), zuständig für den Lagesinn/Pallästhesie, werden durch die posterioren Spinalarterien versorgt und bleiben bei Infarzierung der A. spinalis anterior intakt."
+                    },
+                    {
+                        "question": "Welche therapeutische Massnahme ist bei einer gesicherten NMOSD mit AQP4-IgG Antikörpern kontraindiziert?",
+                        "options": ["Plasmapherese im Akutschub", "Interferon-beta Basistherapie", "Intravenöse Hochdosis-Steroide", "Monoklonale Antikörper wie Satralizumab"],
+                        "correct_index": 1,
+                        "explanation": "Basistherapeutika der klassischen MS wie Interferon-beta, Fingolimod oder Natalizumab triggern bei NMOSD schwere Exazerbationen und sind streng kontraindiziert."
+                    }
+                ]
+            }
+        };
+
+        // INITIALISIERUNG
         document.addEventListener('DOMContentLoaded', () => {
             initUserData();
             renderSkillsSidebar();
@@ -420,8 +497,6 @@
 
         function initUserData() {
             if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
-            
-            // Migration: Konsolidiere eventuelle alte englische Skills ins Deutsche
             let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
             if (!rawSkills || rawSkills.Diagnostics !== undefined) {
                 let cleaned = JSON.parse(JSON.stringify(defaultSkills));
@@ -462,15 +537,7 @@
 
         function trackSkill(skillTag, isHit) {
             let skills = JSON.parse(localStorage.getItem('user_skills')) || JSON.parse(JSON.stringify(defaultSkills));
-            const map = {
-                "Diagnostics": "Diagnostik",
-                "Diagnostik": "Diagnostik",
-                "Pharmacology": "Pharmakologie",
-                "Pharmakologie": "Pharmakologie",
-                "Pathophysiology": "Pathophysiologie",
-                "Pathophysiologie": "Pathophysiologie",
-                "Triage": "Triage"
-            };
+            const map = { "Diagnostics": "Diagnostik", "Pharmacology": "Pharmakologie", "Pathophysiology": "Pathophysiologie", "Triage": "Triage" };
             const tag = map[skillTag] || "Diagnostik";
             if (!skills[tag]) skills[tag] = { hits: 0, total: 0 };
             skills[tag].total += 1;
@@ -534,20 +601,22 @@
         };
 
         // --- DASHBOARD MIT KATEGORIE-ORDNERN ---
+        function toggleSuperFolder() {
+            superFolderOpen = !superFolderOpen;
+            document.getElementById('dashboard-folders-container').style.display = superFolderOpen ? 'flex' : 'none';
+            document.getElementById('super-folder-arrow').innerText = superFolderOpen ? '▼' : '▶';
+        }
+
         function renderDashboardCases() {
             let customCases = [];
             try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
             const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
             const container = document.getElementById('dashboard-folders-container');
 
-            if (customCases.length === 0) {
-                container.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center;">Keine Fälle in der Datenbank. Öffne die <strong>Fall-Schmiede (Dev)</strong> und importiere ein Fall-JSON!</div>';
-                return;
-            }
+            let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
 
-            // Gruppiere nach medical_field
             const grouped = {};
-            customCases.forEach(c => {
+            allCases.forEach(c => {
                 const cat = (c.metadata?.medical_field || "Allgemeine Neurologie").trim();
                 if (!grouped[cat]) grouped[cat] = [];
                 grouped[cat].push(c);
@@ -599,7 +668,7 @@
         window.loadCaseById = function(caseId) {
             let customCases = [];
             try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch(e){}
-            const targetCase = customCases.find(c => c.case_id === caseId);
+            let targetCase = [BUILTIN_DEMO_CASE, ...customCases].find(c => c.case_id === caseId);
             if (!targetCase) { alert("Fall nicht gefunden!"); return; }
 
             activeCaseData = JSON.parse(JSON.stringify(targetCase));
@@ -829,7 +898,7 @@
             }
         }
 
-        // --- CLINICAL CASCADES (FLOW CHARTS) DRAG & DROP ---
+        // --- V5.8 CLINICAL CASCADES ---
         function renderCascades() {
             const wrapper = document.getElementById('cascades-wrapper');
             const cascades = activeCaseData.extra_tasks.clinical_cascades || [];
@@ -862,7 +931,7 @@
                 return `
                     <div class="cascade-disease-container" id="cascade-box-${cIndex}">
                         <div class="disease-title">${cIndex+1}. ${cData.disease}</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Bringe die Bausteine in die kausale Sequenz:</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Ziehe die Elemente in die chronologische Reihenfolge oder klicke sie an:</div>
                         <div class="drag-bank" id="bank-${cIndex}" ondragover="dragOver(event)" ondrop="dropToBank(event, ${cIndex})">${bankHtml}</div>
                         <div class="flow-path">${flowHtml}</div>
                         <button class="action-btn" onclick="evalSingleCascade(${cIndex})" style="margin-top:20px; width:100%;">Algorithmus prüfen</button>
@@ -920,7 +989,9 @@
 
             const container = document.getElementById(`cascade-box-${cIndex}`);
             const emptyZone = Array.from(container.querySelectorAll('.drop-zone')).find(z => z.children.length === 0);
-            if (emptyZone) emptyZone.appendChild(item);
+            if (emptyZone) {
+                emptyZone.appendChild(item);
+            }
         };
 
         window.clickRemoveItem = function(cIndex, dropIdx) {
@@ -936,7 +1007,9 @@
             const zones = container.querySelectorAll('.drop-zone');
             const fb = document.getElementById(`cascade-fb-${cIndex}`);
 
-            let filled = 0, correct = true;
+            let filled = 0;
+            let correct = true;
+
             zones.forEach(zone => {
                 if (zone.children.length === 0) return;
                 filled++;
@@ -946,6 +1019,7 @@
             });
 
             fb.style.display = 'block';
+
             if (filled < zones.length) {
                 fb.className = 'feedback-box feedback-error';
                 fb.innerHTML = `<strong>Unvollständig:</strong> Bitte platziere alle Stufen in den Ablauf.`;
@@ -956,7 +1030,7 @@
                 applyXpDelta(150, 'Flow-Chart gemeistert');
                 trackSkill('Pathophysiologie', true);
                 fb.className = 'feedback-box feedback-success';
-                fb.innerHTML = `<strong>Hervorragend!</strong> Kaskade fehlerfrei rekonstruiert.`;
+                fb.innerHTML = `<strong>Hervorragend!</strong> Kaskade für ${activeCaseData.extra_tasks.clinical_cascades[cIndex].disease} fehlerfrei rekonstruiert.`;
                 zones.forEach(z => z.classList.add('correct'));
                 container.querySelector('.action-btn').style.display = 'none';
 
@@ -1063,7 +1137,7 @@
             }
         };
 
-        // --- MASTER-EXAM QUIZ ENGINE ---
+        // --- MASTER EXAM (MC QUIZ) ---
         function renderQuiz() {
             const quizList = activeCaseData.extra_tasks.master_quiz || [];
             const wrapper = document.getElementById('quiz-wrapper');
@@ -1191,7 +1265,7 @@
                 localStorage.setItem('solved_cases', JSON.stringify(solved));
                 applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
             }
-            alert('🎉 Gratulation! Alle Patienten-Audits, Flow-Charts und das Master-Exam wurden erfolgreich absolviert.');
+            alert('🎉 Gratulation! Alle Challenges & Examen wurden erfolgreich gemeistert.');
             switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
         };
     </script>
