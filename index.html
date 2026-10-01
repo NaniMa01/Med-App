@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MediChecker - V5.8 Superfolder Enterprise</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,25 +47,34 @@
         ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.5); }
 
+        /* MOBILE OVERLAY */
+        .sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 15; display: none; backdrop-filter: blur(4px); }
+        .sidebar-overlay.active { display: block; }
+
         sidebar {
             width: 270px; background: var(--sidebar-bg); backdrop-filter: var(--glass-blur); border-right: 1px solid var(--card-border);
             display: flex; flex-direction: column; padding: 24px 18px; z-index: 20; box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
         }
         .brand { font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-bottom: 32px; display: flex; align-items: center; gap: 12px; }
-        .brand-icon-wrap { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.3)); border: 1px solid rgba(56, 189, 248, 0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-blue); }
+        .brand-icon-wrap { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.3)); border: 1px solid rgba(56, 189, 248, 0.4); display: flex; align-items: center; justify-content: center; color: var(--accent-blue); flex-shrink: 0;}
         .brand-badge { font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.3); margin-left: auto; }
         .nav-section-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim); padding: 0 12px 10px 12px; letter-spacing: 0.05em; }
         .nav-links { list-style: none; display: flex; flex-direction: column; gap: 6px; }
         .nav-item { padding: 11px 14px; border-radius: 10px; color: var(--text-muted); cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: all 0.25s var(--ease-out); display: flex; align-items: center; gap: 12px; border: 1px solid transparent; }
-        .nav-item svg { width: 18px; height: 18px; opacity: 0.7; }
+        .nav-item svg { width: 18px; height: 18px; opacity: 0.7; flex-shrink: 0;}
         .nav-item:hover { background: rgba(255, 255, 255, 0.04); color: var(--text-main); border-color: rgba(255, 255, 255, 0.06); transform: translateX(2px); }
         .nav-item.active { background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.08)); color: #ffffff; border-color: rgba(56, 189, 248, 0.35); box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.08); }
         .nav-item.active svg { opacity: 1; color: var(--accent-blue); }
         .sidebar-footer { margin-top: auto; padding: 14px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 12px; display: flex; align-items: center; gap: 12px; }
-        .sidebar-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--color-symptom); box-shadow: 0 0 8px var(--color-symptom); }
+        .sidebar-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--color-symptom); box-shadow: 0 0 8px var(--color-symptom); flex-shrink: 0;}
 
-        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
-        topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; padding: 0 32px; background: rgba(11, 17, 33, 0.65); backdrop-filter: var(--glass-blur); position: sticky; top: 0; z-index: 15; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; }
+        
+        topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; padding: 0 32px; background: rgba(11, 17, 33, 0.65); backdrop-filter: var(--glass-blur); position: sticky; top: 0; z-index: 10; }
+        
+        .menu-toggle { display: none; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); color: var(--accent-blue); cursor: pointer; padding: 6px; border-radius: 8px; transition: all 0.2s; }
+        .menu-toggle:hover { background: rgba(56, 189, 248, 0.25); }
+
         .topbar-engine-tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); color: #e0f2fe; font-size: 0.82rem; font-weight: 600; }
         .topbar-engine-tag .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
         .user-hud { display: flex; align-items: center; gap: 12px; position: relative; }
@@ -79,7 +88,7 @@
         @keyframes floatUp { 0% { opacity: 0; transform: translateY(5px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(-14px); } 100% { opacity: 0; transform: translateY(-24px); } }
 
         .content-body { padding: 30px; display: grid; grid-template-columns: 2.2fr 1fr; gap: 28px; max-width: 1440px; margin: 0 auto; width: 100%; }
-        .panel { background: var(--card-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--card-border); border-radius: 16px; padding: 26px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); position: relative; }
+        .panel { background: var(--card-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--card-border); border-radius: 16px; padding: 26px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); position: relative; width: 100%; overflow: hidden;}
         .panel-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .panel-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 22px; line-height: 1.5; }
 
@@ -111,9 +120,9 @@
         .challenge-tab-btn .tab-badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); color: var(--text-dim); }
         .challenge-tab-btn.active .tab-badge { background: rgba(56, 189, 248, 0.25); color: #e0f2fe; }
 
-        .tutor-btn { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--accent-blue); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+        .tutor-btn { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: var(--accent-blue); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: all 0.2s; flex-shrink: 0;}
         .tutor-btn:hover { transform: scale(1.1); background: rgba(56, 189, 248, 0.3); }
-        .tutor-popup { position: fixed; z-index: 500; background: rgba(15, 23, 42, 0.98); border: 1px solid var(--accent-blue); color: var(--text-main); padding: 20px; border-radius: 14px; width: 380px; font-size: 0.92rem; box-shadow: 0 15px 50px rgba(0,0,0,0.8); display: none; left: 50%; top: 50%; transform: translate(-50%, -50%); line-height: 1.6; backdrop-filter: blur(20px); }
+        .tutor-popup { position: fixed; z-index: 500; background: rgba(15, 23, 42, 0.98); border: 1px solid var(--accent-blue); color: var(--text-main); padding: 20px; border-radius: 14px; width: 90%; max-width: 400px; font-size: 0.92rem; box-shadow: 0 15px 50px rgba(0,0,0,0.8); display: none; left: 50%; top: 50%; transform: translate(-50%, -50%); line-height: 1.6; backdrop-filter: blur(20px); }
 
         .action-btn { background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo)); border: none; padding: 10px 22px; border-radius: 9px; font-weight: 700; font-size: 0.86rem; cursor: pointer; color: #ffffff; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         .action-btn:hover { opacity: 0.95; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.35); }
@@ -174,7 +183,7 @@
         .quiz-question-num { font-size: 0.75rem; font-weight: 800; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
         .quiz-question-text { font-size: 1rem; font-weight: 700; line-height: 1.5; color: var(--text-main); margin-bottom: 16px; }
         .quiz-options-grid { display: flex; flex-direction: column; gap: 10px; }
-        .quiz-opt-btn { background: rgba(16, 24, 46, 0.8); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 18px; text-align: left; color: var(--text-main); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .quiz-opt-btn { background: rgba(16, 24, 46, 0.8); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 18px; text-align: left; color: var(--text-main); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
         .quiz-opt-btn:hover { border-color: var(--accent-blue); background: rgba(30, 41, 59, 0.8); }
         .quiz-opt-btn.selected { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.15); }
         .quiz-opt-btn.correct-highlight { border-color: var(--color-symptom) !important; background: rgba(34, 197, 94, 0.2) !important; color: #a7f3d0 !important; font-weight: 700; }
@@ -190,15 +199,40 @@
         .body-region.correct { fill: var(--color-symptom); stroke: #ffffff; pointer-events: none; }
         .body-region.incorrect { fill: var(--color-risk); stroke: #ffffff; }
 
-        .forge-textarea { width: 100%; height: 320px; background: rgba(6, 9, 19, 0.75); color: #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; padding: 16px; border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 14px; outline: none; line-height: 1.6; }
+        .forge-textarea { width: 100%; height: 320px; background: rgba(6, 9, 19, 0.75); color: #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; padding: 16px; border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 14px; outline: none; line-height: 1.6; resize: vertical;}
         .step-content { font-size: 1rem; line-height: 1.8; background: rgba(6, 9, 19, 0.5); padding: 20px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 12px; color: #e2e8f0; }
         .stealth-word, .stealth-hotspot { cursor: pointer; transition: all 0.2s; display: inline-block; padding: 1px 3px; border-radius: 4px; margin-right: 2px;}
         .stealth-word:hover, .stealth-hotspot:hover { background: rgba(56, 189, 248, 0.15); color: #fff; }
         .resolved-noise { color: var(--text-dim); text-decoration: line-through; pointer-events: none; }
         .resolved-signal { background: rgba(239, 68, 68, 0.2); color: #fecdd3; font-weight: 700; border: 1px solid var(--color-risk); border-radius: 5px; padding: 1px 5px; pointer-events: none; }
+
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 1024px) {
+            .content-body { grid-template-columns: 1fr; padding: 20px; }
+            .menu-toggle { display: block; }
+            sidebar { position: fixed; left: 0; top: 0; height: 100vh; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+            sidebar.open { transform: translateX(0); }
+            .engine-text { display: none; }
+        }
+        @media (max-width: 768px) {
+            .topbar-engine-tag span:nth-child(2) { display: none; }
+        }
+        @media (max-width: 600px) {
+            .content-body { padding: 12px; gap: 16px; }
+            topbar { padding: 0 16px; }
+            .panel { padding: 20px 16px; }
+            .body-map-wrapper { flex-direction: column; align-items: center; gap: 25px; padding: 15px; }
+            .challenge-tab-btn { min-width: auto; padding: 8px 12px; font-size: 0.75rem; }
+            .synapses-grid-4x4 { grid-template-columns: 1fr 1fr; }
+            .quiz-opt-btn { font-size: 0.8rem; padding: 10px 14px; }
+        }
+
     </style>
 </head>
 <body>
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
     <sidebar>
         <div class="brand">
             <div class="brand-icon-wrap">
@@ -209,10 +243,22 @@
         </div>
         <div class="nav-section-label">Navigation</div>
         <ul class="nav-links">
-            <li class="nav-item active" onclick="switchTab('dashboard', this)"><span>Dashboard</span></li>
-            <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;"><span>Challenge Hub</span></li>
-            <li class="nav-item" onclick="switchTab('forge', this)"><span>Fall-Schmiede (Dev)</span></li>
-            <li class="nav-item" onclick="switchTab('settings', this)"><span>Einstellungen</span></li>
+            <li class="nav-item active" onclick="switchTab('dashboard', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <span>Dashboard</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span>Challenge Hub</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('forge', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                <span>Fall-Schmiede (Dev)</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('settings', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>Einstellungen</span>
+            </li>
         </ul>
         <div class="sidebar-footer">
             <div class="sidebar-pulse"></div>
@@ -225,7 +271,14 @@
 
     <div class="main-wrapper">
         <topbar>
-            <div class="topbar-engine-tag"><span class="dot"></span><span>V5.8 Olat-Folder & Master-Exam Architecture</span></div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="topbar-engine-tag"><span class="dot"></span><span class="engine-text">V5.8 Folder & Master-Exam</span></div>
+            </div>
             <div class="user-hud">
                 <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
@@ -258,7 +311,7 @@
                 <!-- PLAYER VIEW -->
                 <div class="panel" id="player-view" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
-                        <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück zur Übersicht</button>
+                        <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
                         <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">
                             Aktiver Fall: <span id="player-case-badge-title">Lädt...</span>
                         </div>
@@ -266,12 +319,12 @@
 
                     <!-- SUB-NAV BAR -->
                     <div class="challenge-nav-bar">
-                        <button class="challenge-tab-btn active" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Sokratisches Audit</span><span class="tab-badge" id="badge-mode-audit">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display:none;"><span>🧠 Synapsen-Matrix</span><span class="tab-badge" id="badge-mode-synapses">0/4</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display:none;"><span>🔗 Clinical Cascades</span><span class="tab-badge" id="badge-mode-cascade">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-topo" onclick="switchPlayerMode('topo')" style="display:none;"><span>🫀 Topo-Mapping</span><span class="tab-badge" id="badge-mode-topo">Offen</span></button>
+                        <button class="challenge-tab-btn active" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Audit</span><span class="tab-badge" id="badge-mode-audit">0/0</span></button>
+                        <button class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display:none;"><span>🧠 Synapsen</span><span class="tab-badge" id="badge-mode-synapses">0/4</span></button>
+                        <button class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display:none;"><span>🔗 Kaskade</span><span class="tab-badge" id="badge-mode-cascade">0/0</span></button>
+                        <button class="challenge-tab-btn" id="tab-btn-topo" onclick="switchPlayerMode('topo')" style="display:none;"><span>🫀 Topo</span><span class="tab-badge" id="badge-mode-topo">Offen</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display:none;"><span>🏷️ Taxonomie</span><span class="tab-badge" id="badge-mode-cat">Offen</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Master-Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
+                        <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
                     </div>
 
                     <!-- MODUS 1: AUDIT -->
@@ -366,7 +419,7 @@
                     <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
                     <div class="panel-subtitle">Füge den generierten JSON-Code hier ein, um den Fall im Browser zu validieren und zu spielen.</div>
                     <textarea class="forge-textarea" id="forge-input" placeholder="JSON-Code hier einfügen..."></textarea>
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
                         <button class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Löschen</button>
                     </div>
@@ -380,6 +433,62 @@
                     <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
                         <button class="action-btn secondary" onclick="if(confirm('Lernfortschritt & XP wirklich zurücksetzen?')){ localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Lern-Fortschritt & XP zurücksetzen</button>
                         <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle löschen?')){ localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);">Alle Custom-Fälle löschen</button>
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <h4 style="margin-top: 0; color: var(--accent-blue);">KI Master-Prompt (V5.8)</h4>
+                        <p style="font-size: 0.85rem; color: var(--text-muted);">Kopiere diesen Prompt in ChatGPT/Gemini, um kompatible Fälle zu generieren.</p>
+                        <textarea class="forge-textarea" id="ai-prompt-text" readonly>Du bist ein Elite-Software-Architekt, Full-Stack-Entwickler und EdTech-Experte, spezialisiert auf hochskalierbare, gamifizierte Lern-Apps im medizinischen Sektor. Dein Partner und Auftraggeber ist ein Medizinstudent im 5. Studienjahr, der eine revolutionäre Mediziner-App entwickeln möchte. 
+
+Du bist zudem ein Elite-Facharzt und didaktischer Content-Architekt für einen sokratischen M&M-Simulator (Morbidity & Mortality) auf universitärem Master-Niveau. 
+
+DEINE AUFGABE:
+Ich werde dir Rohtexte aus medizinischen Vorlesungen, Leitlinien oder Papern zur Verfügung stellen. Du extrahierst das pathophysiologische Kernwissen und transformierst es in EINEN hochkomplexen, klinischen Fall im exakten JSON-Format INKLUSIVE aller "extra_tasks".
+
+DESIGN-REGELN FÜR DEN FALL (Bloom-Stufe 5-6):
+1. **Ordner-Zuweisung:** Wähle für das Feld `medical_field` ZWINGEND exakt einen dieser vorgegebenen Ordnernamen:
+   "29.2.14_Der klinische Fall", "29.2.13_Neurologische Notfälle", "29.2.12_Kindliche Hirnentwicklungsstörungen", "29.2.11_Kopfschmerzen", "29.2.10_Erkrankungen des Rückenmarks und des peripheren Nervensystems", "29.2.09_Demyelinisierende Erkrankungen", "29.2.08_Erkrankungen der hinteren Schädelgrube und Liquorzirkulationsstörungen", "29.2.07_Tumore", "29.2.06_Zerebrovaskuläre Erkrankungen", "29.2.05_Infektionen des zentralen Nervensystems", "29.2.04_Anfallsleiden", "29.2.03_Bewegungsstörungen", "29.2.02_Neurokognitive Störungen", "29.2.01_Einführung_Klinik_Diagnostik_Topologie".
+2. **Multi-Patienten- & Multi-Themen-Szenarien:** Die Timeline MUSS 3 Patientenfälle mit je 3 Abschnitten (insgesamt 9 Timeline-Schritte) umfassen.
+3. **Signal vs. Noise:** Verstecke klinisches Rauschen und gut getarnte Fehler in eckigen Klammern: `[...]`. Jeder Hotspot braucht einen `skill_tag`.
+4. **Die Null-Fehler-Falle (Zwingend!):** Mindestens EIN Timeline-Schritt pro Patient MUSS klinisch absolut makellos sein (`is_error: false`).
+5. **Pathophysiologische Tiefe & Sokratische Falle:** Begründe mechanistisch. Hinterfrage Fehler hart über den `socratic_trap`.
+6. **Clinical Cascades:** Erstelle für JEDE behandelte Erkrankung eine 8-stufige Kaskade.
+7. **Sokratischer Tutor:** Jede Extra-Task MUSS das Feld `tutor_hint` enthalten.
+8. **Synapsen-Matrix:** Strikte 4er-Kanonik: "Risiko/Pathologie", "Symptom/Klinik", "Diagnostik", "Therapie/Management".
+9. **Master-Exam (Fachwissen-MC-Quiz):** Erstelle zwingend zwischen 5 und 10 anspruchsvolle MC-Fragen mit je 4 Antwortoptionen (`options`), genau einem `correct_index` (0-3) und einer fundierten pathophysiologischen `explanation`. Baue typische klinische Fehlinterpretationen als Distraktoren ein.
+
+JSON-OUTPUT-STRUKTUR:
+{
+  "case_id": "[Eindeutige ID]",
+  "metadata": { "title": "...", "medical_field": "[EXAKTER ORDNERNAME]", "bloom_level": "Evaluation & Synthese", "difficulty": 5, "xp_reward": 900 },
+  "timeline": [
+    {
+      "step_id": 1,
+      "phase": "Patient 1 – Phase 1",
+      "content": "Text mit [Noise 1] und [Fatalem Fehler].",
+      "hotspots": [
+        { "phrase": "Noise 1", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt." },
+        { "phrase": "Fatalem Fehler", "is_error": true, "skill_tag": "Pharmakologie", "socratic_trap": "Frage...", "correct_pathophysiology": "Erklärung..." }
+      ]
+    }
+  ],
+  "extra_tasks": {
+    "categorization": { "description": "...", "tutor_hint": "...", "categories": ["Kat A", "Kat B"], "items": [ { "term": "...", "category": "Kat A" } ] },
+    "synapses_matrix": { "description": "...", "tutor_hint": "...", "diseases": ["Krankheit A"], "variables": [ { "term": "...", "type": "Risiko/Pathologie", "disease": "Krankheit A" }, { "term": "...", "type": "Symptom/Klinik", "disease": "Krankheit A" }, { "term": "...", "type": "Diagnostik", "disease": "Krankheit A" }, { "term": "...", "type": "Therapie/Management", "disease": "Krankheit A" } ] },
+    "body_mapping": { "description": "...", "disease": "...", "tutor_hint": "...", "target_regions": ["anterior_pelvis"], "feedback_success": "...", "feedback_error": "..." },
+    "clinical_cascades": [ { "disease": "Krankheit 1", "description": "...", "tutor_hint": "...", "cascade": [ { "stage": "1_Ätiologie", "content": "..." } ] } ],
+    "master_quiz": [
+      {
+        "question": "Präzise klinische Frage...",
+        "options": ["Falle 1", "Korrekt", "Falle 2", "Falle 3"],
+        "correct_index": 1,
+        "explanation": "Detaillierte Begründung."
+      }
+    ]
+  }
+}
+
+WICHTIG FÜR BODY MAPPING: Nutze AUSSCHLIESSLICH diese IDs für 'target_regions': anterior_head, anterior_face, anterior_neck, anterior_shoulder, anterior_chest, anterior_abdomen, anterior_pelvis, anterior_arm_left, anterior_arm_right, anterior_leg_left, anterior_leg_right, posterior_head, posterior_back_upper, posterior_back_lower, posterior_arm_left, posterior_arm_right, posterior_leg_left, posterior_leg_right.</textarea>
+                        <button class="action-btn" onclick="navigator.clipboard.writeText(document.getElementById('ai-prompt-text').value); alert('Kopiert!');" style="margin-top: 10px;">Prompt kopieren</button>
                     </div>
                 </div>
             </div>
@@ -495,6 +604,12 @@
             renderDashboardCases();
         });
 
+        // MOBILE SIDEBAR TOGGLE
+        window.toggleSidebar = function() {
+            document.querySelector('sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('active');
+        };
+
         function initUserData() {
             if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
             let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
@@ -576,6 +691,11 @@
             document.getElementById('forge-view').style.display = tab === 'forge' ? 'block' : 'none';
             document.getElementById('settings-view').style.display = tab === 'settings' ? 'block' : 'none';
             document.getElementById('nav-player').style.display = tab === 'player' ? 'flex' : 'none';
+            
+            // Mobile Overlay ausblenden falls aktiv
+            document.querySelector('sidebar').classList.remove('open');
+            document.querySelector('.sidebar-overlay').classList.remove('active');
+
             if (tab === 'dashboard') renderDashboardCases();
         }
 
@@ -601,11 +721,11 @@
         };
 
         // --- DASHBOARD MIT KATEGORIE-ORDNERN ---
-        function toggleSuperFolder() {
+        window.toggleSuperFolder = function() {
             superFolderOpen = !superFolderOpen;
             document.getElementById('dashboard-folders-container').style.display = superFolderOpen ? 'flex' : 'none';
             document.getElementById('super-folder-arrow').innerText = superFolderOpen ? '▼' : '▶';
-        }
+        };
 
         function renderDashboardCases() {
             let customCases = [];
@@ -638,7 +758,7 @@
                                 <span style="color:${isSolved ? 'var(--color-symptom)' : 'var(--accent-blue)'}; font-weight:700;">
                                     ${isSolved ? '✓ Gelöst' : '● Offen'}
                                 </span>
-                                <span>+${c.metadata?.xp_reward || 500} XP</span>
+                                <span>+${c.metadata?.xp_reward || 900} XP</span>
                             </div>
                         </div>`;
                 }).join('');
@@ -943,37 +1063,28 @@
         window.dragStart = function(e, cIndex, origIndex) {
             e.dataTransfer.setData('text/plain', `${cIndex}-${origIndex}`);
         };
-
         window.dragOver = function(e) {
             e.preventDefault();
             const zone = e.target.closest('.drop-zone');
             if (zone) zone.classList.add('drag-over');
         };
-
         window.dragLeave = function(e) {
             const zone = e.target.closest('.drop-zone');
             if (zone) zone.classList.remove('drag-over');
         };
-
         window.drop = function(e, cIndex, dropIdx) {
             e.preventDefault();
             const zone = e.target.closest('.drop-zone');
             if (zone) zone.classList.remove('drag-over');
-
             const raw = e.dataTransfer.getData('text/plain');
             if (!raw) return;
             const [itemCIndex, itemOrigIndex] = raw.split('-');
             if (parseInt(itemCIndex) !== cIndex) return;
-
             const item = document.getElementById(`drag-${itemCIndex}-${itemOrigIndex}`);
             if (!item) return;
-
-            if (zone.children.length > 0) {
-                document.getElementById(`bank-${cIndex}`).appendChild(zone.children[0]);
-            }
+            if (zone.children.length > 0) { document.getElementById(`bank-${cIndex}`).appendChild(zone.children[0]); }
             zone.appendChild(item);
         };
-
         window.dropToBank = function(e, cIndex) {
             e.preventDefault();
             const raw = e.dataTransfer.getData('text/plain');
@@ -982,18 +1093,13 @@
             if (parseInt(itemCIndex) !== cIndex) return;
             document.getElementById(`bank-${cIndex}`).appendChild(document.getElementById(`drag-${itemCIndex}-${itemOrigIndex}`));
         };
-
         window.clickPlaceItem = function(cIndex, origIndex) {
             const item = document.getElementById(`drag-${cIndex}-${origIndex}`);
             if (!item || item.parentElement.classList.contains('drop-zone')) return;
-
             const container = document.getElementById(`cascade-box-${cIndex}`);
             const emptyZone = Array.from(container.querySelectorAll('.drop-zone')).find(z => z.children.length === 0);
-            if (emptyZone) {
-                emptyZone.appendChild(item);
-            }
+            if (emptyZone) { emptyZone.appendChild(item); }
         };
-
         window.clickRemoveItem = function(cIndex, dropIdx) {
             const container = document.getElementById(`cascade-box-${cIndex}`);
             const zone = container.querySelectorAll('.drop-zone')[dropIdx];
@@ -1006,7 +1112,6 @@
             const container = document.getElementById(`cascade-box-${cIndex}`);
             const zones = container.querySelectorAll('.drop-zone');
             const fb = document.getElementById(`cascade-fb-${cIndex}`);
-
             let filled = 0;
             let correct = true;
 
@@ -1019,7 +1124,6 @@
             });
 
             fb.style.display = 'block';
-
             if (filled < zones.length) {
                 fb.className = 'feedback-box feedback-error';
                 fb.innerHTML = `<strong>Unvollständig:</strong> Bitte platziere alle Stufen in den Ablauf.`;
@@ -1027,19 +1131,16 @@
             }
 
             if (correct) {
-                applyXpDelta(150, 'Flow-Chart gemeistert');
-                trackSkill('Pathophysiologie', true);
+                applyXpDelta(150, 'Flow-Chart gemeistert'); trackSkill('Pathophysiologie', true);
                 fb.className = 'feedback-box feedback-success';
                 fb.innerHTML = `<strong>Hervorragend!</strong> Kaskade für ${activeCaseData.extra_tasks.clinical_cascades[cIndex].disease} fehlerfrei rekonstruiert.`;
                 zones.forEach(z => z.classList.add('correct'));
                 container.querySelector('.action-btn').style.display = 'none';
-
                 cascadesSolvedCount++;
                 document.getElementById('badge-mode-cascade').innerText = `${cascadesSolvedCount}/${totalCascades}`;
                 checkFinalCompletion();
             } else {
-                applyXpDelta(-30, 'Kaskade Fehler');
-                trackSkill('Pathophysiologie', false);
+                applyXpDelta(-30, 'Kaskade Fehler'); trackSkill('Pathophysiologie', false);
                 fb.className = 'feedback-box feedback-error';
                 fb.innerHTML = `<strong>Kausaler Fehler:</strong> Mindestens eine Stufe befindet sich an der falschen Position.`;
             }
@@ -1050,11 +1151,9 @@
             if (bodyMappingSolved) return;
             const el = document.getElementById(regionId);
             if (el.classList.contains('selected')) {
-                el.classList.remove('selected');
-                selectedBodyRegions = selectedBodyRegions.filter(id => id !== regionId);
+                el.classList.remove('selected'); selectedBodyRegions = selectedBodyRegions.filter(id => id !== regionId);
             } else {
-                el.classList.add('selected');
-                selectedBodyRegions.push(regionId);
+                el.classList.add('selected'); selectedBodyRegions.push(regionId);
             }
         };
 
@@ -1067,23 +1166,17 @@
 
             fb.style.display = 'block';
             if (isMatch) {
-                applyXpDelta(50, 'Lokalisation');
-                trackSkill('Diagnostik', true);
-                fb.className = 'feedback-box feedback-success';
-                fb.innerHTML = `<strong>Korrekt!</strong> ${task.feedback_success}`;
+                applyXpDelta(50, 'Lokalisation'); trackSkill('Diagnostik', true);
+                fb.className = 'feedback-box feedback-success'; fb.innerHTML = `<strong>Korrekt!</strong> ${task.feedback_success}`;
                 selectedBodyRegions.forEach(id => document.getElementById(id).classList.add('correct'));
-                bodyMappingSolved = true;
-                document.getElementById('badge-mode-topo').innerText = '✓ Gelöst';
+                bodyMappingSolved = true; document.getElementById('badge-mode-topo').innerText = '✓ Gelöst';
                 checkFinalCompletion();
             } else {
-                applyXpDelta(-20, 'Fehllokalisation');
-                trackSkill('Diagnostik', false);
-                fb.className = 'feedback-box feedback-error';
-                fb.innerHTML = `<strong>Nicht ganz:</strong> ${task.feedback_error}`;
+                applyXpDelta(-20, 'Fehllokalisation'); trackSkill('Diagnostik', false);
+                fb.className = 'feedback-box feedback-error'; fb.innerHTML = `<strong>Nicht ganz:</strong> ${task.feedback_error}`;
                 selectedBodyRegions.forEach(id => {
                     const el = document.getElementById(id);
-                    el.classList.remove('selected');
-                    el.classList.add('incorrect');
+                    el.classList.remove('selected'); el.classList.add('incorrect');
                     setTimeout(() => el.classList.remove('incorrect'), 600);
                 });
                 selectedBodyRegions = [];
@@ -1102,38 +1195,27 @@
                         ${cat.categories.map(c => `<option value="${c}">${c}</option>`).join('')}
                     </select>
                 </div>`).join('');
-            document.getElementById('badge-mode-cat').innerText = 'Offen';
-            document.getElementById('cat-fb').style.display = 'none';
+            document.getElementById('badge-mode-cat').innerText = 'Offen'; document.getElementById('cat-fb').style.display = 'none';
         }
 
         window.evalCategorization = function() {
             if (categorizationSolved) return;
             let correct = true;
             document.querySelectorAll('.cat-select').forEach(sel => {
-                if (sel.value === sel.getAttribute('data-correct')) {
-                    sel.style.borderColor = 'var(--color-symptom)';
-                } else {
-                    correct = false;
-                    sel.style.borderColor = 'var(--color-risk)';
-                }
+                if (sel.value === sel.getAttribute('data-correct')) { sel.style.borderColor = 'var(--color-symptom)'; } 
+                else { correct = false; sel.style.borderColor = 'var(--color-risk)'; }
             });
 
-            const fb = document.getElementById('cat-fb');
-            fb.style.display = 'block';
+            const fb = document.getElementById('cat-fb'); fb.style.display = 'block';
             if (correct) {
-                applyXpDelta(50, 'Taxonomie gemeistert');
-                trackSkill('Pharmakologie', true);
-                fb.className = 'feedback-box feedback-success';
-                fb.innerHTML = 'Hervorragend! Alle Entitäten wurden den richtigen Kategorien zugeteilt.';
+                applyXpDelta(50, 'Taxonomie gemeistert'); trackSkill('Pharmakologie', true);
+                fb.className = 'feedback-box feedback-success'; fb.innerHTML = 'Hervorragend! Alle Entitäten wurden den richtigen Kategorien zugeteilt.';
                 document.querySelectorAll('.cat-select').forEach(s => s.disabled = true);
                 document.getElementById('badge-mode-cat').innerText = '✓ Gelöst';
-                categorizationSolved = true;
-                checkFinalCompletion();
+                categorizationSolved = true; checkFinalCompletion();
             } else {
-                applyXpDelta(-20, 'Taxonomie Fehler');
-                trackSkill('Pharmakologie', false);
-                fb.className = 'feedback-box feedback-error';
-                fb.innerHTML = 'Einige Zuordnungen stimmen noch nicht.';
+                applyXpDelta(-20, 'Taxonomie Fehler'); trackSkill('Pharmakologie', false);
+                fb.className = 'feedback-box feedback-error'; fb.innerHTML = 'Einige Zuordnungen stimmen noch nicht.';
             }
         };
 
@@ -1206,8 +1288,7 @@
                 fb.className = 'feedback-box feedback-success';
                 fb.innerHTML = `<strong>Prüfung bestanden!</strong> ${correctCount} von ${quizList.length} Fragen richtig (${scorePercent}%).`;
                 applyXpDelta(correctCount * 30, 'Master-Exam');
-                trackSkill('Pathophysiologie', true);
-                trackSkill('Diagnostik', true);
+                trackSkill('Pathophysiologie', true); trackSkill('Diagnostik', true);
                 quizSolved = true;
                 document.getElementById('badge-mode-quiz').innerText = '✓ Bestanden';
                 checkFinalCompletion();
