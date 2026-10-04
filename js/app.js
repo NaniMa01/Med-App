@@ -341,20 +341,77 @@ window.renderOverview = function() {
 window.validateAndSaveCustomCase = function() {
     const rawVal = document.getElementById('forge-input').value.trim();
     const fb = document.getElementById('forge-fb');
-    if (!rawVal) return;
-    try {
-        const sanitized = rawVal.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
-        const parsed = JSON.parse(sanitized);
-        if (!parsed.case_id || !parsed.timeline) throw new Error("Pflichtfelder fehlen.");
-        let customCases = JSON.parse(localStorage.getItem('custom_cases')) || [];
-        customCases = customCases.filter(c => c.case_id !== parsed.case_id);
-        customCases.push(parsed);
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-        fb.style.display = 'block'; fb.className = 'feedback-box feedback-success'; fb.innerHTML = `<strong>Korrekt!</strong> Fall gespeichert.`;
-        renderDashboardCases();
-    } catch (err) { fb.style.display = 'block'; fb.className = 'feedback-box feedback-error'; fb.innerHTML = `Validierungsfehler: ${err.message}`; }
-};
 
+    if (!rawVal) {
+        fb.style.display = 'block';
+        fb.className = 'feedback-box feedback-error';
+        fb.innerHTML = 'Bitte füge zuerst einen JSON-Fall ein.';
+        return;
+    }
+
+    try {
+        // Entfernt Markdown-Codeblöcke wie ```json ... ```
+        const sanitized = rawVal
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .replace(/[\u201C\u201D]/g, '"')
+            .replace(/[\u2018\u2019]/g, "'")
+            .trim();
+
+        const parsed = JSON.parse(sanitized);
+
+        if (Array.isArray(parsed)) {
+            throw new Error(
+                'Bitte füge einen einzelnen Fall ein, kein JSON-Array.'
+            );
+        }
+
+        if (!parsed.case_id || typeof parsed.case_id !== 'string') {
+            throw new Error('Das Pflichtfeld "case_id" fehlt.');
+        }
+
+        if (!Array.isArray(parsed.timeline)) {
+            throw new Error(
+                'Das Pflichtfeld "timeline" muss ein Array sein.'
+            );
+        }
+
+        let customCases = [];
+
+        try {
+            customCases = JSON.parse(
+                localStorage.getItem('custom_cases') || '[]'
+            );
+
+            if (!Array.isArray(customCases)) {
+                customCases = [];
+            }
+        } catch (storageError) {
+            customCases = [];
+        }
+
+        customCases = customCases.filter(
+            c => c.case_id !== parsed.case_id
+        );
+
+        customCases.push(parsed);
+        localStorage.setItem(
+            'custom_cases',
+            JSON.stringify(customCases)
+        );
+
+        fb.style.display = 'block';
+        fb.className = 'feedback-box feedback-success';
+        fb.innerHTML = `<strong>Korrekt!</strong> Fall "${parsed.case_id}" gespeichert.`;
+
+        renderDashboardCases();
+
+    } catch (err) {
+        fb.style.display = 'block';
+        fb.className = 'feedback-box feedback-error';
+        fb.innerHTML = `Validierungsfehler: ${err.message}`;
+    }
+};
 window.checkFinalCompletion = function() {
     const stepsDone = (clearedStepsCount === totalStepsCount);
     const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
