@@ -16,6 +16,45 @@ function parseRequestBody(body) {
     }
     return body;
 }
+ function parseRequestBody(body) {
+     if (!body) return {};
+     if (typeof body === 'string') {
+         try {
+             return JSON.parse(body);
+         } catch (_error) {
+             return null;
+         }
+     }
+     return body;
+ }
+
++function extractJsonObject(text) {
++    if (typeof text !== 'string') {
++        throw new Error('Gemini response is not a string.');
++    }
++
++    let value = text
++        .replace(/^\uFEFF/, '')
++        .replace(/^```json\s*/i, '')
++        .replace(/^```\s*/i, '')
++        .replace(/\s*```$/i, '')
++        .trim();
++
++    try {
++        return JSON.parse(value);
++    } catch (_error) {
++        const firstBrace = value.indexOf('{');
++        const lastBrace = value.lastIndexOf('}');
++
++        if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
++            throw new Error('No JSON object found in Gemini response.');
++        }
++
++        const possibleJson = value.slice(firstBrace, lastBrace + 1);
++        return JSON.parse(possibleJson);
++    }
++}
++
 
 module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -159,11 +198,36 @@ ${prompt}
             .join('')
             .trim();
 
-        if (!generatedText) {
-            return sendJson(res, 502, {
-                error: 'Gemini returned no usable content.'
-            });
-        }
+    if (!generatedText) {
+    return sendJson(res, 502, {
+        error: 'Gemini returned no usable content.'
+    });
+}
+
+let generatedCase;
+
+try {
+    generatedCase = extractJsonObject(generatedText);
+} catch (error) {
+    return sendJson(res, 502, {
+        error: 'Gemini returned invalid JSON.',
+        details: error.message,
+        rawResponse: generatedText.slice(0, 4000)
+    });
+}
+
+if (!generatedCase.case_id || !generatedCase.metadata || !generatedCase.timeline) {
+    return sendJson(res, 502, {
+        error: 'Gemini JSON is missing required fields.'
+    });
+}
+
+return sendJson(res, 200, {
+    ok: true,
+    model,
+    generatedText: JSON.stringify(generatedCase),
+    generatedCase
+});
 
         const cleanedText = generatedText
             .replace(/^```json\s*/i, '')
