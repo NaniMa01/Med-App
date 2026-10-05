@@ -345,6 +345,7 @@ window.loadCaseById = function(caseId) {
     document.getElementById('tab-btn-cascade').style.display = (tasks.clinical_cascades && tasks.clinical_cascades.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-cat').style.display = (tasks.categorization && tasks.categorization.items?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-quiz').style.display = (tasks.master_quiz && tasks.master_quiz.length) ? 'flex' : 'none';
+    bodyMappingSolved = true;
 
     const safely = (label, fn) => {
         try { fn(); } catch (err) { console.error(`Fehler beim Laden (${label}):`, err); }
