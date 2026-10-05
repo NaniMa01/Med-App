@@ -44,12 +44,30 @@
                 <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
                 <div id="hud-popup-container"></div>
+                <div class="auth-user" id="auth-user" style="display: none;">
+                    <span class="auth-email" id="auth-user-email"></span>
+                    <button class="action-btn secondary" onclick="authSignOut()">Abmelden</button>
+                </div>
             </div>
         </topbar>
 
         <div class="content-body">
             <div style="display: flex; flex-direction: column; gap: 20px;">
                 
+                <div class="panel" id="auth-panel">
+                    <div class="panel-title">Anmelden</div>
+                    <div class="panel-subtitle">Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).</div>
+                    <form class="auth-panel" onsubmit="return false;">
+                        <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email">
+                        <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password">
+                        <div class="auth-actions">
+                            <button type="submit" class="action-btn" onclick="authSignIn()">Anmelden</button>
+                            <button type="button" class="action-btn secondary" onclick="authSignUp()">Registrieren</button>
+                        </div>
+                    </form>
+                    <div class="feedback-box" id="auth-fb"></div>
+                </div>
+
                 <div class="panel" id="dashboard-view" style="display: block;">
                     <div class="panel-title">Klinische Module & Themen-Ordner</div>
                     <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
@@ -129,7 +147,9 @@
     </div>
 
     <!-- JAVASCRIPT MODULE LADEN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/app.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/audit.js"></script>
     <script src="js/synapses.js"></script>
     <script src="js/cascade.js"></script>
