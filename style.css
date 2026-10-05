@@ -251,7 +251,10 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .body-region.correct { fill: var(--color-symptom); stroke: #ffffff; pointer-events: none; }
 .body-region.incorrect { fill: var(--color-risk); stroke: #ffffff; }
 
+.forge-label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--accent-blue); margin-bottom: 6px; margin-top: 6px; }
+.forge-endpoint-input { width: 100%; background: rgba(6, 9, 19, 0.75); color: #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 10px; margin-bottom: 14px; outline: none; }
 .forge-textarea { width: 100%; height: 320px; background: rgba(6, 9, 19, 0.75); color: #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; padding: 16px; border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 14px; outline: none; line-height: 1.6; resize: vertical;}
+.forge-source-textarea { height: 180px; }
 .step-content { font-size: 1rem; line-height: 1.8; background: rgba(6, 9, 19, 0.5); padding: 20px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 12px; color: #e2e8f0; }
 .stealth-word, .stealth-hotspot { cursor: pointer; transition: all 0.2s; display: inline-block; padding: 1px 3px; border-radius: 4px; margin-right: 2px;}
 .stealth-word:hover, .stealth-hotspot:hover { background: rgba(56, 189, 248, 0.15); color: #fff; }

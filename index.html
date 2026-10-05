@@ -93,11 +93,23 @@
 
                 <div class="panel" id="forge-view" style="display: none;">
                     <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
-                    <div class="panel-subtitle">Füge den generierten JSON-Code hier ein.</div>
+                    <div class="panel-subtitle">Füge anonymisierten Lerntext ein oder bearbeite den JSON-Fall manuell.</div>
+                    <div class="feedback-box feedback-error" id="forge-privacy-note" style="display: block; margin-top: 0; margin-bottom: 14px;">
+                        <strong>Datenschutz-Hinweis:</strong> Bitte nur anonymisierte Lerntexte ohne Namen, Geburtsdaten oder andere identifizierende Patientendaten eingeben.<br>
+                        Generierte Inhalte sind ausschließlich Lernmaterial und keine medizinische Beratung.
+                    </div>
+                    <label class="forge-label" for="forge-source-text">Lerntext (anonymisiert)</label>
+                    <textarea class="forge-textarea forge-source-textarea" id="forge-source-text" placeholder="Medizinischen Lerntext hier einfügen..."></textarea>
+                    <label class="forge-label" for="forge-endpoint">Backend-Endpunkt</label>
+                    <input class="forge-endpoint-input" id="forge-endpoint" type="text" value="/api/generate-case" placeholder="/api/generate-case">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="action-btn" id="forge-generate-btn" onclick="generateCaseFromText()">Lernspiel generieren</button>
+                        <button class="action-btn secondary" onclick="clearForgeSourceText()">Lerntext löschen</button>
+                    </div>
                     <textarea class="forge-textarea" id="forge-input" placeholder="JSON-Code hier einfügen..."></textarea>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
-                        <button class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Löschen</button>
+                        <button class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">JSON löschen</button>
                     </div>
                     <div class="feedback-box" id="forge-fb"></div>
                 </div>
@@ -125,6 +137,7 @@
     </div>
 
     <!-- JAVASCRIPT MODULE LADEN -->
+    <script src="js/case-schema.js"></script>
     <script src="js/app.js"></script>
     <script src="js/audit.js"></script>
     <script src="js/synapses.js"></script>
