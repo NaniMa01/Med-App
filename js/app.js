@@ -88,6 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initUserData();
     renderSkillsSidebar();
     renderDashboardCases();
+    const endpointInput = document.getElementById('forge-endpoint');
+    if (endpointInput) {
+        endpointInput.value = localStorage.getItem('forge_generate_endpoint') || '/api/generate-case';
+    }
 });
 
 window.toggleSidebar = function() {
@@ -338,78 +342,119 @@ window.renderOverview = function() {
 };
 
 // --- FORGE LOGIK ---
+function getCaseSchemaTools() {
+    return window.MediCheckerCaseSchema || {};
+}
+
+function setForgeFeedback(type, text) {
+    const fb = document.getElementById('forge-fb');
+    fb.style.display = 'block';
+    fb.className = `feedback-box ${type}`;
+    fb.innerHTML = text;
+}
+
+function readCustomCases() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function persistCustomCase(inputCase) {
+    const customCases = readCustomCases().filter(c => c.case_id !== inputCase.case_id);
+    customCases.push(inputCase);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    renderDashboardCases();
+}
+
+function validateCaseInput(rawVal) {
+    const schema = getCaseSchemaTools();
+    if (!schema.parseCaseJson || !schema.validateMediCheckerCase) {
+        throw new Error('Validierungsmodule konnten nicht geladen werden.');
+    }
+    const parsed = schema.parseCaseJson(rawVal);
+    const validation = schema.validateMediCheckerCase(parsed);
+    if (!validation.valid) {
+        throw new Error(validation.errors.join(' '));
+    }
+    return validation.value;
+}
+
 window.validateAndSaveCustomCase = function() {
     const rawVal = document.getElementById('forge-input').value.trim();
-    const fb = document.getElementById('forge-fb');
-
     if (!rawVal) {
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = 'Bitte füge zuerst einen JSON-Fall ein.';
+        setForgeFeedback('feedback-error', 'Bitte füge zuerst einen JSON-Fall ein.');
         return;
     }
 
     try {
-        // Entfernt Markdown-Codeblöcke wie ```json ... ```
-        const sanitized = rawVal
-            .replace(/^```(?:json)?\s*/i, '')
-            .replace(/\s*```$/i, '')
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/[\u2018\u2019]/g, "'")
-            .trim();
-
-        const parsed = JSON.parse(sanitized);
-
-        if (Array.isArray(parsed)) {
-            throw new Error(
-                'Bitte füge einen einzelnen Fall ein, kein JSON-Array.'
-            );
-        }
-
-        if (!parsed.case_id || typeof parsed.case_id !== 'string') {
-            throw new Error('Das Pflichtfeld "case_id" fehlt.');
-        }
-
-        if (!Array.isArray(parsed.timeline)) {
-            throw new Error(
-                'Das Pflichtfeld "timeline" muss ein Array sein.'
-            );
-        }
-
-        let customCases = [];
-
-        try {
-            customCases = JSON.parse(
-                localStorage.getItem('custom_cases') || '[]'
-            );
-
-            if (!Array.isArray(customCases)) {
-                customCases = [];
-            }
-        } catch (storageError) {
-            customCases = [];
-        }
-
-        customCases = customCases.filter(
-            c => c.case_id !== parsed.case_id
-        );
-
-        customCases.push(parsed);
-        localStorage.setItem(
-            'custom_cases',
-            JSON.stringify(customCases)
-        );
-
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-success';
-        fb.innerHTML = `<strong>Korrekt!</strong> Fall "${parsed.case_id}" gespeichert.`;
-
-        renderDashboardCases();
-
+        const parsedCase = validateCaseInput(rawVal);
+        persistCustomCase(parsedCase);
+        setForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsedCase.case_id}" gespeichert.`);
     } catch (err) {
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `Validierungsfehler: ${err.message}`;
+        setForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
+    }
+};
+
+window.clearForgeSourceText = function() {
+    const sourceInput = document.getElementById('forge-source-text');
+    sourceInput.value = '';
+    sourceInput.focus();
+};
+
+window.generateCaseFromText = async function() {
+    const sourceText = document.getElementById('forge-source-text').value.trim();
+    const endpointInput = document.getElementById('forge-endpoint');
+    const generateBtn = document.getElementById('forge-generate-btn');
+    const endpoint = (endpointInput.value || '/api/generate-case').trim() || '/api/generate-case';
+    localStorage.setItem('forge_generate_endpoint', endpoint);
+
+    if (!sourceText) {
+        setForgeFeedback('feedback-error', 'Bitte füge zuerst einen anonymisierten Lerntext ein.');
+        return;
+    }
+
+    if (sourceText.length > 12000) {
+        setForgeFeedback('feedback-error', 'Der Lerntext ist zu lang (maximal 12000 Zeichen).');
+        return;
+    }
+
+    setForgeFeedback('feedback-neutral', 'Generierung läuft … Bitte warten.');
+    generateBtn.disabled = true;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_text: sourceText }),
+            signal: controller.signal
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || 'Generierung fehlgeschlagen.');
+        }
+
+        const generatedCase = validateCaseInput(JSON.stringify(payload.case));
+        persistCustomCase(generatedCase);
+        document.getElementById('forge-input').value = JSON.stringify(generatedCase, null, 2);
+        setForgeFeedback(
+            'feedback-success',
+            `<strong>Erfolgreich generiert:</strong> Fall "${generatedCase.case_id}" wurde gespeichert und ist im Dashboard verfügbar.`
+        );
+    } catch (error) {
+        const msg = error.name === 'AbortError'
+            ? 'Zeitüberschreitung bei der Generierung. Bitte erneut versuchen.'
+            : error.message;
+        setForgeFeedback('feedback-error', `Generierungsfehler: ${msg}`);
+    } finally {
+        clearTimeout(timeout);
+        generateBtn.disabled = false;
     }
 };
 window.checkFinalCompletion = function() {
