@@ -113,6 +113,7 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 
 .action-btn { background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo)); border: none; padding: 10px 22px; border-radius: 9px; font-weight: 700; font-size: 0.86rem; cursor: pointer; color: #ffffff; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .action-btn:hover { opacity: 0.95; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.35); }
+.action-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; box-shadow: none; }
 .action-btn.secondary { background: rgba(30, 41, 59, 0.7); border: 1px solid var(--card-border); color: var(--text-muted); }
 .action-btn.secondary:hover { background: rgba(51, 65, 85, 0.8); color: var(--text-main); }
 .back-btn { background: rgba(16, 24, 46, 0.8); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.84rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
@@ -252,6 +253,11 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .body-region.incorrect { fill: var(--color-risk); stroke: #ffffff; }
 
 .forge-textarea { width: 100%; height: 320px; background: rgba(6, 9, 19, 0.75); color: #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; padding: 16px; border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 14px; outline: none; line-height: 1.6; resize: vertical;}
+.forge-generator-controls { background: rgba(6, 9, 19, 0.5); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.forge-label { display: inline-block; font-size: 0.78rem; font-weight: 700; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+.forge-topic-input { width: 100%; min-height: 90px; background: rgba(6, 9, 19, 0.75); color: #cbd5e1; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.86rem; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 10px; outline: none; line-height: 1.5; resize: vertical; margin-bottom: 12px; }
+.forge-topic-input:focus, .forge-textarea:focus { border-color: rgba(56, 189, 248, 0.5); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.12); }
+.forge-divider { height: 1px; border-top: 1px dashed rgba(148, 163, 184, 0.35); margin: 12px 0 14px 0; }
 .step-content { font-size: 1rem; line-height: 1.8; background: rgba(6, 9, 19, 0.5); padding: 20px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 12px; color: #e2e8f0; }
 .stealth-word, .stealth-hotspot { cursor: pointer; transition: all 0.2s; display: inline-block; padding: 1px 3px; border-radius: 4px; margin-right: 2px;}
 .stealth-word:hover, .stealth-hotspot:hover { background: rgba(56, 189, 248, 0.15); color: #fff; }

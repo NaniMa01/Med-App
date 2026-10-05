@@ -338,26 +338,85 @@ window.renderOverview = function() {
 };
 
 // --- FORGE LOGIK ---
+function showForgeFeedback(type, message) {
+    const fb = document.getElementById('forge-fb');
+    fb.style.display = 'block';
+    fb.className = `feedback-box ${type}`;
+    fb.innerHTML = message;
+}
+
+function sanitizeForgeJsonInput(rawValue) {
+    return rawValue
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2018\u2019]/g, "'")
+        .trim();
+}
+
+window.generateCaseWithGemini = async function() {
+    const promptInput = document.getElementById('forge-topic');
+    const outputInput = document.getElementById('forge-input');
+    const generateBtn = document.getElementById('forge-generate-btn');
+    const prompt = promptInput.value.trim();
+
+    if (!prompt) {
+        showForgeFeedback('feedback-error', 'Bitte gib zuerst ein Thema oder einen Prompt ein.');
+        return;
+    }
+
+    if (prompt.length > 2000) {
+        showForgeFeedback('feedback-error', 'Prompt zu lang. Bitte auf maximal 2000 Zeichen kürzen.');
+        return;
+    }
+
+    const originalBtnText = generateBtn.innerHTML;
+    generateBtn.disabled = true;
+    generateBtn.innerText = 'Generiere...';
+    showForgeFeedback('feedback-neutral', 'Gemini wird kontaktiert. Bitte warten...');
+
+    try {
+        const res = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data?.error || 'Generierung fehlgeschlagen.');
+        }
+
+        const rawResult = typeof data.generatedText === 'string' ? data.generatedText : '';
+        const sanitized = sanitizeForgeJsonInput(rawResult);
+
+        try {
+            const parsed = JSON.parse(sanitized);
+            outputInput.value = JSON.stringify(parsed, null, 2);
+        } catch (_error) {
+            outputInput.value = sanitized;
+        }
+
+        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und anschließend validieren/speichern.');
+    } catch (error) {
+        showForgeFeedback('feedback-error', `Generierungsfehler: ${error.message}`);
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = originalBtnText;
+    }
+};
+
 window.validateAndSaveCustomCase = function() {
     const rawVal = document.getElementById('forge-input').value.trim();
-    const fb = document.getElementById('forge-fb');
 
     if (!rawVal) {
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = 'Bitte füge zuerst einen JSON-Fall ein.';
+        showForgeFeedback('feedback-error', 'Bitte füge zuerst einen JSON-Fall ein.');
         return;
     }
 
     try {
         // Entfernt Markdown-Codeblöcke wie ```json ... ```
-        const sanitized = rawVal
-            .replace(/^```(?:json)?\s*/i, '')
-            .replace(/\s*```$/i, '')
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/[\u2018\u2019]/g, "'")
-            .trim();
-
+        const sanitized = sanitizeForgeJsonInput(rawVal);
         const parsed = JSON.parse(sanitized);
 
         if (Array.isArray(parsed)) {
@@ -400,16 +459,12 @@ window.validateAndSaveCustomCase = function() {
             JSON.stringify(customCases)
         );
 
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-success';
-        fb.innerHTML = `<strong>Korrekt!</strong> Fall "${parsed.case_id}" gespeichert.`;
+        showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" gespeichert.`);
 
         renderDashboardCases();
 
     } catch (err) {
-        fb.style.display = 'block';
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `Validierungsfehler: ${err.message}`;
+        showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
     }
 };
 window.checkFinalCompletion = function() {
