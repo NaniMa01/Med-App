@@ -1,4 +1,4 @@
-const DEFAULT_MODEL = 'gemini-1.5-flash';
+const DEFAULT_MODEL = 'gemini-2.0-flash';
 const MAX_PROMPT_LENGTH = 10000;
 
 function sendJson(res, status, payload) {
