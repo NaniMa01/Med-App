@@ -228,27 +228,50 @@ function renderDashboardCases() {
         
         const cardsHtml = cases.map(c => {
             const isSolved = solved.includes(c.case_id);
-            return `
-                <div class="case-card" onclick="loadCaseById('${c.case_id}')">
-                    <div><span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span><h3>${c.metadata?.title || c.case_id}</h3></div>
-                    <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-                        <span style="color:${isSolved ? 'var(--color-symptom)' : 'var(--accent-blue)'}; font-weight:700;">${isSolved ? '✓ Gelöst' : '● Offen'}</span>
-                        <span>+${c.metadata?.xp_reward || 900} XP</span>
-                    </div>
-                </div>`;
+           return `
+    <div class="case-card" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+        <div>
+            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
+            <h3>${c.metadata?.title || c.case_id}</h3>
+        </div>
+        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+            <span style="color:${isSolved ? 'var(--color-symptom)' : 'var(--accent-blue)'}; font-weight:700;">
+                ${isSolved ? '✓ Gelöst' : '● Offen'}
+            </span>
+            <span>+${c.metadata?.xp_reward || 900} XP</span>
+        </div>
+    </div>`;
         }).join('');
 
         return `
             <div class="category-folder">
-                <div class="category-header" onclick="toggleFolder('${category}')">
+              <div class="category-header" data-category="${encodeURIComponent(category)}">
                     <div class="category-title-wrap"><span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span><span>📁 ${category}</span></div>
                     <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
                 </div>
                 <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
             </div>`;
     }).join('');
-}
+    container.querySelectorAll('.category-header[data-category]').forEach(header => {
+    header.addEventListener('click', () => {
+        toggleFolder(decodeURIComponent(header.dataset.category));
+    });
+});
+    container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
+        const caseId = decodeURIComponent(card.dataset.caseId);
 
+        card.addEventListener('click', () => {
+            window.loadCaseById(caseId);
+        });
+
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                window.loadCaseById(caseId);
+            }
+        });
+    });
+}
 window.toggleFolder = function(category) {
     openFolders[category] = openFolders[category] !== undefined ? !openFolders[category] : false;
     renderDashboardCases();
@@ -421,7 +444,16 @@ window.validateAndSaveCustomCase = function() {
         }
 
         if (!parsed.case_id || typeof parsed.case_id !== 'string') {
-            throw new Error('Das Pflichtfeld "case_id" fehlt.');
+    throw new Error('Das Pflichtfeld "case_id" fehlt.');
+}
+
+parsed.case_id = parsed.case_id
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
+
+if (!parsed.case_id) {
+    throw new Error('Die case_id ist ungültig.');
+}
         }
 
         if (!Array.isArray(parsed.timeline)) {
