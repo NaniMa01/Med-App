@@ -334,7 +334,8 @@ window.loadCaseById = function(caseId) {
     document.getElementById('player-case-badge-title').innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
 
     clearedStepsCount = 0;
-    totalStepsCount = (activeCaseData.timeline && Array.isArray(activeCaseData.timeline)) ? activeCaseData.timeline.length : 0;
+    if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
+    totalStepsCount = activeCaseData.timeline.length;
     document.getElementById('badge-mode-audit').innerText = `0/${totalStepsCount}`;
     document.getElementById('finish-case-btn').style.display = 'none';
 
@@ -345,17 +346,37 @@ window.loadCaseById = function(caseId) {
     document.getElementById('tab-btn-cat').style.display = (tasks.categorization && tasks.categorization.items?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-quiz').style.display = (tasks.master_quiz && tasks.master_quiz.length) ? 'flex' : 'none';
 
-    renderOverview();
-    renderTimeline();
+    const safely = (label, fn) => {
+        try { fn(); } catch (err) { console.error(`Fehler beim Laden (${label}):`, err); }
+    };
 
-    if (tasks.synapses_matrix && tasks.synapses_matrix.variables?.length) { renderSynapsesMatrix(); } else { solvedSynapseDiseases = 1; totalSynapseDiseases = 1; }
-    if (tasks.clinical_cascades && tasks.clinical_cascades.length) { renderCascades(); } else { cascadesSolvedCount = 1; totalCascades = 1; }
-   // Das Body-Mapping-Spiel wurde entfernt.
-// Bereits vorhandene Fälle mit body_mapping werden ignoriert.
-bodyMappingSolved = true;
+    safely('Übersicht', renderOverview);
+    safely('Audit', renderTimeline);
 
-    if (tasks.categorization && tasks.categorization.items?.length) { categorizationSolved = false; renderCategorization(); } else { categorizationSolved = true; }
-    if (tasks.master_quiz && tasks.master_quiz.length) { quizSolved = false; userQuizAnswers = {}; renderQuiz(); } else { quizSolved = true; }
+    const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
+    solvedSynapseDiseases = 1; totalSynapseDiseases = 1;
+    if (hasSyn) safely('Synapsen', renderSynapsesMatrix);
+
+    const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
+    cascadesSolvedCount = 1; totalCascades = 1;
+    if (hasCas) safely('Kaskade', renderCascades);
+
+    // Das Body-Mapping-Spiel wurde entfernt; vorhandene body_mapping-Daten werden ignoriert.
+    bodyMappingSolved = true;
+
+    const hasCat = !!(tasks.categorization && tasks.categorization.items?.length && tasks.categorization.categories?.length);
+    categorizationSolved = true;
+    if (hasCat) { categorizationSolved = false; safely('Taxonomie', renderCategorization); }
+
+    const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
+    quizSolved = true;
+    if (hasQuiz) { quizSolved = false; userQuizAnswers = {}; safely('Quiz', renderQuiz); }
+
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'flex' : 'none'; };
+    show('tab-btn-synapses', hasSyn);
+    show('tab-btn-cascade', hasCas);
+    show('tab-btn-cat', hasCat);
+    show('tab-btn-quiz', hasQuiz);
 
     switchTab('player', document.getElementById('nav-player'));
     switchPlayerMode('overview');
