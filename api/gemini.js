@@ -166,31 +166,191 @@ Erzeuge exakt diese Grundstruktur:
     }
   ],
   "extra_tasks": {
-    "clinical_cascades": [],
+    "clinical_cascades": [
+      {
+        "disease": "STRING",
+        "tutor_hint": "STRING",
+        "cascade": [
+          {
+            "stage": "01_Auslöser",
+            "content": "STRING"
+          },
+          {
+            "stage": "02_Pathophysiologie",
+            "content": "STRING"
+          },
+          {
+            "stage": "03_Zellulärer Mechanismus",
+            "content": "STRING"
+          },
+          {
+            "stage": "04_Anatomische Konsequenz",
+            "content": "STRING"
+          },
+          {
+            "stage": "05_Klinische Manifestation",
+            "content": "STRING"
+          },
+          {
+            "stage": "06_Diagnostischer Befund",
+            "content": "STRING"
+          },
+          {
+            "stage": "07_Therapeutische Intervention",
+            "content": "STRING"
+          },
+          {
+            "stage": "08_Outcome",
+            "content": "STRING"
+          }
+        ]
+      }
+    ],
     "synapses_matrix": {
-      "variables": []
+      "description": "Ordne jeweils vier Begriffe derselben Erkrankung zu.",
+      "tutor_hint": "Verbinde Risiko/Pathologie, Symptom/Klinik, Diagnostik und Therapie/Management.",
+      "diseases": [
+        "STRING",
+        "STRING",
+        "STRING"
+      ],
+      "variables": [
+        {
+          "term": "STRING",
+          "type": "Risiko/Pathologie",
+          "disease": "STRING"
+        },
+        {
+          "term": "STRING",
+          "type": "Symptom/Klinik",
+          "disease": "STRING"
+        },
+        {
+          "term": "STRING",
+          "type": "Diagnostik",
+          "disease": "STRING"
+        },
+        {
+          "term": "STRING",
+          "type": "Therapie/Management",
+          "disease": "STRING"
+        }
+      ]
     },
     "categorization": {
-      "items": []
+      "description": "Ordne die klinischen Begriffe den korrekten Kategorien zu.",
+      "tutor_hint": "Achte darauf, ob der Begriff Ursache, Klinik, Diagnostik oder Therapie beschreibt.",
+      "categories": [
+        "Risiko/Pathologie",
+        "Symptom/Klinik",
+        "Diagnostik",
+        "Therapie/Management"
+      ],
+      "items": [
+        {
+          "term": "STRING",
+          "category": "Risiko/Pathologie"
+        },
+        {
+          "term": "STRING",
+          "category": "Symptom/Klinik"
+        },
+        {
+          "term": "STRING",
+          "category": "Diagnostik"
+        },
+        {
+          "term": "STRING",
+          "category": "Therapie/Management"
+        }
+      ]
     },
-    "master_quiz": []
+    "master_quiz": [
+      {
+        "question": "STRING",
+        "options": [
+          "STRING",
+          "STRING",
+          "STRING",
+          "STRING"
+        ],
+        "correct_index": 0,
+        "explanation": "STRING",
+        "tutor_hint": "STRING"
+      }
+    ]
   }
-}
 
 VERBINDLICHE REGELN:
-- Genau 9 Timeline-Schritte.
-- Genau 3 Patienten.
-- Jeder Patient erhält genau 3 Timeline-Schritte.
-- Jeder Patient benötigt mindestens einen Hotspot mit "is_error": false.
-- Jede Hotspot-phrase muss exakt in content vorkommen.
-- Jeder Hotspot benötigt ein skill_tag.
-- Fehler-Hotspots benötigen socratic_trap und correct_pathophysiology.
-- Jede Clinical Cascade benötigt exakt 8 Schritte.
-- Erzeuge 5 bis 10 Master-Quizfragen.
-- Jede Master-Quizfrage benötigt:
-  question, options, correct_index, explanation und tutor_hint.
-- Erzeuge kein body_mapping.
 
+TIMELINE:
+- Erzeuge exakt 9 Timeline-Schritte.
+- Verwende exakt 3 Patienten.
+- Jeder Patient erhält exakt 3 Schritte.
+- Jeder Patient benötigt mindestens einen Hotspot mit "is_error": false.
+- Jede Hotspot-"phrase" muss exakt in "content" vorkommen.
+- Jeder Hotspot benötigt ein "skill_tag".
+- Fehler-Hotspots benötigen zusätzlich:
+  "socratic_trap" und "correct_pathophysiology".
+
+CASE OVERVIEW:
+- Erzeuge mindestens 4 Cornell-Notizblöcke.
+- Jeder Notizblock benötigt mindestens 4 cues.
+- Die notes müssen detaillierte Pathophysiologie, Klinik und Diagnostik enthalten.
+- Die summary muss mindestens 3 prägnante Merksätze enthalten.
+
+CLINICAL CASCADES:
+- Erzeuge mindestens 2 Clinical Cascades.
+- Für jede behandelte Erkrankung muss eine eigene Cascade erzeugt werden.
+- Jede Cascade enthält exakt 8 Elemente.
+- Die Elemente müssen kausal und chronologisch geordnet sein.
+- Verwende exakt die stage-Werte:
+  01_Auslöser,
+  02_Pathophysiologie,
+  03_Zellulärer Mechanismus,
+  04_Anatomische Konsequenz,
+  05_Klinische Manifestation,
+  06_Diagnostischer Befund,
+  07_Therapeutische Intervention,
+  08_Outcome.
+- Jede Cascade benötigt disease, cascade und tutor_hint.
+
+SYNAPSEN-MATRIX:
+- Erzeuge mindestens 3 verschiedene Erkrankungen.
+- Erzeuge für jede Erkrankung exakt 4 variables.
+- Die 4 Typen müssen jeweils einmal vorkommen:
+  Risiko/Pathologie,
+  Symptom/Klinik,
+  Diagnostik,
+  Therapie/Management.
+- Jede variable benötigt term, type und disease.
+- Die disease-Werte müssen exakt einem Eintrag aus diseases entsprechen.
+- Erzeuge insgesamt mindestens 12 variables.
+- Jede Erkrankung muss genau 4 Variablen besitzen.
+
+KATEGORISIERUNG:
+- Erzeuge mindestens 8 items.
+- Verwende ausschließlich diese Kategorien:
+  Risiko/Pathologie,
+  Symptom/Klinik,
+  Diagnostik,
+  Therapie/Management.
+- Jedes item benötigt term und category.
+- Jede Kategorie muss mindestens zweimal verwendet werden.
+- Erzeuge categories und items, nicht body_mapping.
+
+MASTER-QUIZ:
+- Erzeuge 5 bis 8 anspruchsvolle Multiple-Choice-Fragen.
+- Jede Frage benötigt genau 4 options.
+- Jede Frage benötigt einen gültigen correct_index von 0 bis 3.
+- Jede Frage benötigt explanation und tutor_hint.
+
+ALLGEMEIN:
+- Erzeuge kein Feld "body_mapping".
+- Erzeuge keine Aufgabe zur Zuordnung einer Erkrankung zu einem Körperteil.
+- Fülle alle Arrays mit vollständigen Inhalten.
+- Verwende niemals leere Arrays für clinical_cascades, variables, items oder master_quiz.
+- Verwende keine Platzhalter wie "STRING" in der tatsächlichen Antwort.
 ROHTEXT:
 ${prompt}
 `;
