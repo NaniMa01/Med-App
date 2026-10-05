@@ -451,8 +451,8 @@ window.generateCaseWithGemini = async function() {
         return;
     }
 
-    if (prompt.length > 10000) {
-        showForgeFeedback('feedback-error', 'Prompt zu lang. Bitte auf maximal 10000 Zeichen kürzen.');
+    if (prompt.length > 50000) {
+        showForgeFeedback('feedback-error', 'Prompt zu lang. Bitte auf maximal 50000 Zeichen kürzen.');
         return;
     }
 
