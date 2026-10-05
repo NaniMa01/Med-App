@@ -93,7 +93,14 @@
 
                 <div class="panel" id="forge-view" style="display: none;">
                     <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
-                    <div class="panel-subtitle">Füge den generierten JSON-Code hier ein.</div>
+                    <div class="panel-subtitle">Generiere einen Fall per Gemini oder füge den JSON-Code manuell ein.</div>
+                    <div class="forge-generator-controls">
+                        <label for="forge-topic" class="forge-label">Thema / Prompt</label>
+                        <textarea id="forge-topic" class="forge-topic-input" placeholder="Beispiel: Akute Thoraxschmerzen bei 58-jährigem Patienten mit Risikofaktoren..."></textarea>
+                        <button class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
+                    </div>
+                    <div class="forge-divider"></div>
+                    <div class="forge-label" style="margin-bottom: 8px;">Fall-JSON (editierbar)</div>
                     <textarea class="forge-textarea" id="forge-input" placeholder="JSON-Code hier einfügen..."></textarea>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
