@@ -126,6 +126,7 @@ function applyXpDelta(delta, label) {
     let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
     localStorage.setItem('user_xp', currentXp);
     updateStatsUI();
+    if (window.Cloud) window.Cloud.scheduleProgressSync();
     const container = document.getElementById('hud-popup-container');
     if (!container) return;
     const popup = document.createElement('div');
@@ -144,6 +145,7 @@ function trackSkill(skillTag, isHit) {
     if (isHit) skills[tag].hits += 1;
     localStorage.setItem('user_skills', JSON.stringify(skills));
     renderSkillsSidebar();
+    if (window.Cloud) window.Cloud.scheduleProgressSync();
 }
 
 function renderSkillsSidebar() {
@@ -228,8 +230,12 @@ function renderDashboardCases() {
         
         const cardsHtml = cases.map(c => {
             const isSolved = solved.includes(c.case_id);
+            const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+                ? ''
+                : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
            return `
     <div class="case-card" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+        ${deleteBtn}
         <div>
             <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
             <h3>${c.metadata?.title || c.case_id}</h3>
@@ -265,13 +271,54 @@ function renderDashboardCases() {
         });
 
         card.addEventListener('keydown', event => {
+            if (event.target !== card) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 window.loadCaseById(caseId);
             }
         });
+
+        const deleteBtn = card.querySelector('.delete-case-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                window.deleteCaseById(caseId);
+            });
+        }
     });
 }
+
+window.deleteCaseById = function(caseId) {
+    if (caseId === BUILTIN_DEMO_CASE.case_id) return;
+
+    let customCases = [];
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
+    if (!Array.isArray(customCases)) customCases = [];
+
+    const target = customCases.find(c => c.case_id === caseId);
+    const title = target?.metadata?.title || caseId;
+    if (!window.confirm(`Fall "${title}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) return;
+
+    localStorage.setItem('custom_cases', JSON.stringify(customCases.filter(c => c.case_id !== caseId)));
+
+    let solved = [];
+    try { solved = JSON.parse(localStorage.getItem('solved_cases') || '[]'); } catch (e) { solved = []; }
+    localStorage.setItem('solved_cases', JSON.stringify(solved.filter(id => id !== caseId)));
+
+    if (window.Cloud && window.Cloud.isLoggedIn()) {
+        window.Cloud.deleteCloudCase(caseId)
+            .then(() => window.Cloud.scheduleProgressSync())
+            .catch(err => alert(`Fall wurde lokal gelöscht, aber nicht online: ${err.message}`));
+    }
+
+    if (activeCaseData && activeCaseData.case_id === caseId) {
+        activeCaseData = null;
+        switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+    } else {
+        renderDashboardCases();
+    }
+};
+
 window.toggleFolder = function(category) {
     openFolders[category] = openFolders[category] !== undefined ? !openFolders[category] : false;
     renderDashboardCases();
@@ -287,7 +334,8 @@ window.loadCaseById = function(caseId) {
     document.getElementById('player-case-badge-title').innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
 
     clearedStepsCount = 0;
-    totalStepsCount = (activeCaseData.timeline && Array.isArray(activeCaseData.timeline)) ? activeCaseData.timeline.length : 0;
+    if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
+    totalStepsCount = activeCaseData.timeline.length;
     document.getElementById('badge-mode-audit').innerText = `0/${totalStepsCount}`;
     document.getElementById('finish-case-btn').style.display = 'none';
 
@@ -298,17 +346,37 @@ window.loadCaseById = function(caseId) {
     document.getElementById('tab-btn-cat').style.display = (tasks.categorization && tasks.categorization.items?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-quiz').style.display = (tasks.master_quiz && tasks.master_quiz.length) ? 'flex' : 'none';
 
-    renderOverview();
-    renderTimeline();
+    const safely = (label, fn) => {
+        try { fn(); } catch (err) { console.error(`Fehler beim Laden (${label}):`, err); }
+    };
 
-    if (tasks.synapses_matrix && tasks.synapses_matrix.variables?.length) { renderSynapsesMatrix(); } else { solvedSynapseDiseases = 1; totalSynapseDiseases = 1; }
-    if (tasks.clinical_cascades && tasks.clinical_cascades.length) { renderCascades(); } else { cascadesSolvedCount = 1; totalCascades = 1; }
-   // Das Body-Mapping-Spiel wurde entfernt.
-// Bereits vorhandene Fälle mit body_mapping werden ignoriert.
-bodyMappingSolved = true;
+    safely('Übersicht', renderOverview);
+    safely('Audit', renderTimeline);
 
-    if (tasks.categorization && tasks.categorization.items?.length) { categorizationSolved = false; renderCategorization(); } else { categorizationSolved = true; }
-    if (tasks.master_quiz && tasks.master_quiz.length) { quizSolved = false; userQuizAnswers = {}; renderQuiz(); } else { quizSolved = true; }
+    const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
+    solvedSynapseDiseases = 1; totalSynapseDiseases = 1;
+    if (hasSyn) safely('Synapsen', renderSynapsesMatrix);
+
+    const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
+    cascadesSolvedCount = 1; totalCascades = 1;
+    if (hasCas) safely('Kaskade', renderCascades);
+
+    // Das Body-Mapping-Spiel wurde entfernt; vorhandene body_mapping-Daten werden ignoriert.
+    bodyMappingSolved = true;
+
+    const hasCat = !!(tasks.categorization && tasks.categorization.items?.length && tasks.categorization.categories?.length);
+    categorizationSolved = true;
+    if (hasCat) { categorizationSolved = false; safely('Taxonomie', renderCategorization); }
+
+    const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
+    quizSolved = true;
+    if (hasQuiz) { quizSolved = false; userQuizAnswers = {}; safely('Quiz', renderQuiz); }
+
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'flex' : 'none'; };
+    show('tab-btn-synapses', hasSyn);
+    show('tab-btn-cascade', hasCas);
+    show('tab-btn-cat', hasCat);
+    show('tab-btn-quiz', hasQuiz);
 
     switchTab('player', document.getElementById('nav-player'));
     switchPlayerMode('overview');
@@ -400,9 +468,19 @@ window.generateCaseWithGemini = async function() {
             body: JSON.stringify({ prompt })
         });
 
-        const data = await res.json();
-        if (!res.ok) {
-            throw new Error(data?.error || 'Generierung fehlgeschlagen.');
+        const responseText = await res.text();
+        let data = null;
+        try {
+            data = JSON.parse(responseText);
+        } catch (_error) {
+            data = null;
+        }
+
+        if (!res.ok || !data) {
+            const serverMessage = data?.error || responseText.trim().slice(0, 200);
+            throw new Error(
+                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten – bitte erneut versuchen oder den Prompt kürzen.`
+            );
         }
 
         const rawResult = typeof data.generatedText === 'string' ? data.generatedText : '';
@@ -454,7 +532,6 @@ parsed.case_id = parsed.case_id
 if (!parsed.case_id) {
     throw new Error('Die case_id ist ungültig.');
 }
-        }
 
         if (!Array.isArray(parsed.timeline)) {
             throw new Error(
@@ -486,9 +563,15 @@ if (!parsed.case_id) {
             JSON.stringify(customCases)
         );
 
-        showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" gespeichert.`);
+        showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
 
         renderDashboardCases();
+
+        if (window.Cloud && window.Cloud.isLoggedIn()) {
+            window.Cloud.saveCloudCase(parsed)
+                .then(() => showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`))
+                .catch(cloudErr => showForgeFeedback('feedback-error', `Fall lokal gespeichert, aber Online-Speicherung fehlgeschlagen: ${cloudErr.message}`));
+        }
 
     } catch (err) {
         showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
@@ -508,6 +591,7 @@ window.finishCase = function() {
     if (!solved.includes(activeCaseData.case_id)) {
         solved.push(activeCaseData.case_id);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
+        if (window.Cloud) window.Cloud.scheduleProgressSync();
         applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
     }
     alert('🎉 Gratulation! Alle Challenges gemeistert.');
