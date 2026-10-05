@@ -272,7 +272,6 @@ window.loadCaseById = function(caseId) {
 
     document.getElementById('tab-btn-synapses').style.display = (tasks.synapses_matrix && tasks.synapses_matrix.variables?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-cascade').style.display = (tasks.clinical_cascades && tasks.clinical_cascades.length) ? 'flex' : 'none';
-    document.getElementById('tab-btn-topo').style.display = (tasks.body_mapping && tasks.body_mapping.target_regions?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-cat').style.display = (tasks.categorization && tasks.categorization.items?.length) ? 'flex' : 'none';
     document.getElementById('tab-btn-quiz').style.display = (tasks.master_quiz && tasks.master_quiz.length) ? 'flex' : 'none';
 
