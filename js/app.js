@@ -281,13 +281,9 @@ window.loadCaseById = function(caseId) {
 
     if (tasks.synapses_matrix && tasks.synapses_matrix.variables?.length) { renderSynapsesMatrix(); } else { solvedSynapseDiseases = 1; totalSynapseDiseases = 1; }
     if (tasks.clinical_cascades && tasks.clinical_cascades.length) { renderCascades(); } else { cascadesSolvedCount = 1; totalCascades = 1; }
-    if (tasks.body_mapping && tasks.body_mapping.target_regions?.length) {
-        bodyMappingSolved = false;
-        document.getElementById('body-mapping-desc').innerText = tasks.body_mapping.description || '';
-        document.querySelectorAll('.body-region').forEach(el => el.classList.remove('selected', 'correct', 'incorrect'));
-        document.getElementById('badge-mode-topo').innerText = "Offen";
-        document.getElementById('topo-fb').style.display = 'none';
-    } else { bodyMappingSolved = true; }
+   // Das Body-Mapping-Spiel wurde entfernt.
+// Bereits vorhandene Fälle mit body_mapping werden ignoriert.
+bodyMappingSolved = true;
 
     if (tasks.categorization && tasks.categorization.items?.length) { categorizationSolved = false; renderCategorization(); } else { categorizationSolved = true; }
     if (tasks.master_quiz && tasks.master_quiz.length) { quizSolved = false; userQuizAnswers = {}; renderQuiz(); } else { quizSolved = true; }
