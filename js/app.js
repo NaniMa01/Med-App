@@ -1,7 +1,6 @@
 // GLOBALE STATES
 let activeCaseData = null;
 let selectedSynapses = [], totalSynapseDiseases = 0, solvedSynapseDiseases = 0, tilesPerDisease = 4;
-let selectedBodyRegions = [], bodyMappingSolved = false;
 let cascadesSolvedCount = 0, totalCascades = 0;
 let categorizationSolved = false;
 let quizSolved = false, userQuizAnswers = {};
@@ -91,8 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.toggleSidebar = function() {
-    document.querySelector('sidebar').classList.toggle('open');
-    document.querySelector('.sidebar-overlay').classList.toggle('active');
+    const sidebar = document.querySelector('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('active');
 };
 
 function initUserData() {
@@ -117,9 +118,12 @@ function initUserData() {
 
 function updateStatsUI() {
     const xp = parseInt(localStorage.getItem('user_xp') || '0');
-    document.getElementById('stat-xp').innerText = xp;
+    const statXp = document.getElementById('stat-xp');
+    if (statXp) statXp.innerText = xp;
+    
     let rank = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
-    document.getElementById('stat-rank').innerText = rank;
+    const statRank = document.getElementById('stat-rank');
+    if (statRank) statRank.innerText = rank;
 }
 
 function applyXpDelta(delta, label) {
@@ -127,6 +131,7 @@ function applyXpDelta(delta, label) {
     localStorage.setItem('user_xp', currentXp);
     updateStatsUI();
     if (window.Cloud) window.Cloud.scheduleProgressSync();
+    
     const container = document.getElementById('hud-popup-container');
     if (!container) return;
     const popup = document.createElement('div');
@@ -149,9 +154,12 @@ function trackSkill(skillTag, isHit) {
 }
 
 function renderSkillsSidebar() {
+    const container = document.getElementById('skills-sidebar-container');
+    if (!container) return;
+    
     const skills = JSON.parse(localStorage.getItem('user_skills') || JSON.stringify(defaultSkills));
     const canonicalOrder = ["Triage", "Diagnostik", "Pharmakologie", "Pathophysiologie"];
-    document.getElementById('skills-sidebar-container').innerHTML = canonicalOrder.map(skill => {
+    container.innerHTML = canonicalOrder.map(skill => {
         const data = skills[skill] || { hits: 0, total: 0 };
         const perc = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
         const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom)')) : 'var(--accent-blue)';
@@ -171,14 +179,23 @@ function renderSkillsSidebar() {
 function switchTab(tab, el) {
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
     if (el) el.classList.add('active');
-    document.getElementById('dashboard-view').style.display = tab === 'dashboard' ? 'block' : 'none';
-    document.getElementById('player-view').style.display = tab === 'player' ? 'block' : 'none';
-    document.getElementById('forge-view').style.display = tab === 'forge' ? 'block' : 'none';
-    document.getElementById('settings-view').style.display = tab === 'settings' ? 'block' : 'none';
-    document.getElementById('nav-player').style.display = tab === 'player' ? 'flex' : 'none';
     
-    document.querySelector('sidebar').classList.remove('open');
-    document.querySelector('.sidebar-overlay').classList.remove('active');
+    // Hilfsfunktion zur Vermeidung von TypeErrors
+    const showTab = (id, displayStyle) => {
+        const element = document.getElementById(id);
+        if (element) element.style.display = displayStyle;
+    };
+
+    showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
+    showTab('player-view', tab === 'player' ? 'block' : 'none');
+    showTab('forge-view', tab === 'forge' ? 'block' : 'none');
+    showTab('settings-view', tab === 'settings' ? 'block' : 'none');
+    showTab('nav-player', tab === 'player' ? 'flex' : 'none');
+    
+    const sidebar = document.querySelector('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
 
     if (tab === 'dashboard') renderDashboardCases();
 }
@@ -186,6 +203,7 @@ function switchTab(tab, el) {
 function switchPlayerMode(mode) {
     document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
+    
     const targetPane = document.getElementById('mode-container-' + mode);
     const targetTab = document.getElementById('tab-btn-' + mode);
     if (targetPane) targetPane.style.display = 'block';
@@ -195,19 +213,25 @@ function switchPlayerMode(mode) {
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
     let hint = "Kein spezifischer Hinweis hinterlegt.";
+    
     if (taskKey === 'clinical_cascades' && activeCaseData.extra_tasks.clinical_cascades) {
         hint = activeCaseData.extra_tasks.clinical_cascades[0]?.tutor_hint || hint;
     } else if (activeCaseData.extra_tasks[taskKey]) {
         hint = activeCaseData.extra_tasks[taskKey].tutor_hint || hint;
     }
-    document.getElementById('tutor-text').innerText = hint;
-    document.getElementById('tutor-modal').style.display = 'block';
+    
+    const tutorText = document.getElementById('tutor-text');
+    const tutorModal = document.getElementById('tutor-modal');
+    if (tutorText) tutorText.innerText = hint;
+    if (tutorModal) tutorModal.style.display = 'block';
 };
 
 window.toggleSuperFolder = function() {
     superFolderOpen = !superFolderOpen;
-    document.getElementById('dashboard-folders-container').style.display = superFolderOpen ? 'flex' : 'none';
-    document.getElementById('super-folder-arrow').innerText = superFolderOpen ? '▼' : '▶';
+    const container = document.getElementById('dashboard-folders-container');
+    const arrow = document.getElementById('super-folder-arrow');
+    if (container) container.style.display = superFolderOpen ? 'flex' : 'none';
+    if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
 };
 
 function renderDashboardCases() {
@@ -215,6 +239,8 @@ function renderDashboardCases() {
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     const container = document.getElementById('dashboard-folders-container');
+    
+    if (!container) return; // Sicherstellen, dass der Container da ist
 
     let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
     const grouped = {};
@@ -258,11 +284,13 @@ function renderDashboardCases() {
                 <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
             </div>`;
     }).join('');
+
     container.querySelectorAll('.category-header[data-category]').forEach(header => {
-    header.addEventListener('click', () => {
-        toggleFolder(decodeURIComponent(header.dataset.category));
+        header.addEventListener('click', () => {
+            toggleFolder(decodeURIComponent(header.dataset.category));
+        });
     });
-});
+
     container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
 
@@ -328,56 +356,82 @@ window.loadCaseById = function(caseId) {
     let customCases = [];
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch(e){}
     let targetCase = [BUILTIN_DEMO_CASE, ...customCases].find(c => c.case_id === caseId);
-    if (!targetCase) { alert("Fall nicht gefunden!"); return; }
+    
+    if (!targetCase) { 
+        alert("Fall nicht gefunden!"); 
+        return; 
+    }
+
+    // TOP-PRIO FIX: Bereinigen möglicher "topo" Reste aus älteren Fällen, bevor etwas geladen wird.
+    if (targetCase.extra_tasks && targetCase.extra_tasks.topo) {
+        delete targetCase.extra_tasks.topo;
+    }
 
     activeCaseData = JSON.parse(JSON.stringify(targetCase));
-    document.getElementById('player-case-badge-title').innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
+    
+    const badgeTitle = document.getElementById('player-case-badge-title');
+    if (badgeTitle) badgeTitle.innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
 
     clearedStepsCount = 0;
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
-    document.getElementById('badge-mode-audit').innerText = `0/${totalStepsCount}`;
-    document.getElementById('finish-case-btn').style.display = 'none';
+    
+    const badgeAudit = document.getElementById('badge-mode-audit');
+    if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
+    
+    const finishCaseBtn = document.getElementById('finish-case-btn');
+    if (finishCaseBtn) finishCaseBtn.style.display = 'none';
 
     const tasks = activeCaseData.extra_tasks || {};
 
-    document.getElementById('tab-btn-synapses').style.display = (tasks.synapses_matrix && tasks.synapses_matrix.variables?.length) ? 'flex' : 'none';
-    document.getElementById('tab-btn-cascade').style.display = (tasks.clinical_cascades && tasks.clinical_cascades.length) ? 'flex' : 'none';
-    document.getElementById('tab-btn-cat').style.display = (tasks.categorization && tasks.categorization.items?.length) ? 'flex' : 'none';
-    document.getElementById('tab-btn-quiz').style.display = (tasks.master_quiz && tasks.master_quiz.length) ? 'flex' : 'none';
-    bodyMappingSolved = true;
-
-    const safely = (label, fn) => {
-        try { fn(); } catch (err) { console.error(`Fehler beim Laden (${label}):`, err); }
+    // Sicherer Show/Hide Helper (Verhindert TypeErrors wenn Buttons im HTML fehlen)
+    const show = (id, on) => { 
+        const el = document.getElementById(id); 
+        if (el) el.style.display = on ? 'flex' : 'none'; 
     };
 
-    safely('Übersicht', renderOverview);
-    safely('Audit', renderTimeline);
-
     const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
-    solvedSynapseDiseases = 1; totalSynapseDiseases = 1;
-    if (hasSyn) safely('Synapsen', renderSynapsesMatrix);
-
-    const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
-    cascadesSolvedCount = 1; totalCascades = 1;
-    if (hasCas) safely('Kaskade', renderCascades);
-
-    // Das Body-Mapping-Spiel wurde entfernt; vorhandene body_mapping-Daten werden ignoriert.
-    bodyMappingSolved = true;
-
-    const hasCat = !!(tasks.categorization && tasks.categorization.items?.length && tasks.categorization.categories?.length);
-    categorizationSolved = true;
-    if (hasCat) { categorizationSolved = false; safely('Taxonomie', renderCategorization); }
-
-    const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
-    quizSolved = true;
-    if (hasQuiz) { quizSolved = false; userQuizAnswers = {}; safely('Quiz', renderQuiz); }
-
-    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? 'flex' : 'none'; };
     show('tab-btn-synapses', hasSyn);
+    
+    const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
     show('tab-btn-cascade', hasCas);
+    
+    const hasCat = !!(tasks.categorization && tasks.categorization.items?.length && tasks.categorization.categories?.length);
     show('tab-btn-cat', hasCat);
+    
+    const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
     show('tab-btn-quiz', hasQuiz);
+
+    // Sicheres Ausblenden eines eventuell alten Topo-Buttons
+    show('tab-btn-topo', false);
+
+    // Aufrufen der Renderer (Abgesichert gegen Referenz-Fehler)
+    const safely = (label, fn) => {
+        try { 
+            if (typeof fn === 'function') {
+                fn();
+            } else {
+                console.warn(`Modul '${label}' konnte nicht geladen werden (Funktion nicht gefunden).`);
+            }
+        } catch (err) { 
+            console.error(`Fehler beim Laden von Modul '${label}':`, err); 
+        }
+    };
+
+    safely('Übersicht', window.renderOverview);
+    safely('Audit', window.renderTimeline); // Erwartet globale Funktion aus audit.js
+
+    solvedSynapseDiseases = 1; totalSynapseDiseases = 1;
+    if (hasSyn) safely('Synapsen', window.renderSynapsesMatrix);
+
+    cascadesSolvedCount = 1; totalCascades = 1;
+    if (hasCas) safely('Kaskade', window.renderCascades);
+
+    categorizationSolved = true;
+    if (hasCat) { categorizationSolved = false; safely('Taxonomie', window.renderCategorization); }
+
+    quizSolved = true;
+    if (hasQuiz) { quizSolved = false; userQuizAnswers = {}; safely('Quiz', window.renderQuiz); }
 
     switchTab('player', document.getElementById('nav-player'));
     switchPlayerMode('overview');
@@ -387,22 +441,25 @@ window.loadCaseById = function(caseId) {
 // --- V6.0 CORNELL NOTE OVERVIEW ENGINE ---
 window.renderOverview = function() {
     const container = document.getElementById('overview-container');
+    if (!container) return;
+
     const data = activeCaseData.case_overview;
     if (!data) {
-        container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall ist keine Übersicht verfügbar.</div>';
+        container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall ist keine detaillierte Übersicht verfügbar.</div>';
         return;
     }
 
     let notesHtml = '';
     if(data.cornell_notes && Array.isArray(data.cornell_notes)) {
         data.cornell_notes.forEach(note => {
+            const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             notesHtml += `
                 <div class="cornell-grid">
                     <div class="cornell-cues">
-                        ${note.cues.map(c => `<div class="cornell-cue-item">${c}</div>`).join('')}
+                        ${cuesArray.map(c => `<div class="cornell-cue-item">${c}</div>`).join('')}
                     </div>
                     <div class="cornell-notes">
-                        ${note.notes}
+                        ${note.notes || ''}
                     </div>
                 </div>
             `;
@@ -417,7 +474,7 @@ window.renderOverview = function() {
             ${notesHtml}
             <div class="cornell-summary">
                 <h4>Zusammenfassung (Take-Home Message)</h4>
-                <p>${data.summary || ''}</p>
+                <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
             </div>
         </div>
     `;
@@ -427,6 +484,7 @@ window.renderOverview = function() {
 // --- FORGE LOGIK ---
 function showForgeFeedback(type, message) {
     const fb = document.getElementById('forge-fb');
+    if (!fb) return;
     fb.style.display = 'block';
     fb.className = `feedback-box ${type}`;
     fb.innerHTML = message;
@@ -445,6 +503,9 @@ window.generateCaseWithGemini = async function() {
     const promptInput = document.getElementById('forge-topic');
     const outputInput = document.getElementById('forge-input');
     const generateBtn = document.getElementById('forge-generate-btn');
+    
+    if (!promptInput || !outputInput || !generateBtn) return;
+    
     const prompt = promptInput.value.trim();
 
     if (!prompt) {
@@ -504,7 +565,9 @@ window.generateCaseWithGemini = async function() {
 };
 
 window.validateAndSaveCustomCase = function() {
-    const rawVal = document.getElementById('forge-input').value.trim();
+    const inputEl = document.getElementById('forge-input');
+    if (!inputEl) return;
+    const rawVal = inputEl.value.trim();
 
     if (!rawVal) {
         showForgeFeedback('feedback-error', 'Bitte füge zuerst einen JSON-Fall ein.');
@@ -517,55 +580,36 @@ window.validateAndSaveCustomCase = function() {
         const parsed = JSON.parse(sanitized);
 
         if (Array.isArray(parsed)) {
-            throw new Error(
-                'Bitte füge einen einzelnen Fall ein, kein JSON-Array.'
-            );
+            throw new Error('Bitte füge einen einzelnen Fall ein, kein JSON-Array.');
         }
 
         if (!parsed.case_id || typeof parsed.case_id !== 'string') {
-    throw new Error('Das Pflichtfeld "case_id" fehlt.');
-}
+            throw new Error('Das Pflichtfeld "case_id" fehlt.');
+        }
 
-parsed.case_id = parsed.case_id
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, '_');
+        parsed.case_id = parsed.case_id.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
 
-if (!parsed.case_id) {
-    throw new Error('Die case_id ist ungültig.');
-}
+        if (!parsed.case_id) {
+            throw new Error('Die case_id ist ungültig.');
+        }
 
         if (!Array.isArray(parsed.timeline)) {
-            throw new Error(
-                'Das Pflichtfeld "timeline" muss ein Array sein.'
-            );
+            throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
         }
 
         let customCases = [];
-
         try {
-            customCases = JSON.parse(
-                localStorage.getItem('custom_cases') || '[]'
-            );
-
-            if (!Array.isArray(customCases)) {
-                customCases = [];
-            }
+            customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+            if (!Array.isArray(customCases)) { customCases = []; }
         } catch (storageError) {
             customCases = [];
         }
 
-        customCases = customCases.filter(
-            c => c.case_id !== parsed.case_id
-        );
-
+        customCases = customCases.filter(c => c.case_id !== parsed.case_id);
         customCases.push(parsed);
-        localStorage.setItem(
-            'custom_cases',
-            JSON.stringify(customCases)
-        );
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
         showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
-
         renderDashboardCases();
 
         if (window.Cloud && window.Cloud.isLoggedIn()) {
@@ -578,23 +622,29 @@ if (!parsed.case_id) {
         showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
     }
 };
+
 window.checkFinalCompletion = function() {
+    // INFO: 'bodyMappingSolved' Prüfung restlos entfernt!
     const stepsDone = (clearedStepsCount === totalStepsCount);
     const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
     const casDone = (cascadesSolvedCount === totalCascades);
-    if (stepsDone && synDone && casDone && bodyMappingSolved && categorizationSolved && quizSolved) {
-        document.getElementById('finish-case-btn').style.display = 'block';
+    
+    if (stepsDone && synDone && casDone && categorizationSolved && quizSolved) {
+        const finishBtn = document.getElementById('finish-case-btn');
+        if (finishBtn) finishBtn.style.display = 'block';
     }
 };
 
 window.finishCase = function() {
     let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    if (!solved.includes(activeCaseData.case_id)) {
+    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
         solved.push(activeCaseData.case_id);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
         if (window.Cloud) window.Cloud.scheduleProgressSync();
         applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
     }
     alert('🎉 Gratulation! Alle Challenges gemeistert.');
-    switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+    
+    const navItems = document.querySelectorAll('.nav-item');
+    if (navItems.length > 0) switchTab('dashboard', navItems[0]);
 };
