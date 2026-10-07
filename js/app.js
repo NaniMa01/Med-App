@@ -1228,17 +1228,19 @@ window.resetCurrentChallenge = function() {
             if (window.renderCategorization) window.renderCategorization();
             break;
 
-        case 'doctordle':
-            ProgressManager.resetChallenge(caseId, 'doctordle');
-            solvedDoctordlePuzzles = 0;
-            doctordleSolved = false;
-            const docBadge = document.getElementById('badge-mode-doctordle');
-            if (docBadge) {
-                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
-                docBadge.style.background = ''; // Entfernt den grünen Hintergrund
-            }
-            if (window.initDoctordle) window.initDoctordle(activeCaseData);
-            break;
+     case 'doctordle':
+    ProgressManager.resetChallenge(caseId, 'doctordle');
+    solvedDoctordlePuzzles = 0;
+    doctordleSolved = false;
+    const docBadge = document.getElementById('badge-mode-doctordle');
+    if (docBadge) {
+        docBadge.innerText = `0/${totalDoctordlePuzzles}`;
+        docBadge.style.background = '';
+    }
+    if (window.doctordleGame) {
+        window.doctordleGame.resetGame();
+    }
+    break;
     }
 
     checkFinalCompletion();
