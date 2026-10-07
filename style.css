@@ -457,12 +457,18 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 
 .folder-header:hover .folder-action-btn {
     opacity: 1;
-    
-.folder-action-btn.delete-folder-btn:hover {
-    color: var(--color-risk, #ef4444);
-    opacity: 1;
 }
 
+/* Spezielles Styling für den Ordner-Lösch-Button (Mülleimer) */
+.folder-action-btn.delete-folder-btn {
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.folder-action-btn.delete-folder-btn:hover {
+    color: #ef4444; /* Dezentes Rot beim Hover */
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .folder-cases-list {
