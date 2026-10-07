@@ -90,20 +90,32 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
 };
 
 window.revealSynthesis = function(stepIndex, hotspotIndex) {
-    const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
-    const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
+    const step = activeCaseData.timeline[stepIndex];
+    const hs = step.hotspots[hotspotIndex];
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
+    const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
 
-    // Visueller Abschluss im Text
-    if (span) span.style.borderBottomColor = 'var(--accent-green, #10b981)';
+    // Visuelles Feedback: Markierung im Text von Warnung/Rot auf gelöst/Grün umstellen
+    if (span) {
+        span.style.borderBottomColor = 'var(--accent-green, #10b981)';
+    }
+
+    // Robuster Fallback für alle gängigen Bezeichnungen in den JSON-Dateien:
+    const synthesisText = hs.correct_pathophysiology 
+                       || hs.synthesis 
+                       || hs.correction 
+                       || hs.solution 
+                       || hs.pathophysiology 
+                       || hs.feedback 
+                       || 'Keine detaillierte Synthese für diese Passage hinterlegt.';
 
     fb.className = 'feedback-box feedback-success';
     fb.innerHTML = `
         <div style="font-weight: 700; color: var(--accent-green, #10b981); margin-bottom: 6px;">
             ✓ Korrekte Pathophysiologie & Synthese
         </div>
-        <div style="line-height: 1.5;">
-            ${hs.correct_pathophysiology}
+        <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
+            ${synthesisText}
         </div>
     `;
 };
