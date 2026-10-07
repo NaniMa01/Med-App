@@ -1,18 +1,23 @@
-// GLOBALE STATES
+// ====================================================
+// GLOBALE STATES & KONFIGURATION
+// ====================================================
 let activeCaseData = null;
+let currentActiveChallenge = 'overview';
+
+// Challenge States
 let selectedSynapses = [], totalSynapseDiseases = 0, solvedSynapseDiseases = 0, tilesPerDisease = 4;
 let cascadesSolvedCount = 0, totalCascades = 0;
 let categorizationSolved = false;
 let quizSolved = false, userQuizAnswers = {};
 let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
+
+// Dashboard & UI States
 let openFolders = {};
 let superFolderOpen = true;
-
-// Bookshelf State
 let bookshelfFolderState = {};
 let draggedItemState = null;
-let dragHoverTimer = null; // Für Auto-Open beim Drag & Drop
+let dragHoverTimer = null;
 
 const defaultSkills = {
     "Triage": { hits: 0, total: 0 },
@@ -36,37 +41,37 @@ const BUILTIN_DEMO_CASE = {
         "cornell_notes": [
             {
                 "cues": ["A. spinalis anterior", "Dissoziierte Empfindungsstörung", "Eulenaugen-Zeichen", "Wann? Perakut!"],
-                "notes": "<strong>Vaskuläre Myelopathien:</strong><br>Oft durch eine <em>Aortendissektion</em> (Verlegung der A. radicularis magna) ausgelöst.<br>Führt zur Ischämie der ventral[...]
+                "notes": "<strong>Vaskuläre Myelopathien:</strong><br>Oft durch eine <em>Aortendissektion</em> (Verlegung der A. radicularis magna) ausgelöst.<br>Führt zur Ischämie der ventralen Anteile."
             },
             {
                 "cues": ["NMOSD", "LETM (≥3 Segmente)", "AQP4-IgG", "Wer? Meist Frauen", "Vorsicht: Kein Interferon!"],
-                "notes": "<strong>Autoimmun-Demyelinisierend:</strong><br>Neuromyelitis-optica-Spektrum-Erkrankungen sind primär <em>Astrozytopathien</em>. <br>Diagnostisch beweisend ist eine lon[...]
+                "notes": "<strong>Autoimmun-Demyelinisierend:</strong><br>Neuromyelitis-optica-Spektrum-Erkrankungen sind primär <em>Astrozytopathien</em>.<br>Diagnostisch beweisend ist eine longitudinale Myelitis."
             },
             {
                 "cues": ["Funikuläre Myelose", "Lachgas (N2O)", "MMA erhöht", "Was? Spinale Ataxie"],
-                "notes": "<strong>Metabolisch/Toxisch:</strong><br>Degeneration der Hinterstränge und kortikospinalen Bahnen.<br><em>Mechanismus:</em> Lachgas oxidiert das Cobalt-Ion im Vitamin B[...]
+                "notes": "<strong>Metabolisch/Toxisch:</strong><br>Degeneration der Hinterstränge und kortikospinalen Bahnen.<br><em>Mechanismus:</em> Lachgas oxidiert das Cobalt-Ion im Vitamin B12."
             }
         ],
-        "summary": "Die Triage von Myelopathien erfordert exakte Klinik: Perakuter Schmerz weist auf eine Ischämie hin, eine LETM mit Neutrophilie auf eine NMOSD. Funktionelle B12-Mängel (z. B. [...]"
+        "summary": "Die Triage von Myelopathien erfordert exakte Klinik: Perakuter Schmerz weist auf eine Ischämie hin, eine LETM mit Neutrophilie auf eine NMOSD. Funktionelle B12-Mängel (z. B. durch Lachgas) müssen rechtzeitig erkannt werden."
     },
     "timeline": [
         {
             "step_id": 1,
             "phase": "Akutphase Notfallstation (Vaskulär & Null-Fehler)",
-            "content": "Eine 45-jährige Patientin erwacht nachts mit reissenden thorakolumbalen Schmerzen und einer schlaffen Paraparese. Die Untersuchung demonstriert einen Harnverhalt sowie ein[...]
+            "content": "Eine 45-jährige Patientin erwacht nachts mit reissenden thorakolumbalen Schmerzen und einer schlaffen Paraparese. Die Untersuchung demonstriert einen Harnverhalt sowie eine [beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn]. Der Dienstarzt veranlasst [ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion]. Im späteren Verlauf zeigt sich im MRT das Bild eines [bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)].",
             "hotspots": [
-                { "phrase": "beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn", "is_error": false, "skill_tag": "Diagnostik[...]
-                { "phrase": "ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion", "is_error": false, "skill_tag": "Triage", "feedback": "Korrekt: Eine Aortendisse[...]
-                { "phrase": "bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Die stoffwechselak[...]
+                { "phrase": "beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Typisch für eine Läsion der vorderen 2/3 des Myelons (A. spinalis anterior)." },
+                { "phrase": "ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion", "is_error": false, "skill_tag": "Triage", "feedback": "Korrekt: Eine Aortendissektion ist ein lebensgefährlicher Trigger." },
+                { "phrase": "bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Die stoffwechselaktiven Vorderhörner sind besonders ischämieanfällig." }
             ]
         },
         {
             "step_id": 2,
             "phase": "Autoimmun-entzündliche Differenzierung",
-            "content": "Ein 77-jähriger Patient stellt sich mit einer subakuten Paraplegie ab T5 vor. Das Spine-MRT zeigt eine [longitudinale extensive transversale Myelitis (LETM) über 4 verteb[...]
+            "content": "Ein 77-jähriger Patient stellt sich mit einer subakuten Paraplegie ab T5 vor. Das Spine-MRT zeigt eine [longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente]. Der Arzt vermutet den [primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta].",
             "hotspots": [
-                { "phrase": "longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Richtig: Eine Myelonläsi[...]
-                { "phrase": "primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta", "is_error": true, "skill_tag": "Pharmakologie", "socratic_trap": "We[...]
+                { "phrase": "longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Richtig: Eine Myelonläsion >3 Segmente spricht stark für NMOSD." },
+                { "phrase": "primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta", "is_error": true, "skill_tag": "Pharmakologie", "socratic_trap": "Eine LETM ist sehr untypisch für MS. Was passiert bei NMOSD unter Interferon?", "feedback": "Fehler: Interferon-beta verschlechtert eine NMOSD potenziell massiv." }
             ]
         }
     ],
@@ -76,97 +81,139 @@ const BUILTIN_DEMO_CASE = {
                 "puzzle_id": 1,
                 "title": "Deduktion 1: Perakute spinale Symptomatik",
                 "target_diagnosis": "Arteria-spinalis-anterior-Syndrom",
-                "synonyms": [
-                    "A. spinalis anterior Syndrom",
-                    "Spinaler Insult",
-                    "Rückenmarksinfarkt",
-                    "Anteriore Myelonischämie"
-                ],
+                "synonyms": ["A. spinalis anterior Syndrom", "Spinaler Insult", "Rückenmarksinfarkt", "Anteriore Myelonischämie"],
                 "hints": [
-                    "Stufe 1 (Initialpräsentation): 52-jähriger Patient erleidet perakut einschießende interskapuläre Schmerzen mit rascher Parese beider Beine.",
-                    "Stufe 2 (Klinischer Status): Schlaffe Paraparese, dissoziierte Sensibilitätsstörung: Schmerz/Temperatur erloschen, Tiefensensibilität vollständig intakt.",
-                    "Stufe 3 (Basislabor): Unauffällige Entzündungsparameter; D-Dimere leicht erhöht; Ausschluss Guillain-Barré-Syndrom.",
-                    "Stufe 4 (Gefäßstatus): CT-Angiographie zeigt eine Stanford-Typ-B-Dissektion mit Abgangsverschluss der A. radicularis magna (Adamkiewicz).",
-                    "Stufe 5 (Bildgebung): Spine-MRT zeigt im T2-Axialschnitt hyperintense Signalanhebungen in beiden Vorderhörnern ('Eulenaugen-Zeichen').",
-                    "Stufe 6 (Pathophysiologie): Perfusionsausfall der ventralen zwei Drittel des Myelons bei erhaltener Hinterstrangdurchblutung."
+                    "Stufe 1: 52-jähriger Patient erleidet perakut einschießende interskapuläre Schmerzen mit rascher Parese.",
+                    "Stufe 2: Schlaffe Paraparese, dissoziierte Sensibilitätsstörung.",
+                    "Stufe 3: D-Dimere leicht erhöht; Ausschluss GBS.",
+                    "Stufe 4: CT-Angio zeigt Stanford-Typ-B-Dissektion (Verschluss A. radicularis magna).",
+                    "Stufe 5: Spine-MRT zeigt T2-Hyperintensitäten in Vorderhörnern ('Eulenaugen-Zeichen').",
+                    "Stufe 6: Perfusionsausfall der ventralen zwei Drittel des Myelons."
                 ],
-                "learning_pearl": "Die dissoziierte Sensibilitätsstörung (ausgefallene Schmerz-/Temperaturbahnen bei intakten Hintersträngen) beweist das Arteria-spinalis-anterior-Syndrom."
+                "learning_pearl": "Die dissoziierte Sensibilitätsstörung beweist das Arteria-spinalis-anterior-Syndrom."
             },
             {
                 "puzzle_id": 2,
                 "title": "Deduktion 2: Subakute autoimmune Myelitis",
                 "target_diagnosis": "Neuromyelitis-optica-Spektrum-Erkrankung",
-                "synonyms": [
-                    "NMOSD",
-                    "Morbus Devic",
-                    "Devic-Syndrom",
-                    "Aquaporin-4-Autoimmunenzephalomyelitis"
-                ],
+                "synonyms": ["NMOSD", "Morbus Devic", "Devic-Syndrom", "Aquaporin-4-Autoimmunenzephalomyelitis"],
                 "hints": [
-                    "Stufe 1 (Initialpräsentation): 38-jährige Frau klagt über Sehkraftverlust rechts gefolgt von einer progredienten Paraparese innerhalb weniger Tage.",
-                    "Stufe 2 (Klinischer Status): Beidseits positiver Babinski, sensibles Niveau Th4, begleitend therapierefraktärer Schluckauf und Nausea.",
-                    "Stufe 3 (Liquor): Pleozytose mit überwiegend neutrophilen Granulozyten, oligoklonale Banden (OKB) negativ.",
-                    "Stufe 4 (Autoantikörper): Hochtiteriger Nachweis von zirkulierenden Autoantikörpern gegen den Wasserkanal Aquaporin-4 (AQP4-IgG).",
-                    "Stufe 5 (MRT Schädel/Spine): Longitudinale extensive transversale Myelitis (LETM) über 4 Wirbelkörpersegmente sowie T2-Läsion in der Area postrema.",
-                    "Stufe 6 (Therapieansprechen): Keine Remission unter Interferon-beta (Gefahr der Verschlechterung); rasches Ansprechen auf Plasmapherese und B-Zell-Depletion (Rituximab)."
+                    "Stufe 1: Sehkraftverlust rechts gefolgt von progredienter Paraparese.",
+                    "Stufe 2: Positiver Babinski, therapierefraktärer Schluckauf und Nausea.",
+                    "Stufe 3: Pleozytose mit überwiegend neutrophilen Granulozyten, OKB negativ.",
+                    "Stufe 4: Hochtiteriger Nachweis von Aquaporin-4-Antikörpern (AQP4-IgG).",
+                    "Stufe 5: LETM über 4 Segmente sowie T2-Läsion in der Area postrema.",
+                    "Stufe 6: Keine Remission unter Interferon-beta."
                 ],
-                "learning_pearl": "Eine LETM (≥3 Segmente) kombiniert mit negativen oligoklonalen Banden und AQP4-IgG sichert die Diagnose einer NMOSD."
+                "learning_pearl": "LETM (≥3 Segmente) + negative OKB + AQP4-IgG sichert die Diagnose NMOSD."
             },
             {
                 "puzzle_id": 3,
                 "title": "Deduktion 3: Metabolisch-toxische Ataxie",
                 "target_diagnosis": "Funikuläre Myelose",
-                "synonyms": [
-                    "Subakute kombinierte Degeneration",
-                    "Vitamin-B12-Mangel-Myelopathie",
-                    "Distickstoffmonoxid-induzierte Myelopathie",
-                    "Cobalamin-Mangelsyndrom"
-                ],
+                "synonyms": ["Subakute kombinierte Degeneration", "Vitamin-B12-Mangel-Myelopathie", "Distickstoffmonoxid-induzierte Myelopathie", "Cobalamin-Mangelsyndrom"],
                 "hints": [
-                    "Stufe 1 (Initialpräsentation): 26-jähriger Partygänger bemerkt seit drei Wochen symmetrische Parästhesien ('Pelzigkeitsgefühl') an Händen und Füßen sowie Gangunsicher[...]
-                    "Stufe 2 (Klinischer Status): Spinale Ataxie, erloschenes Vibrationsempfinden an beiden Malleoli (Pallhypästhesie 0/8), Pyramidenbahnzeichen positiv.",
-                    "Stufe 3 (Spezifisches Labor): Serum-Vitamin-B12 grenzwertig normal, jedoch Methylmalonsäure (MMA) und Homocystein massiv erhöht.",
-                    "Stufe 4 (Anamnestischer Trigger): Regelmäßige Inhalation von Distickstoffmonoxid (Lachgas, N2O) zur Entspannung am Wochenende.",
-                    "Stufe 5 (MRT Spine): T2-Hyperintensität der dorsalen Kolumnen (Hinterstränge) mit typischem umgekehrtem V-Zeichen ('Inverted V Sign').",
-                    "Stufe 6 (Pathophysiologie): Irreversible Oxidation des zentralen Cobalt-Ions (Co+ zu Co+++) führt zum Ausfall der Methionin-Synthase und Demyelinisierung der Hinterstränge.[...]
+                    "Stufe 1: Partygänger bemerkt seit 3 Wochen symmetrische Parästhesien an Händen/Füßen.",
+                    "Stufe 2: Spinale Ataxie, erloschenes Vibrationsempfinden an beiden Malleoli.",
+                    "Stufe 3: Serum-B12 grenzwertig normal, aber Methylmalonsäure (MMA) massiv erhöht.",
+                    "Stufe 4: Regelmäßige Inhalation von Distickstoffmonoxid (Lachgas) am Wochenende.",
+                    "Stufe 5: MRT Spine: T2-Hyperintensität der Hinterstränge ('Inverted V Sign').",
+                    "Stufe 6: Irreversible Oxidation des zentralen Cobalt-Ions (Co+ zu Co+++)."
                 ],
-                "learning_pearl": "Lachgas inaktiviert Vitamin B12 funktionell; wegweisend sind die Erhöhung der Methylmalonsäure (MMA) und das umgekehrte V-Zeichen im Hinterstrang-MRT."
+                "learning_pearl": "Lachgas inaktiviert Vitamin B12 funktionell; MMA ist wegweisend erhöht."
             }
         ],
         "library_entries": [
-            "Arteria-spinalis-anterior-Syndrom",
-            "A. spinalis anterior Syndrom",
-            "Spinaler Insult",
-            "Rückenmarksinfarkt",
-            "Neuromyelitis-optica-Spektrum-Erkrankung",
-            "NMOSD",
-            "Morbus Devic",
-            "Funikuläre Myelose",
-            "Subakute kombinierte Degeneration",
-            "Multiple Sklerose",
-            "Akute disseminierte Enzephalomyelitis (ADEM)",
-            "Guillain-Barré-Syndrom",
-            "Spinales Epiduralhämatom",
-            "Zervikale spondylotische Myelopathie"
+            "Arteria-spinalis-anterior-Syndrom", "Spinaler Insult", "Neuromyelitis-optica-Spektrum-Erkrankung", "NMOSD", "Funikuläre Myelose", "Multiple Sklerose", "Spinales Epiduralhämatom"
         ],
         "master_quiz": [
             {
                 "question": "Welcher Befund im Spinal-MRT spricht am ehesten für eine NMOSD und schließt eine klassische Multiple Sklerose weitgehend aus?",
-                "options": ["Kurzstreckige posterolaterale Läsion <1 Segment", "Longitudinale extensive transversale Myelitis (LETM) ≥3 Segmente", "Bilaterale Hyperintensität der Vorderhörner[...]
+                "options": ["Kurzstreckige posterolaterale Läsion <1 Segment", "Longitudinale extensive transversale Myelitis (LETM) ≥3 Segmente", "Bilaterale Hyperintensität der Vorderhörner"],
                 "correct_index": 1,
-                "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD. Typische MS-Plaques sind meist kurzstreckig.[...]
+                "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD."
             },
             {
-                "question": "Ein 24-jähriger Patient zeigt eine spinale Ataxie, Pallhypästhesie und gesteigerte Reflexe. Welcher toxische Trigger führt funktionell zum gleichen klinischen Bild[...]
-                "options": ["Chronischer Cannabis-Konsum", "Inhalation von Distickstoffmonoxid (Lachgas)", "Exzessiver Konsum von Energy-Drinks (Taurin)", "Systemische Corticosteroid-Langzeitther[...]
+                "question": "Ein 24-jähriger Patient zeigt eine spinale Ataxie. Welcher toxische Trigger führt funktionell zum gleichen klinischen Bild wie ein Vitamin-B12-Mangel?",
+                "options": ["Chronischer Cannabis-Konsum", "Inhalation von Distickstoffmonoxid (Lachgas)", "Exzessiver Konsum von Energy-Drinks (Taurin)"],
                 "correct_index": 1,
-                "explanation": "Lachgas (N2O) oxidiert das zentrale Cobalt-Ion von Vitamin B12. Dies inaktiviert das Vitamin B12 intrazellulär irreversibel und führt zur Demyelinisierung der Hi[...]
+                "explanation": "Lachgas (N2O) oxidiert das zentrale Cobalt-Ion von Vitamin B12 und inaktiviert es irreversibel."
             }
         ]
     }
 };
 
-// INIT
+
+// ====================================================
+// PROGRESS MANAGER & PERSISTENCE
+// ====================================================
+const ProgressManager = {
+    STORAGE_KEY: 'medcheck_user_progress_v1',
+
+    getAll() {
+        try {
+            return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || {};
+        } catch (e) {
+            console.error('Fehler beim Lesen des Progress-Speichers:', e);
+            return {};
+        }
+    },
+
+    getCaseProgress(caseId) {
+        if (!caseId) return null;
+        const all = this.getAll();
+        return all[caseId] || null;
+    },
+
+    saveCaseState(caseId, partialState) {
+        if (!caseId) return;
+        const all = this.getAll();
+        all[caseId] = {
+            ...(all[caseId] || {}),
+            ...partialState,
+            updatedAt: Date.now()
+        };
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+        } catch (e) {
+            console.error('LocalStorage Schreibfehler:', e);
+        }
+    },
+
+    resetChallenge(caseId, challengeKey) {
+        if (!caseId) return;
+        const all = this.getAll();
+        if (all[caseId] && all[caseId][challengeKey]) {
+            delete all[caseId][challengeKey];
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+        }
+    },
+
+    resetEntireCase(caseId) {
+        if (!caseId) return;
+        const all = this.getAll();
+        delete all[caseId];
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+
+        // Aus gelösten Fällen austragen
+        let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        solved = solved.filter(id => id !== caseId);
+        localStorage.setItem('solved_cases', JSON.stringify(solved));
+    }
+};
+
+// Globaler Hook für externe Challenge-Module
+window.saveChallengeProgress = function(challengeKey, data) {
+    if (!activeCaseData) return;
+    ProgressManager.saveCaseState(activeCaseData.case_id, {
+        [challengeKey]: data
+    });
+};
+
+
+// ====================================================
+// INITIALISIERUNG
+// ====================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUserData();
     renderSkillsSidebar();
@@ -183,6 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ====================================================
+// ALLGEMEINE UI & UTILS
+// ====================================================
 window.toggleSidebar = function() {
     const sidebar = document.querySelector('sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
@@ -197,6 +247,72 @@ function escapeHtml(str) {
     );
 }
 
+function switchTab(tab, el) {
+    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+    if (el) el.classList.add('active');
+    
+    const showTab = (id, displayStyle) => {
+        const element = document.getElementById(id);
+        if (element) element.style.display = displayStyle;
+    };
+
+    showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
+    showTab('player-view', tab === 'player' ? 'block' : 'none');
+    showTab('forge-view', tab === 'forge' ? 'block' : 'none');
+    showTab('settings-view', tab === 'settings' ? 'block' : 'none');
+    showTab('nav-player', tab === 'player' ? 'flex' : 'none');
+    
+    const sidebar = document.querySelector('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+
+    if (tab === 'dashboard') renderDashboardCases();
+}
+
+window.switchPlayerMode = function(mode) {
+    currentActiveChallenge = mode;
+
+    document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    const targetPane = document.getElementById('mode-container-' + mode) || document.getElementById('tab-pane-' + mode);
+    const targetTab = document.getElementById('tab-btn-' + mode);
+    if (targetPane) targetPane.style.display = 'block';
+    if (targetTab) targetTab.classList.add('active');
+
+    if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
+        window.initDoctordle(activeCaseData);
+    }
+};
+
+window.showTutorHint = function(taskKey) {
+    if (!activeCaseData || !activeCaseData.extra_tasks) return;
+    let hint = "Kein spezifischer Hinweis hinterlegt.";
+    
+    if (taskKey === 'clinical_cascades' && activeCaseData.extra_tasks.clinical_cascades) {
+        hint = activeCaseData.extra_tasks.clinical_cascades[0]?.tutor_hint || hint;
+    } else if (activeCaseData.extra_tasks[taskKey]) {
+        hint = activeCaseData.extra_tasks[taskKey].tutor_hint || hint;
+    }
+    
+    const tutorText = document.getElementById('tutor-text');
+    const tutorModal = document.getElementById('tutor-modal');
+    if (tutorText) tutorText.innerText = hint;
+    if (tutorModal) tutorModal.style.display = 'block';
+};
+
+window.toggleSuperFolder = function() {
+    superFolderOpen = !superFolderOpen;
+    const container = document.getElementById('dashboard-folders-container');
+    const arrow = document.getElementById('super-folder-arrow');
+    if (container) container.style.display = superFolderOpen ? 'flex' : 'none';
+    if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
+};
+
+// ====================================================
+// STATS & SKILLS
+// ====================================================
 function initUserData() {
     if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
     let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
@@ -215,7 +331,6 @@ function initUserData() {
         localStorage.setItem('user_skills', JSON.stringify(cleaned));
     }
 
-    // Automatische Wörterbuch-Initialisierung aller vorhandenen Fälle
     try {
         let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
         if (window.MedicalDictionary && typeof window.MedicalDictionary.registerAllCases === 'function') {
@@ -286,71 +401,9 @@ function renderSkillsSidebar() {
     }).join('');
 }
 
-function switchTab(tab, el) {
-    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-    if (el) el.classList.add('active');
-    
-    const showTab = (id, displayStyle) => {
-        const element = document.getElementById(id);
-        if (element) element.style.display = displayStyle;
-    };
-
-    showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
-    showTab('player-view', tab === 'player' ? 'block' : 'none');
-    showTab('forge-view', tab === 'forge' ? 'block' : 'none');
-    showTab('settings-view', tab === 'settings' ? 'block' : 'none');
-    showTab('nav-player', tab === 'player' ? 'flex' : 'none');
-    
-    const sidebar = document.querySelector('sidebar');
-    const overlay = document.querySelector('.sidebar-overlay');
-    if (sidebar) sidebar.classList.remove('open');
-    if (overlay) overlay.classList.remove('active');
-
-    if (tab === 'dashboard') renderDashboardCases();
-}
-
-window.switchPlayerMode = function(mode) {
-    document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
-    
-    const targetPane = document.getElementById('mode-container-' + mode) || document.getElementById('tab-pane-' + mode);
-    const targetTab = document.getElementById('tab-btn-' + mode);
-    if (targetPane) targetPane.style.display = 'block';
-    if (targetTab) targetTab.classList.add('active');
-
-    // Spezifischer Init-Trigger für Doctordle
-    if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
-        window.initDoctordle(activeCaseData);
-    }
-};
-
-window.showTutorHint = function(taskKey) {
-    if (!activeCaseData || !activeCaseData.extra_tasks) return;
-    let hint = "Kein spezifischer Hinweis hinterlegt.";
-    
-    if (taskKey === 'clinical_cascades' && activeCaseData.extra_tasks.clinical_cascades) {
-        hint = activeCaseData.extra_tasks.clinical_cascades[0]?.tutor_hint || hint;
-    } else if (activeCaseData.extra_tasks[taskKey]) {
-        hint = activeCaseData.extra_tasks[taskKey].tutor_hint || hint;
-    }
-    
-    const tutorText = document.getElementById('tutor-text');
-    const tutorModal = document.getElementById('tutor-modal');
-    if (tutorText) tutorText.innerText = hint;
-    if (tutorModal) tutorModal.style.display = 'block';
-};
-
-window.toggleSuperFolder = function() {
-    superFolderOpen = !superFolderOpen;
-    const container = document.getElementById('dashboard-folders-container');
-    const arrow = document.getElementById('super-folder-arrow');
-    if (container) container.style.display = superFolderOpen ? 'flex' : 'none';
-    if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
-};
-
-/**
- * Zentraler Dashboard-Renderer
- */
+// ====================================================
+// DASHBOARD & BOOKSHELF
+// ====================================================
 function renderDashboardCases() {
     let customCases = [];
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
@@ -374,19 +427,23 @@ function renderDashboardCases() {
         
         const cardsHtml = cases.map(c => {
             const isSolved = solved.includes(c.case_id);
+            // Fortschrittsbalken oder Indikator für angefangene Fälle wäre hier eine coole Erweiterung!
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            
             const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
                 ? ''
                 : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
             return `
-    <div class="case-card" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+    <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
         ${deleteBtn}
         <div>
             <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
             <h3>${c.metadata?.title || c.case_id}</h3>
         </div>
         <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-            <span style="color:${isSolved ? 'var(--color-symptom)' : 'var(--accent-blue)'}; font-weight:700;">
-                ${isSolved ? '✓ Gelöst' : '● Offen'}
+            <span style="color:${isSolved ? 'var(--color-symptom)' : (inProgress ? '#f59e0b' : 'var(--accent-blue)')}; font-weight:700;">
+                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
             </span>
             <span>+${c.metadata?.xp_reward || 900} XP</span>
         </div>
@@ -411,11 +468,7 @@ function renderDashboardCases() {
 
     container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
-
-        card.addEventListener('click', () => {
-            window.loadCaseById(caseId);
-        });
-
+        card.addEventListener('click', () => window.loadCaseById(caseId));
         card.addEventListener('keydown', event => {
             if (event.target !== card) return;
             if (event.key === 'Enter' || event.key === ' ') {
@@ -440,17 +493,11 @@ function renderDashboardCases() {
     }
 }
 
-/**
- * ====================================================
- * BOOKSHELF ENGINE
- * ====================================================
- */
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
 
     bookshelfContainer.innerHTML = '';
-
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
 
@@ -498,10 +545,7 @@ function renderBookshelf(casesArray) {
 
         if (casesInFolder.length === 0) {
             const emptyLi = document.createElement('li');
-            emptyLi.style.fontSize = '0.72rem';
-            emptyLi.style.color = 'var(--text-dim)';
-            emptyLi.style.padding = '4px 6px';
-            emptyLi.style.fontStyle = 'italic';
+            emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim); padding:4px 6px; font-style:italic;';
             emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
             list.appendChild(emptyLi);
         } else {
@@ -520,10 +564,7 @@ function renderBookshelf(casesArray) {
                     e.dataTransfer.effectAllowed = 'move';
                 });
 
-                li.addEventListener('click', () => {
-                    window.loadCaseById(caseItem.case_id);
-                });
-
+                li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
                 list.appendChild(li);
             });
         }
@@ -596,7 +637,6 @@ function renderBookshelf(casesArray) {
             }
 
             if (!draggedItemState) return;
-
             if (draggedItemState.type === 'case') {
                 const caseId = draggedItemState.id;
                 if (caseId) await moveCaseToFolder(caseId, folderName);
@@ -800,6 +840,10 @@ window.toggleFolder = function(category) {
     renderDashboardCases();
 };
 
+
+// ====================================================
+// FALL LADEN & PLAYER LOGIK
+// ====================================================
 window.loadCaseById = function(caseId) {
     let customCases = [];
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch(e){}
@@ -810,93 +854,72 @@ window.loadCaseById = function(caseId) {
         return; 
     }
 
-    if (targetCase.extra_tasks && targetCase.extra_tasks.topo) {
-        delete targetCase.extra_tasks.topo;
-    }
-
     activeCaseData = JSON.parse(JSON.stringify(targetCase));
+    const saved = ProgressManager.getCaseProgress(caseId) || {};
     
     const badgeTitle = document.getElementById('player-case-badge-title');
     if (badgeTitle) badgeTitle.innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
 
-    clearedStepsCount = 0;
+    // Timeline / Audit wiederherstellen
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
+    clearedStepsCount = saved.audit?.clearedStepsCount || 0;
     
     const badgeAudit = document.getElementById('badge-mode-audit');
-    if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
-    
-    const finishCaseBtn = document.getElementById('finish-case-btn');
-    if (finishCaseBtn) finishCaseBtn.style.display = 'none';
+    if (badgeAudit) badgeAudit.innerText = `${clearedStepsCount}/${totalStepsCount}`;
 
     const tasks = activeCaseData.extra_tasks || {};
-
     const show = (id, on) => { 
         const el = document.getElementById(id); 
         if (el) el.style.display = on ? 'inline-flex' : 'none'; 
     };
 
     const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
-    show('tab-btn-synapses', hasSyn);
-    
     const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
-    show('tab-btn-cascade', hasCas);
-    
     const hasCat = !!(tasks.categorization && tasks.categorization.items?.length && tasks.categorization.categories?.length);
-    show('tab-btn-cat', hasCat);
-    
     const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
-    show('tab-btn-quiz', hasQuiz);
-
-    // DOCTORDLE CHALLENGE TAB INITIALISIERUNG
-    const doctordleData = tasks.doctordle || activeCaseData.extra_tasks?.doctordle;
+    const doctordleData = tasks.doctordle;
     const hasDoctordle = !!(doctordleData && (Array.isArray(doctordleData) ? doctordleData.length > 0 : !!doctordleData.hints));
+
+    show('tab-btn-synapses', hasSyn);
+    show('tab-btn-cascade', hasCas);
+    show('tab-btn-cat', hasCat);
+    show('tab-btn-quiz', hasQuiz);
     show('tab-btn-doctordle', hasDoctordle);
+
+    // States aus Storage laden oder defaulten
+    totalSynapseDiseases = hasSyn ? tasks.synapses_matrix.diseases.length : 0;
+    solvedSynapseDiseases = saved.synapses?.solvedCount || 0;
+
+    totalCascades = hasCas ? tasks.clinical_cascades.length : 0;
+    cascadesSolvedCount = saved.cascades?.solvedCount || 0;
+
+    categorizationSolved = !hasCat || !!saved.categorization?.solved;
+    quizSolved = !hasQuiz || !!saved.quiz?.solved;
+    userQuizAnswers = saved.quiz?.answers || {};
 
     if (hasDoctordle) {
         totalDoctordlePuzzles = Array.isArray(doctordleData) ? doctordleData.length : 1;
-        solvedDoctordlePuzzles = 0;
-        doctordleSolved = false;
+        solvedDoctordlePuzzles = saved.doctordle?.solvedCount || 0;
+        doctordleSolved = solvedDoctordlePuzzles >= totalDoctordlePuzzles;
         const doctordleBadge = document.getElementById('badge-mode-doctordle');
-        if (doctordleBadge) doctordleBadge.innerText = `0/${totalDoctordlePuzzles}`;
+        if (doctordleBadge) doctordleBadge.innerText = `${solvedDoctordlePuzzles}/${totalDoctordlePuzzles}`;
     } else {
-        doctordleSolved = true; // Automatisch als gelöst markieren, wenn Challenge nicht existiert
-        totalDoctordlePuzzles = 0;
-        solvedDoctordlePuzzles = 0;
+        doctordleSolved = true;
     }
 
-    show('tab-btn-topo', false);
-
     const safely = (label, fn) => {
-        try { 
-            if (typeof fn === 'function') {
-                fn();
-            } else {
-                console.warn(`Modul '${label}' konnte nicht geladen werden (Funktion nicht gefunden).`);
-            }
-        } catch (err) { 
-            console.error(`Fehler beim Laden von Modul '${label}':`, err); 
-        }
+        try { if (typeof fn === 'function') fn(); } 
+        catch (err) { console.error(`Fehler bei Modul '${label}':`, err); }
     };
 
     safely('Übersicht', window.renderOverview);
     safely('Audit', window.renderTimeline);
-
-    solvedSynapseDiseases = 0; totalSynapseDiseases = hasSyn ? tasks.synapses_matrix.diseases.length : 0;
     if (hasSyn) safely('Synapsen', window.renderSynapsesMatrix);
-
-    cascadesSolvedCount = 0; totalCascades = hasCas ? tasks.clinical_cascades.length : 0;
     if (hasCas) safely('Kaskade', window.renderCascades);
-
-    categorizationSolved = !hasCat;
     if (hasCat) safely('Taxonomie', window.renderCategorization);
-
-    quizSolved = !hasQuiz;
-    if (hasQuiz) { userQuizAnswers = {}; safely('Quiz', window.renderQuiz); }
-
-    if (hasDoctordle && window.initDoctordle) {
-        safely('Doctordle', () => window.initDoctordle(activeCaseData));
-    }
+    if (hasQuiz) safely('Quiz', window.renderQuiz);
+    if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
 
     switchTab('player', document.getElementById('nav-player'));
     switchPlayerMode('overview');
@@ -945,6 +968,10 @@ window.renderOverview = function() {
     container.innerHTML = html;
 };
 
+
+// ====================================================
+// FORGE / GEMINI API
+// ====================================================
 function showForgeFeedback(type, message) {
     const fb = document.getElementById('forge-fb');
     if (!fb) return;
@@ -1004,7 +1031,7 @@ window.generateCaseWithGemini = async function() {
         if (!res.ok || !data) {
             const serverMessage = data?.error || responseText.trim().slice(0, 200);
             throw new Error(
-                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten – bitte erneut versuchen oder den Prompt kür[...]
+                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten – bitte erneut versuchen oder den Prompt kürzen.`
             );
         }
 
@@ -1044,7 +1071,6 @@ window.validateAndSaveCustomCase = function() {
         if (Array.isArray(parsed)) {
             throw new Error('Bitte füge einen einzelnen Fall ein, kein JSON-Array.');
         }
-
         if (!parsed.case_id || typeof parsed.case_id !== 'string') {
             throw new Error('Das Pflichtfeld "case_id" fehlt.');
         }
@@ -1054,7 +1080,6 @@ window.validateAndSaveCustomCase = function() {
         if (!parsed.case_id) {
             throw new Error('Die case_id ist ungültig.');
         }
-
         if (!Array.isArray(parsed.timeline)) {
             throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
         }
@@ -1071,7 +1096,6 @@ window.validateAndSaveCustomCase = function() {
         customCases.push(parsed);
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-        // Dynamisches Wörterbuch mit neuem Fall sofort erweitern
         try {
             if (window.MedicalDictionary && typeof window.MedicalDictionary.registerCase === 'function') {
                 window.MedicalDictionary.registerCase(parsed);
@@ -1092,7 +1116,10 @@ window.validateAndSaveCustomCase = function() {
     }
 };
 
-// DOCTORDLE COMPLETION HOOK
+
+// ====================================================
+// ABSCHLUSS & RESETS
+// ====================================================
 window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
     solvedDoctordlePuzzles = solvedCount;
     totalDoctordlePuzzles = totalCount;
@@ -1103,11 +1130,25 @@ window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
             badge.style.background = 'var(--color-symptom)';
         } else {
             badge.innerText = `${solvedCount}/${totalCount}`;
+            badge.style.background = ''; // Farbe zurücksetzen wenn ungelöst
         }
     }
+    
     if (solvedCount >= totalCount) {
         doctordleSolved = true;
     }
+
+    // Auto-Save Doctordle Progress
+    if (activeCaseData) {
+        ProgressManager.saveCaseState(activeCaseData.case_id, {
+            doctordle: {
+                solvedCount: solvedCount,
+                totalCount: totalCount,
+                solved: solvedCount >= totalCount
+            }
+        });
+    }
+    
     checkFinalCompletion();
 };
 
@@ -1117,9 +1158,12 @@ window.checkFinalCompletion = function() {
     const casDone = (cascadesSolvedCount === totalCascades);
     const docDone = doctordleSolved;
     
-    if (stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone) {
-        const finishBtn = document.getElementById('finish-case-btn');
-        if (finishBtn) finishBtn.style.display = 'block';
+    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone;
+    
+    const finishBtn = document.getElementById('finish-case-btn');
+    if (finishBtn) {
+        // Blendet den Button zuverlässig ein und AUS, wenn eine Challenge resetet wird
+        finishBtn.style.display = allCompleted ? 'block' : 'none';
     }
 };
 
@@ -1130,9 +1174,81 @@ window.finishCase = function() {
         localStorage.setItem('solved_cases', JSON.stringify(solved));
         if (window.Cloud) window.Cloud.scheduleProgressSync();
         applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
+    } else {
+        // Verhindert unendliches Farmen von XP für denselben Fall durch ständiges Resetten
+        applyXpDelta(50, 'Review Bonus');
     }
+    
     alert('🎉 Gratulation! Alle Challenges gemeistert.');
     
     const navItems = document.querySelectorAll('.nav-item');
     if (navItems.length > 0) switchTab('dashboard', navItems[0]);
+};
+
+window.resetCurrentChallenge = function() {
+    if (!activeCaseData || currentActiveChallenge === 'overview') return;
+
+    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
+    if (!confirmReset) return;
+
+    const caseId = activeCaseData.case_id;
+
+    switch (currentActiveChallenge) {
+        case 'audit':
+            ProgressManager.resetChallenge(caseId, 'audit');
+            clearedStepsCount = 0;
+            const badgeAudit = document.getElementById('badge-mode-audit');
+            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
+            if (window.renderTimeline) window.renderTimeline();
+            break;
+
+        case 'quiz':
+            ProgressManager.resetChallenge(caseId, 'quiz');
+            quizSolved = false;
+            userQuizAnswers = {};
+            if (window.renderQuiz) window.renderQuiz();
+            break;
+
+        case 'synapses':
+            ProgressManager.resetChallenge(caseId, 'synapses');
+            solvedSynapseDiseases = 0;
+            selectedSynapses = [];
+            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
+            break;
+
+        case 'cascade':
+            ProgressManager.resetChallenge(caseId, 'cascades');
+            cascadesSolvedCount = 0;
+            if (window.renderCascades) window.renderCascades();
+            break;
+
+        case 'cat':
+            ProgressManager.resetChallenge(caseId, 'categorization');
+            categorizationSolved = false;
+            if (window.renderCategorization) window.renderCategorization();
+            break;
+
+        case 'doctordle':
+            ProgressManager.resetChallenge(caseId, 'doctordle');
+            solvedDoctordlePuzzles = 0;
+            doctordleSolved = false;
+            const docBadge = document.getElementById('badge-mode-doctordle');
+            if (docBadge) {
+                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
+                docBadge.style.background = ''; // Entfernt den grünen Hintergrund
+            }
+            if (window.initDoctordle) window.initDoctordle(activeCaseData);
+            break;
+    }
+
+    checkFinalCompletion();
+};
+
+window.resetCurrentCaseEntirely = function() {
+    if (!activeCaseData) return;
+    const title = activeCaseData.metadata?.title || activeCaseData.case_id;
+    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
+
+    ProgressManager.resetEntireCase(activeCaseData.case_id);
+    window.loadCaseById(activeCaseData.case_id);
 };
