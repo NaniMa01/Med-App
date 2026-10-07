@@ -89,30 +89,58 @@
         if (error) throw error;
     }
 
-    async function loadProgress() {
+  async function loadProgress() {
         requireSession();
-        const { data, error } = await client
-            .from('user_progress')
-            .select('xp, solved_cases, skills')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+        const { data, error } = await client.from('user_progress').select('*').eq('user_id', session.user.id).maybeSingle();
         if (error) throw error;
-        return data;
+        if (data) {
+            localStorage.setItem('user_xp', String(data.xp || 0));
+            writeJson('solved_cases', data.solved_cases || []);
+            writeJson('user_skills', data.skills || {});
+
+            // ==========================================================
+            // NEU: Ordnerstruktur und Klapp-Status aus der Cloud wiederherstellen
+            // ==========================================================
+            if (Array.isArray(data.folder_order) && data.folder_order.length > 0) {
+                localStorage.setItem('medcheck_folder_order', JSON.stringify(data.folder_order));
+            }
+            if (data.folder_state && typeof data.folder_state === 'object') {
+                localStorage.setItem('medcheck_folder_state', JSON.stringify(data.folder_state));
+                if (typeof bookshelfFolderState !== 'undefined') {
+                    Object.assign(bookshelfFolderState, data.folder_state);
+                }
+            }
+            // ==========================================================
+
+            updateStatsUI();
+            renderSkillsSidebar();
+            if (typeof renderDashboardCases === 'function') {
+                renderDashboardCases();
+            }
+        }
     }
 
-    async function saveProgress() {
+async function saveProgress() {
         requireSession();
+        
+        // NEU: Ordnerstruktur aus dem Browser-Cache auslesen
+        const folder_order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+        const folder_state = typeof bookshelfFolderState !== 'undefined' 
+            ? bookshelfFolderState 
+            : JSON.parse(localStorage.getItem('medcheck_folder_state') || '{}');
+
         const row = {
             user_id: session.user.id,
             xp: parseInt(localStorage.getItem('user_xp') || '0', 10) || 0,
             solved_cases: readJson('solved_cases', []),
             skills: readJson('user_skills', {}),
+            folder_order, // NEU: Wird in die Cloud geschrieben
+            folder_state, // NEU: Wird in die Cloud geschrieben
             updated_at: new Date().toISOString()
         };
         const { error } = await client.from('user_progress').upsert(row, { onConflict: 'user_id' });
         if (error) throw error;
     }
-
     function scheduleProgressSync() {
         if (!session || applyingRemote) return;
         clearTimeout(progressTimer);
