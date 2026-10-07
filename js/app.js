@@ -209,6 +209,7 @@ function switchTab(tab, el) {
 
     showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
     showTab('player-view', tab === 'player' ? 'block' : 'none');
+    showTab('doctordle-view', tab === 'doctordle' ? 'block' : 'none');
     showTab('forge-view', tab === 'forge' ? 'block' : 'none');
     showTab('settings-view', tab === 'settings' ? 'block' : 'none');
     showTab('nav-player', tab === 'player' ? 'flex' : 'none');
@@ -219,6 +220,7 @@ function switchTab(tab, el) {
     if (overlay) overlay.classList.remove('active');
 
     if (tab === 'dashboard') renderDashboardCases();
+    if (tab === 'doctordle' && window.doctordleGame) window.doctordleGame.init();
 }
 
 function switchPlayerMode(mode) {
