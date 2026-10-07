@@ -2,11 +2,32 @@ function renderTimeline() {
     const container = document.getElementById('player-container');
     container.innerHTML = activeCaseData.timeline.map((step, index) => {
         let text = step.content;
-        if (step.hotspots) {
-            step.hotspots.forEach((hs, i) => { text = text.replace(new RegExp(`\\[${hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g'), `__HS_${i}__`); });
-            text = text.split(/\s+/).map(w => w.startsWith('__HS_') ? w : `<span class="stealth-word" onclick="handleGenericClick(this)">${w}</span>`).join(' ');
-            step.hotspots.forEach((hs, i) => { text = text.replace(`__HS_${i}__`, `<span class="stealth-hotspot" id="hs-${index}-${i}" onclick="evaluateAuditHotspot(${index}, ${i})">${hs.phrase}</span>`); });
+
+        if (step.hotspots && step.hotspots.length > 0) {
+            // 1. Phrasen ersetzen – flexibel MIT oder OHNE eckige Klammern im Originaltext:
+            step.hotspots.forEach((hs, i) => {
+                const escapedPhrase = hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Erfasst sowohl [Phrase] als auch Phrase im Text
+                const regex = new RegExp(`\\[?${escapedPhrase}\\]?`, 'g');
+                text = text.replace(regex, `___HOTSPOT_TOKEN_${i}___`);
+            });
+
+            // 2. Reguläre Wörter mit stealth-word ummanteln
+            text = text.split(/(\s+)/).map(part => {
+                if (part.includes('___HOTSPOT_TOKEN_') || /^\s+$/.test(part)) {
+                    return part;
+                }
+                return `<span class="stealth-word" onclick="handleGenericClick(this)">${part}</span>`;
+            }).join('');
+
+            // 3. Hotspot-Tokens mit den echten klickbaren Spans belegen
+            step.hotspots.forEach((hs, i) => {
+                const token = `___HOTSPOT_TOKEN_${i}___`;
+                const replacement = `<span class="stealth-hotspot" id="hs-${index}-${i}" onclick="evaluateAuditHotspot(${index}, ${i})">${hs.phrase}</span>`;
+                text = text.replaceAll(token, replacement);
+            });
         }
+
         return `
             <div style="margin-top:20px;">
                 <div style="font-size:0.75rem; font-weight:800; color:var(--accent-blue); text-transform:uppercase; margin-bottom:8px;">Abschnitt ${index+1}: ${step.phase}</div>
@@ -16,7 +37,6 @@ function renderTimeline() {
             </div>`;
     }).join('');
 }
-
 window.handleGenericClick = function(el) {
     if (el.classList.contains('resolved-generic')) return;
     el.classList.add('resolved-generic');
