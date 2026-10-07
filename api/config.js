@@ -1,3 +1,7 @@
-// api/config.js - Statische Konfiguration für das Frontend
-window.ENV_SUPABASE_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
-window.ENV_SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
+// api/config.js - Vercel Serverless Function
+export default function handler(req, res) {
+    res.status(200).json({
+        supabaseUrl: process.env.SUPABASE_URL || "https://fpzpwzkgthgsjubvflbl.supabase.co",
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2"
+    });
+}
