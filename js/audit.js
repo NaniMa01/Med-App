@@ -113,7 +113,7 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 <button class="action-btn secondary" onclick="revealHint(${stepIndex}, ${hotspotIndex})">
-                    💡 Sokratischen Impuls (Tipp) anzeigen
+                    💡 Sokratischen Impuls anzeigen (-50 XP)
                 </button>
                 <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">
                     Direkt zur Synthese & Auflösung
@@ -140,6 +140,9 @@ window.revealHint = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
 
+    // XP-Abzug auslösen und tracken
+    applyXpDelta(-50, 'Tutor-Impuls angefordert');
+
     const explanationText = hs.explanation || hs.feedback || hs.socratic_trap || 'Überlege, welche pathophysiologischen Mechanismen hier wirklich greifen.';
 
     fb.innerHTML = `
@@ -147,7 +150,7 @@ window.revealHint = function(stepIndex, hotspotIndex) {
             ⚠️ Kritischer Fehler identifiziert
         </div>
         <div style="margin-bottom: 15px; line-height: 1.5; color: var(--text-main, #f1f5f9);">
-            <strong>Tutor-Impuls:</strong> ${explanationText}
+            <span style="color: #f59e0b; font-weight: 800;">Tipp (-50 XP):</span> ${explanationText}
         </div>
         <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})" style="width: 100%;">
             Klinische Korrektur & Synthese aufdecken
