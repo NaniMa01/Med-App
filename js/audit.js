@@ -47,29 +47,65 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
+    
+    // Verhindern, dass bereits gelöste Hotspots erneut getriggert werden
     if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
 
     fb.style.display = 'block';
+
     if (hs.is_error) {
         span.classList.add('resolved-signal');
         trackSkill(hs.skill_tag || 'Pathophysiologie', true);
         applyXpDelta(100, 'Fehler identifiziert');
         fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `<strong>Kritischer Fehler!</strong><br><br><strong>Sokratischer Einspruch:</strong> ${hs.socratic_trap}<br><br><button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">Synthese aufdecken</button>`;
+        
+        // Dynamischer Fallback: nimmt 'explanation', falls vorhanden, sonst 'feedback' oder 'socratic_trap'
+        const errorExplanation = hs.explanation || hs.feedback || hs.socratic_trap || 'Diese Aussage ist pathophysiologisch inkorrekt.';
+
+        fb.innerHTML = `
+            <div style="font-weight: 700; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
+                ⚠️ Kritischer Fehler identifiziert (+100 XP)
+            </div>
+            <div style="margin-bottom: 10px; line-height: 1.5;">
+                <strong>Erklärung:</strong> ${errorExplanation}
+            </div>
+            <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">
+                Klinische Korrektur & Synthese aufdecken
+            </button>
+        `;
     } else {
         span.classList.add('resolved-noise');
         trackSkill(hs.skill_tag || 'Pathophysiologie', false);
         applyXpDelta(-40, 'Fehlalarm');
         fb.className = 'feedback-box feedback-neutral';
-        fb.innerHTML = `<strong>Fehlalarm (-40 XP):</strong> ${hs.feedback}`;
+        fb.innerHTML = `
+            <div style="font-weight: 700; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
+                Fehlalarm (-40 XP)
+            </div>
+            <div style="line-height: 1.5;">
+                <strong>Erklärung:</strong> ${hs.feedback || 'Diese Aussage ist im vorliegenden Kontext fachlich korrekt.'}
+            </div>
+        `;
     }
 };
 
 window.revealSynthesis = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
+    const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
+
+    // Visueller Abschluss im Text
+    if (span) span.style.borderBottomColor = 'var(--accent-green, #10b981)';
+
     fb.className = 'feedback-box feedback-success';
-    fb.innerHTML = `<strong>Synthese:</strong> ${hs.correct_pathophysiology}`;
+    fb.innerHTML = `
+        <div style="font-weight: 700; color: var(--accent-green, #10b981); margin-bottom: 6px;">
+            ✓ Korrekte Pathophysiologie & Synthese
+        </div>
+        <div style="line-height: 1.5;">
+            ${hs.correct_pathophysiology}
+        </div>
+    `;
 };
 
 window.clearStep = function(stepIndex) {
