@@ -114,5 +114,17 @@
       },
       "correct_pathophysiology": "Nur der RT-QuIC detektiert fehlgefaltetes PrP^Sc direkt mit nahezu 100%iger Spezifität[cite: 4]."
     }
-  ]
+  ],
+  "doctordle": {
+    "canonical_diagnosis": "Creutzfeldt-Jakob-Krankheit",
+    "synonyms": ["CJK", "CJD", "Subakute spongiforme Enzephalopathie", "Prionenerkrankung des ZNS"],
+    "hints": [
+      "65-jährige Patientin mit rasch progredientem kognitivem Abbau, Persönlichkeitsveränderungen und visuellen Halluzinationen.",
+      "Auftreten ausgeprägter Myoklonien, triggerbar durch akustische und taktile Reize (Startle-Response).",
+      "EEG zeigt periodische bi- und triphasische Sharp-Wave-Komplexe (PSWC) mit 1 Hz.",
+      "Liquordiagnostik: Protein 14-3-3 und Tau-Protein signifikant erhöht, RT-QuIC positiv.",
+      "cMRT (DWI): Hyperintensitäten im Kortex ('cortical ribboning') und im Striatum.",
+      "Letale spongiforme Enzephalopathie ohne kausale Therapiemöglichkeit."
+    ]
+  }
 }

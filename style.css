@@ -555,3 +555,26 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
     opacity: 0.6;
     cursor: default !important;
 }
+
+/* ==========================================================================
+   Doctordle
+   ========================================================================== */
+.doctordle-select { width: 100%; max-width: 360px; margin: 6px 0 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(6, 9, 19, 0.7); color: var(--text-main); font: inherit; }
+.doctordle-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.doctordle-card { display: flex; gap: 12px; align-items: flex-start; min-height: 56px; padding: 14px 16px; border-radius: 14px; background: #f0f6f9; color: #1e293b; font-size: 0.92rem; line-height: 1.5; border: 2px solid transparent; transition: background 0.3s, border-color 0.3s; }
+.doctordle-card.placeholder { background: rgba(240, 246, 249, 0.12); border: 2px dashed rgba(240, 246, 249, 0.25); }
+.doctordle-card-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #16a085; color: #fff; font-weight: 800; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+.doctordle-card.placeholder .doctordle-card-num { background: rgba(240, 246, 249, 0.25); }
+.doctordle-card.win { background: #d1fae5; border-color: #10b981; }
+.doctordle-combobox { position: relative; }
+.doctordle-input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--card-border); background: #fff; color: #1e293b; font: inherit; font-size: 1rem; box-sizing: border-box; }
+.doctordle-input:disabled { opacity: 0.6; cursor: not-allowed; }
+.doctordle-suggestions { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 50; margin: 0; padding: 4px 0; list-style: none; max-height: 240px; overflow-y: auto; background: #fff; color: #1e293b; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+.doctordle-suggestions[hidden] { display: none; }
+.doctordle-suggestions li { padding: 10px 14px; cursor: pointer; font-size: 0.92rem; }
+.doctordle-suggestions li:hover, .doctordle-suggestions li.active { background: #e0f2ef; }
+.doctordle-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.doctordle-actions .action-btn { flex: 1 1 140px; }
+.doctordle-submit { background: #16a085; }
+.doctordle-actions .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (min-width: 700px) { .doctordle-card { font-size: 1rem; } }

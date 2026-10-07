@@ -40,3 +40,52 @@ window.evalBodyMapping = function() {
         selectedBodyRegions = [];
     }
 };
+
+/* ==========================================================================
+   Doctordle: Diagnosen-Wörterbuch (kanonische Diagnosen + Synonyme)
+   ========================================================================== */
+const DiagnosisDictionary = (function () {
+    const byKey = new Map();   // normalisierter Begriff -> { canonical, caseIds }
+    const terms = new Map();   // normalisierter Begriff -> Anzeigeform
+
+    function normalize(str) {
+        return String(str || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    }
+
+    function add(term, canonical, caseId) {
+        const key = normalize(term);
+        if (!key) return;
+        if (!byKey.has(key)) byKey.set(key, { canonical, caseIds: [] });
+        const entry = byKey.get(key);
+        if (!entry.caseIds.includes(caseId)) entry.caseIds.push(caseId);
+        if (!terms.has(key)) terms.set(key, String(term).trim());
+    }
+
+    /** Aggregiert alle Diagnosen und Synonyme aus den übergebenen Fällen. */
+    function build(cases) {
+        byKey.clear();
+        terms.clear();
+        (cases || []).forEach(c => {
+            const d = c && c.doctordle;
+            if (!d || !d.canonical_diagnosis) return;
+            add(d.canonical_diagnosis, d.canonical_diagnosis, c.case_id);
+            (d.synonyms || []).forEach(s => add(s, d.canonical_diagnosis, c.case_id));
+        });
+    }
+
+    /** Liefert { canonical, caseIds } oder null, wenn der Input unbekannt ist. */
+    function resolveDiagnosis(input) {
+        const entry = byKey.get(normalize(input));
+        return entry ? { canonical: entry.canonical, caseIds: entry.caseIds.slice() } : null;
+    }
+
+    /** Alphabetisch sortierte Liste aller validen Eingabebegriffe (für Autocomplete). */
+    function getInputTerms() {
+        return Array.from(terms.values()).sort((a, b) => a.localeCompare(b, 'de'));
+    }
+
+    return { build, resolveDiagnosis, getInputTerms, normalize };
+})();
+
+window.DiagnosisDictionary = DiagnosisDictionary;
+window.resolveDiagnosis = DiagnosisDictionary.resolveDiagnosis;
