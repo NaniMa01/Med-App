@@ -5,6 +5,7 @@
 class DoctordleController {
     constructor() {
         this.puzzles = [];
+        this.currentCaseId = null;
         this.currentPuzzleIndex = 0;
         this.currentAttempt = 0; // 0 bis 5
         this.maxAttempts = 6;
@@ -47,15 +48,31 @@ class DoctordleController {
             this.nextBtn.onclick = () => this.goToNextPuzzle();
         }
 
-        // Dropdown schließen bei Klick außerhalb
         document.addEventListener('click', (e) => {
             if (this.input && this.autocompleteList && !this.input.contains(e.target) && !this.autocompleteList.contains(e.target)) {
-                this.autocompleteList.classList.add('hidden');
+                this.hideAutocomplete();
             }
         });
     }
 
-    initCase(caseData) {
+    hideAutocomplete() {
+        if (this.autocompleteList) {
+            this.autocompleteList.classList.add('hidden');
+            this.autocompleteList.style.display = 'none';
+        }
+    }
+
+    showAutocomplete() {
+        if (this.autocompleteList) {
+            this.autocompleteList.classList.remove('hidden');
+            this.autocompleteList.style.display = 'block';
+        }
+    }
+
+    initCase(caseData, forceReset = false) {
+        // Sicherstellen, dass DOM-Elemente gebunden sind
+        if (!this.container) this.initDOM();
+
         if (!caseData || !caseData.extra_tasks || !caseData.extra_tasks.doctordle) {
             if (this.container) {
                 this.container.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:20px;">Keine Doctordle-Rätsel für diesen Fall hinterlegt.</div>';
@@ -63,11 +80,22 @@ class DoctordleController {
             return;
         }
 
+        // Wenn derselbe Fall nur reaktiviert wird (z. B. nach Tab-Wechsel), Zustand beibehalten
+        if (this.currentCaseId === caseData.case_id && !forceReset) {
+            return;
+        }
+
+        this.currentCaseId = caseData.case_id;
         const raw = caseData.extra_tasks.doctordle;
         this.puzzles = Array.isArray(raw) ? raw : [raw];
-        this.currentPuzzleIndex = 0;
-        this.solvedPuzzles = 0;
-        this.loadPuzzle(0);
+
+        // Gespeicherten Zustand aus dem ProgressManager abrufen
+        const saved = window.ProgressManager ? window.ProgressManager.getCaseProgress(caseData.case_id)?.doctordle : null;
+        this.solvedPuzzles = saved?.solvedCount || 0;
+        
+        // Starte beim ersten ungelösten Rätsel oder bleibe beim letzten
+        this.currentPuzzleIndex = Math.min(this.solvedPuzzles, Math.max(0, this.puzzles.length - 1));
+        this.loadPuzzle(this.currentPuzzleIndex);
     }
 
     loadPuzzle(index) {
@@ -80,11 +108,16 @@ class DoctordleController {
 
         if (this.headline) this.headline.innerText = p.title || `Deduktionsrätsel ${index + 1}`;
         if (this.tracker) this.tracker.innerText = `Rätsel ${index + 1}/${this.puzzles.length}`;
+        
         if (this.resultBox) {
             this.resultBox.className = 'doctordle-result hidden';
+            this.resultBox.style.display = 'none';
             this.resultBox.innerHTML = '';
         }
-        if (this.nextBtn) this.nextBtn.classList.add('hidden');
+        if (this.nextBtn) {
+            this.nextBtn.classList.add('hidden');
+            this.nextBtn.style.display = 'none';
+        }
         if (this.input) {
             this.input.disabled = false;
             this.input.value = '';
@@ -139,7 +172,7 @@ class DoctordleController {
         if (!this.autocompleteList) return;
         const trimmed = query.trim().toLowerCase();
         if (trimmed.length < 2) {
-            this.autocompleteList.classList.add('hidden');
+            this.hideAutocomplete();
             return;
         }
 
@@ -155,23 +188,24 @@ class DoctordleController {
 
         this.autocompleteList.innerHTML = '';
         if (matches.length > 0) {
-            this.autocompleteList.classList.remove('hidden');
+            this.showAutocomplete();
             matches.forEach(m => {
                 const li = document.createElement('li');
                 li.innerText = m;
-                li.style.padding = '8px 12px';
+                li.style.padding = '10px 14px';
                 li.style.cursor = 'pointer';
                 li.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                li.style.color = 'var(--text-main, #f1f5f9)';
                 li.onmousedown = (e) => {
                     e.preventDefault();
                     this.input.value = m;
-                    this.autocompleteList.classList.add('hidden');
+                    this.hideAutocomplete();
                     this.input.focus();
                 };
                 this.autocompleteList.appendChild(li);
             });
         } else {
-            this.autocompleteList.classList.add('hidden');
+            this.hideAutocomplete();
         }
     }
 
@@ -187,7 +221,7 @@ class DoctordleController {
         const val = this.input.value.trim();
         if (!val) return;
 
-        if (this.autocompleteList) this.autocompleteList.classList.add('hidden');
+        this.hideAutocomplete();
 
         const p = this.puzzles[this.currentPuzzleIndex];
         const normInput = this.normalize(val);
@@ -234,9 +268,10 @@ class DoctordleController {
         });
 
         this.resultBox.classList.remove('hidden');
+        this.resultBox.style.display = 'block';
 
         if (won) {
-            this.solvedPuzzles++;
+            this.solvedPuzzles = Math.max(this.solvedPuzzles, this.currentPuzzleIndex + 1);
             const earnedXP = this.xpTiers[this.currentAttempt] || 100;
             this.resultBox.style.background = 'rgba(34, 197, 94, 0.15)';
             this.resultBox.style.border = '1px solid #22c55e';
@@ -272,12 +307,14 @@ class DoctordleController {
             `;
         }
 
+        // Globalen Callback und Auto-Save triggern
         if (typeof window.onDoctordlePuzzleSolved === 'function') {
             window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
         }
 
         if (this.currentPuzzleIndex < this.puzzles.length - 1) {
             this.nextBtn.classList.remove('hidden');
+            this.nextBtn.style.display = 'block';
         }
     }
 
@@ -286,8 +323,18 @@ class DoctordleController {
             this.loadPuzzle(this.currentPuzzleIndex + 1);
         }
     }
+
+    resetGame() {
+        this.currentCaseId = null;
+        this.solvedPuzzles = 0;
+        this.currentPuzzleIndex = 0;
+        if (activeCaseData) {
+            this.initCase(activeCaseData, true);
+        }
+    }
 }
 
+// Singleton-Instanziierung
 window.doctordleGame = new DoctordleController();
 
 window.initDoctordle = function(caseData) {
