@@ -399,15 +399,15 @@ function renderBookshelf(casesArray) {
             list.appendChild(li);
         });
 
-        // Akkordeon Klick (Auf-/Zuklappen)
+      // Akkordeon Klick (Auf-/Zuklappen)
         header.addEventListener('click', (e) => {
             if (e.target.closest('.folder-action-btn')) return;
             bookshelfFolderState[folderName] = !isOpen;
             renderBookshelf(casesArray);
         });
 
-        // Umbenennen Klick
-        const editBtn = header.querySelector('.folder-action-btn');
+        // 1. Umbenennen Klick
+        const editBtn = header.querySelector('.edit-btn');
         if (editBtn) {
             editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -415,6 +415,15 @@ function renderBookshelf(casesArray) {
                 if (newName && newName.trim() && newName.trim() !== folderName) {
                     renameFolder(folderName, newName.trim());
                 }
+            });
+        }
+
+        // 2. Ordner Löschen Klick
+        const deleteFolderBtn = header.querySelector('.delete-folder-btn');
+        if (deleteFolderBtn) {
+            deleteFolderBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteFolder(folderName, casesInFolder.length);
             });
         }
 
@@ -719,7 +728,69 @@ async function renameFolder(oldName, newName) {
         bookshelfFolderState[newName] = bookshelfFolderState[oldName];
         delete bookshelfFolderState[oldName];
     }
+/**
+ * Löscht einen Ordner sicher:
+ * Bestehende Fälle werden nach 'Allgemein' verschoben, damit keine Daten verloren gehen.
+ */
+async function deleteFolder(folderName, caseCount) {
+    // Sicherheitsabfrage
+    const warning = caseCount > 0 
+        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden nicht gelöscht, sondern in den Ordner "Allgemein" verschoben.`
+        : `Möchtest du den leeren Ordner "${folderName}" wirklich löschen?`;
 
+    if (!window.confirm(warning)) return;
+
+    // 1. Aus der Sortierreihenfolge entfernen
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    order = order.filter(name => name !== folderName);
+    
+    // Sicherstellen, dass 'Allgemein' in der Liste bleibt, falls Fälle verschoben werden
+    if (caseCount > 0 && !order.includes('Allgemein')) {
+        order.push('Allgemein');
+    }
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    // 2. Lokale Fälle in 'Allgemein' umziehen
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modified = false;
+
+    customCases.forEach(c => {
+        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+        if (cur === folderName) {
+            c.folder_name = 'Allgemein';
+            c.updated_at = new Date().toISOString();
+            modified = true;
+        }
+    });
+
+    if (modified) {
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    }
+
+    // 3. Demo-Fall Berücksichtigung
+    if (BUILTIN_DEMO_CASE.folder_name === folderName) {
+        BUILTIN_DEMO_CASE.folder_name = 'Allgemein';
+    }
+
+    // 4. Klapp-Zustand aufräumen
+    delete bookshelfFolderState[folderName];
+
+    // 5. Supabase-Synchronisation (falls eingeloggt)
+    if (typeof supabaseClient !== 'undefined' && window.currentSession && caseCount > 0) {
+        try {
+            await supabaseClient
+                .from('medical_cases')
+                .update({ folder_name: 'Allgemein', updated_at: new Date().toISOString() })
+                .eq('folder_name', folderName)
+                .eq('user_id', window.currentSession.user.id);
+        } catch (err) {
+            console.error('Fehler beim Aktualisieren in Supabase nach Ordner-Löschung:', err);
+        }
+    }
+
+    // Neu rendern
+    renderDashboardCases();
+}
     // 5. Mit Supabase synchronisieren (falls angemeldet)
     if (typeof supabaseClient !== 'undefined' && window.currentSession) {
         try {
