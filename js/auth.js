@@ -7,10 +7,11 @@ window.currentSession = null;
 
 // Initialisierung von Supabase
 (function initSupabase() {
-    const SUPABASE_URL = window.ENV_SUPABASE_URL || 'DEINE_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || 'DEIN_SUPABASE_ANON_KEY';
+    // Greift auf window.ENV_SUPABASE_URL zu (definiert in api/config.js oder via Vercel/Netlify Injection)
+    const SUPABASE_URL = window.ENV_SUPABASE_URL || (typeof ENV !== 'undefined' ? ENV.SUPABASE_URL : '');
+    const SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || (typeof ENV !== 'undefined' ? ENV.SUPABASE_ANON_KEY : '');
 
-    if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes('DEINE_')) {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes('DEINE_')) {
         try {
             supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             
@@ -46,12 +47,12 @@ function clearAuthFeedback() {
 }
 
 // ----------------------------------------------------
-// GLOBALE AUTH-FUNKTIONEN (Explizit an window gebunden)
+// GLOBALE AUTH-FUNKTIONEN
 // ----------------------------------------------------
 
 window.authSignIn = async function() {
     if (!supabaseClient) {
-        showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Keys prüfen.');
+        showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Keys in api/config.js hinterlegen.');
         return;
     }
 
