@@ -1,313 +1,218 @@
-// ====================================================
-// MEDCHECK AUTH & CLOUD SYNC ENGINE (V6.0 CORNELL EDITION)
-// ====================================================
+/**
+ * js/auth.js - Supabase Authentication & Cloud Sync Engine
+ */
 
-(function() {
-    let client = null;
-    let session = null;
-    let syncTimer = null;
+let supabaseClient = null;
+window.currentSession = null;
 
-    function readJson(key, fallback) {
-        try {
-            const v = localStorage.getItem(key);
-            return v ? JSON.parse(v) : fallback;
-        } catch (_) {
-            return fallback;
-        }
-    }
+// Initialisierung über die Konfiguration
+(function initSupabase() {
+    const SUPABASE_URL = window.ENV_SUPABASE_URL || 'DEINE_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || 'DEIN_SUPABASE_ANON_KEY';
 
-    function writeJson(key, val) {
-        try {
-            localStorage.setItem(key, JSON.stringify(val));
-        } catch (e) {
-            console.error('Fehler beim Schreiben in localStorage:', e);
-        }
-    }
-
-    function requireSession() {
-        if (!session || !session.user) {
-            throw new Error('Keine aktive Sitzung vorhanden.');
-        }
-    }
-
-    function showAuthFeedback(type, message) {
-        const fb = document.getElementById('auth-fb');
-        if (!fb) return;
-        fb.style.display = 'block';
-        fb.className = `feedback-box ${type}`;
-        fb.innerHTML = message;
-    }
-
-    function updateAuthUI() {
-        const userDiv = document.getElementById('auth-user');
-        const emailSpan = document.getElementById('auth-user-email');
-        const panel = document.getElementById('auth-panel');
-
-        if (session && session.user) {
-            if (userDiv) userDiv.style.display = 'flex';
-            if (emailSpan) emailSpan.textContent = session.user.email || 'Angemeldet';
-            if (panel) panel.style.display = 'none';
-        } else {
-            if (userDiv) userDiv.style.display = 'none';
-            if (emailSpan) emailSpan.textContent = '';
-            if (panel) panel.style.display = 'block';
-        }
-    }
-
-    async function initSupabase() {
-        try {
-            const res = await fetch('/api/config');
-            if (!res.ok) throw new Error(`HTTP ${res.status} beim Laden von /api/config`);
-            const cfg = await res.json();
-            if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
-                console.warn('Supabase ist nicht konfiguriert (Gast-Modus aktiv).');
-                return;
-            }
-
-            if (typeof supabase === 'undefined' || !supabase.createClient) {
-                console.warn('Supabase JS SDK nicht geladen.');
-                return;
-            }
-
-            client = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-            window.supabaseClient = client;
-
-            const { data } = await client.auth.getSession();
-            session = data?.session || null;
-            window.currentSession = session;
-            updateAuthUI();
-
-            if (session) {
-                await syncAllOnLogin();
-            }
-
-            client.auth.onAuthStateChange(async (event, newSession) => {
-                session = newSession;
-                window.currentSession = session;
-                updateAuthUI();
-
-                if (event === 'SIGNED_IN' && session) {
-                    await syncAllOnLogin();
-                } else if (event === 'SIGNED_OUT') {
-                    showAuthFeedback('feedback-neutral', 'Erfolgreich abgemeldet.');
-                    if (typeof renderDashboardCases === 'function') {
-                        renderDashboardCases();
-                    }
-                }
-            });
-        } catch (err) {
-            console.error('Fehler bei der Supabase-Initialisierung:', err);
-        }
-    }
-
-    async function syncAllOnLogin() {
-        try {
-            await loadProgress();
-            await loadCloudCases();
-            if (typeof renderDashboardCases === 'function') {
-                renderDashboardCases();
-            }
-        } catch (err) {
-            console.error('Sync-Fehler beim Login:', err);
-        }
-    }
-
-    async function saveProgress() {
-        if (!client || !session) return;
-
-        const folder_order = readJson('medcheck_folder_order', []);
-        const folder_state = typeof bookshelfFolderState !== 'undefined' 
-            ? bookshelfFolderState 
-            : readJson('medcheck_folder_state', {});
-
-        const row = {
-            user_id: session.user.id,
-            xp: parseInt(localStorage.getItem('user_xp') || '0', 10) || 0,
-            solved_cases: readJson('solved_cases', []),
-            skills: readJson('user_skills', {}),
-            folder_order,
-            folder_state,
-            updated_at: new Date().toISOString()
-        };
-
-        const { error } = await client.from('user_progress').upsert(row, { onConflict: 'user_id' });
-        if (error) {
-            console.error('Fehler beim Speichern von user_progress:', error);
-            throw error;
-        }
-    }
-
-    async function loadProgress() {
-        if (!client || !session) return;
+    if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes('DEINE_')) {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        const { data, error } = await client
-            .from('user_progress')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-
-        if (error) throw error;
-
-        if (data) {
-            localStorage.setItem('user_xp', String(data.xp || 0));
-            writeJson('solved_cases', data.solved_cases || []);
-            writeJson('user_skills', data.skills || {});
-
-            if (Array.isArray(data.folder_order) && data.folder_order.length > 0) {
-                writeJson('medcheck_folder_order', data.folder_order);
+        // Session-Status überwachen
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            window.currentSession = session;
+            updateAuthUI(session);
+            if (session) {
+                syncUserDataWithCloud();
             }
-            if (data.folder_state && typeof data.folder_state === 'object') {
-                writeJson('medcheck_folder_state', data.folder_state);
-                if (typeof bookshelfFolderState !== 'undefined') {
-                    Object.assign(bookshelfFolderState, data.folder_state);
-                }
-            }
-
-            if (typeof updateStatsUI === 'function') updateStatsUI();
-            if (typeof renderSkillsSidebar === 'function') renderSkillsSidebar();
-        }
-    }
-
-    async function saveCloudCase(caseObj) {
-        if (!client || !session) return;
-
-        const folderName = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
-        const cleanCase = { ...caseObj, folder_name: folderName };
-
-        const row = {
-            user_id: session.user.id,
-            case_id: cleanCase.case_id,
-            title: cleanCase.metadata?.title || cleanCase.case_id,
-            medical_field: cleanCase.metadata?.medical_field || null,
-            folder_name: folderName,
-            case_data: cleanCase,
-            updated_at: new Date().toISOString()
-        };
-
-        const { error } = await client.from('medical_cases').upsert(row, { onConflict: 'user_id,case_id' });
-        if (error) throw error;
-    }
-
-    async function loadCloudCases() {
-        if (!client || !session) return [];
-
-        const { data, error } = await client
-            .from('medical_cases')
-            .select('*')
-            .eq('user_id', session.user.id);
-
-        if (error) throw error;
-
-        const cloudCases = (data || []).map(row => {
-            const c = row.case_data || {};
-            c.folder_name = row.folder_name || c.folder_name || c.metadata?.medical_field || 'Allgemein';
-            return c;
         });
-
-        const localCases = readJson('custom_cases', []);
-        const merged = new Map();
-        localCases.forEach(c => merged.set(c.case_id, c));
-        cloudCases.forEach(c => merged.set(c.case_id, c));
-
-        const finalCases = Array.from(merged.values());
-        writeJson('custom_cases', finalCases);
-        return finalCases;
-    }
-
-    async function deleteCloudCase(caseId) {
-        if (!client || !session) return;
-        const { error } = await client
-            .from('medical_cases')
-            .delete()
-            .eq('user_id', session.user.id)
-            .eq('case_id', caseId);
-        if (error) throw error;
-    }
-
-    function scheduleProgressSync() {
-        if (syncTimer) clearTimeout(syncTimer);
-        syncTimer = setTimeout(() => {
-            saveProgress().catch(err => console.error('Hintergrund-Sync fehlgeschlagen:', err));
-        }, 1200);
-    }
-
-    window.Cloud = {
-        isLoggedIn: () => Boolean(session && session.user),
-        saveProgress,
-        loadProgress,
-        saveCloudCase,
-        loadCloudCases,
-        deleteCloudCase,
-        scheduleProgressSync
-    };
-
-    window.authSignIn = async function() {
-        const emailEl = document.getElementById('auth-email');
-        const passEl = document.getElementById('auth-password');
-        if (!emailEl || !passEl) return;
-
-        const email = emailEl.value.trim();
-        const password = passEl.value;
-
-        if (!email || !password) {
-            showAuthFeedback('feedback-error', 'Bitte E-Mail und Passwort eingeben.');
-            return;
-        }
-
-        showAuthFeedback('feedback-neutral', 'Anmeldung läuft...');
-        try {
-            if (!client) throw new Error('Supabase ist nicht konfiguriert oder nicht erreichbar.');
-            const { error } = await client.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            showAuthFeedback('feedback-success', 'Erfolgreich angemeldet!');
-            emailEl.value = '';
-            passEl.value = '';
-        } catch (err) {
-            showAuthFeedback('feedback-error', `Anmeldefehler: ${err.message}`);
-        }
-    };
-
-    window.authSignUp = async function() {
-        const emailEl = document.getElementById('auth-email');
-        const passEl = document.getElementById('auth-password');
-        if (!emailEl || !passEl) return;
-
-        const email = emailEl.value.trim();
-        const password = passEl.value;
-
-        if (!email || !password) {
-            showAuthFeedback('feedback-error', 'Bitte E-Mail und Passwort eingeben.');
-            return;
-        }
-
-        showAuthFeedback('feedback-neutral', 'Registrierung läuft...');
-        try {
-            if (!client) throw new Error('Supabase ist nicht konfiguriert oder nicht erreichbar.');
-            const { data, error } = await client.auth.signUp({ email, password });
-            if (error) throw error;
-
-            if (data.session) {
-                showAuthFeedback('feedback-success', 'Konto erstellt und direkt angemeldet!');
-            } else {
-                showAuthFeedback('feedback-success', 'Registrierung erfolgreich! Bitte bestätige ggf. deine E-Mail.');
-            }
-        } catch (err) {
-            showAuthFeedback('feedback-error', `Registrierungsfehler: ${err.message}`);
-        }
-    };
-
-    window.authSignOut = async function() {
-        try {
-            if (!client) return;
-            await client.auth.signOut();
-        } catch (err) {
-            console.error('Abmeldefehler:', err);
-        }
-    };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initSupabase);
     } else {
-        initSupabase();
+        console.warn('Supabase ist nicht konfiguriert. App läuft im lokalen Gastmodus.');
     }
 })();
+
+function showAuthFeedback(type, message) {
+    const fb = document.getElementById('auth-fb');
+    if (!fb) return;
+    fb.style.display = 'block';
+    fb.className = `feedback-box ${type}`;
+    fb.innerHTML = message;
+}
+
+function clearAuthFeedback() {
+    const fb = document.getElementById('auth-fb');
+    if (fb) {
+        fb.style.display = 'none';
+        fb.innerHTML = '';
+    }
+}
+
+// ----------------------------------------------------
+// LOGIN & REGISTRIERUNG
+// ----------------------------------------------------
+
+window.authSignIn = async function () {
+    if (!supabaseClient) {
+        showAuthFeedback('feedback-error', 'Supabase-Client nicht initialisiert. Bitte API-Keys prüfen.');
+        return;
+    }
+
+    const emailInput = document.getElementById('auth-email');
+    const passInput = document.getElementById('auth-password');
+    const email = (emailInput?.value || '').trim().toLowerCase();
+    const password = passInput?.value || '';
+
+    if (!email || !password) {
+        showAuthFeedback('feedback-error', 'Bitte E-Mail-Adresse und Passwort eingeben.');
+        return;
+    }
+
+    showAuthFeedback('feedback-neutral', 'Anmeldung läuft...');
+
+    try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            // Fehlermeldungen benutzerfreundlich übersetzen
+            if (error.message.includes('Invalid login credentials')) {
+                throw new Error('E-Mail oder Passwort falsch. Falls du noch kein Konto hast, klicke bitte auf "Registrieren".');
+            }
+            if (error.message.includes('Email not confirmed')) {
+                throw new Error('Deine E-Mail-Adresse wurde noch nicht bestätigt. Bitte prüfe dein Postfach.');
+            }
+            throw error;
+        }
+
+        clearAuthFeedback();
+        showAuthFeedback('feedback-success', `Willkommen zurück, ${data.user.email}!`);
+        setTimeout(() => {
+            const panel = document.getElementById('auth-panel');
+            if (panel) panel.style.display = 'none';
+        }, 800);
+
+    } catch (err) {
+        showAuthFeedback('feedback-error', `Anmeldefehler: ${err.message}`);
+    }
+};
+
+window.authSignUp = async function () {
+    if (!supabaseClient) {
+        showAuthFeedback('feedback-error', 'Supabase-Client nicht initialisiert.');
+        return;
+    }
+
+    const emailInput = document.getElementById('auth-email');
+    const passInput = document.getElementById('auth-password');
+    const email = (emailInput?.value || '').trim().toLowerCase();
+    const password = passInput?.value || '';
+
+    if (!email || !password) {
+        showAuthFeedback('feedback-error', 'Bitte E-Mail und ein Passwort angeben.');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAuthFeedback('feedback-error', 'Das Passwort muss mindestens 6 Zeichen lang sein.');
+        return;
+    }
+
+    showAuthFeedback('feedback-neutral', 'Registrierung wird verarbeitet...');
+
+    try {
+        const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password
+        });
+
+        if (error) throw error;
+
+        // Falls E-Mail-Bestätigung aktiv ist, gibt Supabase einen User aber keine Session zurück
+        if (data.user && !data.session) {
+            showAuthFeedback(
+                'feedback-success', 
+                'Registrierung erfolgreich! Bitte überprüfe deinen Posteingang und bestätige den Aktivierungslink, bevor du dich anmeldest.'
+            );
+        } else {
+            showAuthFeedback('feedback-success', 'Konto erfolgreich erstellt und eingeloggt!');
+            setTimeout(() => {
+                const panel = document.getElementById('auth-panel');
+                if (panel) panel.style.display = 'none';
+            }, 800);
+        }
+    } catch (err) {
+        showAuthFeedback('feedback-error', `Registrierungsfehler: ${err.message}`);
+    }
+};
+
+window.authSignOut = async function () {
+    if (!supabaseClient) return;
+    try {
+        await supabaseClient.auth.signOut();
+        window.currentSession = null;
+        updateAuthUI(null);
+        showAuthFeedback('feedback-neutral', 'Erfolgreich abgemeldet. Die App läuft wieder im Gastmodus.');
+        const panel = document.getElementById('auth-panel');
+        if (panel) panel.style.display = 'block';
+    } catch (err) {
+        console.error('Fehler beim Abmelden:', err);
+    }
+};
+
+// ----------------------------------------------------
+// UI-STATUS & DATEN-SYNCHRONISATION
+// ----------------------------------------------------
+
+function updateAuthUI(session) {
+    const authUserDiv = document.getElementById('auth-user');
+    const authEmailSpan = document.getElementById('auth-user-email');
+    const authPanel = document.getElementById('auth-panel');
+
+    if (session && session.user) {
+        if (authUserDiv) authUserDiv.style.display = 'flex';
+        if (authEmailSpan) authEmailSpan.innerText = session.user.email;
+        if (authPanel) authPanel.style.display = 'none';
+    } else {
+        if (authUserDiv) authUserDiv.style.display = 'none';
+        if (authEmailSpan) authEmailSpan.innerText = '';
+        if (authPanel) authPanel.style.display = 'block';
+    }
+}
+
+async function syncUserDataWithCloud() {
+    if (!supabaseClient || !window.currentSession) return;
+    const userId = window.currentSession.user.id;
+
+    try {
+        // Lokalen Fortschritt sichern
+        const xp = parseInt(localStorage.getItem('user_xp') || '0');
+        const solvedCases = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        const progressData = JSON.parse(localStorage.getItem('medcheck_user_progress_v1') || '{}');
+
+        await supabaseClient.from('user_profiles').upsert({
+            id: userId,
+            xp: xp,
+            solved_cases: solvedCases,
+            progress_data: progressData,
+            updated_at: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('Fehler bei der Cloud-Synchronisation:', err);
+    }
+}
+
+// Globales Cloud-Interface für app.js
+window.Cloud = {
+    isLoggedIn: () => !!window.currentSession,
+    scheduleProgressSync: () => syncUserDataWithCloud(),
+    saveCloudCase: async (caseData) => {
+        if (!supabaseClient || !window.currentSession) return;
+        return supabaseClient.from('medical_cases').upsert({
+            case_id: caseData.case_id,
+            user_id: window.currentSession.user.id,
+            data: caseData,
+            updated_at: new Date().toISOString()
+        });
+    },
+    deleteCloudCase: async (caseId) => {
+        if (!supabaseClient || !window.currentSession) return;
+        return supabaseClient.from('medical_cases').delete().eq('case_id', caseId).eq('user_id', window.currentSession.user.id);
+    }
+};
