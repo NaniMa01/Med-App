@@ -4,6 +4,7 @@ let selectedSynapses = [], totalSynapseDiseases = 0, solvedSynapseDiseases = 0, 
 let cascadesSolvedCount = 0, totalCascades = 0;
 let categorizationSolved = false;
 let quizSolved = false, userQuizAnswers = {};
+let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
 let openFolders = {};
 let superFolderOpen = true;
@@ -20,7 +21,7 @@ const defaultSkills = {
     "Pathophysiologie": { hits: 0, total: 0 }
 };
 
-// V6.0 BUILT-IN DEMO CASE (Cornell Edition)
+// V6.0 BUILT-IN DEMO CASE (Cornell Edition mit 3 Doctordle-Rätseln)
 const BUILTIN_DEMO_CASE = {
     "case_id": "MYELON_MASTER_001_USB",
     "metadata": {
@@ -70,6 +71,84 @@ const BUILTIN_DEMO_CASE = {
         }
     ],
     "extra_tasks": {
+        "doctordle": [
+            {
+                "puzzle_id": 1,
+                "title": "Deduktion 1: Perakute spinale Symptomatik",
+                "target_diagnosis": "Arteria-spinalis-anterior-Syndrom",
+                "synonyms": [
+                    "A. spinalis anterior Syndrom",
+                    "Spinaler Insult",
+                    "Rückenmarksinfarkt",
+                    "Anteriore Myelonischämie"
+                ],
+                "hints": [
+                    "Stufe 1 (Initialpräsentation): 52-jähriger Patient erleidet perakut einschießende interskapuläre Schmerzen mit rascher Parese beider Beine.",
+                    "Stufe 2 (Klinischer Status): Schlaffe Paraparese, dissoziierte Sensibilitätsstörung: Schmerz/Temperatur erloschen, Tiefensensibilität vollständig intakt.",
+                    "Stufe 3 (Basislabor): Unauffällige Entzündungsparameter; D-Dimere leicht erhöht; Ausschluss Guillain-Barré-Syndrom.",
+                    "Stufe 4 (Gefäßstatus): CT-Angiographie zeigt eine Stanford-Typ-B-Dissektion mit Abgangsverschluss der A. radicularis magna (Adamkiewicz).",
+                    "Stufe 5 (Bildgebung): Spine-MRT zeigt im T2-Axialschnitt hyperintense Signalanhebungen in beiden Vorderhörnern ('Eulenaugen-Zeichen').",
+                    "Stufe 6 (Pathophysiologie): Perfusionsausfall der ventralen zwei Drittel des Myelons bei erhaltener Hinterstrangdurchblutung."
+                ],
+                "learning_pearl": "Die dissoziierte Sensibilitätsstörung (ausgefallene Schmerz-/Temperaturbahnen bei intakten Hintersträngen) beweist das Arteria-spinalis-anterior-Syndrom."
+            },
+            {
+                "puzzle_id": 2,
+                "title": "Deduktion 2: Subakute autoimmune Myelitis",
+                "target_diagnosis": "Neuromyelitis-optica-Spektrum-Erkrankung",
+                "synonyms": [
+                    "NMOSD",
+                    "Morbus Devic",
+                    "Devic-Syndrom",
+                    "Aquaporin-4-Autoimmunenzephalomyelitis"
+                ],
+                "hints": [
+                    "Stufe 1 (Initialpräsentation): 38-jährige Frau klagt über Sehkraftverlust rechts gefolgt von einer progredienten Paraparese innerhalb weniger Tage.",
+                    "Stufe 2 (Klinischer Status): Beidseits positiver Babinski, sensibles Niveau Th4, begleitend therapierefraktärer Schluckauf und Nausea.",
+                    "Stufe 3 (Liquor): Pleozytose mit überwiegend neutrophilen Granulozyten, oligoklonale Banden (OKB) negativ.",
+                    "Stufe 4 (Autoantikörper): Hochtiteriger Nachweis von zirkulierenden Autoantikörpern gegen den Wasserkanal Aquaporin-4 (AQP4-IgG).",
+                    "Stufe 5 (MRT Schädel/Spine): Longitudinale extensive transversale Myelitis (LETM) über 4 Wirbelkörpersegmente sowie T2-Läsion in der Area postrema.",
+                    "Stufe 6 (Therapieansprechen): Keine Remission unter Interferon-beta (Gefahr der Verschlechterung); rasches Ansprechen auf Plasmapherese und B-Zell-Depletion (Rituximab)."
+                ],
+                "learning_pearl": "Eine LETM (≥3 Segmente) kombiniert mit negativen oligoklonalen Banden und AQP4-IgG sichert die Diagnose einer NMOSD."
+            },
+            {
+                "puzzle_id": 3,
+                "title": "Deduktion 3: Metabolisch-toxische Ataxie",
+                "target_diagnosis": "Funikuläre Myelose",
+                "synonyms": [
+                    "Subakute kombinierte Degeneration",
+                    "Vitamin-B12-Mangel-Myelopathie",
+                    "Distickstoffmonoxid-induzierte Myelopathie",
+                    "Cobalamin-Mangelsyndrom"
+                ],
+                "hints": [
+                    "Stufe 1 (Initialpräsentation): 26-jähriger Partygänger bemerkt seit drei Wochen symmetrische Parästhesien ('Pelzigkeitsgefühl') an Händen und Füßen sowie Gangunsicherheit im Dunkeln.",
+                    "Stufe 2 (Klinischer Status): Spinale Ataxie, erloschenes Vibrationsempfinden an beiden Malleoli (Pallhypästhesie 0/8), Pyramidenbahnzeichen positiv.",
+                    "Stufe 3 (Spezifisches Labor): Serum-Vitamin-B12 grenzwertig normal, jedoch Methylmalonsäure (MMA) und Homocystein massiv erhöht.",
+                    "Stufe 4 (Anamnestischer Trigger): Regelmäßige Inhalation von Distickstoffmonoxid (Lachgas, N2O) zur Entspannung am Wochenende.",
+                    "Stufe 5 (MRT Spine): T2-Hyperintensität der dorsalen Kolumnen (Hinterstränge) mit typischem umgekehrtem V-Zeichen ('Inverted V Sign').",
+                    "Stufe 6 (Pathophysiologie): Irreversible Oxidation des zentralen Cobalt-Ions (Co+ zu Co+++) führt zum Ausfall der Methionin-Synthase und Demyelinisierung der Hinterstränge."
+                ],
+                "learning_pearl": "Lachgas inaktiviert Vitamin B12 funktionell; wegweisend sind die Erhöhung der Methylmalonsäure (MMA) und das umgekehrte V-Zeichen im Hinterstrang-MRT."
+            }
+        ],
+        "library_entries": [
+            "Arteria-spinalis-anterior-Syndrom",
+            "A. spinalis anterior Syndrom",
+            "Spinaler Insult",
+            "Rückenmarksinfarkt",
+            "Neuromyelitis-optica-Spektrum-Erkrankung",
+            "NMOSD",
+            "Morbus Devic",
+            "Funikuläre Myelose",
+            "Subakute kombinierte Degeneration",
+            "Multiple Sklerose",
+            "Akute disseminierte Enzephalomyelitis (ADEM)",
+            "Guillain-Barré-Syndrom",
+            "Spinales Epiduralhämatom",
+            "Zervikale spondylotische Myelopathie"
+        ],
         "master_quiz": [
             {
                 "question": "Welcher Befund im Spinal-MRT spricht am ehesten für eine NMOSD und schließt eine klassische Multiple Sklerose weitgehend aus?",
@@ -135,6 +214,15 @@ function initUserData() {
         }
         localStorage.setItem('user_skills', JSON.stringify(cleaned));
     }
+
+    // Automatische Wörterbuch-Initialisierung aller vorhandenen Fälle
+    try {
+        let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        if (window.MedicalDictionary && typeof window.MedicalDictionary.registerAllCases === 'function') {
+            window.MedicalDictionary.registerAllCases([BUILTIN_DEMO_CASE, ...customCases]);
+        }
+    } catch (_dictErr) {}
+
     updateStatsUI();
 }
 
@@ -221,15 +309,20 @@ function switchTab(tab, el) {
     if (tab === 'dashboard') renderDashboardCases();
 }
 
-function switchPlayerMode(mode) {
+window.switchPlayerMode = function(mode) {
     document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
     
-    const targetPane = document.getElementById('mode-container-' + mode);
+    const targetPane = document.getElementById('mode-container-' + mode) || document.getElementById('tab-pane-' + mode);
     const targetTab = document.getElementById('tab-btn-' + mode);
     if (targetPane) targetPane.style.display = 'block';
     if (targetTab) targetTab.classList.add('active');
-}
+
+    // Spezifischer Init-Trigger für Doctordle
+    if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
+        window.initDoctordle(activeCaseData);
+    }
+};
 
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
@@ -268,7 +361,6 @@ function renderDashboardCases() {
 
     let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
     
-    // Zuerst das Dashboard im Hauptbereich rendern
     const grouped = {};
     allCases.forEach(c => {
         const cat = (c.folder_name || c.metadata?.medical_field || "Allgemeine Neurologie").trim();
@@ -341,7 +433,6 @@ function renderDashboardCases() {
         }
     });
 
-    // Bookshelf in der Sidebar rendern (EINZIGER AUFRUF)
     try {
         renderBookshelf(allCases);
     } catch (bsErr) {
@@ -351,7 +442,7 @@ function renderDashboardCases() {
 
 /**
  * ====================================================
- * BOOKSHELF ENGINE (EINZIGE, GÜLTIGE DEFINITION)
+ * BOOKSHELF ENGINE
  * ====================================================
  */
 function renderBookshelf(casesArray) {
@@ -387,7 +478,6 @@ function renderBookshelf(casesArray) {
         folderDiv.dataset.folderName = folderName;
         folderDiv.draggable = true;
 
-        // HEADER MIT STIFT (✏️) UND MÜLLEIMER (🗑️)
         const header = document.createElement('div');
         header.className = 'folder-header';
         header.innerHTML = `
@@ -431,21 +521,19 @@ function renderBookshelf(casesArray) {
                 });
 
                 li.addEventListener('click', () => {
-                    loadCaseById(caseItem.case_id);
+                    window.loadCaseById(caseItem.case_id);
                 });
 
                 list.appendChild(li);
             });
         }
 
-        // Akkordeon Klick (Auf-/Zuklappen)
         header.addEventListener('click', (e) => {
             if (e.target.closest('.folder-action-btn') || e.target.closest('.folder-drag-handle')) return;
             bookshelfFolderState[folderName] = !isOpen;
             renderBookshelf(casesArray);
         });
 
-        // 1. Umbenennen (✏️)
         const editBtn = header.querySelector('.edit-btn');
         if (editBtn) {
             editBtn.addEventListener('click', (e) => {
@@ -457,7 +545,6 @@ function renderBookshelf(casesArray) {
             });
         }
 
-        // 2. Löschen (🗑️)
         const deleteFolderBtn = header.querySelector('.delete-folder-btn');
         if (deleteFolderBtn) {
             deleteFolderBtn.addEventListener('click', (e) => {
@@ -466,7 +553,6 @@ function renderBookshelf(casesArray) {
             });
         }
 
-        // 3. Drag & Drop: Ordner sortieren & Fälle empfangen
         folderDiv.addEventListener('dragstart', (e) => {
             draggedItemState = { type: 'folder', name: folderName };
             folderDiv.classList.add('dragging');
@@ -485,7 +571,6 @@ function renderBookshelf(casesArray) {
             e.dataTransfer.dropEffect = 'move';
             folderDiv.classList.add('drag-over-folder');
 
-            // SMARTE ERWEITERUNG: Auto-Open nach 400ms Hover
             if (draggedItemState && draggedItemState.type === 'case' && !isOpen && !dragHoverTimer) {
                 dragHoverTimer = setTimeout(() => {
                     bookshelfFolderState[folderName] = true;
@@ -748,7 +833,7 @@ window.loadCaseById = function(caseId) {
 
     const show = (id, on) => { 
         const el = document.getElementById(id); 
-        if (el) el.style.display = on ? 'flex' : 'none'; 
+        if (el) el.style.display = on ? 'inline-flex' : 'none'; 
     };
 
     const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
@@ -762,6 +847,22 @@ window.loadCaseById = function(caseId) {
     
     const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
     show('tab-btn-quiz', hasQuiz);
+
+    // DOCTORDLE CHALLENGE TAB INITIALISIERUNG
+    const hasDoctordle = !!(tasks.doctordle && (Array.isArray(tasks.doctordle) ? tasks.doctordle.length > 0 : !!tasks.doctordle.hints));
+    show('tab-btn-doctordle', hasDoctordle);
+
+    if (hasDoctordle) {
+        totalDoctordlePuzzles = Array.isArray(tasks.doctordle) ? tasks.doctordle.length : 1;
+        solvedDoctordlePuzzles = 0;
+        doctordleSolved = false;
+        const doctordleBadge = document.getElementById('badge-mode-doctordle');
+        if (doctordleBadge) doctordleBadge.innerText = `0/${totalDoctordlePuzzles}`;
+    } else {
+        doctordleSolved = true; // Automatisch als gelöst markieren, wenn Challenge nicht existiert
+        totalDoctordlePuzzles = 0;
+        solvedDoctordlePuzzles = 0;
+    }
 
     show('tab-btn-topo', false);
 
@@ -780,17 +881,21 @@ window.loadCaseById = function(caseId) {
     safely('Übersicht', window.renderOverview);
     safely('Audit', window.renderTimeline);
 
-    solvedSynapseDiseases = 1; totalSynapseDiseases = 1;
+    solvedSynapseDiseases = 0; totalSynapseDiseases = hasSyn ? tasks.synapses_matrix.diseases.length : 0;
     if (hasSyn) safely('Synapsen', window.renderSynapsesMatrix);
 
-    cascadesSolvedCount = 1; totalCascades = 1;
+    cascadesSolvedCount = 0; totalCascades = hasCas ? tasks.clinical_cascades.length : 0;
     if (hasCas) safely('Kaskade', window.renderCascades);
 
-    categorizationSolved = true;
-    if (hasCat) { categorizationSolved = false; safely('Taxonomie', window.renderCategorization); }
+    categorizationSolved = !hasCat;
+    if (hasCat) safely('Taxonomie', window.renderCategorization);
 
-    quizSolved = true;
-    if (hasQuiz) { quizSolved = false; userQuizAnswers = {}; safely('Quiz', window.renderQuiz); }
+    quizSolved = !hasQuiz;
+    if (hasQuiz) { userQuizAnswers = {}; safely('Quiz', window.renderQuiz); }
+
+    if (hasDoctordle && window.initDoctordle) {
+        safely('Doctordle', () => window.initDoctordle(activeCaseData));
+    }
 
     switchTab('player', document.getElementById('nav-player'));
     switchPlayerMode('overview');
@@ -965,6 +1070,13 @@ window.validateAndSaveCustomCase = function() {
         customCases.push(parsed);
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
+        // Dynamisches Wörterbuch mit neuem Fall sofort erweitern
+        try {
+            if (window.MedicalDictionary && typeof window.MedicalDictionary.registerCase === 'function') {
+                window.MedicalDictionary.registerCase(parsed);
+            }
+        } catch (_dictErr) {}
+
         showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
         renderDashboardCases();
 
@@ -979,12 +1091,32 @@ window.validateAndSaveCustomCase = function() {
     }
 };
 
+// DOCTORDLE COMPLETION HOOK
+window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
+    solvedDoctordlePuzzles = solvedCount;
+    totalDoctordlePuzzles = totalCount;
+    const badge = document.getElementById('badge-mode-doctordle');
+    if (badge) {
+        if (solvedCount >= totalCount && totalCount > 0) {
+            badge.innerText = 'Gelöst';
+            badge.style.background = 'var(--color-symptom)';
+        } else {
+            badge.innerText = `${solvedCount}/${totalCount}`;
+        }
+    }
+    if (solvedCount >= totalCount) {
+        doctordleSolved = true;
+    }
+    checkFinalCompletion();
+};
+
 window.checkFinalCompletion = function() {
     const stepsDone = (clearedStepsCount === totalStepsCount);
     const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
     const casDone = (cascadesSolvedCount === totalCascades);
+    const docDone = doctordleSolved;
     
-    if (stepsDone && synDone && casDone && categorizationSolved && quizSolved) {
+    if (stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone) {
         const finishBtn = document.getElementById('finish-case-btn');
         if (finishBtn) finishBtn.style.display = 'block';
     }
