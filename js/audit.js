@@ -7,7 +7,7 @@ let supabaseClient = null;
 window.currentSession = null;
 
 // Echte Projekt-Werte deines Dashboards als garantierter Fallback
-const DEFAULT_SUPABASE_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
+const DEFAULT_SUPABASE_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
 // Trage hier deinen anon-Key aus Project Settings -> API ein:
 const DEFAULT_SUPABASE_ANON_KEY = "DEIN_ANON_KEY_HIER_EINTRAGEN";
 
