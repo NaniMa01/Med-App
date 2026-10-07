@@ -87,7 +87,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initUserData();
     renderSkillsSidebar();
     renderDashboardCases();
-    // Bookshelf wird direkt nach dem Laden der Dashboard-Fälle initialisiert
+
+    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
+    if (addFolderBtn) {
+        addFolderBtn.addEventListener('click', () => {
+            const name = window.prompt("Name für den neuen Ordner:");
+            if (name && name.trim()) {
+                createNewFolder(name.trim());
+            }
+        });
+    }
 });
 
 window.toggleSidebar = function() {
@@ -96,7 +105,12 @@ window.toggleSidebar = function() {
     if (sidebar) sidebar.classList.toggle('open');
     if (overlay) overlay.classList.toggle('active');
 };
-
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+}
 function initUserData() {
     if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
     let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
@@ -237,39 +251,210 @@ window.toggleSuperFolder = function() {
 /**
  * Zentraler Renderer für das Dashboard und die Integration des Bookshelf.
  */
-function renderDashboardCases() {
-// ====================================================
-// BOOKSHELF SYSTEM STATE & LOGIK
-// ====================================================
-let bookshelfFolderState = {}; // Merkt sich, welche Ordner auf- oder eingeklappt sind
-let draggedItemState = null;   // Speichert das gezogene Element { type: 'case'|'folder', ... }
+let bookshelfFolderState = {};
 
-// Event-Listener für den "+" Button oben im Bookshelf
-document.addEventListener('DOMContentLoaded', () => {
-    const addBtn = document.getElementById('add-bookshelf-folder-btn');
-    if (addBtn) {
-        addBtn.addEventListener('click', () => {
-            const folderName = window.prompt("Name des neuen Ordners eingeben:");
-            if (folderName && folderName.trim()) {
-                createNewFolder(folderName.trim());
+function renderDashboardCases() {
+    let customCases = [];
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    const container = document.getElementById('dashboard-folders-container');
+    
+    if (!container) return;
+
+    let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
+    
+    // Zuerst das Dashboard im Hauptbereich rendern:
+    const grouped = {};
+    allCases.forEach(c => {
+        const cat = (c.folder_name || c.metadata?.medical_field || "Allgemeine Neurologie").trim();
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(c);
+    });
+
+    container.innerHTML = Object.entries(grouped).map(([category, cases], catIdx) => {
+        const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
+        const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
+        
+        const cardsHtml = cases.map(c => {
+            const isSolved = solved.includes(c.case_id);
+            const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+                ? ''
+                : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
+            return `
+    <div class="case-card" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+        ${deleteBtn}
+        <div>
+            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
+            <h3>${c.metadata?.title || c.case_id}</h3>
+        </div>
+        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+            <span style="color:${isSolved ? 'var(--color-symptom)' : 'var(--accent-blue)'}; font-weight:700;">
+                ${isSolved ? '✓ Gelöst' : '● Offen'}
+            </span>
+            <span>+${c.metadata?.xp_reward || 900} XP</span>
+        </div>
+    </div>`;
+        }).join('');
+
+        return `
+            <div class="category-folder">
+              <div class="category-header" data-category="${encodeURIComponent(category)}">
+                    <div class="category-title-wrap"><span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span><span>📁 ${category}</span></div>
+                    <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
+                </div>
+                <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
+            </div>`;
+    }).join('');
+
+    container.querySelectorAll('.category-header[data-category]').forEach(header => {
+        header.addEventListener('click', () => {
+            toggleFolder(decodeURIComponent(header.dataset.category));
+        });
+    });
+
+    container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
+        const caseId = decodeURIComponent(card.dataset.caseId);
+
+        card.addEventListener('click', () => {
+            window.loadCaseById(caseId);
+        });
+
+        card.addEventListener('keydown', event => {
+            if (event.target !== card) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                window.loadCaseById(caseId);
             }
         });
-    }
-});
 
-/**
- * Erstellt einen neuen Ordner und speichert ihn in der Sortierreihenfolge
- */
+        const deleteBtn = card.querySelector('.delete-case-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                window.deleteCaseById(caseId);
+            });
+        }
+    });
+
+    // Bookshelf in der Sidebar rendern:
+    try {
+        renderBookshelf(allCases);
+    } catch (bsErr) {
+        console.error("Bookshelf Fehler:", bsErr);
+    }
+}
+
+function renderBookshelf(casesArray) {
+    const bookshelfContainer = document.getElementById('bookshelf-container');
+    if (!bookshelfContainer) return;
+
+    bookshelfContainer.innerHTML = '';
+
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+
+    const folders = {};
+    savedOrder.forEach(name => { folders[name] = []; });
+
+    casesArray.forEach(c => {
+        const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+        if (!folders[folder]) {
+            folders[folder] = [];
+            if (!savedOrder.includes(folder)) savedOrder.push(folder);
+        }
+        folders[folder].push(c);
+    });
+
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
+
+    savedOrder.forEach(folderName => {
+        const casesInFolder = folders[folderName] || [];
+        const isOpen = bookshelfFolderState[folderName] !== undefined ? bookshelfFolderState[folderName] : true;
+        const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
+
+        const folderDiv = document.createElement('div');
+        folderDiv.className = 'folder-group';
+
+        const header = document.createElement('div');
+        header.className = 'folder-header';
+        header.innerHTML = `
+            <div style="display:flex; align-items:center; overflow:hidden; gap:4px;">
+                <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
+                <span style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
+                <span style="font-size:0.65rem; color:var(--accent-blue); margin-left:4px;">(${solvedCount}/${casesInFolder.length})</span>
+            </div>
+            <button type="button" class="folder-action-btn" title="Umbenennen">✏️</button>
+        `;
+
+        const list = document.createElement('ul');
+        list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
+
+        casesInFolder.forEach(c => {
+            const li = document.createElement('li');
+            li.className = 'folder-case-item';
+            li.textContent = c.metadata?.title || c.case_id;
+            li.addEventListener('click', () => loadCaseById(c.case_id));
+            list.appendChild(li);
+        });
+
+        // Akkordeon Klick (Auf-/Zuklappen)
+        header.addEventListener('click', (e) => {
+            if (e.target.closest('.folder-action-btn')) return;
+            bookshelfFolderState[folderName] = !isOpen;
+            renderBookshelf(casesArray);
+        });
+
+        // Umbenennen Klick
+        const editBtn = header.querySelector('.folder-action-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const newName = window.prompt("Neuer Name für den Ordner:", folderName);
+                if (newName && newName.trim() && newName.trim() !== folderName) {
+                    renameFolder(folderName, newName.trim());
+                }
+            });
+        }
+
+        folderDiv.appendChild(header);
+        folderDiv.appendChild(list);
+        bookshelfContainer.appendChild(folderDiv);
+    });
+}
+
 function createNewFolder(folderName) {
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!order.includes(folderName)) {
         order.push(folderName);
         localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
     }
-    bookshelfFolderState[folderName] = true; // Neuer Ordner startet geöffnet
+    bookshelfFolderState[folderName] = true;
     renderDashboardCases();
 }
 
+function renameFolder(oldName, newName) {
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    customCases.forEach(c => {
+        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+        if (cur === oldName) {
+            c.folder_name = newName;
+            c.updated_at = new Date().toISOString();
+        }
+    });
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const idx = order.indexOf(oldName);
+    if (idx !== -1) order[idx] = newName;
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    if (bookshelfFolderState[oldName] !== undefined) {
+        bookshelfFolderState[newName] = bookshelfFolderState[oldName];
+        delete bookshelfFolderState[oldName];
+    }
+
+    renderDashboardCases();
+}
 /**
  * Rendert das dynamische Bookshelf mit Akkordeon, Drag-and-Drop und Rename
  */
