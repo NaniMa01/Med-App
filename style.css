@@ -300,3 +300,203 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .auth-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .auth-user { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-muted); }
 .auth-user .auth-email { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ====================================================
+   BOOKSHELF SIDEBAR: DYNAMISCHE ORDNER & DRAG & DROP
+   ==================================================== */
+.bookshelf-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px 8px 4px;
+}
+
+.bookshelf-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+}
+
+.bookshelf-add-btn {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: var(--accent-blue);
+    border-radius: 6px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 0.9rem;
+    line-height: 1;
+    transition: all 0.2s var(--ease-out);
+}
+
+.bookshelf-add-btn:hover {
+    background: rgba(56, 189, 248, 0.3);
+    transform: scale(1.08);
+}
+
+.folder-group {
+    margin-bottom: 8px;
+    border-radius: 10px;
+    background: rgba(16, 24, 46, 0.5);
+    border: 1px solid var(--card-border);
+    transition: all 0.2s var(--ease-out);
+    overflow: hidden;
+}
+
+.folder-group.dragging {
+    opacity: 0.4;
+    border: 1px dashed var(--accent-blue);
+}
+
+.folder-group.drag-over-folder {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    transform: translateY(-2px);
+}
+
+.folder-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.02);
+    transition: background 0.15s;
+}
+
+.folder-header:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.folder-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.folder-drag-handle {
+    cursor: grab;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 2px;
+}
+.folder-drag-handle:active {
+    cursor: grabbing;
+}
+
+.folder-toggle-arrow {
+    font-size: 0.65rem;
+    color: var(--accent-blue);
+    transition: transform 0.2s ease;
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+}
+
+.folder-toggle-arrow.open {
+    transform: rotate(90deg);
+}
+
+.folder-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.folder-edit-input {
+    background: rgba(6, 9, 19, 0.9);
+    border: 1px solid var(--accent-blue);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    width: 100%;
+    outline: none;
+    font-family: inherit;
+}
+
+.folder-badge-mini {
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-cyan);
+    margin-left: auto;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+.folder-action-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.75rem;
+    opacity: 0.5;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: opacity 0.2s;
+    line-height: 1;
+}
+
+.folder-header:hover .folder-action-btn {
+    opacity: 1;
+}
+
+.folder-cases-list {
+    list-style: none;
+    padding: 4px 8px 8px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(6, 9, 19, 0.3);
+}
+
+.folder-cases-list.collapsed {
+    display: none;
+}
+
+.folder-case-item {
+    font-size: 0.76rem;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(16, 24, 46, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+}
+
+.folder-case-item:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.3);
+    color: #fff;
+    transform: translateX(2px);
+}
+
+.folder-case-item.case-solved {
+    border-left: 2px solid var(--color-symptom);
+}
