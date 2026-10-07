@@ -457,6 +457,12 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 
 .folder-header:hover .folder-action-btn {
     opacity: 1;
+    
+.folder-action-btn.delete-folder-btn:hover {
+    color: var(--color-risk, #ef4444);
+    opacity: 1;
+}
+
 }
 
 .folder-cases-list {
