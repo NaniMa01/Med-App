@@ -89,18 +89,17 @@
         if (error) throw error;
     }
 
-  async function loadProgress() {
+async function loadProgress() {
         requireSession();
         const { data, error } = await client.from('user_progress').select('*').eq('user_id', session.user.id).maybeSingle();
         if (error) throw error;
         if (data) {
+            // Nativer localStorage-Zugriff ohne fehlerhafte Hilfsfunktionen
             localStorage.setItem('user_xp', String(data.xp || 0));
-            writeJson('solved_cases', data.solved_cases || []);
-            writeJson('user_skills', data.skills || {});
+            localStorage.setItem('solved_cases', JSON.stringify(data.solved_cases || []));
+            localStorage.setItem('user_skills', JSON.stringify(data.skills || {}));
 
-            // ==========================================================
-            // NEU: Ordnerstruktur und Klapp-Status aus der Cloud wiederherstellen
-            // ==========================================================
+            // Ordnerstruktur und Klapp-Status aus der Cloud wiederherstellen
             if (Array.isArray(data.folder_order) && data.folder_order.length > 0) {
                 localStorage.setItem('medcheck_folder_order', JSON.stringify(data.folder_order));
             }
@@ -110,6 +109,12 @@
                     Object.assign(bookshelfFolderState, data.folder_state);
                 }
             }
+
+            if (typeof updateStatsUI === 'function') updateStatsUI();
+            if (typeof renderSkillsSidebar === 'function') renderSkillsSidebar();
+            if (typeof renderDashboardCases === 'function') renderDashboardCases();
+        }
+    }
             // ==========================================================
 
             updateStatsUI();
