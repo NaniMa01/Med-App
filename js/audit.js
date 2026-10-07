@@ -1,188 +1,285 @@
-function renderTimeline() {
-    const container = document.getElementById('player-container');
-    if (!container || !activeCaseData || !activeCaseData.timeline) return;
+/**
+ * js/auth.js - Supabase Authentication & Cloud Sync Engine
+ * Robuste Initialisierung mit automatischer Fallback-Kette (Inline -> API -> Hardcoded)
+ */
 
-    container.innerHTML = activeCaseData.timeline.map((step, index) => {
-        let text = step.content;
-        const hotspots = step.hotspots || []; // Fallback: Leeres Array, falls keine Fehler im JSON definiert sind
+let supabaseClient = null;
+window.currentSession = null;
 
-        // 1. Linebreaks (\n) schützen, damit lange Texte Absätze behalten
-        text = text.replace(/\n/g, '___NEWLINE___');
+// Echte Projekt-Werte deines Dashboards als garantierter Fallback
+const DEFAULT_SUPABASE_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
+// Trage hier deinen anon-Key aus Project Settings -> API ein:
+const DEFAULT_SUPABASE_ANON_KEY = "DEIN_ANON_KEY_HIER_EINTRAGEN";
 
-        if (hotspots.length > 0) {
-            // 2. Phrasen durch Platzhalter ersetzen
-            hotspots.forEach((hs, i) => {
-                const escapedPhrase = hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`\\[?${escapedPhrase}\\]?`, 'g');
-                text = text.replace(regex, `___HOTSPOT_TOKEN_${i}___`);
-            });
-        }
+/**
+ * Ermittelt die Konfiguration aus allen verfügbaren Quellen
+ */
+async function resolveSupabaseConfig() {
+    // 1. Priorität: Bereits im window gesetzt (z. B. via <head> in index.html)
+    if (window.ENV_SUPABASE_URL && window.ENV_SUPABASE_ANON_KEY && !window.ENV_SUPABASE_ANON_KEY.includes('DEIN_')) {
+        return {
+            url: window.ENV_SUPABASE_URL,
+            key: window.ENV_SUPABASE_ANON_KEY
+        };
+    }
 
-        // 3. ALLE regulären Wörter mit stealth-word ummanteln (auch wenn es 0 Fehler gibt!)
-        text = text.split(/(\s+)/).map(part => {
-            if (part.includes('___HOTSPOT_TOKEN_') || /^\s+$/.test(part) || part === '___NEWLINE___') {
-                return part;
+    // 2. Priorität: Vercel Serverless Endpoint /api/config abfragen
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.supabaseUrl && data.supabaseAnonKey) {
+                return {
+                    url: data.supabaseUrl,
+                    key: data.supabaseAnonKey
+                };
             }
-            return `<span class="stealth-word" onclick="handleGenericClick(this)">${part}</span>`;
-        }).join('');
-
-        // 4. Hotspot-Tokens wieder in klickbare Fehlerspans umwandeln
-        if (hotspots.length > 0) {
-            hotspots.forEach((hs, i) => {
-                const token = `___HOTSPOT_TOKEN_${i}___`;
-                const replacement = `<span class="stealth-hotspot" id="hs-${index}-${i}" onclick="evaluateAuditHotspot(${index}, ${i})">${hs.phrase}</span>`;
-                text = text.split(token).join(replacement);
-            });
         }
+    } catch (_err) {
+        // Lokale Ausführung ohne Serverless Function – Fallback greift
+    }
 
-        // 5. Absätze (<br>) für lange Texte wiederherstellen
-        text = text.split('___NEWLINE___').join('<br>');
-
-        return `
-            <div class="audit-step-container" style="margin-top: 25px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                <div style="font-size:0.75rem; font-weight:800; color:var(--accent-blue); text-transform:uppercase; margin-bottom:12px;">Abschnitt ${index+1}: ${step.phase}</div>
-                <div class="step-content" style="line-height: 1.6; font-size: 1rem;">${text}</div>
-                <div class="feedback-box" id="audit-fb-${index}" style="display:none; margin-top: 15px;"></div>
-                <button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="width:100%; margin-top:15px;">Abschnitt freigeben (Makellos)</button>
-            </div>`;
-    }).join('');
+    // 3. Priorität: Lokale Standardkonfiguration
+    return {
+        url: DEFAULT_SUPABASE_URL,
+        key: DEFAULT_SUPABASE_ANON_KEY
+    };
 }
 
-window.clearStep = function(stepIndex) {
-    const step = activeCaseData.timeline[stepIndex];
-    const hotspots = step.hotspots || []; 
-    
-    const hasUnresolved = hotspots.some((hs, i) => hs.is_error && !document.getElementById(`hs-${stepIndex}-${i}`).classList.contains('resolved-signal'));
-    
-    const fb = document.getElementById(`audit-fb-${stepIndex}`);
-    fb.style.display = 'block';
+/**
+ * Initialisiert den Supabase-Client asynchron und bindet ihn an die App
+ */
+async function initSupabase() {
+    const config = await resolveSupabaseConfig();
 
-    if (hasUnresolved) {
-        applyXpDelta(-100, 'Fahrlässige Freigabe');
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Es befinden sich noch unentdeckte Fehler in diesem Abschnitt!`;
+    if (typeof supabase === 'undefined') {
+        console.error('Supabase CDN-Bibliothek nicht geladen.');
+        return;
+    }
+
+    if (config.url && config.key && !config.key.includes('DEIN_')) {
+        try {
+            supabaseClient = supabase.createClient(config.url, config.key);
+            
+            // Session-Status überwachen
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                window.currentSession = session;
+                updateAuthUI(session);
+                if (session) {
+                    syncUserDataWithCloud();
+                }
+            });
+
+            // Initialen Session-Status abfragen
+            const { data } = await supabaseClient.auth.getSession();
+            window.currentSession = data.session;
+            updateAuthUI(data.session);
+
+        } catch (e) {
+            console.error('Fehler bei der Initialisierung des Supabase Clients:', e);
+        }
     } else {
-        applyXpDelta(100, 'Abschnitt validiert');
-        fb.className = 'feedback-box feedback-success';
-        
-        if (hotspots.filter(hs => hs.is_error).length === 0) {
-            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Hervorragend! Du hast dich nicht täuschen lassen, dieser Abschnitt war komplett fehlerfrei.`;
+        console.warn('Supabase ist nicht vollständig konfiguriert. App läuft im Gastmodus.');
+    }
+}
+
+// Initialisierung sofort beim Laden starten
+initSupabase();
+
+// ----------------------------------------------------
+// UI-FEEDBACK
+// ----------------------------------------------------
+function showAuthFeedback(type, message) {
+    const fb = document.getElementById('auth-fb');
+    if (!fb) return;
+    fb.style.display = 'block';
+    fb.className = `feedback-box ${type}`;
+    fb.innerHTML = message;
+}
+
+function clearAuthFeedback() {
+    const fb = document.getElementById('auth-fb');
+    if (fb) {
+        fb.style.display = 'none';
+        fb.innerHTML = '';
+    }
+}
+
+// ----------------------------------------------------
+// GLOBALE AUTH-AKTIONEN
+// ----------------------------------------------------
+
+window.authSignIn = async function () {
+    if (!supabaseClient) {
+        await initSupabase();
+        if (!supabaseClient) {
+            showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Key hinterlegen.');
+            return;
+        }
+    }
+
+    const emailInput = document.getElementById('auth-email');
+    const passInput = document.getElementById('auth-password');
+    const email = (emailInput?.value || '').trim().toLowerCase();
+    const password = passInput?.value || '';
+
+    if (!email || !password) {
+        showAuthFeedback('feedback-error', 'Bitte E-Mail-Adresse und Passwort eingeben.');
+        return;
+    }
+
+    showAuthFeedback('feedback-neutral', 'Anmeldung läuft...');
+
+    try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) {
+            if (error.message.includes('Invalid login credentials')) {
+                throw new Error('E-Mail oder Passwort ungültig. Falls du noch kein Konto hast, klicke auf "Registrieren".');
+            }
+            if (error.message.includes('Email not confirmed')) {
+                throw new Error('E-Mail-Adresse wurde noch nicht bestätigt. Bitte Posteingang prüfen.');
+            }
+            throw error;
+        }
+
+        clearAuthFeedback();
+        showAuthFeedback('feedback-success', `Willkommen zurück, ${data.user.email}!`);
+        setTimeout(() => {
+            const panel = document.getElementById('auth-panel');
+            if (panel) panel.style.display = 'none';
+        }, 800);
+
+    } catch (err) {
+        showAuthFeedback('feedback-error', `Anmeldefehler: ${err.message}`);
+    }
+};
+
+window.authSignUp = async function () {
+    if (!supabaseClient) {
+        await initSupabase();
+        if (!supabaseClient) {
+            showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Key hinterlegen.');
+            return;
+        }
+    }
+
+    const emailInput = document.getElementById('auth-email');
+    const passInput = document.getElementById('auth-password');
+    const email = (emailInput?.value || '').trim().toLowerCase();
+    const password = passInput?.value || '';
+
+    if (!email || !password) {
+        showAuthFeedback('feedback-error', 'Bitte E-Mail und ein sicheres Passwort eingeben.');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAuthFeedback('feedback-error', 'Das Passwort muss mindestens 6 Zeichen lang sein.');
+        return;
+    }
+
+    showAuthFeedback('feedback-neutral', 'Konto wird erstellt...');
+
+    try {
+        const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password
+        });
+
+        if (error) throw error;
+
+        if (data.user && !data.session) {
+            showAuthFeedback('feedback-success', 'Registrierung erfolgreich! Bitte bestätige den Aktivierungslink in deiner E-Mail.');
         } else {
-            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle Fehler in diesem Abschnitt verifiziert.`;
+            showAuthFeedback('feedback-success', 'Erfolgreich registriert und angemeldet!');
+            setTimeout(() => {
+                const panel = document.getElementById('auth-panel');
+                if (panel) panel.style.display = 'none';
+            }, 800);
         }
-        
-        document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
-        
-        if (typeof clearedStepsCount !== 'undefined') clearedStepsCount++;
-        const badge = document.getElementById('badge-mode-audit');
-        if (badge && typeof totalStepsCount !== 'undefined') {
-            badge.innerText = `${clearedStepsCount}/${totalStepsCount}`;
-        }
-        
-        if (typeof checkFinalCompletion === 'function') checkFinalCompletion();
+    } catch (err) {
+        showAuthFeedback('feedback-error', `Registrierungsfehler: ${err.message}`);
     }
 };
 
-window.handleGenericClick = function(el) {
-    if (el.classList.contains('resolved-generic')) return;
-    el.classList.add('resolved-generic');
-    applyXpDelta(-10, 'Unsystematischer Klick');
+window.authSignOut = async function () {
+    if (!supabaseClient) return;
+    try {
+        await supabaseClient.auth.signOut();
+        window.currentSession = null;
+        updateAuthUI(null);
+        showAuthFeedback('feedback-neutral', 'Erfolgreich abgemeldet. Die App läuft im Gastmodus.');
+        const panel = document.getElementById('auth-panel');
+        if (panel) panel.style.display = 'block';
+    } catch (err) {
+        console.error('Fehler beim Abmelden:', err);
+    }
 };
 
-window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
-    const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
-    const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
-    const fb = document.getElementById(`audit-fb-${stepIndex}`);
-    
-    if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
+// ----------------------------------------------------
+// UI-SYNCHRONISATION
+// ----------------------------------------------------
 
-    fb.style.display = 'block';
+function updateAuthUI(session) {
+    const authUserDiv = document.getElementById('auth-user');
+    const authEmailSpan = document.getElementById('auth-user-email');
+    const authPanel = document.getElementById('auth-panel');
 
-    if (hs.is_error) {
-        span.classList.add('resolved-signal');
-        trackSkill(hs.skill_tag || 'Pathophysiologie', true);
-        applyXpDelta(100, 'Fehler identifiziert');
-        fb.className = 'feedback-box feedback-error';
-        
-        fb.innerHTML = `
-            <div style="font-weight: 800; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
-                ⚠️ Kritischer Fehler identifiziert (+100 XP)
-            </div>
-            <div style="margin-bottom: 15px; line-height: 1.5; color: var(--text-main, #f1f5f9);">
-                Du hast eine pathophysiologisch inkorrekte Aussage gefunden. Kannst du den Fehler im Kopf korrigieren?
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <button class="action-btn secondary" onclick="revealHint(${stepIndex}, ${hotspotIndex})">
-                    💡 Sokratischen Impuls anzeigen (-50 XP)
-                </button>
-                <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">
-                    Direkt zur Synthese & Auflösung
-                </button>
-            </div>
-        `;
+    if (session && session.user) {
+        if (authUserDiv) authUserDiv.style.display = 'flex';
+        if (authEmailSpan) authEmailSpan.innerText = session.user.email;
+        if (authPanel) authPanel.style.display = 'none';
     } else {
-        span.classList.add('resolved-noise');
-        trackSkill(hs.skill_tag || 'Pathophysiologie', false);
-        applyXpDelta(-40, 'Fehlalarm');
-        fb.className = 'feedback-box feedback-neutral';
-        fb.innerHTML = `
-            <div style="font-weight: 700; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
-                Fehlalarm (-40 XP)
-            </div>
-            <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
-                <strong>Erklärung:</strong> ${hs.feedback || 'Diese Feststellung ist im klinischen Kontext fachlich korrekt.'}
-            </div>
-        `;
+        if (authUserDiv) authUserDiv.style.display = 'none';
+        if (authEmailSpan) authEmailSpan.innerText = '';
+        if (authPanel) authPanel.style.display = 'block';
     }
-};
+}
 
-window.revealHint = function(stepIndex, hotspotIndex) {
-    const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
-    const fb = document.getElementById(`audit-fb-${stepIndex}`);
+// ----------------------------------------------------
+// CLOUD-DATENSYNCHRONISATION
+// ----------------------------------------------------
 
-    // XP-Abzug auslösen und tracken
-    applyXpDelta(-50, 'Tutor-Impuls angefordert');
+async function syncUserDataWithCloud() {
+    if (!supabaseClient || !window.currentSession) return;
+    const userId = window.currentSession.user.id;
 
-    const explanationText = hs.explanation || hs.feedback || hs.socratic_trap || 'Überlege, welche pathophysiologischen Mechanismen hier wirklich greifen.';
+    try {
+        const xp = parseInt(localStorage.getItem('user_xp') || '0');
+        const solvedCases = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        const progressData = JSON.parse(localStorage.getItem('medcheck_user_progress_v1') || '{}');
 
-    fb.innerHTML = `
-        <div style="font-weight: 800; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
-            ⚠️ Kritischer Fehler identifiziert
-        </div>
-        <div style="margin-bottom: 15px; line-height: 1.5; color: var(--text-main, #f1f5f9);">
-            <span style="color: #f59e0b; font-weight: 800;">Tipp (-50 XP):</span> ${explanationText}
-        </div>
-        <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})" style="width: 100%;">
-            Klinische Korrektur & Synthese aufdecken
-        </button>
-    `;
-};
-
-window.revealSynthesis = function(stepIndex, hotspotIndex) {
-    const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
-    const fb = document.getElementById(`audit-fb-${stepIndex}`);
-    const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
-
-    if (span) {
-        span.style.borderBottomColor = 'var(--accent-green, #10b981)';
-        span.style.color = '#f1f5f9';
+        await supabaseClient.from('user_profiles').upsert({
+            id: userId,
+            xp: xp,
+            solved_cases: solvedCases,
+            progress_data: progressData,
+            updated_at: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('Fehler bei der Cloud-Synchronisation:', err);
     }
+}
 
-    const synthesisText = hs.correct_pathophysiology 
-                       || hs.synthesis 
-                       || hs.correction 
-                       || hs.solution 
-                       || hs.pathophysiology 
-                       || hs.feedback 
-                       || 'Keine detaillierte Synthese hinterlegt.';
-
-    fb.className = 'feedback-box feedback-success';
-    fb.innerHTML = `
-        <div style="font-weight: 800; color: var(--accent-green, #10b981); margin-bottom: 6px;">
-            ✓ Korrekte Pathophysiologie & Synthese
-        </div>
-        <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
-            ${synthesisText}
-        </div>
-    `;
+// Globales Cloud-Interface für app.js
+window.Cloud = {
+    isLoggedIn: () => !!window.currentSession,
+    scheduleProgressSync: () => syncUserDataWithCloud(),
+    saveCloudCase: async (caseData) => {
+        if (!supabaseClient || !window.currentSession) return;
+        return supabaseClient.from('medical_cases').upsert({
+            case_id: caseData.case_id,
+            user_id: window.currentSession.user.id,
+            data: caseData,
+            updated_at: new Date().toISOString()
+        });
+    },
+    deleteCloudCase: async (caseId) => {
+        if (!supabaseClient || !window.currentSession) return;
+        return supabaseClient.from('medical_cases').delete().eq('case_id', caseId).eq('user_id', window.currentSession.user.id);
+    }
 };
