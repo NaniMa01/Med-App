@@ -19,7 +19,6 @@ function renderTimeline() {
         }
 
         // 3. ALLE regulären Wörter mit stealth-word ummanteln (auch wenn es 0 Fehler gibt!)
-        // So weiss der Student nie, ob ein Abschnitt sicher ist oder nicht.
         text = text.split(/(\s+)/).map(part => {
             if (part.includes('___HOTSPOT_TOKEN_') || /^\s+$/.test(part) || part === '___NEWLINE___') {
                 return part;
@@ -32,7 +31,6 @@ function renderTimeline() {
             hotspots.forEach((hs, i) => {
                 const token = `___HOTSPOT_TOKEN_${i}___`;
                 const replacement = `<span class="stealth-hotspot" id="hs-${index}-${i}" onclick="evaluateAuditHotspot(${index}, ${i})">${hs.phrase}</span>`;
-                // Split/Join ist robuster als replaceAll in älteren Browsern
                 text = text.split(token).join(replacement);
             });
         }
@@ -52,21 +50,18 @@ function renderTimeline() {
 
 window.clearStep = function(stepIndex) {
     const step = activeCaseData.timeline[stepIndex];
-    const hotspots = step.hotspots || []; // Sicherstellen, dass das Array existiert
+    const hotspots = step.hotspots || []; 
     
-    // Prüfen, ob es in diesem Abschnitt ECHTE Fehler gibt, die noch NICHT aufgedeckt wurden
     const hasUnresolved = hotspots.some((hs, i) => hs.is_error && !document.getElementById(`hs-${stepIndex}-${i}`).classList.contains('resolved-signal'));
     
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
     fb.style.display = 'block';
 
     if (hasUnresolved) {
-        // Spieler hat auf Freigeben geklickt, obwohl noch Fehler drin sind!
         applyXpDelta(-100, 'Fahrlässige Freigabe');
         fb.className = 'feedback-box feedback-error';
         fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Es befinden sich noch unentdeckte Fehler in diesem Abschnitt!`;
     } else {
-        // Abschnitt ist sauber (entweder alle Fehler gefunden, oder es gab gar keine)
         applyXpDelta(100, 'Abschnitt validiert');
         fb.className = 'feedback-box feedback-success';
         
@@ -78,7 +73,6 @@ window.clearStep = function(stepIndex) {
         
         document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
         
-        // Zähler für Fortschritt updaten
         if (typeof clearedStepsCount !== 'undefined') clearedStepsCount++;
         const badge = document.getElementById('badge-mode-audit');
         if (badge && typeof totalStepsCount !== 'undefined') {
@@ -100,7 +94,6 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
     const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
     
-    // Verhindert Mehrfachklicks
     if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
 
     fb.style.display = 'block';
@@ -111,7 +104,6 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
         applyXpDelta(100, 'Fehler identifiziert');
         fb.className = 'feedback-box feedback-error';
         
-        // STUFE 1: Treffer bestätigen und intellektuelle Weichenstellung anbieten
         fb.innerHTML = `
             <div style="font-weight: 800; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
                 ⚠️ Kritischer Fehler identifiziert (+100 XP)
@@ -144,12 +136,10 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
     }
 };
 
-// NEUE FUNKTION: Stufe 2 - Der Tutor gibt einen Hint
 window.revealHint = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
 
-    // Dynamischer Fallback für den Hint
     const explanationText = hs.explanation || hs.feedback || hs.socratic_trap || 'Überlege, welche pathophysiologischen Mechanismen hier wirklich greifen.';
 
     fb.innerHTML = `
@@ -165,16 +155,14 @@ window.revealHint = function(stepIndex, hotspotIndex) {
     `;
 };
 
-// STUFE 3: Die finale Auflösung
 window.revealSynthesis = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
     const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
 
-    // Visuelles Feedback: Markierung im Text auf gelöst (grün) setzen
     if (span) {
         span.style.borderBottomColor = 'var(--accent-green, #10b981)';
-        span.style.color = '#f1f5f9'; // Hebt den Text noch etwas mehr vom Hintergrund ab
+        span.style.color = '#f1f5f9';
     }
 
     const synthesisText = hs.correct_pathophysiology 
@@ -184,18 +172,6 @@ window.revealSynthesis = function(stepIndex, hotspotIndex) {
                        || hs.pathophysiology 
                        || hs.feedback 
                        || 'Keine detaillierte Synthese hinterlegt.';
-
-    fb.className = 'feedback-box feedback-success';
-    fb.innerHTML = `
-        <div style="font-weight: 800; color: var(--accent-green, #10b981); margin-bottom: 6px;">
-            ✓ Korrekte Pathophysiologie & Synthese
-        </div>
-        <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
-            ${synthesisText}
-        </div>
-    `;
-};
-
 
     fb.className = 'feedback-box feedback-success';
     fb.innerHTML = `
