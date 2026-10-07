@@ -375,7 +375,7 @@ function renderBookshelf(casesArray) {
         const folderDiv = document.createElement('div');
         folderDiv.className = 'folder-group';
 
-      const header = document.createElement('div');
+    const header = document.createElement('div');
         header.className = 'folder-header';
         header.innerHTML = `
             <div style="display:flex; align-items:center; overflow:hidden; gap:4px;">
@@ -388,6 +388,7 @@ function renderBookshelf(casesArray) {
                 <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
             </div>
         `;
+
         const list = document.createElement('ul');
         list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
 
@@ -399,14 +400,14 @@ function renderBookshelf(casesArray) {
             list.appendChild(li);
         });
 
-      // Akkordeon Klick (Auf-/Zuklappen)
+        // Akkordeon Klick (Auf-/Zuklappen)
         header.addEventListener('click', (e) => {
             if (e.target.closest('.folder-action-btn')) return;
             bookshelfFolderState[folderName] = !isOpen;
             renderBookshelf(casesArray);
         });
 
-        // 1. Umbenennen Klick
+        // 1. Umbenennen Klick (✏️)
         const editBtn = header.querySelector('.edit-btn');
         if (editBtn) {
             editBtn.addEventListener('click', (e) => {
@@ -418,7 +419,7 @@ function renderBookshelf(casesArray) {
             });
         }
 
-        // 2. Ordner Löschen Klick
+        // 2. Ordner Löschen Klick (🗑️)
         const deleteFolderBtn = header.querySelector('.delete-folder-btn');
         if (deleteFolderBtn) {
             deleteFolderBtn.addEventListener('click', (e) => {
