@@ -238,94 +238,40 @@ window.toggleSuperFolder = function() {
  * Zentraler Renderer für das Dashboard und die Integration des Bookshelf.
  */
 function renderDashboardCases() {
-    let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
-    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const container = document.getElementById('dashboard-folders-container');
-    
-    if (!container) return;
+// ====================================================
+// BOOKSHELF SYSTEM STATE & LOGIK
+// ====================================================
+let bookshelfFolderState = {}; // Merkt sich, welche Ordner auf- oder eingeklappt sind
+let draggedItemState = null;   // Speichert das gezogene Element { type: 'case'|'folder', ... }
 
-    let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
-    
-    // 1. Bookshelf Sidebar aktualisieren (Hier greifen wir sauber auf allCases zu!)
-    renderBookshelf(allCases);
-
-    const grouped = {};
-    allCases.forEach(c => {
-        const cat = (c.metadata?.medical_field || "Allgemeine Neurologie").trim();
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(c);
-    });
-
-    container.innerHTML = Object.entries(grouped).map(([category, cases], catIdx) => {
-        const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
-        const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
-        
-        const cardsHtml = cases.map(c => {
-            const isSolved = solved.includes(c.case_id);
-            const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-                ? ''
-                : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
-            return `
-    <div class="case-card" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
-        ${deleteBtn}
-        <div>
-            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
-            <h3>${c.metadata?.title || c.case_id}</h3>
-        </div>
-        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-            <span style="color:${isSolved ? 'var(--color-symptom)' : 'var(--accent-blue)'}; font-weight:700;">
-                ${isSolved ? '✓ Gelöst' : '● Offen'}
-            </span>
-            <span>+${c.metadata?.xp_reward || 900} XP</span>
-        </div>
-    </div>`;
-        }).join('');
-
-        return `
-            <div class="category-folder">
-              <div class="category-header" data-category="${encodeURIComponent(category)}">
-                    <div class="category-title-wrap"><span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span><span>📁 ${category}</span></div>
-                    <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
-                </div>
-                <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
-            </div>`;
-    }).join('');
-
-    container.querySelectorAll('.category-header[data-category]').forEach(header => {
-        header.addEventListener('click', () => {
-            toggleFolder(decodeURIComponent(header.dataset.category));
-        });
-    });
-
-    container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
-        const caseId = decodeURIComponent(card.dataset.caseId);
-
-        card.addEventListener('click', () => {
-            window.loadCaseById(caseId);
-        });
-
-        card.addEventListener('keydown', event => {
-            if (event.target !== card) return;
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                window.loadCaseById(caseId);
+// Event-Listener für den "+" Button oben im Bookshelf
+document.addEventListener('DOMContentLoaded', () => {
+    const addBtn = document.getElementById('add-bookshelf-folder-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            const folderName = window.prompt("Name des neuen Ordners eingeben:");
+            if (folderName && folderName.trim()) {
+                createNewFolder(folderName.trim());
             }
         });
+    }
+});
 
-        const deleteBtn = card.querySelector('.delete-case-btn');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', event => {
-                event.stopPropagation();
-                window.deleteCaseById(caseId);
-            });
-        }
-    });
+/**
+ * Erstellt einen neuen Ordner und speichert ihn in der Sortierreihenfolge
+ */
+function createNewFolder(folderName) {
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+    bookshelfFolderState[folderName] = true; // Neuer Ordner startet geöffnet
+    renderDashboardCases();
 }
 
 /**
- * Rendert das dynamische Bookshelf (Sidebar mit Ordnern und Fällen)
- * Gruppiert alle Fälle anhand ihres folder_name Attributes.
+ * Rendert das dynamische Bookshelf mit Akkordeon, Drag-and-Drop und Rename
  */
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
@@ -333,64 +279,191 @@ function renderBookshelf(casesArray) {
 
     bookshelfContainer.innerHTML = '';
 
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+
+    // 1. Fälle gruppieren
     const folders = {};
+    savedOrder.forEach(name => {
+        if (!folders[name]) folders[name] = [];
+    });
+
     casesArray.forEach(c => {
-        const folder = c.folder_name || c.metadata?.medical_field || 'Allgemein';
+        const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
         if (!folders[folder]) {
             folders[folder] = [];
+            if (!savedOrder.includes(folder)) savedOrder.push(folder);
         }
         folders[folder].push(c);
     });
 
-    Object.keys(folders).sort().forEach(folderName => {
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
+
+    // 2. Ordner in gespeicherter Reihenfolge anzeigen
+    savedOrder.forEach(folderName => {
+        if (!folders[folderName]) folders[folderName] = [];
+        const casesInFolder = folders[folderName];
+
+        // Status des Ordners: Ist er geöffnet? (Standard: true)
+        const isOpen = bookshelfFolderState[folderName] !== undefined ? bookshelfFolderState[folderName] : true;
+        const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
+
         const folderDiv = document.createElement('div');
         folderDiv.className = 'folder-group';
         folderDiv.dataset.folderName = folderName;
+        folderDiv.draggable = true;
 
+        // Header mit Pfeil, Titel, Zähler und Umbenennen-Stift
         const header = document.createElement('div');
         header.className = 'folder-header';
         header.innerHTML = `
-            <span>📁 ${escapeHtml(folderName)} (${folders[folderName].length})</span>
-            <span class="folder-toggle">▼</span>
+            <div class="folder-header-left">
+                <span class="folder-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
+                <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
+                <span class="folder-title-text" title="Doppelklick zum Umbenennen">${escapeHtml(folderName)}</span>
+                <span class="folder-badge-mini">${solvedCount}/${casesInFolder.length}</span>
+            </div>
+            <button type="button" class="folder-action-btn edit-folder-btn" title="Ordner umbenennen">✏️</button>
         `;
 
+        // Die Liste mit den Unterkapiteln (Fällen)
         const list = document.createElement('ul');
-        list.className = 'folder-cases-list';
+        list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
 
-        folders[folderName].forEach(caseItem => {
-            const li = document.createElement('li');
-            li.className = 'folder-case-item';
-            li.textContent = caseItem.metadata?.title || caseItem.case_id;
-            li.dataset.caseId = caseItem.case_id;
-            li.draggable = true;
+        if (casesInFolder.length === 0) {
+            const emptyLi = document.createElement('li');
+            emptyLi.style.fontSize = '0.72rem';
+            emptyLi.style.color = 'var(--text-dim)';
+            emptyLi.style.padding = '4px 6px';
+            emptyLi.style.fontStyle = 'italic';
+            emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
+            list.appendChild(emptyLi);
+        } else {
+            casesInFolder.forEach(caseItem => {
+                const li = document.createElement('li');
+                const isSolved = solved.includes(caseItem.case_id);
+                li.className = `folder-case-item ${isSolved ? 'case-solved' : ''}`;
+                li.textContent = caseItem.metadata?.title || caseItem.case_id;
+                li.dataset.caseId = caseItem.case_id;
+                li.draggable = true;
 
-            li.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', caseItem.case_id);
+                // Fall wird gezogen
+                li.addEventListener('dragstart', (e) => {
+                    e.stopPropagation(); // Wichtig: Nicht den Ordner mitziehen!
+                    draggedItemState = { type: 'case', id: caseItem.case_id };
+                    e.dataTransfer.setData('text/plain', caseItem.case_id);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                li.addEventListener('click', () => {
+                    loadCaseById(caseItem.case_id);
+                });
+
+                list.appendChild(li);
             });
+        }
 
-            li.addEventListener('click', () => {
-                loadCaseById(caseItem.case_id);
+        // --- FUNKTION 1: EIN- UND AUSFAHREN (Akkordeon) ---
+        header.addEventListener('click', (e) => {
+            // Ignorieren, wenn gerade umbenannt wird oder der Drag-Handle geklickt wurde
+            if (e.target.closest('.edit-folder-btn') || e.target.closest('.folder-drag-handle') || e.target.tagName === 'INPUT') {
+                return;
+            }
+            bookshelfFolderState[folderName] = !isOpen;
+            renderBookshelf(casesArray);
+        });
+
+        // --- FUNKTION 2: UMBENENNEN (Inline-Rename) ---
+        const startRename = () => {
+            const titleSpan = header.querySelector('.folder-title-text');
+            if (!titleSpan || header.querySelector('input')) return;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'folder-edit-input';
+            input.value = folderName;
+
+            titleSpan.replaceWith(input);
+            input.focus();
+            input.select();
+
+            const finishRename = () => {
+                const newName = input.value.trim();
+                if (newName && newName !== folderName) {
+                    renameFolder(folderName, newName);
+                } else {
+                    renderBookshelf(casesArray);
+                }
+            };
+
+            input.addEventListener('blur', finishRename);
+            input.addEventListener('keydown', (evt) => {
+                if (evt.key === 'Enter') input.blur();
+                if (evt.key === 'Escape') {
+                    input.value = folderName;
+                    input.blur();
+                }
             });
+        };
 
-            list.appendChild(li);
+        const editBtn = header.querySelector('.edit-folder-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                startRename();
+            });
+        }
+
+        const titleTextEl = header.querySelector('.folder-title-text');
+        if (titleTextEl) {
+            titleTextEl.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                startRename();
+            });
+        }
+
+        // --- FUNKTION 3: DRAG & DROP (Sortieren & Verschieben) ---
+        folderDiv.addEventListener('dragstart', (e) => {
+            draggedItemState = { type: 'folder', name: folderName };
+            folderDiv.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        folderDiv.addEventListener('dragend', () => {
+            folderDiv.classList.remove('dragging');
+            draggedItemState = null;
+            document.querySelectorAll('.folder-group').forEach(f => f.classList.remove('drag-over-folder'));
         });
 
         folderDiv.addEventListener('dragover', (e) => {
             e.preventDefault();
-            folderDiv.classList.add('drag-over');
+            e.dataTransfer.dropEffect = 'move';
+            folderDiv.classList.add('drag-over-folder');
         });
 
         folderDiv.addEventListener('dragleave', () => {
-            folderDiv.classList.remove('drag-over');
+            folderDiv.classList.remove('drag-over-folder');
         });
 
         folderDiv.addEventListener('drop', async (e) => {
             e.preventDefault();
-            folderDiv.classList.remove('drag-over');
-            
-            const caseId = e.dataTransfer.getData('text/plain');
-            if (caseId) {
-                await moveCaseToFolder(caseId, folderName);
+            folderDiv.classList.remove('drag-over-folder');
+
+            if (!draggedItemState) return;
+
+            // Fall in diesen Ordner verschieben
+            if (draggedItemState.type === 'case') {
+                const caseId = draggedItemState.id;
+                if (caseId) {
+                    await moveCaseToFolder(caseId, folderName);
+                }
+            } 
+            // Ganzen Ordner an eine andere Position verschieben
+            else if (draggedItemState.type === 'folder') {
+                const draggedFolder = draggedItemState.name;
+                if (draggedFolder && draggedFolder !== folderName) {
+                    reorderFolders(draggedFolder, folderName);
+                }
             }
         });
 
@@ -401,7 +474,83 @@ function renderBookshelf(casesArray) {
 }
 
 /**
- * Verschiebt einen Fall in einen anderen Ordner (aktualisiert State, Storage & Supabase)
+ * Ändert die Sortierreihenfolge der Ordner
+ */
+function reorderFolders(draggedName, targetName) {
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const fromIdx = order.indexOf(draggedName);
+    const toIdx = order.indexOf(targetName);
+
+    if (fromIdx !== -1 && toIdx !== -1) {
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+        renderDashboardCases();
+    }
+}
+
+/**
+ * Benennt einen Ordner systemweit um
+ */
+async function renameFolder(oldName, newName) {
+    if (!newName || oldName === newName) return;
+
+    // 1. Lokale Custom-Fälle aktualisieren
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modified = false;
+
+    customCases.forEach(c => {
+        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+        if (cur === oldName) {
+            c.folder_name = newName;
+            c.updated_at = new Date().toISOString();
+            modified = true;
+        }
+    });
+
+    if (modified) {
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    }
+
+    // 2. Demo-Fall aktualisieren
+    if (BUILTIN_DEMO_CASE.folder_name === oldName || (!BUILTIN_DEMO_CASE.folder_name && BUILTIN_DEMO_CASE.metadata?.medical_field === oldName)) {
+        BUILTIN_DEMO_CASE.folder_name = newName;
+    }
+
+    // 3. Sortierreihenfolge aktualisieren
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const idx = order.indexOf(oldName);
+    if (idx !== -1) {
+        order[idx] = newName;
+    } else {
+        order.push(newName);
+    }
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    // 4. Zustand (geöffnet/geschlossen) übertragen
+    if (bookshelfFolderState[oldName] !== undefined) {
+        bookshelfFolderState[newName] = bookshelfFolderState[oldName];
+        delete bookshelfFolderState[oldName];
+    }
+
+    // 5. Mit Supabase synchronisieren (falls angemeldet)
+    if (typeof supabaseClient !== 'undefined' && window.currentSession) {
+        try {
+            await supabaseClient
+                .from('medical_cases')
+                .update({ folder_name: newName, updated_at: new Date().toISOString() })
+                .eq('folder_name', oldName)
+                .eq('user_id', window.currentSession.user.id);
+        } catch (err) {
+            console.error('Fehler bei Supabase Folder Update:', err);
+        }
+    }
+
+    renderDashboardCases();
+}
+
+/**
+ * Verschiebt einen Fall in einen neuen Zielordner
  */
 async function moveCaseToFolder(caseId, targetFolder) {
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
@@ -413,26 +562,29 @@ async function moveCaseToFolder(caseId, targetFolder) {
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
         if (typeof supabaseClient !== 'undefined' && window.currentSession) {
-            const { error } = await supabaseClient
-                .from('medical_cases')
-                .update({ folder_name: targetFolder, updated_at: new Date() })
-                .eq('case_id', caseId)
-                .eq('user_id', window.currentSession.user.id);
-
-            if (error) {
-                console.error('Fehler beim Aktualisieren des Ordners in Supabase:', error.message);
+            try {
+                await supabaseClient
+                    .from('medical_cases')
+                    .update({ folder_name: targetFolder, updated_at: new Date().toISOString() })
+                    .eq('case_id', caseId)
+                    .eq('user_id', window.currentSession.user.id);
+            } catch (err) {
+                console.error('Fehler beim Verschieben in Supabase:', err);
             }
         }
-
-        renderDashboardCases();
+    } else if (caseId === BUILTIN_DEMO_CASE.case_id) {
+        BUILTIN_DEMO_CASE.folder_name = targetFolder;
     }
+
+    renderDashboardCases();
 }
 
 /**
- * Hilfsfunktion zum sicheren Escapen von HTML (XSS-Prävention)
+ * XSS-Schutz: HTML sicher escapen
  */
 function escapeHtml(str) {
-    return str.replace(/[&<>'"]/g, 
+    if (!str) return '';
+    return String(str).replace(/[&<>'"]/g, 
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
