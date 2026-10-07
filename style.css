@@ -512,3 +512,46 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .folder-case-item.case-solved {
     border-left: 2px solid var(--color-symptom);
 }
+
+/* ==========================================================================
+   Audit-Modus & Stealth-Klick-Handling
+   ========================================================================== */
+
+/* Basis-Darstellung für alle Wörter und Hotspots im Audit-Text */
+.stealth-hotspot,
+.stealth-word {
+    cursor: pointer;
+    display: inline;
+    border-radius: 3px;
+    padding: 1px 2px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    user-select: text; /* Erlaubt natürliches Lesen, Klicks werden trotzdem erfasst */
+}
+
+/* Leichter Hover-Effekt, damit man spürt, dass der Text interaktiv ist */
+.stealth-hotspot:hover,
+.stealth-word:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 1. RICHTIG ENTDECKTER FEHLER (Signal) */
+.resolved-signal {
+    background-color: rgba(239, 68, 68, 0.25) !important; /* Rötlicher Marker */
+    border-bottom: 2px solid var(--accent-red, #ef4444) !important;
+    color: #fca5a5 !important;
+    cursor: default !important;
+}
+
+/* 2. FEHLALARM (Hotspot geklickt, der aber medizinisch korrekt war) */
+.resolved-noise {
+    background-color: rgba(148, 163, 184, 0.15) !important;
+    text-decoration: line-through;
+    color: var(--text-muted, #94a3b8) !important;
+    cursor: default !important;
+}
+
+/* 3. UNSYSTEMATISCHER KLICK (Wort geklickt, das gar kein Hotspot ist) */
+.resolved-generic {
+    opacity: 0.6;
+    cursor: default !important;
+}
