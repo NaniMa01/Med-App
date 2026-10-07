@@ -111,18 +111,25 @@
           "disease": "Lewy-Body-Demenz"
         }
       ]
+    },
+    "doctordle": {
+      "title": "Klinische Deduktion: Differenzialdiagnose-Rätsel",
+      "target_diagnosis": "Lewy-Body-Demenz",
+      "synonyms": [
+        "LBD",
+        "DLB",
+        "Demenz mit Lewy-Körperchen",
+        "Lewy-Körperchen-Demenz"
+      ],
+      "hints": [
+        "72-jähriger Patient mit schleichendem kognitivem Abbau und stark schwankender Aufmerksamkeit im Tagesverlauf.",
+        "Wiederkehrende, gut ausgeformte visuelle Halluzinationen (z. B. kleine Tiere oder Personen im Zimmer).",
+        "Ausgeprägte Neuroleptika-Überempfindlichkeit mit schwerer Rigidität nach niedrig dosiertem Haloperidol.",
+        "Parkinsonismus mit Rigor und Bradykinese, beginnend nach den kognitiven Symptomen.",
+        "Traumschlafverhalten (REM-Schlaf-Verhaltensstörung) in der Anamnese; DAT-SPECT mit reduzierter Aufnahme.",
+        "Intraneuronale alpha-Synuclein-Einschlüsse (Lewy-Körperchen) als neuropathologisches Korrelat."
+      ],
+      "learning_pearl": "Fluktuierende Kognition, optische Halluzinationen und Parkinsonismus sind die Kernkriterien der Lewy-Body-Demenz; Neuroleptika sind wegen schwerer Überempfindlichkeit zu meiden."
     }
-  },
-  "doctordle": {
-    "canonical_diagnosis": "Lewy-Body-Demenz",
-    "synonyms": ["LBD", "DLB", "Demenz mit Lewy-Körperchen", "Lewy-Körperchen-Demenz"],
-    "hints": [
-      "72-jähriger Patient mit schleichendem kognitivem Abbau und stark schwankender Aufmerksamkeit im Tagesverlauf.",
-      "Wiederkehrende, gut ausgeformte visuelle Halluzinationen (z. B. kleine Tiere oder Personen im Zimmer).",
-      "Ausgeprägte Neuroleptika-Überempfindlichkeit mit schwerer Rigidität nach niedrig dosiertem Haloperidol.",
-      "Parkinsonismus mit Rigor und Bradykinese, beginnend nach den kognitiven Symptomen.",
-      "Traumschlafverhalten (REM-Schlaf-Verhaltensstörung) in der Anamnese; DAT-SPECT mit reduzierter Aufnahme.",
-      "Intraneuronale alpha-Synuclein-Einschlüsse (Lewy-Körperchen) als neuropathologisches Korrelat."
-    ]
   }
 }

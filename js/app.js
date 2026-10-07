@@ -90,6 +90,7 @@ const BUILTIN_DEMO_CASE = {
 // INIT
 document.addEventListener('DOMContentLoaded', () => {
     initUserData();
+    syncAllCasesToDictionary();
     renderSkillsSidebar();
     renderDashboardCases();
 
@@ -146,6 +147,19 @@ function updateStatsUI() {
     let rank = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
     const statRank = document.getElementById('stat-rank');
     if (statRank) statRank.innerText = rank;
+}
+
+/** Score-Callback für Doctordle: lokal + Cloud-Sync (via applyXpDelta). */
+function updateUserXP(delta, label) {
+    applyXpDelta(delta, label || 'Doctordle');
+}
+
+/** Füttert die DiagnosisRegistry mit Built-in- und Custom-Fällen. */
+function syncAllCasesToDictionary() {
+    if (!window.DiagnosisRegistry) return;
+    let customCases = [];
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
+    window.DiagnosisRegistry.registerAllCases([BUILTIN_DEMO_CASE, ...customCases]);
 }
 
 function applyXpDelta(delta, label) {
@@ -209,7 +223,6 @@ function switchTab(tab, el) {
 
     showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
     showTab('player-view', tab === 'player' ? 'block' : 'none');
-    showTab('doctordle-view', tab === 'doctordle' ? 'block' : 'none');
     showTab('forge-view', tab === 'forge' ? 'block' : 'none');
     showTab('settings-view', tab === 'settings' ? 'block' : 'none');
     showTab('nav-player', tab === 'player' ? 'flex' : 'none');
@@ -220,7 +233,6 @@ function switchTab(tab, el) {
     if (overlay) overlay.classList.remove('active');
 
     if (tab === 'dashboard') renderDashboardCases();
-    if (tab === 'doctordle' && window.doctordleGame) window.doctordleGame.init();
 }
 
 function switchPlayerMode(mode) {
@@ -767,6 +779,15 @@ window.loadCaseById = function(caseId) {
 
     show('tab-btn-topo', false);
 
+    if (window.activeDoctordle) { window.activeDoctordle.destroy(); window.activeDoctordle = null; }
+    const ddBtn = document.getElementById('tab-btn-doctordle');
+    const hasDoctordle = !!(tasks.doctordle && Array.isArray(tasks.doctordle.hints) && tasks.doctordle.hints.length && tasks.doctordle.target_diagnosis);
+    if (ddBtn) ddBtn.classList.toggle('hidden', !hasDoctordle);
+    if (hasDoctordle && window.DoctordleChallenge && window.DiagnosisRegistry) {
+        window.DiagnosisRegistry.registerCase(activeCaseData);
+        window.activeDoctordle = new window.DoctordleChallenge(activeCaseData, updateUserXP);
+    }
+
     const safely = (label, fn) => {
         try { 
             if (typeof fn === 'function') {
@@ -966,6 +987,7 @@ window.validateAndSaveCustomCase = function() {
         customCases = customCases.filter(c => c.case_id !== parsed.case_id);
         customCases.push(parsed);
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        if (window.DiagnosisRegistry) window.DiagnosisRegistry.registerCase(parsed);
 
         showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
         renderDashboardCases();

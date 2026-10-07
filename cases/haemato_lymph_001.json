@@ -68,5 +68,26 @@
         }
       ]
     }
-  ]
+  ],
+  "extra_tasks": {
+    "doctordle": {
+      "title": "Klinische Deduktion: Differenzialdiagnose-Rätsel",
+      "target_diagnosis": "Burkitt-Lymphom",
+      "synonyms": [
+        "Burkitt Lymphom",
+        "Burkitt-Lymphom (endemisch)",
+        "BL",
+        "Kleinzellig-undifferenziertes Non-Hodgkin-Lymphom"
+      ],
+      "hints": [
+        "Stufe 1 (Initialbefund): Ein Kind stellt sich mit einer rasch wachsenden, schmerzlosen Raumforderung im Kieferbereich vor.",
+        "Stufe 2 (Status): Die Schwellung hat sich innerhalb weniger Wochen verdoppelt; B-Symptomatik und Allgemeinzustandsverschlechterung treten auf.",
+        "Stufe 3 (Labor): LDH und Harnsäure sind massiv erhöht – Hinweis auf eine extrem hohe Zellumsatzrate (Tumorlyse-Risiko).",
+        "Stufe 4 (Histologie): Mittelgroße monomorphe B-Zellen mit basophilem Zytoplasma und vielen Mitosen; Proliferationsrate (Ki-67) nahezu 100 %.",
+        "Stufe 5 (Morphologie): Typisches 'Sternenhimmel-Muster' durch Makrophagen mit phagozytierten apoptotischen Zellen.",
+        "Stufe 6 (Genetik): Translokation t(8;14) mit Überexpression des MYC-Onkogens im Keimzentrum-Phänotyp."
+      ],
+      "learning_pearl": "Das Burkitt-Lymphom ist ein hochaggressives B-Zell-Lymphom mit t(8;14)/MYC-Aktivierung, Sternenhimmel-Histologie und Ki-67 ≈ 100 %; Therapiebeginn ist ein Notfall (Tumorlyse-Prophylaxe)."
+    }
+  }
 }

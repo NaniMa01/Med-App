@@ -115,16 +115,25 @@
       "correct_pathophysiology": "Nur der RT-QuIC detektiert fehlgefaltetes PrP^Sc direkt mit nahezu 100%iger Spezifität[cite: 4]."
     }
   ],
-  "doctordle": {
-    "canonical_diagnosis": "Creutzfeldt-Jakob-Krankheit",
-    "synonyms": ["CJK", "CJD", "Subakute spongiforme Enzephalopathie", "Prionenerkrankung des ZNS"],
-    "hints": [
-      "65-jährige Patientin mit rasch progredientem kognitivem Abbau, Persönlichkeitsveränderungen und visuellen Halluzinationen.",
-      "Auftreten ausgeprägter Myoklonien, triggerbar durch akustische und taktile Reize (Startle-Response).",
-      "EEG zeigt periodische bi- und triphasische Sharp-Wave-Komplexe (PSWC) mit 1 Hz.",
-      "Liquordiagnostik: Protein 14-3-3 und Tau-Protein signifikant erhöht, RT-QuIC positiv.",
-      "cMRT (DWI): Hyperintensitäten im Kortex ('cortical ribboning') und im Striatum.",
-      "Letale spongiforme Enzephalopathie ohne kausale Therapiemöglichkeit."
-    ]
+  "extra_tasks": {
+    "doctordle": {
+      "title": "Klinische Deduktion: Differenzialdiagnose-Rätsel",
+      "target_diagnosis": "Creutzfeldt-Jakob-Krankheit",
+      "synonyms": [
+        "CJK",
+        "CJD",
+        "Subakute spongiforme Enzephalopathie",
+        "Prionenerkrankung des ZNS"
+      ],
+      "hints": [
+        "Stufe 1 (Anamnese/Initialbefund): 65-jährige Patientin stellt sich mit rasch progredientem kognitivem Verfall, Ataxie und visuellen Halluzinationen vor.",
+        "Stufe 2 (Klinischer Status): Neurologisch fallen ausgeprägte Myoklonien auf, die insbesondere durch akustische und taktile Schreckreize (Startle-Response) triggerbar sind.",
+        "Stufe 3 (Basislabor): Routinelabor, Liquorzellzahl und entzündliche Parameter sind unauffällig; Ausschluss metabolischer/toxischer Enzephalopathien.",
+        "Stufe 4 (Funktionsdiagnostik): Das EEG zeigt periodische bi- und triphasische Sharp-Wave-Komplexe (PSWC) mit einer Frequenz von ca. 1 Hz.",
+        "Stufe 5 (Bildgebung): Im cMRT (DWI/FLAIR) finden sich typische bandförmige Signalhyperintensitäten im Kortex ('cortical ribboning') und in den Basalganglien.",
+        "Stufe 6 (Pathognomonischer Biomarker): In der erweiterten Liquordiagnostik ist das Protein 14-3-3 positiv und die RT-QuIC-Reaktion (Real-Time Quaking-Induced Conversion) eindeutig positiv."
+      ],
+      "learning_pearl": "Die Trias aus rascher Demenz, Myoklonien und PSWC im EEG in Verbindung mit einem positiven RT-QuIC sichert klinisch die Diagnose einer sporadischen CJK."
+    }
   }
 }

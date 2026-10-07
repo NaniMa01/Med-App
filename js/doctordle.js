@@ -1,233 +1,242 @@
 /**
- * Doctordle – Diagnose-Ratespiel mit 6 progressiven Hinweisen.
- * Abhängigkeiten: DiagnosisDictionary (mapping.js), applyXpDelta/escapeHtml/BUILTIN_DEMO_CASE (app.js).
+ * Doctordle – fall-integriertes Deduktions-Rätsel (Tab "Doctordle" im Player).
+ * Datenquelle: caseData.extra_tasks.doctordle { title, target_diagnosis, synonyms, hints, learning_pearl }
+ * Abhängigkeit: window.DiagnosisRegistry (js/mapping.js, klassisches Skript).
  */
-const DOCTORDLE_MAX_ATTEMPTS = 6;
-const DOCTORDLE_WIN_XP = [600, 500, 400, 300, 200, 100];
-const DOCTORDLE_PENALTY_XP = 200;
-const DOCTORDLE_CASE_FILES = [
-    'neuro_cjk_001', 'neuro_demenz_001', 'neuro_ftd_002_adv', 'neuro_ftd_ppa_002',
-    'neuro_lbd_audit_001', 'haemato_lymph_001', 'haemato_lymph_002'
-];
+export const DOCTORDLE_XP_SCALE = [600, 500, 400, 300, 200, 100];
+export const DOCTORDLE_REVEAL_PENALTY = 200;
+const MAX_ATTEMPTS = DOCTORDLE_XP_SCALE.length;
+const SCORED_KEY = 'doctordle_scored';
 
-class DoctordleGame {
-    constructor() {
-        this.cases = [];
-        this.current = null;
-        this.attempts = 0;
-        this.state = 'idle'; // idle | playing | won | lost
-        this.activeIndex = -1;
+const esc = s => String(s == null ? '' : s).replace(/[&<>'"]/g,
+    t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[t]));
+
+export class DoctordleChallenge {
+    /**
+     * @param {object} caseData       aktiver Fall
+     * @param {function} onScoreUpdate Callback (xpDelta, label) -> XP-Update inkl. Cloud-Sync
+     */
+    constructor(caseData, onScoreUpdate) {
+        this.caseData = caseData;
+        this.doctordleData = caseData && caseData.extra_tasks && caseData.extra_tasks.doctordle;
+        this.onScoreUpdate = typeof onScoreUpdate === 'function' ? onScoreUpdate : () => {};
+        this.currentAttempt = 0;
+        this.isFinished = false;
         this.matches = [];
-        this.els = {};
+        this.activeIndex = -1;
+        this.abort = new AbortController();
+
+        if (!this.doctordleData || !Array.isArray(this.doctordleData.hints)) return;
+        this.cacheDom();
+        if (!this.el.input) return;
+        this.render();
+        this.bind();
     }
 
-    async init() {
-        this.els = {
-            select: document.getElementById('doctordle-case-select'),
-            cards: document.getElementById('doctordle-cards'),
-            input: document.getElementById('doctordle-input'),
-            list: document.getElementById('doctordle-suggestions'),
-            submit: document.getElementById('doctordle-submit'),
-            reveal: document.getElementById('doctordle-reveal'),
-            fb: document.getElementById('doctordle-fb'),
-            combo: document.getElementById('doctordle-combobox')
+    cacheDom() {
+        const $ = id => document.getElementById(id);
+        this.el = {
+            title: $('doctordle-title'), subtitle: $('doctordle-subtitle'), xp: $('doctordle-xp-badge'),
+            hints: $('doctordle-hints'), input: $('doctordle-input'), list: $('doctordle-autocomplete-list'),
+            submit: $('doctordle-submit-btn'), reveal: $('doctordle-reveal-btn'), result: $('doctordle-result-box'),
+            wrap: $('doctordle-autocomplete-wrap')
         };
-        if (!this.els.cards || this.initialized) return;
-        this.initialized = true;
-        this.bindEvents();
-        await this.loadCases();
     }
 
-    async loadCases() {
-        const found = [];
-        const seen = new Set();
-        const push = c => {
-            if (c && c.doctordle && c.doctordle.hints && c.case_id && !seen.has(c.case_id)) {
-                seen.add(c.case_id); found.push(c);
-            }
-        };
-        try { push(typeof BUILTIN_DEMO_CASE !== 'undefined' ? BUILTIN_DEMO_CASE : null); } catch (e) { /* ignore */ }
-        try { (JSON.parse(localStorage.getItem('custom_cases')) || []).forEach(push); } catch (e) { /* ignore */ }
-        await Promise.all(DOCTORDLE_CASE_FILES.map(async name => {
-            try {
-                const res = await fetch(`cases/${name}.json`);
-                if (res.ok) push(await res.json());
-            } catch (e) { /* Datei nicht verfügbar */ }
-        }));
-        this.cases = found;
-        DiagnosisDictionary.build(found);
-        this.els.select.innerHTML = found.length
-            ? found.map((c, i) => `<option value="${i}">Rätsel ${i + 1}</option>`).join('')
-            : '<option value="">Keine Doctordle-Fälle verfügbar</option>';
-        if (found.length) this.start(0);
-        else this.els.fb.textContent = 'Keine Fälle mit Doctordle-Daten gefunden.';
-    }
-
-    start(index) {
-        const c = this.cases[index];
-        if (!c) return;
-        this.current = c;
-        this.attempts = 0;
-        this.state = 'playing';
-        this.els.input.value = '';
+    render() {
+        const d = this.doctordleData;
+        this.el.title.textContent = d.title || 'Klinische Deduktion';
+        this.el.subtitle.textContent = 'Jeder Fehlversuch deckt einen weiteren Hinweis auf – und senkt die möglichen XP.';
+        this.el.input.value = '';
+        this.el.input.disabled = false;
+        this.el.submit.disabled = false;
+        this.el.reveal.disabled = false;
+        this.el.result.className = 'feedback-box';
+        this.el.result.style.display = 'none';
+        this.el.result.innerHTML = '';
         this.closeList();
-        this.setControlsDisabled(false);
-        this.els.fb.className = 'feedback-box';
-        this.els.fb.style.display = 'none';
-        this.renderCards();
-    }
-
-    /** Zeigt Hinweise 1..(attempts+1); der Rest bleibt Placeholder. */
-    renderCards() {
-        const hints = this.current.doctordle.hints.slice(0, DOCTORDLE_MAX_ATTEMPTS);
-        const visible = this.state === 'playing' ? this.attempts + 1 : DOCTORDLE_MAX_ATTEMPTS;
-        let html = '';
-        for (let i = 0; i < DOCTORDLE_MAX_ATTEMPTS; i++) {
-            const shown = i < visible && hints[i];
-            const cls = ['doctordle-card', shown ? 'revealed' : 'placeholder'];
-            if (this.state === 'won') cls.push('win');
-            html += `<div class="${cls.join(' ')}"><span class="doctordle-card-num">${i + 1}</span>` +
-                `<span class="doctordle-card-text">${shown ? escapeHtml(hints[i]) : ''}</span></div>`;
+        this.el.hints.innerHTML = '';
+        for (let i = 0; i < MAX_ATTEMPTS; i++) {
+            const box = document.createElement('div');
+            box.className = 'doctordle-hint empty';
+            box.id = `doctordle-hint-${i}`;
+            this.el.hints.appendChild(box);
         }
-        this.els.cards.innerHTML = html;
+        this.revealHints(1);
+        this.updateXpBadge();
     }
 
-    setControlsDisabled(disabled) {
-        this.els.input.disabled = disabled;
-        this.els.submit.disabled = disabled;
-        this.els.reveal.disabled = disabled;
+    /** Deckt Hinweise bis einschließlich Anzahl `count` auf. */
+    revealHints(count, animateFrom = 0) {
+        const hints = this.doctordleData.hints;
+        for (let i = 0; i < MAX_ATTEMPTS; i++) {
+            const box = this.el.hints.children[i];
+            if (!box || i >= count || !hints[i] || !box.classList.contains('empty')) continue;
+            box.classList.remove('empty');
+            box.innerHTML = `<span class="doctordle-hint-num">${i + 1}</span><span>${esc(hints[i])}</span>`;
+            if (i >= animateFrom) this.pulseHint(box);
+        }
     }
 
-    showFeedback(type, html) {
-        this.els.fb.className = `feedback-box feedback-${type}`;
-        this.els.fb.style.display = 'block';
-        this.els.fb.innerHTML = html;
+    pulseHint(box) {
+        box.classList.remove('pulse');
+        void box.offsetWidth; // Animation neu starten
+        box.classList.add('pulse');
     }
 
-    /** Bereits gewertete Rätsel geben keine XP mehr (Schutz vor Farming). */
-    isScored(caseId) {
-        try { return (JSON.parse(localStorage.getItem('doctordle_done')) || []).includes(caseId); } catch (e) { return false; }
-    }
-    markScored(caseId) {
-        let done = [];
-        try { done = JSON.parse(localStorage.getItem('doctordle_done')) || []; } catch (e) { /* ignore */ }
-        if (!done.includes(caseId)) done.push(caseId);
-        localStorage.setItem('doctordle_done', JSON.stringify(done));
+    updateXpBadge() {
+        const xp = this.isFinished ? 0 : DOCTORDLE_XP_SCALE[Math.min(this.currentAttempt, MAX_ATTEMPTS - 1)];
+        this.el.xp.textContent = this.isFinished ? 'Beendet' : `Mögliche XP: +${xp}`;
     }
 
-    applyXp(delta, label) {
-        const id = this.current.case_id;
-        if (this.isScored(id)) return;
-        this.markScored(id);
-        if (typeof applyXpDelta === 'function') applyXpDelta(delta, label);
+    isScored() {
+        try { return (JSON.parse(localStorage.getItem(SCORED_KEY)) || []).includes(this.caseData.case_id); } catch (e) { return false; }
+    }
+
+    markScored() {
+        let list = [];
+        try { list = JSON.parse(localStorage.getItem(SCORED_KEY)) || []; } catch (e) { /* ignore */ }
+        if (!list.includes(this.caseData.case_id)) list.push(this.caseData.case_id);
+        localStorage.setItem(SCORED_KEY, JSON.stringify(list));
+    }
+
+    /** XP nur einmal pro Fall vergeben (Schutz vor Farming durch Neuladen). */
+    award(xp, label) {
+        if (xp === 0 || this.isScored()) return false;
+        this.markScored();
+        this.onScoreUpdate(xp, label);
+        return true;
+    }
+
+    finish(type, html) {
+        this.isFinished = true;
+        this.el.input.disabled = true;
+        this.el.submit.disabled = true;
+        this.el.reveal.disabled = true;
+        this.closeList();
+        this.updateXpBadge();
+        this.el.result.className = `feedback-box feedback-${type}`;
+        this.el.result.style.display = 'block';
+        this.el.result.innerHTML = html;
+    }
+
+    pearlHtml() {
+        const p = this.doctordleData.learning_pearl;
+        return p ? `<div class="doctordle-pearl">💎 ${esc(p)}</div>` : '';
     }
 
     submit() {
-        if (this.state !== 'playing') return;
-        const guess = this.els.input.value.trim();
+        if (this.isFinished) return;
+        const guess = this.el.input.value.trim();
         if (!guess) return;
+        const d = this.doctordleData;
         this.closeList();
-        const target = this.current.doctordle.canonical_diagnosis;
-        const resolved = DiagnosisDictionary.resolveDiagnosis(guess);
-        this.attempts++;
 
-        if (resolved && resolved.canonical === target) {
-            const xp = DOCTORDLE_WIN_XP[this.attempts - 1];
-            this.state = 'won';
-            this.setControlsDisabled(true);
-            this.renderCards();
-            this.showFeedback('success', `<strong>Richtig!</strong> ${escapeHtml(target)} – Versuch ${this.attempts}/${DOCTORDLE_MAX_ATTEMPTS}, +${xp} XP.`);
-            this.applyXp(xp, 'Doctordle');
-        } else if (this.attempts >= DOCTORDLE_MAX_ATTEMPTS) {
-            this.lose('Alle Versuche verbraucht.');
-        } else {
-            this.els.input.value = '';
-            this.renderCards();
-            this.showFeedback('error', `<strong>Leider falsch.</strong> Neuer Hinweis freigeschaltet (${this.attempts}/${DOCTORDLE_MAX_ATTEMPTS}).`);
-            this.els.input.focus();
+        if (window.DiagnosisRegistry.isMatch(guess, d.target_diagnosis, d.synonyms)) {
+            const xp = DOCTORDLE_XP_SCALE[this.currentAttempt];
+            this.revealHints(MAX_ATTEMPTS, this.currentAttempt + 1);
+            Array.from(this.el.hints.children).forEach(b => b.classList.add('correct'));
+            const gained = this.award(xp, 'Doctordle');
+            this.finish('success', `<strong>Richtig!</strong> ${esc(d.target_diagnosis)} – ` +
+                (gained ? `+${xp} XP` : 'XP für dieses Rätsel wurden bereits vergeben') + this.pearlHtml());
+            return;
         }
+
+        this.currentAttempt++;
+        this.el.input.value = '';
+        this.shake();
+        if (this.currentAttempt >= MAX_ATTEMPTS) {
+            this.revealHints(MAX_ATTEMPTS, 0);
+            this.finish('error', `<strong>Alle Versuche verbraucht (0 XP).</strong> Gesuchte Diagnose: <strong>${esc(d.target_diagnosis)}</strong>` + this.pearlHtml());
+            return;
+        }
+        this.revealHints(this.currentAttempt + 1, this.currentAttempt);
+        this.updateXpBadge();
+        this.el.result.className = 'feedback-box feedback-error';
+        this.el.result.style.display = 'block';
+        this.el.result.innerHTML = `<strong>Leider nicht.</strong> Ein weiterer Hinweis wurde aufgedeckt.`;
+        this.el.input.focus();
     }
 
-    reveal() {
-        if (this.state !== 'playing') return;
-        if (!window.confirm(`Lösung wirklich aufdecken? Das kostet ${DOCTORDLE_PENALTY_XP} XP.`)) return;
-        this.lose('Lösung aufgedeckt.');
+    shake() {
+        this.el.input.classList.remove('shake');
+        void this.el.input.offsetWidth;
+        this.el.input.classList.add('shake');
     }
 
-    lose(reason) {
-        this.state = 'lost';
-        this.setControlsDisabled(true);
-        this.els.input.value = '';
-        this.renderCards();
-        this.showFeedback('error', `<strong>${escapeHtml(reason)}</strong> Gesuchte Diagnose: <strong>${escapeHtml(this.current.doctordle.canonical_diagnosis)}</strong> (−${DOCTORDLE_PENALTY_XP} XP).`);
-        this.applyXp(-DOCTORDLE_PENALTY_XP, 'Doctordle Aufgabe');
+    revealSolution() {
+        if (this.isFinished) return;
+        if (!window.confirm(`Lösung wirklich aufdecken? Das kostet ${DOCTORDLE_REVEAL_PENALTY} XP.`)) return;
+        const d = this.doctordleData;
+        this.revealHints(MAX_ATTEMPTS, 0);
+        this.award(-DOCTORDLE_REVEAL_PENALTY, 'Doctordle Aufgabe');
+        this.finish('error', `<strong>Lösung:</strong> ${esc(d.target_diagnosis)} (−${DOCTORDLE_REVEAL_PENALTY} XP)` + this.pearlHtml());
     }
 
     /* ---------- Autocomplete ---------- */
     updateSuggestions() {
-        const q = this.els.input.value.trim().toLowerCase();
-        if (q.length < 2) return this.closeList();
-        this.matches = DiagnosisDictionary.getInputTerms().filter(t => t.toLowerCase().includes(q)).slice(0, 8);
+        this.matches = window.DiagnosisRegistry.getAutocompleteSuggestions(this.el.input.value, 8);
         this.activeIndex = -1;
         if (!this.matches.length) return this.closeList();
-        this.els.list.innerHTML = this.matches.map((t, i) =>
-            `<li role="option" id="doctordle-opt-${i}" data-index="${i}" aria-selected="false">${escapeHtml(t)}</li>`).join('');
-        this.els.list.hidden = false;
-        this.els.input.setAttribute('aria-expanded', 'true');
+        this.el.list.innerHTML = this.matches.map((t, i) =>
+            `<li role="option" id="doctordle-opt-${i}" data-index="${i}" aria-selected="false">${esc(t)}</li>`).join('');
+        this.el.list.classList.remove('hidden');
+        this.el.input.setAttribute('aria-expanded', 'true');
     }
 
     closeList() {
         this.matches = [];
         this.activeIndex = -1;
-        if (this.els.list) { this.els.list.hidden = true; this.els.list.innerHTML = ''; }
-        if (this.els.input) {
-            this.els.input.setAttribute('aria-expanded', 'false');
-            this.els.input.removeAttribute('aria-activedescendant');
-        }
+        this.el.list.classList.add('hidden');
+        this.el.list.innerHTML = '';
+        this.el.input.setAttribute('aria-expanded', 'false');
+        this.el.input.removeAttribute('aria-activedescendant');
     }
 
     setActive(i) {
-        const items = this.els.list.querySelectorAll('li');
+        const items = this.el.list.querySelectorAll('li');
         items.forEach(li => { li.classList.remove('active'); li.setAttribute('aria-selected', 'false'); });
         this.activeIndex = i;
-        if (i >= 0 && items[i]) {
-            items[i].classList.add('active');
-            items[i].setAttribute('aria-selected', 'true');
-            items[i].scrollIntoView({ block: 'nearest' });
-            this.els.input.setAttribute('aria-activedescendant', items[i].id);
-        }
+        const li = items[i];
+        if (!li) return;
+        li.classList.add('active');
+        li.setAttribute('aria-selected', 'true');
+        li.scrollIntoView({ block: 'nearest' });
+        this.el.input.setAttribute('aria-activedescendant', li.id);
     }
 
     choose(i) {
         if (this.matches[i] === undefined) return;
-        this.els.input.value = this.matches[i];
+        this.el.input.value = this.matches[i];
         this.closeList();
-        this.els.input.focus();
+        this.el.input.focus();
     }
 
-    bindEvents() {
-        const { input, list, submit, reveal, select, combo } = this.els;
-        input.addEventListener('input', () => this.updateSuggestions());
+    bind() {
+        const { signal } = this.abort;
+        const { input, list, submit, reveal, wrap } = this.el;
+        input.addEventListener('input', () => this.updateSuggestions(), { signal });
         input.addEventListener('keydown', e => {
-            const open = !list.hidden && this.matches.length;
+            const open = !list.classList.contains('hidden') && this.matches.length > 0;
             if (e.key === 'ArrowDown' && open) { e.preventDefault(); this.setActive((this.activeIndex + 1) % this.matches.length); }
             else if (e.key === 'ArrowUp' && open) { e.preventDefault(); this.setActive((this.activeIndex - 1 + this.matches.length) % this.matches.length); }
-            else if (e.key === 'Escape') { this.closeList(); }
+            else if (e.key === 'Escape') this.closeList();
             else if (e.key === 'Enter') {
                 e.preventDefault();
-                if (open && this.activeIndex >= 0) this.choose(this.activeIndex);
-                else this.submit();
+                if (open && this.activeIndex >= 0) this.choose(this.activeIndex); else this.submit();
             }
-        });
+        }, { signal });
         list.addEventListener('mousedown', e => {
             const li = e.target.closest('li');
             if (li) { e.preventDefault(); this.choose(parseInt(li.dataset.index, 10)); }
-        });
-        document.addEventListener('click', e => { if (!combo.contains(e.target)) this.closeList(); });
-        submit.addEventListener('click', () => this.submit());
-        reveal.addEventListener('click', () => this.reveal());
-        select.addEventListener('change', () => this.start(parseInt(select.value, 10)));
+        }, { signal });
+        document.addEventListener('click', e => { if (!wrap.contains(e.target)) this.closeList(); }, { signal });
+        submit.addEventListener('click', () => this.submit(), { signal });
+        reveal.addEventListener('click', () => this.revealSolution(), { signal });
     }
+
+    /** Entfernt Event-Listener (beim Laden eines anderen Falls). */
+    destroy() { this.abort.abort(); }
 }
 
-window.doctordleGame = new DoctordleGame();
+window.DoctordleChallenge = DoctordleChallenge;
