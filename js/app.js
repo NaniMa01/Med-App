@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initUserData();
     renderSkillsSidebar();
     renderDashboardCases();
+    // Bookshelf wird direkt nach dem Laden der Dashboard-Fälle initialisiert
 });
 
 window.toggleSidebar = function() {
@@ -180,7 +181,6 @@ function switchTab(tab, el) {
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
     if (el) el.classList.add('active');
     
-    // Hilfsfunktion zur Vermeidung von TypeErrors
     const showTab = (id, displayStyle) => {
         const element = document.getElementById(id);
         if (element) element.style.display = displayStyle;
@@ -234,15 +234,22 @@ window.toggleSuperFolder = function() {
     if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
 };
 
+/**
+ * Zentraler Renderer für das Dashboard und die Integration des Bookshelf.
+ */
 function renderDashboardCases() {
     let customCases = [];
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     const container = document.getElementById('dashboard-folders-container');
     
-    if (!container) return; // Sicherstellen, dass der Container da ist
+    if (!container) return;
 
     let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
+    
+    // 1. Bookshelf Sidebar aktualisieren (Hier greifen wir sauber auf allCases zu!)
+    renderBookshelf(allCases);
+
     const grouped = {};
     allCases.forEach(c => {
         const cat = (c.metadata?.medical_field || "Allgemeine Neurologie").trim();
@@ -259,7 +266,7 @@ function renderDashboardCases() {
             const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
                 ? ''
                 : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
-           return `
+            return `
     <div class="case-card" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
         ${deleteBtn}
         <div>
@@ -316,6 +323,120 @@ function renderDashboardCases() {
     });
 }
 
+/**
+ * Rendert das dynamische Bookshelf (Sidebar mit Ordnern und Fällen)
+ * Gruppiert alle Fälle anhand ihres folder_name Attributes.
+ */
+function renderBookshelf(casesArray) {
+    const bookshelfContainer = document.getElementById('bookshelf-container');
+    if (!bookshelfContainer) return;
+
+    bookshelfContainer.innerHTML = '';
+
+    const folders = {};
+    casesArray.forEach(c => {
+        const folder = c.folder_name || c.metadata?.medical_field || 'Allgemein';
+        if (!folders[folder]) {
+            folders[folder] = [];
+        }
+        folders[folder].push(c);
+    });
+
+    Object.keys(folders).sort().forEach(folderName => {
+        const folderDiv = document.createElement('div');
+        folderDiv.className = 'folder-group';
+        folderDiv.dataset.folderName = folderName;
+
+        const header = document.createElement('div');
+        header.className = 'folder-header';
+        header.innerHTML = `
+            <span>📁 ${escapeHtml(folderName)} (${folders[folderName].length})</span>
+            <span class="folder-toggle">▼</span>
+        `;
+
+        const list = document.createElement('ul');
+        list.className = 'folder-cases-list';
+
+        folders[folderName].forEach(caseItem => {
+            const li = document.createElement('li');
+            li.className = 'folder-case-item';
+            li.textContent = caseItem.metadata?.title || caseItem.case_id;
+            li.dataset.caseId = caseItem.case_id;
+            li.draggable = true;
+
+            li.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', caseItem.case_id);
+            });
+
+            li.addEventListener('click', () => {
+                loadCaseById(caseItem.case_id);
+            });
+
+            list.appendChild(li);
+        });
+
+        folderDiv.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            folderDiv.classList.add('drag-over');
+        });
+
+        folderDiv.addEventListener('dragleave', () => {
+            folderDiv.classList.remove('drag-over');
+        });
+
+        folderDiv.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            folderDiv.classList.remove('drag-over');
+            
+            const caseId = e.dataTransfer.getData('text/plain');
+            if (caseId) {
+                await moveCaseToFolder(caseId, folderName);
+            }
+        });
+
+        folderDiv.appendChild(header);
+        folderDiv.appendChild(list);
+        bookshelfContainer.appendChild(folderDiv);
+    });
+}
+
+/**
+ * Verschiebt einen Fall in einen anderen Ordner (aktualisiert State, Storage & Supabase)
+ */
+async function moveCaseToFolder(caseId, targetFolder) {
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let targetCase = customCases.find(c => c.case_id === caseId);
+
+    if (targetCase) {
+        targetCase.folder_name = targetFolder;
+        targetCase.updated_at = new Date().toISOString();
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+        if (typeof supabaseClient !== 'undefined' && window.currentSession) {
+            const { error } = await supabaseClient
+                .from('medical_cases')
+                .update({ folder_name: targetFolder, updated_at: new Date() })
+                .eq('case_id', caseId)
+                .eq('user_id', window.currentSession.user.id);
+
+            if (error) {
+                console.error('Fehler beim Aktualisieren des Ordners in Supabase:', error.message);
+            }
+        }
+
+        renderDashboardCases();
+    }
+}
+
+/**
+ * Hilfsfunktion zum sicheren Escapen von HTML (XSS-Prävention)
+ */
+function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+}
+
 window.deleteCaseById = function(caseId) {
     if (caseId === BUILTIN_DEMO_CASE.case_id) return;
 
@@ -362,7 +483,6 @@ window.loadCaseById = function(caseId) {
         return; 
     }
 
-    // TOP-PRIO FIX: Bereinigen möglicher "topo" Reste aus älteren Fällen, bevor etwas geladen wird.
     if (targetCase.extra_tasks && targetCase.extra_tasks.topo) {
         delete targetCase.extra_tasks.topo;
     }
@@ -384,7 +504,6 @@ window.loadCaseById = function(caseId) {
 
     const tasks = activeCaseData.extra_tasks || {};
 
-    // Sicherer Show/Hide Helper (Verhindert TypeErrors wenn Buttons im HTML fehlen)
     const show = (id, on) => { 
         const el = document.getElementById(id); 
         if (el) el.style.display = on ? 'flex' : 'none'; 
@@ -402,10 +521,8 @@ window.loadCaseById = function(caseId) {
     const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
     show('tab-btn-quiz', hasQuiz);
 
-    // Sicheres Ausblenden eines eventuell alten Topo-Buttons
     show('tab-btn-topo', false);
 
-    // Aufrufen der Renderer (Abgesichert gegen Referenz-Fehler)
     const safely = (label, fn) => {
         try { 
             if (typeof fn === 'function') {
@@ -419,7 +536,7 @@ window.loadCaseById = function(caseId) {
     };
 
     safely('Übersicht', window.renderOverview);
-    safely('Audit', window.renderTimeline); // Erwartet globale Funktion aus audit.js
+    safely('Audit', window.renderTimeline);
 
     solvedSynapseDiseases = 1; totalSynapseDiseases = 1;
     if (hasSyn) safely('Synapsen', window.renderSynapsesMatrix);
@@ -438,7 +555,6 @@ window.loadCaseById = function(caseId) {
     checkFinalCompletion();
 };
 
-// --- V6.0 CORNELL NOTE OVERVIEW ENGINE ---
 window.renderOverview = function() {
     const container = document.getElementById('overview-container');
     if (!container) return;
@@ -481,7 +597,6 @@ window.renderOverview = function() {
     container.innerHTML = html;
 };
 
-// --- FORGE LOGIK ---
 function showForgeFeedback(type, message) {
     const fb = document.getElementById('forge-fb');
     if (!fb) return;
@@ -575,7 +690,6 @@ window.validateAndSaveCustomCase = function() {
     }
 
     try {
-        // Entfernt Markdown-Codeblöcke wie ```json ... ```
         const sanitized = sanitizeForgeJsonInput(rawVal);
         const parsed = JSON.parse(sanitized);
 
@@ -624,7 +738,6 @@ window.validateAndSaveCustomCase = function() {
 };
 
 window.checkFinalCompletion = function() {
-    // INFO: 'bodyMappingSolved' Prüfung restlos entfernt!
     const stepsDone = (clearedStepsCount === totalStepsCount);
     const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
     const casDone = (cascadesSolvedCount === totalCascades);
