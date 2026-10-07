@@ -48,7 +48,7 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
     const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
     
-    // Verhindern, dass bereits gelöste Hotspots erneut getriggert werden
+    // Verhindert Mehrfachklicks
     if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
 
     fb.style.display = 'block';
@@ -59,19 +59,22 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
         applyXpDelta(100, 'Fehler identifiziert');
         fb.className = 'feedback-box feedback-error';
         
-        // Dynamischer Fallback: nimmt 'explanation', falls vorhanden, sonst 'feedback' oder 'socratic_trap'
-        const errorExplanation = hs.explanation || hs.feedback || hs.socratic_trap || 'Diese Aussage ist pathophysiologisch inkorrekt.';
-
+        // STUFE 1: Treffer bestätigen und intellektuelle Weichenstellung anbieten
         fb.innerHTML = `
-            <div style="font-weight: 700; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
+            <div style="font-weight: 800; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
                 ⚠️ Kritischer Fehler identifiziert (+100 XP)
             </div>
-            <div style="margin-bottom: 10px; line-height: 1.5;">
-                <strong>Erklärung:</strong> ${errorExplanation}
+            <div style="margin-bottom: 15px; line-height: 1.5; color: var(--text-main, #f1f5f9);">
+                Du hast eine pathophysiologisch inkorrekte Aussage gefunden. Kannst du den Fehler im Kopf korrigieren?
             </div>
-            <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">
-                Klinische Korrektur & Synthese aufdecken
-            </button>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="action-btn secondary" onclick="revealHint(${stepIndex}, ${hotspotIndex})">
+                    💡 Sokratischen Impuls (Tipp) anzeigen
+                </button>
+                <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})">
+                    Direkt zur Synthese & Auflösung
+                </button>
+            </div>
         `;
     } else {
         span.classList.add('resolved-noise');
@@ -82,36 +85,57 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
             <div style="font-weight: 700; color: var(--text-muted, #94a3b8); margin-bottom: 6px;">
                 Fehlalarm (-40 XP)
             </div>
-            <div style="line-height: 1.5;">
-                <strong>Erklärung:</strong> ${hs.feedback || 'Diese Aussage ist im vorliegenden Kontext fachlich korrekt.'}
+            <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
+                <strong>Erklärung:</strong> ${hs.feedback || 'Diese Feststellung ist im klinischen Kontext fachlich korrekt.'}
             </div>
         `;
     }
 };
 
+// NEUE FUNKTION: Stufe 2 - Der Tutor gibt einen Hint
+window.revealHint = function(stepIndex, hotspotIndex) {
+    const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
+    const fb = document.getElementById(`audit-fb-${stepIndex}`);
+
+    // Dynamischer Fallback für den Hint
+    const explanationText = hs.explanation || hs.feedback || hs.socratic_trap || 'Überlege, welche pathophysiologischen Mechanismen hier wirklich greifen.';
+
+    fb.innerHTML = `
+        <div style="font-weight: 800; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
+            ⚠️ Kritischer Fehler identifiziert
+        </div>
+        <div style="margin-bottom: 15px; line-height: 1.5; color: var(--text-main, #f1f5f9);">
+            <strong>Tutor-Impuls:</strong> ${explanationText}
+        </div>
+        <button class="action-btn" onclick="revealSynthesis(${stepIndex}, ${hotspotIndex})" style="width: 100%;">
+            Klinische Korrektur & Synthese aufdecken
+        </button>
+    `;
+};
+
+// STUFE 3: Die finale Auflösung
 window.revealSynthesis = function(stepIndex, hotspotIndex) {
-    const step = activeCaseData.timeline[stepIndex];
-    const hs = step.hotspots[hotspotIndex];
+    const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
     const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
 
-    // Visuelles Feedback: Markierung im Text von Warnung/Rot auf gelöst/Grün umstellen
+    // Visuelles Feedback: Markierung im Text auf gelöst (grün) setzen
     if (span) {
         span.style.borderBottomColor = 'var(--accent-green, #10b981)';
+        span.style.color = '#f1f5f9'; // Hebt den Text noch etwas mehr vom Hintergrund ab
     }
 
-    // Robuster Fallback für alle gängigen Bezeichnungen in den JSON-Dateien:
     const synthesisText = hs.correct_pathophysiology 
                        || hs.synthesis 
                        || hs.correction 
                        || hs.solution 
                        || hs.pathophysiology 
                        || hs.feedback 
-                       || 'Keine detaillierte Synthese für diese Passage hinterlegt.';
+                       || 'Keine detaillierte Synthese hinterlegt.';
 
     fb.className = 'feedback-box feedback-success';
     fb.innerHTML = `
-        <div style="font-weight: 700; color: var(--accent-green, #10b981); margin-bottom: 6px;">
+        <div style="font-weight: 800; color: var(--accent-green, #10b981); margin-bottom: 6px;">
             ✓ Korrekte Pathophysiologie & Synthese
         </div>
         <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
@@ -120,6 +144,17 @@ window.revealSynthesis = function(stepIndex, hotspotIndex) {
     `;
 };
 
+
+    fb.className = 'feedback-box feedback-success';
+    fb.innerHTML = `
+        <div style="font-weight: 800; color: var(--accent-green, #10b981); margin-bottom: 6px;">
+            ✓ Korrekte Pathophysiologie & Synthese
+        </div>
+        <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
+            ${synthesisText}
+        </div>
+    `;
+};
 window.clearStep = function(stepIndex) {
     const step = activeCaseData.timeline[stepIndex];
     const hasUnresolved = step.hotspots && step.hotspots.some((hs, i) => hs.is_error && !document.getElementById(`hs-${stepIndex}-${i}`).classList.contains('resolved-signal'));
