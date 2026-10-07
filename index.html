@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MediChecker - V6.0 Cornell Edition</title>
+
+    <!-- SUPABASE CLIENT CONFIG (Hier die echten Daten eintragen) -->
+    <script>
+        window.ENV_SUPABASE_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
+        window.ENV_SUPABASE_ANON_KEY = "HIER_DEINEN_KOPIERTEN_ANON_KEY_EINSETZEN";
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- CSS WIRD HIER GELADEN -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -206,7 +212,7 @@
     </div>
 
     <!-- JAVASCRIPT MODULE LADEN -->
-    <script src="api/config.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/mapping.js"></script>
     <script src="js/doctordle.js"></script>
