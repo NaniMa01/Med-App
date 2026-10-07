@@ -1,42 +1,94 @@
 function renderTimeline() {
     const container = document.getElementById('player-container');
+    if (!container || !activeCaseData || !activeCaseData.timeline) return;
+
     container.innerHTML = activeCaseData.timeline.map((step, index) => {
         let text = step.content;
+        const hotspots = step.hotspots || []; // Fallback: Leeres Array, falls keine Fehler im JSON definiert sind
 
-        if (step.hotspots && step.hotspots.length > 0) {
-            // 1. Phrasen ersetzen – flexibel MIT oder OHNE eckige Klammern im Originaltext:
-            step.hotspots.forEach((hs, i) => {
+        // 1. Linebreaks (\n) schützen, damit lange Texte Absätze behalten
+        text = text.replace(/\n/g, '___NEWLINE___');
+
+        if (hotspots.length > 0) {
+            // 2. Phrasen durch Platzhalter ersetzen
+            hotspots.forEach((hs, i) => {
                 const escapedPhrase = hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                // Erfasst sowohl [Phrase] als auch Phrase im Text
                 const regex = new RegExp(`\\[?${escapedPhrase}\\]?`, 'g');
                 text = text.replace(regex, `___HOTSPOT_TOKEN_${i}___`);
             });
+        }
 
-            // 2. Reguläre Wörter mit stealth-word ummanteln
-            text = text.split(/(\s+)/).map(part => {
-                if (part.includes('___HOTSPOT_TOKEN_') || /^\s+$/.test(part)) {
-                    return part;
-                }
-                return `<span class="stealth-word" onclick="handleGenericClick(this)">${part}</span>`;
-            }).join('');
+        // 3. ALLE regulären Wörter mit stealth-word ummanteln (auch wenn es 0 Fehler gibt!)
+        // So weiss der Student nie, ob ein Abschnitt sicher ist oder nicht.
+        text = text.split(/(\s+)/).map(part => {
+            if (part.includes('___HOTSPOT_TOKEN_') || /^\s+$/.test(part) || part === '___NEWLINE___') {
+                return part;
+            }
+            return `<span class="stealth-word" onclick="handleGenericClick(this)">${part}</span>`;
+        }).join('');
 
-            // 3. Hotspot-Tokens mit den echten klickbaren Spans belegen
-            step.hotspots.forEach((hs, i) => {
+        // 4. Hotspot-Tokens wieder in klickbare Fehlerspans umwandeln
+        if (hotspots.length > 0) {
+            hotspots.forEach((hs, i) => {
                 const token = `___HOTSPOT_TOKEN_${i}___`;
                 const replacement = `<span class="stealth-hotspot" id="hs-${index}-${i}" onclick="evaluateAuditHotspot(${index}, ${i})">${hs.phrase}</span>`;
-                text = text.replaceAll(token, replacement);
+                // Split/Join ist robuster als replaceAll in älteren Browsern
+                text = text.split(token).join(replacement);
             });
         }
 
+        // 5. Absätze (<br>) für lange Texte wiederherstellen
+        text = text.split('___NEWLINE___').join('<br>');
+
         return `
-            <div style="margin-top:20px;">
-                <div style="font-size:0.75rem; font-weight:800; color:var(--accent-blue); text-transform:uppercase; margin-bottom:8px;">Abschnitt ${index+1}: ${step.phase}</div>
-                <div class="step-content">${text}</div>
-                <div class="feedback-box" id="audit-fb-${index}"></div>
-                <button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="width:100%; margin-top:8px;">Abschnitt freigeben (Makellos)</button>
+            <div class="audit-step-container" style="margin-top: 25px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size:0.75rem; font-weight:800; color:var(--accent-blue); text-transform:uppercase; margin-bottom:12px;">Abschnitt ${index+1}: ${step.phase}</div>
+                <div class="step-content" style="line-height: 1.6; font-size: 1rem;">${text}</div>
+                <div class="feedback-box" id="audit-fb-${index}" style="display:none; margin-top: 15px;"></div>
+                <button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="width:100%; margin-top:15px;">Abschnitt freigeben (Makellos)</button>
             </div>`;
     }).join('');
 }
+
+window.clearStep = function(stepIndex) {
+    const step = activeCaseData.timeline[stepIndex];
+    const hotspots = step.hotspots || []; // Sicherstellen, dass das Array existiert
+    
+    // Prüfen, ob es in diesem Abschnitt ECHTE Fehler gibt, die noch NICHT aufgedeckt wurden
+    const hasUnresolved = hotspots.some((hs, i) => hs.is_error && !document.getElementById(`hs-${stepIndex}-${i}`).classList.contains('resolved-signal'));
+    
+    const fb = document.getElementById(`audit-fb-${stepIndex}`);
+    fb.style.display = 'block';
+
+    if (hasUnresolved) {
+        // Spieler hat auf Freigeben geklickt, obwohl noch Fehler drin sind!
+        applyXpDelta(-100, 'Fahrlässige Freigabe');
+        fb.className = 'feedback-box feedback-error';
+        fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Es befinden sich noch unentdeckte Fehler in diesem Abschnitt!`;
+    } else {
+        // Abschnitt ist sauber (entweder alle Fehler gefunden, oder es gab gar keine)
+        applyXpDelta(100, 'Abschnitt validiert');
+        fb.className = 'feedback-box feedback-success';
+        
+        if (hotspots.filter(hs => hs.is_error).length === 0) {
+            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Hervorragend! Du hast dich nicht täuschen lassen, dieser Abschnitt war komplett fehlerfrei.`;
+        } else {
+            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle Fehler in diesem Abschnitt verifiziert.`;
+        }
+        
+        document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
+        
+        // Zähler für Fortschritt updaten
+        if (typeof clearedStepsCount !== 'undefined') clearedStepsCount++;
+        const badge = document.getElementById('badge-mode-audit');
+        if (badge && typeof totalStepsCount !== 'undefined') {
+            badge.innerText = `${clearedStepsCount}/${totalStepsCount}`;
+        }
+        
+        if (typeof checkFinalCompletion === 'function') checkFinalCompletion();
+    }
+};
+
 window.handleGenericClick = function(el) {
     if (el.classList.contains('resolved-generic')) return;
     el.classList.add('resolved-generic');
@@ -154,24 +206,4 @@ window.revealSynthesis = function(stepIndex, hotspotIndex) {
             ${synthesisText}
         </div>
     `;
-};
-window.clearStep = function(stepIndex) {
-    const step = activeCaseData.timeline[stepIndex];
-    const hasUnresolved = step.hotspots && step.hotspots.some((hs, i) => hs.is_error && !document.getElementById(`hs-${stepIndex}-${i}`).classList.contains('resolved-signal'));
-    const fb = document.getElementById(`audit-fb-${stepIndex}`);
-    fb.style.display = 'block';
-
-    if (hasUnresolved) {
-        applyXpDelta(-100, 'Fahrlässige Freigabe');
-        fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Es befinden sich noch unentdeckte Fehler in diesem Abschnitt!`;
-    } else {
-        applyXpDelta(100, 'Abschnitt validiert');
-        fb.className = 'feedback-box feedback-success';
-        fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Fehlerfrei verifiziert.`;
-        document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
-        clearedStepsCount++;
-        document.getElementById('badge-mode-audit').innerText = `${clearedStepsCount}/${totalStepsCount}`;
-        checkFinalCompletion();
-    }
 };
