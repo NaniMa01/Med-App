@@ -555,3 +555,5 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
     opacity: 0.6;
     cursor: default !important;
 }
+
+.hidden { display: none !important; }

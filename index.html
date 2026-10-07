@@ -114,7 +114,21 @@
                     <div class="player-mode-pane" id="mode-container-cat" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Taxonomie<button class="tutor-btn" onclick="showTutorHint('categorization')">💡</button></div><div class="panel-subtitle" id="cat-desc"></div><div id="categorization-task"></div><button class="action-btn" onclick="evalCategorization()" style="margin-top: 15px; width: 100%;">Zuordnung prüfen</button><div class="feedback-box" id="cat-fb"></div></div></div>
                     <div class="player-mode-pane" id="mode-container-quiz" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div><div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div><div id="quiz-wrapper"></div><button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button><div class="feedback-box" id="quiz-fb"></div></div></div>
                     <div class="player-mode-pane" id="mode-container-doctordle" style="display:none;">
-
+                        <div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);">
+                            <div class="panel-title" id="doctordle-headline">Doctordle</div>
+                            <div class="panel-subtitle"><span id="doctordle-puzzle-tracker"></span> · <span id="doctordle-potential-xp"></span></div>
+                            <div id="doctordle-hints-container"></div>
+                            <div style="position: relative; margin-top: 12px;">
+                                <input type="text" id="doctordle-input" class="forge-input" placeholder="Diagnose eingeben..." autocomplete="off" style="width: 100%;">
+                                <ul id="doctordle-autocomplete-list" class="hidden" style="list-style: none; margin: 0; padding: 0; position: absolute; left: 0; right: 0; z-index: 10; background: #0b1121; border: 1px solid var(--card-border); border-radius: 8px;"></ul>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                                <button class="action-btn" id="doctordle-submit-btn" style="flex: 1;">Diagnose prüfen</button>
+                                <button class="action-btn" id="doctordle-reveal-btn">Aufdecken (-200 XP)</button>
+                            </div>
+                            <div id="doctordle-result-box" class="doctordle-result hidden" style="margin-top: 12px; padding: 12px 16px; border-radius: 8px;"></div>
+                            <button class="action-btn hidden" id="doctordle-next-btn" style="width: 100%; margin-top: 12px;">Nächstes Rätsel</button>
+                        </div>
                     </div>
                     <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%; margin-top: 24px; padding: 15px; font-size: 1rem; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);">✨ Alle Challenges & Examen gemeistert – Fall abschließen & XP sichern</button>
                 </div>

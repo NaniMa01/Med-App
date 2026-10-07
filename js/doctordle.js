@@ -56,6 +56,7 @@ class DoctordleController {
     }
 
     initCase(caseData) {
+        this.initDOM();
         if (!caseData || !caseData.extra_tasks || !caseData.extra_tasks.doctordle) {
             if (this.container) {
                 this.container.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:20px;">Keine Doctordle-Rätsel für diesen Fall hinterlegt.</div>';
