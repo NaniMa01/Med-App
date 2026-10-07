@@ -344,6 +344,9 @@ function renderDashboardCases() {
     }
 }
 
+/**
+ * Rendert das dynamische Bookshelf mit Akkordeon, Ordner-Aktionen (Umbenennen & Löschen) und Drag & Drop
+ */
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
@@ -375,16 +378,17 @@ function renderBookshelf(casesArray) {
         const folderDiv = document.createElement('div');
         folderDiv.className = 'folder-group';
 
-    const header = document.createElement('div');
+        // HIER WIRD DER HEADER MIT STIFT (✏️) UND MÜLLEIMER (🗑️) ERZEUGT:
+        const header = document.createElement('div');
         header.className = 'folder-header';
         header.innerHTML = `
-            <div style="display:flex; align-items:center; overflow:hidden; gap:4px;">
+            <div style="display:flex; align-items:center; overflow:hidden; gap:4px; flex:1; min-width:0;">
                 <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
                 <span style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
-                <span style="font-size:0.65rem; color:var(--accent-blue); margin-left:4px;">(${solvedCount}/${casesInFolder.length})</span>
+                <span style="font-size:0.65rem; color:var(--accent-blue); margin-left:4px; flex-shrink:0;">(${solvedCount}/${casesInFolder.length})</span>
             </div>
-            <div style="display:flex; align-items:center; gap:2px;">
-                <button type="button" class="folder-action-btn edit-btn" title="Umbenennen">✏️</button>
+            <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
+                <button type="button" class="folder-action-btn edit-btn" title="Ordner umbenennen">✏️</button>
                 <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
             </div>
         `;
@@ -400,14 +404,14 @@ function renderBookshelf(casesArray) {
             list.appendChild(li);
         });
 
-        // Akkordeon Klick (Auf-/Zuklappen)
+        // 1. Akkordeon Klick: Ordner ein- / ausfahren
         header.addEventListener('click', (e) => {
             if (e.target.closest('.folder-action-btn')) return;
             bookshelfFolderState[folderName] = !isOpen;
             renderBookshelf(casesArray);
         });
 
-        // 1. Umbenennen Klick (✏️)
+        // 2. Umbenennen Klick (✏️)
         const editBtn = header.querySelector('.edit-btn');
         if (editBtn) {
             editBtn.addEventListener('click', (e) => {
@@ -419,7 +423,7 @@ function renderBookshelf(casesArray) {
             });
         }
 
-        // 2. Ordner Löschen Klick (🗑️)
+        // 3. Löschen Klick (🗑️)
         const deleteFolderBtn = header.querySelector('.delete-folder-btn');
         if (deleteFolderBtn) {
             deleteFolderBtn.addEventListener('click', (e) => {
