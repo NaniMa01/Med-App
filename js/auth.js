@@ -50,10 +50,13 @@ function clearAuthFeedback() {
 // GLOBALE AUTH-FUNKTIONEN
 // ----------------------------------------------------
 
-window.authSignIn = async function() {
+window.authSignIn = async function () {
     if (!supabaseClient) {
-        showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Keys in api/config.js hinterlegen.');
-        return;
+        await initSupabase();
+        if (!supabaseClient) {
+            showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Key prüfen.');
+            return;
+        }
     }
 
     const emailInput = document.getElementById('auth-email');
@@ -66,7 +69,7 @@ window.authSignIn = async function() {
         return;
     }
 
-    showAuthFeedback('feedback-neutral', 'Anmeldung läuft...');
+    showAuthFeedback('feedback-neutral', 'Verbindung zu Supabase wird aufgebaut...');
 
     try {
         const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -76,10 +79,10 @@ window.authSignIn = async function() {
 
         if (error) {
             if (error.message.includes('Invalid login credentials')) {
-                throw new Error('E-Mail oder Passwort falsch. Falls du neu bist, klicke bitte auf "Registrieren".');
+                throw new Error('E-Mail oder Passwort falsch. Klicke auf "Registrieren", falls noch kein Account existiert.');
             }
             if (error.message.includes('Email not confirmed')) {
-                throw new Error('E-Mail-Adresse wurde noch nicht bestätigt.');
+                throw new Error('E-Mail-Adresse ist noch nicht bestätigt. Bitte Posteingang prüfen.');
             }
             throw error;
         }
@@ -92,14 +95,27 @@ window.authSignIn = async function() {
         }, 800);
 
     } catch (err) {
-        showAuthFeedback('feedback-error', `Anmeldefehler: ${err.message}`);
+        console.error('Auth-Netzwerkfehler:', err);
+        
+        // Spezifische Aufschlüsselung von "Failed to fetch"
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+            showAuthFeedback(
+                'feedback-error', 
+                'Verbindungsfehler: Der Supabase-Server konnte nicht erreicht werden. Mögliche Ursachen: Projekt pausiert, falsche URL, Adblocker aktiv oder keine Internetverbindung.'
+            );
+        } else {
+            showAuthFeedback('feedback-error', `Anmeldefehler: ${err.message}`);
+        }
     }
 };
 
-window.authSignUp = async function() {
+window.authSignUp = async function () {
     if (!supabaseClient) {
-        showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert.');
-        return;
+        await initSupabase();
+        if (!supabaseClient) {
+            showAuthFeedback('feedback-error', 'Supabase ist nicht initialisiert. Bitte API-Key prüfen.');
+            return;
+        }
     }
 
     const emailInput = document.getElementById('auth-email');
@@ -108,7 +124,7 @@ window.authSignUp = async function() {
     const password = passInput?.value || '';
 
     if (!email || !password) {
-        showAuthFeedback('feedback-error', 'Bitte E-Mail und Passwort angeben.');
+        showAuthFeedback('feedback-error', 'Bitte E-Mail und Passwort eingeben.');
         return;
     }
 
@@ -117,7 +133,7 @@ window.authSignUp = async function() {
         return;
     }
 
-    showAuthFeedback('feedback-neutral', 'Registrierung wird verarbeitet...');
+    showAuthFeedback('feedback-neutral', 'Registrierung wird übermittelt...');
 
     try {
         const { data, error } = await supabaseClient.auth.signUp({
@@ -128,16 +144,21 @@ window.authSignUp = async function() {
         if (error) throw error;
 
         if (data.user && !data.session) {
-            showAuthFeedback('feedback-success', 'Registrierung erfolgreich! Bitte Postfach prüfen und Link bestätigen.');
+            showAuthFeedback('feedback-success', 'Konto angelegt! Bitte Bestätigungslink im Postfach anklicken.');
         } else {
-            showAuthFeedback('feedback-success', 'Konto erfolgreich erstellt und eingeloggt!');
+            showAuthFeedback('feedback-success', 'Erfolgreich registriert und angemeldet!');
             setTimeout(() => {
                 const panel = document.getElementById('auth-panel');
                 if (panel) panel.style.display = 'none';
             }, 800);
         }
     } catch (err) {
-        showAuthFeedback('feedback-error', `Registrierungsfehler: ${err.message}`);
+        console.error('Signup-Netzwerkfehler:', err);
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+            showAuthFeedback('feedback-error', 'Server nicht erreichbar (Failed to fetch). Bitte Adblocker deaktivieren oder Projektstatus prüfen.');
+        } else {
+            showAuthFeedback('feedback-error', `Registrierungsfehler: ${err.message}`);
+        }
     }
 };
 
