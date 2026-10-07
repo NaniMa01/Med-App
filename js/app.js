@@ -375,7 +375,7 @@ function renderBookshelf(casesArray) {
         const folderDiv = document.createElement('div');
         folderDiv.className = 'folder-group';
 
-        const header = document.createElement('div');
+      const header = document.createElement('div');
         header.className = 'folder-header';
         header.innerHTML = `
             <div style="display:flex; align-items:center; overflow:hidden; gap:4px;">
@@ -383,9 +383,11 @@ function renderBookshelf(casesArray) {
                 <span style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
                 <span style="font-size:0.65rem; color:var(--accent-blue); margin-left:4px;">(${solvedCount}/${casesInFolder.length})</span>
             </div>
-            <button type="button" class="folder-action-btn" title="Umbenennen">✏️</button>
+            <div style="display:flex; align-items:center; gap:2px;">
+                <button type="button" class="folder-action-btn edit-btn" title="Umbenennen">✏️</button>
+                <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
+            </div>
         `;
-
         const list = document.createElement('ul');
         list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
 
