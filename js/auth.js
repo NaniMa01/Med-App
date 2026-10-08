@@ -9,16 +9,21 @@ window.currentSession = window.currentSession || null;
 const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
+// Ein Wert gilt nur als gültig, wenn er nicht leer ist und kein Platzhalter ("DEIN_...") ist.
+function isValidConfigValue(value) {
+    return typeof value === "string" && value.trim() !== "" && !value.includes("DEIN_");
+}
+
 function getActiveConfig() {
-    const url = window.ENV_SUPABASE_URL || SUPABASE_PROJECT_URL;
-    const key = window.ENV_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
+    const url = isValidConfigValue(window.ENV_SUPABASE_URL) ? window.ENV_SUPABASE_URL : SUPABASE_PROJECT_URL;
+    const key = isValidConfigValue(window.ENV_SUPABASE_ANON_KEY) ? window.ENV_SUPABASE_ANON_KEY : SUPABASE_ANON_KEY;
     return { url, key };
 }
 
 function initSupabase() {
     const { url, key } = getActiveConfig();
 
-    if (!url || !key || key.includes("DEIN_ANON_KEY_HIER_EINTRAGEN")) {
+    if (!isValidConfigValue(url) || !isValidConfigValue(key)) {
         console.warn("Supabase-Konfiguration unvollständig. App läuft im Gastmodus.");
         return false;
     }
