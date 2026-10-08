@@ -18,7 +18,7 @@ function getActiveConfig() {
 function initSupabase() {
     const { url, key } = getActiveConfig();
 
-    if (!url || !key || key.includes("DEIN_ECHTER")) {
+    if (!url || !key || key.includes("sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2")) {
         console.warn("Supabase-Konfiguration unvollständig. App läuft im Gastmodus.");
         return false;
     }
