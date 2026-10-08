@@ -6,7 +6,7 @@ let supabaseClient = null;
 window.currentSession = null;
 
 // HIER DEINE ECHTEN ZUGANGSDATEN EINTRAGEN:
-const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
+const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
 function getActiveConfig() {
@@ -18,7 +18,7 @@ function getActiveConfig() {
 function initSupabase() {
     const { url, key } = getActiveConfig();
 
-    if (!url || !key || key.includes("sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2")) {
+    if (!url || !key || key.includes("dein_echter_anon_Key")) {
         console.warn("Supabase-Konfiguration unvollständig. App läuft im Gastmodus.");
         return false;
     }
