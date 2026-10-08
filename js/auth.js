@@ -7,7 +7,7 @@ window.currentSession = window.currentSession || null;
 
 // IMPORTANT: Setze hier nur den echten Supabase Project-URL + anon/public key ein.
 const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
-const SUPABASE_ANON_KEY = "DEIN_ANON_KEY_HIER_EINTRAGEN";
+const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
 function getActiveConfig() {
     const url = window.ENV_SUPABASE_URL || SUPABASE_PROJECT_URL;
