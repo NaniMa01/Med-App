@@ -1116,7 +1116,107 @@ window.validateAndSaveCustomCase = function() {
     }
 };
 
+// ====================================================
+// CLIPBOARD HELPER: MASTER-PROMPT KOPIEREN
+// ====================================================
+window.copyMasterPrompt = function() {
+    const promptEl = document.getElementById('forge-master-prompt');
+    const btn = document.getElementById('copy-prompt-btn');
+    if (!promptEl) return;
 
+    const textToCopy = promptEl.value;
+
+    const setSuccessUI = () => {
+        if (!btn) return;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✓ Prompt kopiert!';
+        btn.classList.add('btn-copied');
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-copied');
+        }, 2200);
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(textToCopy)
+            .then(setSuccessUI)
+            .catch(() => fallbackCopy(promptEl, setSuccessUI));
+    } else {
+        fallbackCopy(promptEl, setSuccessUI);
+    }
+};
+
+function fallbackCopy(element, callback) {
+    element.focus();
+    element.select();
+    try {
+        const successful = document.execCommand('copy');
+        if (successful && callback) callback();
+    } catch (err) {
+        alert("Kopieren fehlgeschlagen. Bitte markiere den Text manuell.");
+    }
+}
+
+// ====================================================
+// FORGE: DIREKT-GENERIERUNG MIT GEMINI
+// ====================================================
+window.generateCaseWithGemini = async function() {
+    const promptInput = document.getElementById('forge-topic');
+    const masterPromptEl = document.getElementById('forge-master-prompt');
+    const outputInput = document.getElementById('forge-input');
+    const generateBtn = document.getElementById('forge-generate-btn');
+    
+    if (!promptInput || !outputInput || !generateBtn) return;
+    
+    const userTopic = promptInput.value.trim();
+    if (!userTopic) {
+        showForgeFeedback('feedback-error', 'Bitte gib zuerst ein Thema oder Vorlesungsinhalte ein.');
+        return;
+    }
+
+    // Kombiniert den Master-Prompt automatisch mit dem Skript des Nutzers
+    const masterInstruction = masterPromptEl ? masterPromptEl.value : '';
+    const fullCombinedPrompt = `${masterInstruction}\n\nHIER IST DAS ZU VERARBEITENDE VORLESUNGSSKRIPT / DER MEDIZINISCHE FACHTEXT:\n${userTopic}`;
+
+    const originalBtnText = generateBtn.innerHTML;
+    generateBtn.disabled = true;
+    generateBtn.innerText = 'Generiere medizinischen Fall...';
+    showForgeFeedback('feedback-neutral', 'Gemini synthetisiert den Fall nach Staatsexamens-Kriterien. Bitte warten...');
+
+    try {
+        const res = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: fullCombinedPrompt })
+        });
+
+        const responseText = await res.text();
+        let data = null;
+        try { data = JSON.parse(responseText); } catch (_error) { data = null; }
+
+        if (!res.ok || !data) {
+            const serverMessage = data?.error || responseText.trim().slice(0, 200);
+            throw new Error(`Serverfehler (HTTP ${res.status}): ${serverMessage}`);
+        }
+
+        const rawResult = typeof data.generatedText === 'string' ? data.generatedText : '';
+        const sanitized = sanitizeForgeJsonInput(rawResult);
+
+        try {
+            const parsed = JSON.parse(sanitized);
+            outputInput.value = JSON.stringify(parsed, null, 2);
+        } catch (_error) {
+            outputInput.value = sanitized;
+        }
+
+        showForgeFeedback('feedback-success', 'Fall erfolgreich generiert! Klicke unten auf "Fall validieren & speichern".');
+    } catch (error) {
+        showForgeFeedback('feedback-error', `Generierungsfehler: ${error.message}`);
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = originalBtnText;
+    }
+};
 // ====================================================
 // ABSCHLUSS & RESETS
 // ====================================================
