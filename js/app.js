@@ -29,6 +29,17 @@ const CANONICAL_SKILLS = [
     "Therapie und Nachsorge"
 ];
 
+// STATISCHE FALLDATEIEN AUS DEM CASES-ORDNER
+const STATIC_CASE_FILES = [
+    'cases/haemato_lymph_001.json',
+    'cases/haemato_lymph_002.json',
+    'cases/neuro_cjk_001.json',
+    'cases/neuro_demenz_001.json',
+    'cases/neuro_ftd_002_adv.json',
+    'cases/neuro_ftd_ppa_002.json',
+    'cases/neuro_lbd_audit_001.json'
+];
+
 function createBlankSkillSet() {
     return {
         "Pathophysiologie und Risikofaktoren": { hits: 0, total: 0 },
@@ -183,7 +194,7 @@ const BUILTIN_DEMO_CASE = {
 };
 
 // ====================================================
-// PROGRESS MANAGER & PERSISTENCE (100% ERHALTEN)
+// PROGRESS MANAGER & PERSISTENCE
 // ====================================================
 const ProgressManager = {
     STORAGE_KEY: 'medcheck_user_progress_v1',
@@ -253,12 +264,13 @@ window.saveChallengeProgress = function(challengeKey, data) {
 };
 
 // ====================================================
-// INITIALISIERUNG
+// INITIALISIERUNG & ASYNCHRONER PRELOADER
 // ====================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUserData();
     renderSkillsSidebar();
     renderDashboardCases();
+    preloadStaticCases(); // Lädt vorhandene JSON-Fälle aus /cases/ automatisch nach
 
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn) {
@@ -270,6 +282,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+async function preloadStaticCases() {
+    let customCases = [];
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
+    const knownIds = new Set([BUILTIN_DEMO_CASE.case_id, ...customCases.map(c => c.case_id)]);
+
+    let newlyAdded = false;
+    for (const url of STATIC_CASE_FILES) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data && data.case_id && !knownIds.has(data.case_id)) {
+                customCases.push(data);
+                knownIds.add(data.case_id);
+                newlyAdded = true;
+            }
+        } catch (_fetchErr) {
+            // Unkritisch (z.B. Offline-Betrieb oder reines file://-Protokoll)
+        }
+    }
+
+    if (newlyAdded) {
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        renderDashboardCases();
+    }
+}
 
 // ====================================================
 // ALLGEMEINE UI & UTILS
@@ -376,8 +415,9 @@ function initUserData() {
     }
     localStorage.setItem('user_skills', JSON.stringify(cleaned));
 
+    // KORRIGIERT: Valides leeres Objekt ohne Syntaxfehler
     if (!localStorage.getItem('medcheck_case_skills')) {
-        localStorage.setItem('medcheck_case_skills', JSON.stringify republic || '{}');
+        localStorage.setItem('medcheck_case_skills', JSON.stringify({}));
     }
 
     try {
@@ -514,7 +554,7 @@ function renderSkillsSidebar() {
 }
 
 // ====================================================
-// DASHBOARD & BOOKSHELF (VOLLSTÄNDIG ERHALTEN)
+// DASHBOARD & BOOKSHELF
 // ====================================================
 function renderDashboardCases() {
     let customCases = [];
@@ -959,11 +999,28 @@ window.toggleFolder = function(category) {
 // ====================================================
 // FALL LADEN & PLAYER LOGIK
 // ====================================================
-window.loadCaseById = function(caseId) {
+window.loadCaseById = async function(caseId) {
     let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch(e){}
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
     let targetCase = [BUILTIN_DEMO_CASE, ...customCases].find(c => c.case_id === caseId);
     
+    // Fallback: Falls der Fall aus einer Datei stammt und noch nicht im Speicher ist
+    if (!targetCase) {
+        for (const fileUrl of STATIC_CASE_FILES) {
+            if (fileUrl.includes(caseId)) {
+                try {
+                    const res = await fetch(fileUrl);
+                    if (res.ok) {
+                        targetCase = await res.json();
+                        customCases.push(targetCase);
+                        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+                        break;
+                    }
+                } catch (_err) {}
+            }
+        }
+    }
+
     if (!targetCase) { 
         alert("Fall nicht gefunden!"); 
         return; 
@@ -1054,7 +1111,7 @@ window.renderOverview = function() {
     }
 
     let notesHtml = '';
-    if(data.cornell_notes && Array.isArray(data.cornell_notes)) {
+    if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
         data.cornell_notes.forEach(note => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             notesHtml += `
