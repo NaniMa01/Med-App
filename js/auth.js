@@ -5,8 +5,8 @@
 window.supabaseClient = window.supabaseClient || null;
 window.currentSession = window.currentSession || null;
 
-// IMPORTANT: Setze hier nur den echten Supabase Project-URL + anon/public key ein.
-const SUPABASE_PROJECT_URL = "https://https://fpzpwzkgthgsjubvfblb.supabase.co/rest/v1/";
+// IMPORTANT: Nur die Projekt-Root-URL (ohne /rest/v1/ und ohne doppeltes https://).
+const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
 // Ein Wert gilt nur als gültig, wenn er nicht leer ist und kein Platzhalter ("DEIN_...") ist.
@@ -14,10 +14,21 @@ function isValidConfigValue(value) {
     return typeof value === "string" && value.trim() !== "" && !value.includes("DEIN_");
 }
 
+// Bereinigt die URL: entfernt doppeltes "https://", Pfade wie /rest/v1/ und Slashes am Ende.
+function normalizeSupabaseUrl(raw) {
+    if (!isValidConfigValue(raw)) return "";
+    try {
+        const cleaned = raw.trim().replace(/^(https?:\/\/)+/i, "https://");
+        return new URL(cleaned).origin;
+    } catch (_err) {
+        return "";
+    }
+}
+
 function getActiveConfig() {
-    const url = isValidConfigValue(window.ENV_SUPABASE_URL) ? window.ENV_SUPABASE_URL : SUPABASE_PROJECT_URL;
+    const rawUrl = isValidConfigValue(window.ENV_SUPABASE_URL) ? window.ENV_SUPABASE_URL : SUPABASE_PROJECT_URL;
     const key = isValidConfigValue(window.ENV_SUPABASE_ANON_KEY) ? window.ENV_SUPABASE_ANON_KEY : SUPABASE_ANON_KEY;
-    return { url, key };
+    return { url: normalizeSupabaseUrl(rawUrl), key };
 }
 
 function initSupabase() {
