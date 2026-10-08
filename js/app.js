@@ -19,11 +19,50 @@ let bookshelfFolderState = {};
 let draggedItemState = null;
 let dragHoverTimer = null;
 
-const defaultSkills = {
-    "Triage": { hits: 0, total: 0 },
-    "Diagnostik": { hits: 0, total: 0 },
-    "Pharmakologie": { hits: 0, total: 0 },
-    "Pathophysiologie": { hits: 0, total: 0 }
+// Ansichts-Scope für die Stärken & Schwächen ('case' = dieser Fall, 'global' = alle)
+let skillViewScope = 'case';
+
+// DIE 3 OFFIZIELLEN MEDIZINISCHEN KERNKOMPETENZEN
+const CANONICAL_SKILLS = [
+    "Pathophysiologie und Risikofaktoren",
+    "Diagnostik",
+    "Therapie und Nachsorge"
+];
+
+function createBlankSkillSet() {
+    return {
+        "Pathophysiologie und Risikofaktoren": { hits: 0, total: 0 },
+        "Diagnostik": { hits: 0, total: 0 },
+        "Therapie und Nachsorge": { hits: 0, total: 0 }
+    };
+}
+
+// INTELLIGENTES SMART-MAPPING FÜR ALTE & NEUE TAGS
+window.mapSkillTag = function(skillTag) {
+    if (!skillTag) return "Pathophysiologie und Risikofaktoren";
+    const tag = String(skillTag).trim().toLowerCase();
+
+    if (
+        tag.includes('therap') || 
+        tag.includes('pharm') || 
+        tag.includes('nachsorge') || 
+        tag.includes('management') || 
+        tag.includes('treatment')
+    ) {
+        return "Therapie und Nachsorge";
+    }
+
+    if (
+        tag.includes('diag') || 
+        tag.includes('triage') || 
+        tag.includes('labor') || 
+        tag.includes('bildgebung') || 
+        tag.includes('nachweis')
+    ) {
+        return "Diagnostik";
+    }
+
+    return "Pathophysiologie und Risikofaktoren";
 };
 
 // V6.0 BUILTIN DEMO CASE (Cornell Edition mit 3 Doctordle-Rätseln)
@@ -61,7 +100,7 @@ const BUILTIN_DEMO_CASE = {
             "content": "Eine 45-jährige Patientin erwacht nachts mit reissenden thorakolumbalen Schmerzen und einer schlaffen Paraparese. Die Untersuchung demonstriert einen Harnverhalt sowie eine [beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn]. Der Dienstarzt veranlasst [ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion]. Im späteren Verlauf zeigt sich im MRT das Bild eines [bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)].",
             "hotspots": [
                 { "phrase": "beidseitige dissoziierte Sensibilitätsstörung mit aufgehobenem Schmerz- und Temperaturempfinden bei erhaltenem Lagesinn", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Typisch für eine Läsion der vorderen 2/3 des Myelons (A. spinalis anterior)." },
-                { "phrase": "ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion", "is_error": false, "skill_tag": "Triage", "feedback": "Korrekt: Eine Aortendissektion ist ein lebensgefährlicher Trigger." },
+                { "phrase": "ein sofortiges Angio-CT von Thorax und Abdomen zum Ausschluss einer Aortendissektion", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Eine Aortendissektion ist ein lebensgefährlicher Trigger." },
                 { "phrase": "bilateralen T2-Hyperintensitätsmusters der Vorderhörner (Eulenaugen-Zeichen)", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Korrekt: Die stoffwechselaktiven Vorderhörner sind besonders ischämieanfällig." }
             ]
         },
@@ -71,7 +110,7 @@ const BUILTIN_DEMO_CASE = {
             "content": "Ein 77-jähriger Patient stellt sich mit einer subakuten Paraplegie ab T5 vor. Das Spine-MRT zeigt eine [longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente]. Der Arzt vermutet den [primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta].",
             "hotspots": [
                 { "phrase": "longitudinale extensive transversale Myelitis (LETM) über 4 vertebrale Segmente", "is_error": false, "skill_tag": "Diagnostik", "feedback": "Richtig: Eine Myelonläsion >3 Segmente spricht stark für NMOSD." },
-                { "phrase": "primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta", "is_error": true, "skill_tag": "Pharmakologie", "socratic_trap": "Eine LETM ist sehr untypisch für MS. Was passiert bei NMOSD unter Interferon?", "feedback": "Fehler: Interferon-beta verschlechtert eine NMOSD potenziell massiv." }
+                { "phrase": "primären Schub einer Multiplen Sklerose und initiiert eine Langzeittherapie mit Interferon-beta", "is_error": true, "skill_tag": "Therapie und Nachsorge", "socratic_trap": "Eine LETM ist sehr untypisch für MS. Was passiert bei NMOSD unter Interferon?", "feedback": "Fehler: Interferon-beta verschlechtert eine NMOSD potenziell massiv." }
             ]
         }
     ],
@@ -143,9 +182,8 @@ const BUILTIN_DEMO_CASE = {
     }
 };
 
-
 // ====================================================
-// PROGRESS MANAGER & PERSISTENCE
+// PROGRESS MANAGER & PERSISTENCE (100% ERHALTEN)
 // ====================================================
 const ProgressManager = {
     STORAGE_KEY: 'medcheck_user_progress_v1',
@@ -199,17 +237,20 @@ const ProgressManager = {
         let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
         solved = solved.filter(id => id !== caseId);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
+
+        // Auch fall-spezifische Skills für diesen Fall zurücksetzen
+        let caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
+        delete caseSkillsMap[caseId];
+        localStorage.setItem('medcheck_case_skills', JSON.stringify(caseSkillsMap));
     }
 };
 
-// Globaler Hook für externe Challenge-Module
 window.saveChallengeProgress = function(challengeKey, data) {
     if (!activeCaseData) return;
     ProgressManager.saveCaseState(activeCaseData.case_id, {
         [challengeKey]: data
     });
 };
-
 
 // ====================================================
 // INITIALISIERUNG
@@ -247,6 +288,11 @@ function escapeHtml(str) {
     );
 }
 
+// FORMATIERUNG: 50'000 XP (Schweizer Standard)
+function formatXP(num) {
+    return Number(num || 0).toLocaleString('de-CH');
+}
+
 function switchTab(tab, el) {
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
     if (el) el.classList.add('active');
@@ -268,6 +314,7 @@ function switchTab(tab, el) {
     if (overlay) overlay.classList.remove('active');
 
     if (tab === 'dashboard') renderDashboardCases();
+    renderSkillsSidebar();
 }
 
 window.switchPlayerMode = function(mode) {
@@ -311,24 +358,26 @@ window.toggleSuperFolder = function() {
 };
 
 // ====================================================
-// STATS & SKILLS
+// STATS, XP, RÄNGE & FALL-SPEZIFISCHE KOMPETENZEN
 // ====================================================
 function initUserData() {
     if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
+
+    // Migration der alten Skills auf die 3 Säulen
     let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
-    if (!rawSkills || rawSkills.Diagnostics !== undefined) {
-        let cleaned = JSON.parse(JSON.stringify(defaultSkills));
-        if (rawSkills) {
-            cleaned["Triage"].hits += (rawSkills.Triage?.hits || 0);
-            cleaned["Triage"].total += (rawSkills.Triage?.total || 0);
-            cleaned["Diagnostik"].hits += (rawSkills.Diagnostik?.hits || 0) + (rawSkills.Diagnostics?.hits || 0);
-            cleaned["Diagnostik"].total += (rawSkills.Diagnostik?.total || 0) + (rawSkills.Diagnostics?.total || 0);
-            cleaned["Pharmakologie"].hits += (rawSkills.Pharmakologie?.hits || 0) + (rawSkills.Pharmacology?.hits || 0);
-            cleaned["Pharmakologie"].total += (rawSkills.Pharmakologie?.total || 0) + (rawSkills.Pharmacology?.total || 0);
-            cleaned["Pathophysiologie"].hits += (rawSkills.Pathophysiologie?.hits || 0) + (rawSkills.Pathophysiology?.hits || 0);
-            cleaned["Pathophysiologie"].total += (rawSkills.Pathophysiologie?.total || 0) + (rawSkills.Pathophysiology?.total || 0);
-        }
-        localStorage.setItem('user_skills', JSON.stringify(cleaned));
+    let cleaned = createBlankSkillSet();
+
+    if (rawSkills) {
+        Object.entries(rawSkills).forEach(([tag, data]) => {
+            const mapped = mapSkillTag(tag);
+            cleaned[mapped].hits += (data.hits || 0);
+            cleaned[mapped].total += (data.total || 0);
+        });
+    }
+    localStorage.setItem('user_skills', JSON.stringify(cleaned));
+
+    if (!localStorage.getItem('medcheck_case_skills')) {
+        localStorage.setItem('medcheck_case_skills', JSON.stringify republic || '{}');
     }
 
     try {
@@ -341,68 +390,131 @@ function initUserData() {
     updateStatsUI();
 }
 
+// RANG-SYSTEM: 50'000 / 200'000 / 500'000 XP
 function updateStatsUI() {
-    const xp = parseInt(localStorage.getItem('user_xp') || '0');
+    const xp = parseInt(localStorage.getItem('user_xp') || '0', 10);
     const statXp = document.getElementById('stat-xp');
-    if (statXp) statXp.innerText = xp;
-    
-    let rank = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
+    if (statXp) statXp.innerText = formatXP(xp);
+
+    let rank = 'Famulus';
+    if (xp >= 500000) {
+        rank = 'Chefarzt';
+    } else if (xp >= 200000) {
+        rank = 'Oberarzt';
+    } else if (xp >= 50000) {
+        rank = 'Assistenzarzt';
+    }
+
     const statRank = document.getElementById('stat-rank');
     if (statRank) statRank.innerText = rank;
 }
 
 function applyXpDelta(delta, label) {
-    let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
+    let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0', 10) + delta);
     localStorage.setItem('user_xp', currentXp);
     updateStatsUI();
     if (window.Cloud) window.Cloud.scheduleProgressSync();
-    
+
     const container = document.getElementById('hud-popup-container');
     if (!container) return;
     const popup = document.createElement('div');
     popup.className = `score-popup ${delta >= 0 ? 'positive' : 'negative'}`;
-    popup.innerText = `${delta >= 0 ? '+' : ''}${delta} XP (${label})`;
+    popup.innerText = `${delta >= 0 ? '+' : ''}${formatXP(delta)} XP (${label})`;
     container.appendChild(popup);
     setTimeout(() => popup.remove(), 1400);
 }
 
-function trackSkill(skillTag, isHit) {
-    let skills = JSON.parse(localStorage.getItem('user_skills')) || JSON.parse(JSON.stringify(defaultSkills));
-    const map = { "Diagnostics": "Diagnostik", "Pharmacology": "Pharmakologie", "Pathophysiology": "Pathophysiologie", "Triage": "Triage" };
-    const tag = map[skillTag] || "Diagnostik";
-    if (!skills[tag]) skills[tag] = { hits: 0, total: 0 };
-    skills[tag].total += 1;
-    if (isHit) skills[tag].hits += 1;
-    localStorage.setItem('user_skills', JSON.stringify(skills));
+// TRACKING: Synchron in die globale Historie UND in den individuellen Fall
+window.trackSkill = function(rawSkillTag, isHit) {
+    const canonicalTag = mapSkillTag(rawSkillTag);
+
+    // 1. Global tracken
+    let globalSkills = JSON.parse(localStorage.getItem('user_skills') || 'null') || createBlankSkillSet();
+    if (!globalSkills[canonicalTag]) globalSkills[canonicalTag] = { hits: 0, total: 0 };
+    globalSkills[canonicalTag].total += 1;
+    if (isHit) globalSkills[canonicalTag].hits += 1;
+    localStorage.setItem('user_skills', JSON.stringify(globalSkills));
+
+    // 2. Fall-spezifisch tracken
+    if (activeCaseData && activeCaseData.case_id) {
+        const caseId = activeCaseData.case_id;
+        let caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
+        if (!caseSkillsMap[caseId]) caseSkillsMap[caseId] = createBlankSkillSet();
+        if (!caseSkillsMap[caseId][canonicalTag]) caseSkillsMap[caseId][canonicalTag] = { hits: 0, total: 0 };
+
+        caseSkillsMap[caseId][canonicalTag].total += 1;
+        if (isHit) caseSkillsMap[caseId][canonicalTag].hits += 1;
+
+        localStorage.setItem('medcheck_case_skills', JSON.stringify(caseSkillsMap));
+    }
+
     renderSkillsSidebar();
     if (window.Cloud) window.Cloud.scheduleProgressSync();
-}
+};
+
+window.setSkillScope = function(scope) {
+    skillViewScope = scope;
+    renderSkillsSidebar();
+};
 
 function renderSkillsSidebar() {
     const container = document.getElementById('skills-sidebar-container');
     if (!container) return;
-    
-    const skills = JSON.parse(localStorage.getItem('user_skills') || JSON.stringify(defaultSkills));
-    const canonicalOrder = ["Triage", "Diagnostik", "Pharmakologie", "Pathophysiologie"];
-    container.innerHTML = canonicalOrder.map(skill => {
-        const data = skills[skill] || { hits: 0, total: 0 };
+
+    const hasActiveCase = !!(activeCaseData && activeCaseData.case_id);
+    const caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
+    const globalSkills = JSON.parse(localStorage.getItem('user_skills') || 'null') || createBlankSkillSet();
+
+    const currentScope = hasActiveCase ? skillViewScope : 'global';
+    const activeCaseId = activeCaseData?.case_id;
+
+    let skillsToDisplay;
+    let scopeBadgeText = '';
+
+    if (currentScope === 'case' && hasActiveCase) {
+        skillsToDisplay = caseSkillsMap[activeCaseId] || createBlankSkillSet();
+        const shortTitle = activeCaseData.metadata?.title ? (activeCaseData.metadata.title.slice(0, 20) + '...') : activeCaseId;
+        scopeBadgeText = `Fall: ${shortTitle}`;
+    } else {
+        skillsToDisplay = globalSkills;
+        scopeBadgeText = 'Gesamt-Profil';
+    }
+
+    const scopeToggleHtml = hasActiveCase ? `
+        <div class="skill-scope-toggle">
+            <button type="button" class="skill-scope-btn ${currentScope === 'case' ? 'active' : ''}" onclick="setSkillScope('case')">Dieser Fall</button>
+            <button type="button" class="skill-scope-btn ${currentScope === 'global' ? 'active' : ''}" onclick="setSkillScope('global')">Gesamt</button>
+        </div>
+    ` : '';
+
+    const barsHtml = CANONICAL_SKILLS.map(skill => {
+        const data = skillsToDisplay[skill] || { hits: 0, total: 0 };
         const perc = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
         const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom)')) : 'var(--accent-blue)';
         return `
             <div style="margin-bottom:16px;">
-                <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
-                    <span>${skill}</span>
-                    <span style="color:${color}; font-family:'JetBrains Mono';">${perc}% (${data.hits}/${data.total})</span>
+                <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:0.8rem; font-weight:700; margin-bottom:6px; gap:8px;">
+                    <span style="overflow-wrap:break-word; word-break:break-word;">${skill}</span>
+                    <span style="color:${color}; font-family:'JetBrains Mono'; white-space:nowrap;">${perc}% (${data.hits}/${data.total})</span>
                 </div>
                 <div style="background:rgba(6,9,19,0.7); height:7px; border-radius:10px; overflow:hidden;">
                     <div style="width:${perc}%; background:${color}; height:100%; transition:width 0.4s ease;"></div>
                 </div>
             </div>`;
     }).join('');
+
+    container.innerHTML = `
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Fokus:</span>
+            <span style="color:var(--accent-cyan); font-weight:700;">${scopeBadgeText}</span>
+        </div>
+        ${scopeToggleHtml}
+        ${barsHtml}
+    `;
 }
 
 // ====================================================
-// DASHBOARD & BOOKSHELF
+// DASHBOARD & BOOKSHELF (VOLLSTÄNDIG ERHALTEN)
 // ====================================================
 function renderDashboardCases() {
     let customCases = [];
@@ -427,7 +539,6 @@ function renderDashboardCases() {
         
         const cardsHtml = cases.map(c => {
             const isSolved = solved.includes(c.case_id);
-            // Fortschrittsbalken oder Indikator für angefangene Fälle wäre hier eine coole Erweiterung!
             const savedState = ProgressManager.getCaseProgress(c.case_id);
             const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
             
@@ -435,24 +546,24 @@ function renderDashboardCases() {
                 ? ''
                 : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
             return `
-    <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
-        ${deleteBtn}
-        <div>
-            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
-            <h3>${c.metadata?.title || c.case_id}</h3>
-        </div>
-        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-            <span style="color:${isSolved ? 'var(--color-symptom)' : (inProgress ? '#f59e0b' : 'var(--accent-blue)')}; font-weight:700;">
-                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
-            </span>
-            <span>+${c.metadata?.xp_reward || 900} XP</span>
-        </div>
-    </div>`;
+            <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+                ${deleteBtn}
+                <div>
+                    <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
+                    <h3>${c.metadata?.title || c.case_id}</h3>
+                </div>
+                <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                    <span style="color:${isSolved ? 'var(--color-symptom)' : (inProgress ? '#f59e0b' : 'var(--accent-blue)')}; font-weight:700;">
+                        ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
+                    </span>
+                    <span>+${formatXP(c.metadata?.xp_reward || 900)} XP</span>
+                </div>
+            </div>`;
         }).join('');
 
         return `
             <div class="category-folder">
-              <div class="category-header" data-category="${encodeURIComponent(category)}">
+                <div class="category-header" data-category="${encodeURIComponent(category)}">
                     <div class="category-title-wrap"><span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span><span>📁 ${category}</span></div>
                     <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
                 </div>
@@ -727,7 +838,7 @@ async function renameFolder(oldName, newName) {
 
 async function deleteFolder(folderName, caseCount) {
     const warning = caseCount > 0 
-        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden nicht gelöscht, sondern sicher in den Ordner "Allgemein" verschoben.`
+        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden sicher in den Ordner "Allgemein" verschoben.`
         : `Möchtest du den leeren Ordner "${folderName}" wirklich löschen?`;
 
     if (!window.confirm(warning)) return;
@@ -821,6 +932,11 @@ window.deleteCaseById = function(caseId) {
     try { solved = JSON.parse(localStorage.getItem('solved_cases') || '[]'); } catch (e) { solved = []; }
     localStorage.setItem('solved_cases', JSON.stringify(solved.filter(id => id !== caseId)));
 
+    // Fall-Skills mitbereinigen
+    let caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
+    delete caseSkillsMap[caseId];
+    localStorage.setItem('medcheck_case_skills', JSON.stringify(caseSkillsMap));
+
     if (window.Cloud && window.Cloud.isLoggedIn()) {
         window.Cloud.deleteCloudCase(caseId)
             .then(() => window.Cloud.scheduleProgressSync())
@@ -839,7 +955,6 @@ window.toggleFolder = function(category) {
     openFolders[category] = openFolders[category] !== undefined ? !openFolders[category] : false;
     renderDashboardCases();
 };
-
 
 // ====================================================
 // FALL LADEN & PLAYER LOGIK
@@ -860,7 +975,6 @@ window.loadCaseById = function(caseId) {
     const badgeTitle = document.getElementById('player-case-badge-title');
     if (badgeTitle) badgeTitle.innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
 
-    // Timeline / Audit wiederherstellen
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
     clearedStepsCount = saved.audit?.clearedStepsCount || 0;
@@ -887,7 +1001,6 @@ window.loadCaseById = function(caseId) {
     show('tab-btn-quiz', hasQuiz);
     show('tab-btn-doctordle', hasDoctordle);
 
-    // States aus Storage laden oder defaulten
     totalSynapseDiseases = hasSyn ? tasks.synapses_matrix.diseases.length : 0;
     solvedSynapseDiseases = saved.synapses?.solvedCount || 0;
 
@@ -920,6 +1033,10 @@ window.loadCaseById = function(caseId) {
     if (hasCat) safely('Taxonomie', window.renderCategorization);
     if (hasQuiz) safely('Quiz', window.renderQuiz);
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
+
+    // Sidebar standardmäßig auf diesen Fall fokussieren
+    skillViewScope = 'case';
+    renderSkillsSidebar();
 
     switchTab('player', document.getElementById('nav-player'));
     switchPlayerMode('overview');
@@ -967,7 +1084,6 @@ window.renderOverview = function() {
     `;
     container.innerHTML = html;
 };
-
 
 // ====================================================
 // FORGE / GEMINI API
@@ -1031,7 +1147,7 @@ window.generateCaseWithGemini = async function() {
         if (!res.ok || !data) {
             const serverMessage = data?.error || responseText.trim().slice(0, 200);
             throw new Error(
-                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten – bitte erneut versuchen oder den Prompt kürzen.`
+                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten.`
             );
         }
 
@@ -1045,7 +1161,7 @@ window.generateCaseWithGemini = async function() {
             outputInput.value = sanitized;
         }
 
-        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und anschließend validieren/speichern.');
+        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und validieren.');
     } catch (error) {
         showForgeFeedback('feedback-error', `Generierungsfehler: ${error.message}`);
     } finally {
@@ -1116,9 +1232,8 @@ window.validateAndSaveCustomCase = function() {
     }
 };
 
-
 // ====================================================
-// ABSCHLUSS & RESETS
+// ABSCHLUSS, DOCTORDLE & RESETS
 // ====================================================
 window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
     solvedDoctordlePuzzles = solvedCount;
@@ -1130,7 +1245,7 @@ window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
             badge.style.background = 'var(--color-symptom)';
         } else {
             badge.innerText = `${solvedCount}/${totalCount}`;
-            badge.style.background = ''; // Farbe zurücksetzen wenn ungelöst
+            badge.style.background = '';
         }
     }
     
@@ -1138,7 +1253,6 @@ window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
         doctordleSolved = true;
     }
 
-    // Auto-Save Doctordle Progress
     if (activeCaseData) {
         ProgressManager.saveCaseState(activeCaseData.case_id, {
             doctordle: {
@@ -1162,7 +1276,6 @@ window.checkFinalCompletion = function() {
     
     const finishBtn = document.getElementById('finish-case-btn');
     if (finishBtn) {
-        // Blendet den Button zuverlässig ein und AUS, wenn eine Challenge resetet wird
         finishBtn.style.display = allCompleted ? 'block' : 'none';
     }
 };
@@ -1175,7 +1288,6 @@ window.finishCase = function() {
         if (window.Cloud) window.Cloud.scheduleProgressSync();
         applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
     } else {
-        // Verhindert unendliches Farmen von XP für denselben Fall durch ständiges Resetten
         applyXpDelta(50, 'Review Bonus');
     }
     
@@ -1228,19 +1340,19 @@ window.resetCurrentChallenge = function() {
             if (window.renderCategorization) window.renderCategorization();
             break;
 
-     case 'doctordle':
-    ProgressManager.resetChallenge(caseId, 'doctordle');
-    solvedDoctordlePuzzles = 0;
-    doctordleSolved = false;
-    const docBadge = document.getElementById('badge-mode-doctordle');
-    if (docBadge) {
-        docBadge.innerText = `0/${totalDoctordlePuzzles}`;
-        docBadge.style.background = '';
-    }
-    if (window.doctordleGame) {
-        window.doctordleGame.resetGame();
-    }
-    break;
+        case 'doctordle':
+            ProgressManager.resetChallenge(caseId, 'doctordle');
+            solvedDoctordlePuzzles = 0;
+            doctordleSolved = false;
+            const docBadge = document.getElementById('badge-mode-doctordle');
+            if (docBadge) {
+                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
+                docBadge.style.background = '';
+            }
+            if (window.doctordleGame) {
+                window.doctordleGame.resetGame();
+            }
+            break;
     }
 
     checkFinalCompletion();
