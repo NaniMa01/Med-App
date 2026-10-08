@@ -19,9 +19,6 @@ let bookshelfFolderState = {};
 let draggedItemState = null;
 let dragHoverTimer = null;
 
-// Ansichts-Scope für die Stärken & Schwächen ('case' = dieser Fall, 'global' = alle)
-let skillViewScope = 'case';
-
 // DIE 3 OFFIZIELLEN MEDIZINISCHEN KERNKOMPETENZEN
 const CANONICAL_SKILLS = [
     "Pathophysiologie und Risikofaktoren",
@@ -76,7 +73,7 @@ window.mapSkillTag = function(skillTag) {
     return "Pathophysiologie und Risikofaktoren";
 };
 
-// V6.0 BUILTIN DEMO CASE (Cornell Edition mit 3 Doctordle-Rätseln)
+// V6.0 BUILTIN DEMO CASE
 const BUILTIN_DEMO_CASE = {
     "case_id": "MYELON_MASTER_001_USB",
     "metadata": {
@@ -141,40 +138,7 @@ const BUILTIN_DEMO_CASE = {
                     "Stufe 6: Perfusionsausfall der ventralen zwei Drittel des Myelons."
                 ],
                 "learning_pearl": "Die dissoziierte Sensibilitätsstörung beweist das Arteria-spinalis-anterior-Syndrom."
-            },
-            {
-                "puzzle_id": 2,
-                "title": "Deduktion 2: Subakute autoimmune Myelitis",
-                "target_diagnosis": "Neuromyelitis-optica-Spektrum-Erkrankung",
-                "synonyms": ["NMOSD", "Morbus Devic", "Devic-Syndrom", "Aquaporin-4-Autoimmunenzephalomyelitis"],
-                "hints": [
-                    "Stufe 1: Sehkraftverlust rechts gefolgt von progredienter Paraparese.",
-                    "Stufe 2: Positiver Babinski, therapierefraktärer Schluckauf und Nausea.",
-                    "Stufe 3: Pleozytose mit überwiegend neutrophilen Granulozyten, OKB negativ.",
-                    "Stufe 4: Hochtiteriger Nachweis von Aquaporin-4-Antikörpern (AQP4-IgG).",
-                    "Stufe 5: LETM über 4 Segmente sowie T2-Läsion in der Area postrema.",
-                    "Stufe 6: Keine Remission unter Interferon-beta."
-                ],
-                "learning_pearl": "LETM (≥3 Segmente) + negative OKB + AQP4-IgG sichert die Diagnose NMOSD."
-            },
-            {
-                "puzzle_id": 3,
-                "title": "Deduktion 3: Metabolisch-toxische Ataxie",
-                "target_diagnosis": "Funikuläre Myelose",
-                "synonyms": ["Subakute kombinierte Degeneration", "Vitamin-B12-Mangel-Myelopathie", "Distickstoffmonoxid-induzierte Myelopathie", "Cobalamin-Mangelsyndrom"],
-                "hints": [
-                    "Stufe 1: Partygänger bemerkt seit 3 Wochen symmetrische Parästhesien an Händen/Füßen.",
-                    "Stufe 2: Spinale Ataxie, erloschenes Vibrationsempfinden an beiden Malleoli.",
-                    "Stufe 3: Serum-B12 grenzwertig normal, aber Methylmalonsäure (MMA) massiv erhöht.",
-                    "Stufe 4: Regelmäßige Inhalation von Distickstoffmonoxid (Lachgas) am Wochenende.",
-                    "Stufe 5: MRT Spine: T2-Hyperintensität der Hinterstränge ('Inverted V Sign').",
-                    "Stufe 6: Irreversible Oxidation des zentralen Cobalt-Ions (Co+ zu Co+++)."
-                ],
-                "learning_pearl": "Lachgas inaktiviert Vitamin B12 funktionell; MMA ist wegweisend erhöht."
             }
-        ],
-        "library_entries": [
-            "Arteria-spinalis-anterior-Syndrom", "Spinaler Insult", "Neuromyelitis-optica-Spektrum-Erkrankung", "NMOSD", "Funikuläre Myelose", "Multiple Sklerose", "Spinales Epiduralhämatom"
         ],
         "master_quiz": [
             {
@@ -182,12 +146,6 @@ const BUILTIN_DEMO_CASE = {
                 "options": ["Kurzstreckige posterolaterale Läsion <1 Segment", "Longitudinale extensive transversale Myelitis (LETM) ≥3 Segmente", "Bilaterale Hyperintensität der Vorderhörner"],
                 "correct_index": 1,
                 "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD."
-            },
-            {
-                "question": "Ein 24-jähriger Patient zeigt eine spinale Ataxie. Welcher toxische Trigger führt funktionell zum gleichen klinischen Bild wie ein Vitamin-B12-Mangel?",
-                "options": ["Chronischer Cannabis-Konsum", "Inhalation von Distickstoffmonoxid (Lachgas)", "Exzessiver Konsum von Energy-Drinks (Taurin)"],
-                "correct_index": 1,
-                "explanation": "Lachgas (N2O) oxidiert das zentrale Cobalt-Ion von Vitamin B12 und inaktiviert es irreversibel."
             }
         ]
     }
@@ -200,33 +158,20 @@ const ProgressManager = {
     STORAGE_KEY: 'medcheck_user_progress_v1',
 
     getAll() {
-        try {
-            return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || {};
-        } catch (e) {
-            console.error('Fehler beim Lesen des Progress-Speichers:', e);
-            return {};
-        }
+        try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || {}; } 
+        catch (e) { return {}; }
     },
 
     getCaseProgress(caseId) {
         if (!caseId) return null;
-        const all = this.getAll();
-        return all[caseId] || null;
+        return this.getAll()[caseId] || null;
     },
 
     saveCaseState(caseId, partialState) {
         if (!caseId) return;
         const all = this.getAll();
-        all[caseId] = {
-            ...(all[caseId] || {}),
-            ...partialState,
-            updatedAt: Date.now()
-        };
-        try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
-        } catch (e) {
-            console.error('LocalStorage Schreibfehler:', e);
-        }
+        all[caseId] = { ...(all[caseId] || {}), ...partialState, updatedAt: Date.now() };
+        try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all)); } catch (e) {}
     },
 
     resetChallenge(caseId, challengeKey) {
@@ -244,12 +189,11 @@ const ProgressManager = {
         delete all[caseId];
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
 
-        // Aus gelösten Fällen austragen
         let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
         solved = solved.filter(id => id !== caseId);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
 
-        // Auch fall-spezifische Skills für diesen Fall zurücksetzen
+        // Fallspezifische Skills zurücksetzen
         let caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
         delete caseSkillsMap[caseId];
         localStorage.setItem('medcheck_case_skills', JSON.stringify(caseSkillsMap));
@@ -258,27 +202,23 @@ const ProgressManager = {
 
 window.saveChallengeProgress = function(challengeKey, data) {
     if (!activeCaseData) return;
-    ProgressManager.saveCaseState(activeCaseData.case_id, {
-        [challengeKey]: data
-    });
+    ProgressManager.saveCaseState(activeCaseData.case_id, { [challengeKey]: data });
 };
 
 // ====================================================
-// INITIALISIERUNG & ASYNCHRONER PRELOADER
+// INITIALISIERUNG
 // ====================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUserData();
     renderSkillsSidebar();
     renderDashboardCases();
-    preloadStaticCases(); // Lädt vorhandene JSON-Fälle aus /cases/ automatisch nach
+    preloadStaticCases();
 
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn) {
         addFolderBtn.addEventListener('click', () => {
             const name = window.prompt("Name für den neuen Ordner:");
-            if (name && name.trim()) {
-                createNewFolder(name.trim());
-            }
+            if (name && name.trim()) createNewFolder(name.trim());
         });
     }
 });
@@ -286,25 +226,33 @@ document.addEventListener('DOMContentLoaded', () => {
 async function preloadStaticCases() {
     let customCases = [];
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
-    const knownIds = new Set([BUILTIN_DEMO_CASE.case_id, ...customCases.map(c => c.case_id)]);
+    let modified = false;
 
-    let newlyAdded = false;
     for (const url of STATIC_CASE_FILES) {
         try {
             const res = await fetch(url);
             if (!res.ok) continue;
             const data = await res.json();
-            if (data && data.case_id && !knownIds.has(data.case_id)) {
-                customCases.push(data);
-                knownIds.add(data.case_id);
-                newlyAdded = true;
+            if (data && data.case_id) {
+                const idx = customCases.findIndex(c => c.case_id === data.case_id);
+                if (idx === -1) {
+                    customCases.push(data);
+                    modified = true;
+                } else {
+                    // Update falls Datei auf der Festplatte vollständiger ist
+                    const cur = customCases[idx];
+                    const curTasks = Object.keys(cur.extra_tasks || {}).length;
+                    const newTasks = Object.keys(data.extra_tasks || {}).length;
+                    if (newTasks > curTasks || (!cur.case_overview && data.case_overview)) {
+                        customCases[idx] = { ...cur, ...data };
+                        modified = true;
+                    }
+                }
             }
-        } catch (_fetchErr) {
-            // Unkritisch (z.B. Offline-Betrieb oder reines file://-Protokoll)
-        }
+        } catch (_err) {}
     }
 
-    if (newlyAdded) {
+    if (modified) {
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
         renderDashboardCases();
     }
@@ -327,7 +275,6 @@ function escapeHtml(str) {
     );
 }
 
-// FORMATIERUNG: 50'000 XP (Schweizer Standard)
 function formatXP(num) {
     return Number(num || 0).toLocaleString('de-CH');
 }
@@ -362,7 +309,11 @@ window.switchPlayerMode = function(mode) {
     document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
     
-    const targetPane = document.getElementById('mode-container-' + mode) || document.getElementById('tab-pane-' + mode);
+    const targetPane = document.getElementById('mode-container-' + mode) 
+                    || document.getElementById('tab-pane-' + mode)
+                    || document.getElementById(mode + '-container')
+                    || document.getElementById('container-' + mode);
+
     const targetTab = document.getElementById('tab-btn-' + mode);
     if (targetPane) targetPane.style.display = 'block';
     if (targetTab) targetTab.classList.add('active');
@@ -397,12 +348,11 @@ window.toggleSuperFolder = function() {
 };
 
 // ====================================================
-// STATS, XP, RÄNGE & FALL-SPEZIFISCHE KOMPETENZEN
+// STATS, XP & FALLSPEZIFISCHE KOMPETENZEN (SIDEBAR RECHTS)
 // ====================================================
 function initUserData() {
     if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
 
-    // Migration der alten Skills auf die 3 Säulen
     let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
     let cleaned = createBlankSkillSet();
 
@@ -415,7 +365,6 @@ function initUserData() {
     }
     localStorage.setItem('user_skills', JSON.stringify(cleaned));
 
-    // KORRIGIERT: Valides leeres Objekt ohne Syntaxfehler
     if (!localStorage.getItem('medcheck_case_skills')) {
         localStorage.setItem('medcheck_case_skills', JSON.stringify({}));
     }
@@ -430,7 +379,7 @@ function initUserData() {
     updateStatsUI();
 }
 
-// RANG-SYSTEM: 50'000 / 200'000 / 500'000 XP
+// 50'000 / 200'000 / 500'000 XP
 function updateStatsUI() {
     const xp = parseInt(localStorage.getItem('user_xp') || '0', 10);
     const statXp = document.getElementById('stat-xp');
@@ -464,18 +413,18 @@ function applyXpDelta(delta, label) {
     setTimeout(() => popup.remove(), 1400);
 }
 
-// TRACKING: Synchron in die globale Historie UND in den individuellen Fall
+// IMMER FALLSPEZIFISCH + GLOBAL IM HINTERGRUND
 window.trackSkill = function(rawSkillTag, isHit) {
     const canonicalTag = mapSkillTag(rawSkillTag);
 
-    // 1. Global tracken
+    // 1. Global
     let globalSkills = JSON.parse(localStorage.getItem('user_skills') || 'null') || createBlankSkillSet();
     if (!globalSkills[canonicalTag]) globalSkills[canonicalTag] = { hits: 0, total: 0 };
     globalSkills[canonicalTag].total += 1;
     if (isHit) globalSkills[canonicalTag].hits += 1;
     localStorage.setItem('user_skills', JSON.stringify(globalSkills));
 
-    // 2. Fall-spezifisch tracken
+    // 2. Fallspezifisch
     if (activeCaseData && activeCaseData.case_id) {
         const caseId = activeCaseData.case_id;
         let caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
@@ -492,11 +441,6 @@ window.trackSkill = function(rawSkillTag, isHit) {
     if (window.Cloud) window.Cloud.scheduleProgressSync();
 };
 
-window.setSkillScope = function(scope) {
-    skillViewScope = scope;
-    renderSkillsSidebar();
-};
-
 function renderSkillsSidebar() {
     const container = document.getElementById('skills-sidebar-container');
     if (!container) return;
@@ -505,50 +449,42 @@ function renderSkillsSidebar() {
     const caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
     const globalSkills = JSON.parse(localStorage.getItem('user_skills') || 'null') || createBlankSkillSet();
 
-    const currentScope = hasActiveCase ? skillViewScope : 'global';
-    const activeCaseId = activeCaseData?.case_id;
-
     let skillsToDisplay;
-    let scopeBadgeText = '';
+    let badgeText;
 
-    if (currentScope === 'case' && hasActiveCase) {
-        skillsToDisplay = caseSkillsMap[activeCaseId] || createBlankSkillSet();
-        const shortTitle = activeCaseData.metadata?.title ? (activeCaseData.metadata.title.slice(0, 20) + '...') : activeCaseId;
-        scopeBadgeText = `Fall: ${shortTitle}`;
+    if (hasActiveCase) {
+        skillsToDisplay = caseSkillsMap[activeCaseData.case_id] || createBlankSkillSet();
+        const shortTitle = activeCaseData.metadata?.title 
+            ? (activeCaseData.metadata.title.length > 20 ? activeCaseData.metadata.title.slice(0, 18) + '…' : activeCaseData.metadata.title)
+            : activeCaseData.case_id;
+        badgeText = `Fall: ${shortTitle}`;
     } else {
         skillsToDisplay = globalSkills;
-        scopeBadgeText = 'Gesamt-Profil';
+        badgeText = 'Gesamt-Profil';
     }
-
-    const scopeToggleHtml = hasActiveCase ? `
-        <div class="skill-scope-toggle">
-            <button type="button" class="skill-scope-btn ${currentScope === 'case' ? 'active' : ''}" onclick="setSkillScope('case')">Dieser Fall</button>
-            <button type="button" class="skill-scope-btn ${currentScope === 'global' ? 'active' : ''}" onclick="setSkillScope('global')">Gesamt</button>
-        </div>
-    ` : '';
 
     const barsHtml = CANONICAL_SKILLS.map(skill => {
         const data = skillsToDisplay[skill] || { hits: 0, total: 0 };
         const perc = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
         const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom)')) : 'var(--accent-blue)';
+        
         return `
-            <div style="margin-bottom:16px;">
-                <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:0.8rem; font-weight:700; margin-bottom:6px; gap:8px;">
-                    <span style="overflow-wrap:break-word; word-break:break-word;">${skill}</span>
-                    <span style="color:${color}; font-family:'JetBrains Mono'; white-space:nowrap;">${perc}% (${data.hits}/${data.total})</span>
+            <div style="margin-bottom: 13px;">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:0.77rem; font-weight:700; margin-bottom:5px; gap:6px;">
+                    <span style="overflow-wrap:break-word; word-break:break-word; line-height:1.25; color:#e2e8f0;">${escapeHtml(skill)}</span>
+                    <span style="color:${color}; font-family:'JetBrains Mono', monospace; font-size:0.75rem; white-space:nowrap; flex-shrink:0;">${perc}% (${data.hits}/${data.total})</span>
                 </div>
-                <div style="background:rgba(6,9,19,0.7); height:7px; border-radius:10px; overflow:hidden;">
-                    <div style="width:${perc}%; background:${color}; height:100%; transition:width 0.4s ease;"></div>
+                <div style="background:rgba(6,9,19,0.7); height:6px; border-radius:10px; overflow:hidden;">
+                    <div style="width:${perc}%; background:${color}; height:100%; border-radius:10px; transition:width 0.4s ease;"></div>
                 </div>
             </div>`;
     }).join('');
 
     container.innerHTML = `
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-            <span>Fokus:</span>
-            <span style="color:var(--accent-cyan); font-weight:700;">${scopeBadgeText}</span>
+        <div style="font-size:0.68rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:8px;">
+            <span>Fokus</span>
+            <span style="color:var(--accent-cyan); font-weight:700; font-family:'JetBrains Mono', monospace; text-transform:none; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${hasActiveCase ? escapeHtml(activeCaseData.metadata?.title || activeCaseData.case_id) : 'Gesamt'}">${badgeText}</span>
         </div>
-        ${scopeToggleHtml}
         ${barsHtml}
     `;
 }
@@ -637,11 +573,7 @@ function renderDashboardCases() {
         }
     });
 
-    try {
-        renderBookshelf(allCases);
-    } catch (bsErr) {
-        console.error("Bookshelf Fehler:", bsErr);
-    }
+    try { renderBookshelf(allCases); } catch (bsErr) {}
 }
 
 function renderBookshelf(casesArray) {
@@ -679,15 +611,15 @@ function renderBookshelf(casesArray) {
         const header = document.createElement('div');
         header.className = 'folder-header';
         header.innerHTML = `
-            <div class="folder-header-left" style="display:flex; align-items:center; overflow:hidden; gap:6px; flex:1; min-width:0;">
-                <span class="folder-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
+            <div class="folder-header-left">
+                <span class="folder-drag-handle" title="Ordner ziehen">⠿</span>
                 <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
-                <span class="folder-title-text" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
-                <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan); margin-left:auto; margin-right:4px; flex-shrink:0;">${solvedCount}/${casesInFolder.length}</span>
+                <span class="folder-title-text">📁 ${escapeHtml(folderName)}</span>
+                <span class="folder-badge-mini">${solvedCount}/${casesInFolder.length}</span>
             </div>
             <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
-                <button type="button" class="folder-action-btn edit-btn" title="Ordner umbenennen">✏️</button>
-                <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
+                <button type="button" class="folder-action-btn edit-btn" title="Umbenennen">✏️</button>
+                <button type="button" class="folder-action-btn delete-folder-btn" title="Löschen">🗑️</button>
             </div>
         `;
 
@@ -697,7 +629,7 @@ function renderBookshelf(casesArray) {
         if (casesInFolder.length === 0) {
             const emptyLi = document.createElement('li');
             emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim); padding:4px 6px; font-style:italic;';
-            emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
+            emptyLi.textContent = 'Ordner ist leer';
             list.appendChild(emptyLi);
         } else {
             casesInFolder.forEach(caseItem => {
@@ -712,7 +644,6 @@ function renderBookshelf(casesArray) {
                     e.stopPropagation();
                     draggedItemState = { type: 'case', id: caseItem.case_id };
                     e.dataTransfer.setData('text/plain', caseItem.case_id);
-                    e.dataTransfer.effectAllowed = 'move';
                 });
 
                 li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
@@ -730,7 +661,7 @@ function renderBookshelf(casesArray) {
         if (editBtn) {
             editBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const newName = window.prompt("Neuer Name für den Ordner:", folderName);
+                const newName = window.prompt("Neuer Name:", folderName);
                 if (newName && newName.trim() && newName.trim() !== folderName) {
                     renameFolder(folderName, newName.trim());
                 }
@@ -748,54 +679,31 @@ function renderBookshelf(casesArray) {
         folderDiv.addEventListener('dragstart', (e) => {
             draggedItemState = { type: 'folder', name: folderName };
             folderDiv.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
         });
 
         folderDiv.addEventListener('dragend', () => {
             folderDiv.classList.remove('dragging');
             draggedItemState = null;
-            if (dragHoverTimer) clearTimeout(dragHoverTimer);
             document.querySelectorAll('.folder-group').forEach(f => f.classList.remove('drag-over-folder'));
         });
 
         folderDiv.addEventListener('dragover', (e) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
             folderDiv.classList.add('drag-over-folder');
-
-            if (draggedItemState && draggedItemState.type === 'case' && !isOpen && !dragHoverTimer) {
-                dragHoverTimer = setTimeout(() => {
-                    bookshelfFolderState[folderName] = true;
-                    renderBookshelf(casesArray);
-                }, 400);
-            }
         });
 
         folderDiv.addEventListener('dragleave', () => {
             folderDiv.classList.remove('drag-over-folder');
-            if (dragHoverTimer) {
-                clearTimeout(dragHoverTimer);
-                dragHoverTimer = null;
-            }
         });
 
         folderDiv.addEventListener('drop', async (e) => {
             e.preventDefault();
             folderDiv.classList.remove('drag-over-folder');
-            if (dragHoverTimer) {
-                clearTimeout(dragHoverTimer);
-                dragHoverTimer = null;
-            }
-
             if (!draggedItemState) return;
             if (draggedItemState.type === 'case') {
-                const caseId = draggedItemState.id;
-                if (caseId) await moveCaseToFolder(caseId, folderName);
-            } else if (draggedItemState.type === 'folder') {
-                const draggedFolder = draggedItemState.name;
-                if (draggedFolder && draggedFolder !== folderName) {
-                    reorderFolders(draggedFolder, folderName);
-                }
+                await moveCaseToFolder(draggedItemState.id, folderName);
+            } else if (draggedItemState.type === 'folder' && draggedItemState.name !== folderName) {
+                reorderFolders(draggedItemState.name, folderName);
             }
         });
 
@@ -819,7 +727,6 @@ function reorderFolders(draggedName, targetName) {
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     const fromIdx = order.indexOf(draggedName);
     const toIdx = order.indexOf(targetName);
-
     if (fromIdx !== -1 && toIdx !== -1) {
         order.splice(fromIdx, 1);
         order.splice(toIdx, 0, draggedName);
@@ -830,158 +737,62 @@ function reorderFolders(draggedName, targetName) {
 
 async function renameFolder(oldName, newName) {
     if (!newName || oldName === newName) return;
-
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modified = false;
-
     customCases.forEach(c => {
-        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-        if (cur === oldName) {
+        if ((c.folder_name || c.metadata?.medical_field || 'Allgemein').trim() === oldName) {
             c.folder_name = newName;
-            c.updated_at = new Date().toISOString();
-            modified = true;
         }
     });
-
-    if (modified) {
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
-
-    if (BUILTIN_DEMO_CASE.folder_name === oldName || (!BUILTIN_DEMO_CASE.folder_name && BUILTIN_DEMO_CASE.metadata?.medical_field === oldName)) {
-        BUILTIN_DEMO_CASE.folder_name = newName;
-    }
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     const idx = order.indexOf(oldName);
     if (idx !== -1) order[idx] = newName;
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
-    if (bookshelfFolderState[oldName] !== undefined) {
-        bookshelfFolderState[newName] = bookshelfFolderState[oldName];
-        delete bookshelfFolderState[oldName];
-    }
-
-    if (typeof supabaseClient !== 'undefined' && window.currentSession) {
-        try {
-            await supabaseClient
-                .from('medical_cases')
-                .update({ folder_name: newName, updated_at: new Date().toISOString() })
-                .eq('folder_name', oldName)
-                .eq('user_id', window.currentSession.user.id);
-        } catch (err) {
-            console.error('Fehler bei Supabase Folder Update:', err);
-        }
-    }
-
     renderDashboardCases();
 }
 
 async function deleteFolder(folderName, caseCount) {
-    const warning = caseCount > 0 
-        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden sicher in den Ordner "Allgemein" verschoben.`
-        : `Möchtest du den leeren Ordner "${folderName}" wirklich löschen?`;
-
-    if (!window.confirm(warning)) return;
-
+    if (!window.confirm(`Ordner "${folderName}" wirklich löschen?`)) return;
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     order = order.filter(name => name !== folderName);
-    
-    if (caseCount > 0 && !order.includes('Allgemein')) {
-        order.push('Allgemein');
-    }
+    if (caseCount > 0 && !order.includes('Allgemein')) order.push('Allgemein');
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modified = false;
-
     customCases.forEach(c => {
-        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-        if (cur === folderName) {
+        if ((c.folder_name || c.metadata?.medical_field || 'Allgemein').trim() === folderName) {
             c.folder_name = 'Allgemein';
-            c.updated_at = new Date().toISOString();
-            modified = true;
         }
     });
-
-    if (modified) {
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
-
-    if (BUILTIN_DEMO_CASE.folder_name === folderName) {
-        BUILTIN_DEMO_CASE.folder_name = 'Allgemein';
-    }
-
-    delete bookshelfFolderState[folderName];
-
-    if (typeof supabaseClient !== 'undefined' && window.currentSession && caseCount > 0) {
-        try {
-            await supabaseClient
-                .from('medical_cases')
-                .update({ folder_name: 'Allgemein', updated_at: new Date().toISOString() })
-                .eq('folder_name', folderName)
-                .eq('user_id', window.currentSession.user.id);
-        } catch (err) {
-            console.error('Fehler beim Aktualisieren in Supabase nach Ordner-Löschung:', err);
-        }
-    }
-
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
     renderDashboardCases();
 }
 
 async function moveCaseToFolder(caseId, targetFolder) {
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let targetCase = customCases.find(c => c.case_id === caseId);
-
-    if (targetCase) {
-        targetCase.folder_name = targetFolder;
-        targetCase.updated_at = new Date().toISOString();
+    let target = customCases.find(c => c.case_id === caseId);
+    if (target) {
+        target.folder_name = targetFolder;
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-        if (typeof supabaseClient !== 'undefined' && window.currentSession) {
-            try {
-                await supabaseClient
-                    .from('medical_cases')
-                    .update({ folder_name: targetFolder, updated_at: new Date().toISOString() })
-                    .eq('case_id', caseId)
-                    .eq('user_id', window.currentSession.user.id);
-            } catch (err) {
-                console.error('Fehler beim Verschieben in Supabase:', err);
-            }
-        }
-    } else if (caseId === BUILTIN_DEMO_CASE.case_id) {
-        BUILTIN_DEMO_CASE.folder_name = targetFolder;
     }
-
     renderDashboardCases();
 }
 
 window.deleteCaseById = function(caseId) {
     if (caseId === BUILTIN_DEMO_CASE.case_id) return;
-
-    let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
-    if (!Array.isArray(customCases)) customCases = [];
-
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
     const target = customCases.find(c => c.case_id === caseId);
-    const title = target?.metadata?.title || caseId;
-    if (!window.confirm(`Fall "${title}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    if (!window.confirm(`Fall "${target?.metadata?.title || caseId}" löschen?`)) return;
 
     localStorage.setItem('custom_cases', JSON.stringify(customCases.filter(c => c.case_id !== caseId)));
-
-    let solved = [];
-    try { solved = JSON.parse(localStorage.getItem('solved_cases') || '[]'); } catch (e) { solved = []; }
+    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     localStorage.setItem('solved_cases', JSON.stringify(solved.filter(id => id !== caseId)));
 
-    // Fall-Skills mitbereinigen
     let caseSkillsMap = JSON.parse(localStorage.getItem('medcheck_case_skills') || '{}');
     delete caseSkillsMap[caseId];
     localStorage.setItem('medcheck_case_skills', JSON.stringify(caseSkillsMap));
-
-    if (window.Cloud && window.Cloud.isLoggedIn()) {
-        window.Cloud.deleteCloudCase(caseId)
-            .then(() => window.Cloud.scheduleProgressSync())
-            .catch(err => alert(`Fall wurde lokal gelöscht, aber nicht online: ${err.message}`));
-    }
 
     if (activeCaseData && activeCaseData.case_id === caseId) {
         activeCaseData = null;
@@ -997,27 +808,28 @@ window.toggleFolder = function(category) {
 };
 
 // ====================================================
-// FALL LADEN & PLAYER LOGIK
+// RESILIENTER FALL-LOADER & CHALLENGE-NORMALISIERER
 // ====================================================
 window.loadCaseById = async function(caseId) {
     let customCases = [];
     try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
     let targetCase = [BUILTIN_DEMO_CASE, ...customCases].find(c => c.case_id === caseId);
     
-    // Fallback: Falls der Fall aus einer Datei stammt und noch nicht im Speicher ist
+    // Fallback: Falls Fall auf der Festplatte liegt, aber noch nicht im LocalStorage ist
     if (!targetCase) {
         for (const fileUrl of STATIC_CASE_FILES) {
-            if (fileUrl.includes(caseId)) {
-                try {
-                    const res = await fetch(fileUrl);
-                    if (res.ok) {
-                        targetCase = await res.json();
-                        customCases.push(targetCase);
+            try {
+                const res = await fetch(fileUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.case_id === caseId) {
+                        targetCase = data;
+                        customCases.push(data);
                         localStorage.setItem('custom_cases', JSON.stringify(customCases));
                         break;
                     }
-                } catch (_err) {}
-            }
+                }
+            } catch (_err) {}
         }
     }
 
@@ -1027,6 +839,32 @@ window.loadCaseById = async function(caseId) {
     }
 
     activeCaseData = JSON.parse(JSON.stringify(targetCase));
+
+    // ==========================================================
+    // CRITICAL FIX: NORMALISIERUNG VON ROOT-LEVEL & EXTRA_TASKS
+    // ==========================================================
+    const rawExtra = activeCaseData.extra_tasks || {};
+    activeCaseData.extra_tasks = {
+        ...rawExtra,
+        synapses_matrix: rawExtra.synapses_matrix || activeCaseData.synapses_matrix || rawExtra.synapses || activeCaseData.synapses,
+        clinical_cascades: rawExtra.clinical_cascades || activeCaseData.clinical_cascades || rawExtra.cascades || activeCaseData.cascades,
+        categorization: rawExtra.categorization || activeCaseData.categorization || rawExtra.taxonomy || activeCaseData.taxonomy,
+        master_quiz: rawExtra.master_quiz || activeCaseData.master_quiz || rawExtra.quiz || activeCaseData.quiz,
+        doctordle: rawExtra.doctordle || activeCaseData.doctordle || rawExtra.deduction || activeCaseData.deduction,
+        library_entries: rawExtra.library_entries || activeCaseData.library_entries
+    };
+
+    if (!activeCaseData.case_overview) {
+        activeCaseData.case_overview = activeCaseData.overview || activeCaseData.theory || activeCaseData.briefing;
+        if (!activeCaseData.case_overview && activeCaseData.cornell_notes) {
+            activeCaseData.case_overview = {
+                topic: activeCaseData.metadata?.title || 'Thematische Übersicht',
+                cornell_notes: activeCaseData.cornell_notes,
+                summary: activeCaseData.summary || ''
+            };
+        }
+    }
+
     const saved = ProgressManager.getCaseProgress(caseId) || {};
     
     const badgeTitle = document.getElementById('player-case-badge-title');
@@ -1039,37 +877,45 @@ window.loadCaseById = async function(caseId) {
     const badgeAudit = document.getElementById('badge-mode-audit');
     if (badgeAudit) badgeAudit.innerText = `${clearedStepsCount}/${totalStepsCount}`;
 
-    const tasks = activeCaseData.extra_tasks || {};
+    // CHALLENGE-ANWESENHEIT GENAU PRÜFEN
+    const syn = activeCaseData.extra_tasks.synapses_matrix;
+    const hasSyn = !!(syn && ((syn.variables && syn.variables.length > 0) || (syn.diseases && syn.diseases.length > 0)));
+
+    const cas = activeCaseData.extra_tasks.clinical_cascades;
+    const hasCas = !!(cas && (Array.isArray(cas) ? cas.length > 0 : Object.keys(cas).length > 0));
+
+    const cat = activeCaseData.extra_tasks.categorization;
+    const hasCat = !!(cat && (cat.items?.length > 0 || cat.categories?.length > 0));
+
+    const quiz = activeCaseData.extra_tasks.master_quiz;
+    const hasQuiz = !!(quiz && Array.isArray(quiz) && quiz.length > 0);
+
+    const doc = activeCaseData.extra_tasks.doctordle;
+    const hasDoc = !!(doc && (Array.isArray(doc) ? doc.length > 0 : !!doc.hints));
+
     const show = (id, on) => { 
         const el = document.getElementById(id); 
         if (el) el.style.display = on ? 'inline-flex' : 'none'; 
     };
 
-    const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
-    const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
-    const hasCat = !!(tasks.categorization && tasks.categorization.items?.length && tasks.categorization.categories?.length);
-    const hasQuiz = !!(tasks.master_quiz && tasks.master_quiz.length);
-    const doctordleData = tasks.doctordle;
-    const hasDoctordle = !!(doctordleData && (Array.isArray(doctordleData) ? doctordleData.length > 0 : !!doctordleData.hints));
-
     show('tab-btn-synapses', hasSyn);
     show('tab-btn-cascade', hasCas);
     show('tab-btn-cat', hasCat);
     show('tab-btn-quiz', hasQuiz);
-    show('tab-btn-doctordle', hasDoctordle);
+    show('tab-btn-doctordle', hasDoc);
 
-    totalSynapseDiseases = hasSyn ? tasks.synapses_matrix.diseases.length : 0;
+    totalSynapseDiseases = hasSyn ? (syn.diseases?.length || 4) : 0;
     solvedSynapseDiseases = saved.synapses?.solvedCount || 0;
 
-    totalCascades = hasCas ? tasks.clinical_cascades.length : 0;
+    totalCascades = hasCas ? (Array.isArray(cas) ? cas.length : 1) : 0;
     cascadesSolvedCount = saved.cascades?.solvedCount || 0;
 
     categorizationSolved = !hasCat || !!saved.categorization?.solved;
     quizSolved = !hasQuiz || !!saved.quiz?.solved;
     userQuizAnswers = saved.quiz?.answers || {};
 
-    if (hasDoctordle) {
-        totalDoctordlePuzzles = Array.isArray(doctordleData) ? doctordleData.length : 1;
+    if (hasDoc) {
+        totalDoctordlePuzzles = Array.isArray(doc) ? doc.length : 1;
         solvedDoctordlePuzzles = saved.doctordle?.solvedCount || 0;
         doctordleSolved = solvedDoctordlePuzzles >= totalDoctordlePuzzles;
         const doctordleBadge = document.getElementById('badge-mode-doctordle');
@@ -1089,10 +935,8 @@ window.loadCaseById = async function(caseId) {
     if (hasCas) safely('Kaskade', window.renderCascades);
     if (hasCat) safely('Taxonomie', window.renderCategorization);
     if (hasQuiz) safely('Quiz', window.renderQuiz);
-    if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
+    if (hasDoc && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
 
-    // Sidebar standardmäßig auf diesen Fall fokussieren
-    skillViewScope = 'case';
     renderSkillsSidebar();
 
     switchTab('player', document.getElementById('nav-player'));
@@ -1105,41 +949,54 @@ window.renderOverview = function() {
     if (!container) return;
 
     const data = activeCaseData.case_overview;
-    if (!data) {
-        container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall ist keine detaillierte Übersicht verfügbar.</div>';
-        return;
-    }
-
-    let notesHtml = '';
-    if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
-        data.cornell_notes.forEach(note => {
-            const cuesArray = Array.isArray(note.cues) ? note.cues : [];
-            notesHtml += `
+    
+    // 1. Wenn Cornell Notes existieren
+    if (data && Array.isArray(data.cornell_notes) && data.cornell_notes.length > 0) {
+        const notesHtml = data.cornell_notes.map(note => {
+            const cuesArray = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
+            return `
                 <div class="cornell-grid">
                     <div class="cornell-cues">
-                        ${cuesArray.map(c => `<div class="cornell-cue-item">${c}</div>`).join('')}
+                        ${cuesArray.map(c => `<div class="cornell-cue-item">${escapeHtml(c)}</div>`).join('')}
                     </div>
                     <div class="cornell-notes">
                         ${note.notes || ''}
                     </div>
                 </div>
             `;
-        });
+        }).join('');
+
+        container.innerHTML = `
+            <div class="cornell-wrapper">
+                <div class="cornell-header">
+                    <h2>${escapeHtml(data.topic || activeCaseData.metadata?.title || 'Thematische Übersicht')}</h2>
+                </div>
+                ${notesHtml}
+                <div class="cornell-summary">
+                    <h4>Zusammenfassung (Take-Home Message)</h4>
+                    <p>${escapeHtml(data.summary || 'Keine Zusammenfassung hinterlegt.')}</p>
+                </div>
+            </div>
+        `;
+        return;
     }
 
-    const html = `
+    // 2. Eleganter Fallback für Vignette / Text
+    const fallbackText = data?.summary || data?.description || activeCaseData.metadata?.description || activeCaseData.metadata?.title;
+    container.innerHTML = `
         <div class="cornell-wrapper">
             <div class="cornell-header">
-                <h2>${data.topic || 'Thematische Übersicht'}</h2>
+                <h2>${escapeHtml(activeCaseData.metadata?.title || 'Klinische Fallübersicht')}</h2>
             </div>
-            ${notesHtml}
-            <div class="cornell-summary">
-                <h4>Zusammenfassung (Take-Home Message)</h4>
-                <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
+            <div style="padding: 22px; font-size: 0.92rem; line-height: 1.7; color: var(--text-main);">
+                <p style="margin-bottom: 12px;"><strong>Fachbereich:</strong> ${escapeHtml(activeCaseData.metadata?.medical_field || 'Allgemeine Medizin')}</p>
+                <p style="color: var(--text-muted);">${escapeHtml(fallbackText)}</p>
+                <div style="margin-top: 18px; padding: 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.08); border-left: 3px solid var(--accent-blue); font-size: 0.85rem;">
+                    💡 <em>Hinweis:</em> Keine separaten Cornell-Notizen vorhanden. Wechsle direkt oben in das <strong>Audit</strong> oder die weiteren <strong>Challenges</strong>!
+                </div>
             </div>
         </div>
     `;
-    container.innerHTML = html;
 };
 
 // ====================================================
@@ -1154,143 +1011,36 @@ function showForgeFeedback(type, message) {
 }
 
 function sanitizeForgeJsonInput(rawValue) {
-    return rawValue
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .replace(/[\u201C\u201D]/g, '"')
-        .replace(/[\u2018\u2019]/g, "'")
-        .trim();
+    return rawValue.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 }
-
-window.generateCaseWithGemini = async function() {
-    const promptInput = document.getElementById('forge-topic');
-    const outputInput = document.getElementById('forge-input');
-    const generateBtn = document.getElementById('forge-generate-btn');
-    
-    if (!promptInput || !outputInput || !generateBtn) return;
-    
-    const prompt = promptInput.value.trim();
-
-    if (!prompt) {
-        showForgeFeedback('feedback-error', 'Bitte gib zuerst ein Thema oder einen Prompt ein.');
-        return;
-    }
-
-    if (prompt.length > 50000) {
-        showForgeFeedback('feedback-error', 'Prompt zu lang. Bitte auf maximal 50000 Zeichen kürzen.');
-        return;
-    }
-
-    const originalBtnText = generateBtn.innerHTML;
-    generateBtn.disabled = true;
-    generateBtn.innerText = 'Generiere...';
-    showForgeFeedback('feedback-neutral', 'Gemini wird kontaktiert. Bitte warten...');
-
-    try {
-        const res = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
-        });
-
-        const responseText = await res.text();
-        let data = null;
-        try {
-            data = JSON.parse(responseText);
-        } catch (_error) {
-            data = null;
-        }
-
-        if (!res.ok || !data) {
-            const serverMessage = data?.error || responseText.trim().slice(0, 200);
-            throw new Error(
-                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten.`
-            );
-        }
-
-        const rawResult = typeof data.generatedText === 'string' ? data.generatedText : '';
-        const sanitized = sanitizeForgeJsonInput(rawResult);
-
-        try {
-            const parsed = JSON.parse(sanitized);
-            outputInput.value = JSON.stringify(parsed, null, 2);
-        } catch (_error) {
-            outputInput.value = sanitized;
-        }
-
-        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und validieren.');
-    } catch (error) {
-        showForgeFeedback('feedback-error', `Generierungsfehler: ${error.message}`);
-    } finally {
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = originalBtnText;
-    }
-};
 
 window.validateAndSaveCustomCase = function() {
     const inputEl = document.getElementById('forge-input');
     if (!inputEl) return;
     const rawVal = inputEl.value.trim();
-
-    if (!rawVal) {
-        showForgeFeedback('feedback-error', 'Bitte füge zuerst einen JSON-Fall ein.');
-        return;
-    }
+    if (!rawVal) return showForgeFeedback('feedback-error', 'Bitte JSON einfügen.');
 
     try {
         const sanitized = sanitizeForgeJsonInput(rawVal);
         const parsed = JSON.parse(sanitized);
 
-        if (Array.isArray(parsed)) {
-            throw new Error('Bitte füge einen einzelnen Fall ein, kein JSON-Array.');
-        }
-        if (!parsed.case_id || typeof parsed.case_id !== 'string') {
-            throw new Error('Das Pflichtfeld "case_id" fehlt.');
-        }
+        if (!parsed.case_id) throw new Error('case_id fehlt.');
+        if (!Array.isArray(parsed.timeline)) throw new Error('timeline Array fehlt.');
 
-        parsed.case_id = parsed.case_id.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-
-        if (!parsed.case_id) {
-            throw new Error('Die case_id ist ungültig.');
-        }
-        if (!Array.isArray(parsed.timeline)) {
-            throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
-        }
-
-        let customCases = [];
-        try {
-            customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-            if (!Array.isArray(customCases)) { customCases = []; }
-        } catch (storageError) {
-            customCases = [];
-        }
-
+        let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
         customCases = customCases.filter(c => c.case_id !== parsed.case_id);
         customCases.push(parsed);
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-        try {
-            if (window.MedicalDictionary && typeof window.MedicalDictionary.registerCase === 'function') {
-                window.MedicalDictionary.registerCase(parsed);
-            }
-        } catch (_dictErr) {}
-
-        showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
+        showForgeFeedback('feedback-success', `Fall "${parsed.case_id}" gespeichert.`);
         renderDashboardCases();
-
-        if (window.Cloud && window.Cloud.isLoggedIn()) {
-            window.Cloud.saveCloudCase(parsed)
-                .then(() => showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`))
-                .catch(cloudErr => showForgeFeedback('feedback-error', `Fall lokal gespeichert, aber Online-Speicherung fehlgeschlagen: ${cloudErr.message}`));
-        }
-
     } catch (err) {
         showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
     }
 };
 
 // ====================================================
-// ABSCHLUSS, DOCTORDLE & RESETS
+// DOCTORDLE, RESETS & ABSCHLUSS
 // ====================================================
 window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
     solvedDoctordlePuzzles = solvedCount;
@@ -1306,20 +1056,13 @@ window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
         }
     }
     
-    if (solvedCount >= totalCount) {
-        doctordleSolved = true;
-    }
+    if (solvedCount >= totalCount) doctordleSolved = true;
 
     if (activeCaseData) {
         ProgressManager.saveCaseState(activeCaseData.case_id, {
-            doctordle: {
-                solvedCount: solvedCount,
-                totalCount: totalCount,
-                solved: solvedCount >= totalCount
-            }
+            doctordle: { solvedCount, totalCount, solved: solvedCount >= totalCount }
         });
     }
-    
     checkFinalCompletion();
 };
 
@@ -1330,11 +1073,8 @@ window.checkFinalCompletion = function() {
     const docDone = doctordleSolved;
     
     const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone;
-    
     const finishBtn = document.getElementById('finish-case-btn');
-    if (finishBtn) {
-        finishBtn.style.display = allCompleted ? 'block' : 'none';
-    }
+    if (finishBtn) finishBtn.style.display = allCompleted ? 'block' : 'none';
 };
 
 window.finishCase = function() {
@@ -1342,23 +1082,16 @@ window.finishCase = function() {
     if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
         solved.push(activeCaseData.case_id);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
-        if (window.Cloud) window.Cloud.scheduleProgressSync();
         applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
-    } else {
-        applyXpDelta(50, 'Review Bonus');
     }
-    
     alert('🎉 Gratulation! Alle Challenges gemeistert.');
-    
     const navItems = document.querySelectorAll('.nav-item');
     if (navItems.length > 0) switchTab('dashboard', navItems[0]);
 };
 
 window.resetCurrentChallenge = function() {
     if (!activeCaseData || currentActiveChallenge === 'overview') return;
-
-    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
-    if (!confirmReset) return;
+    if (!window.confirm(`Challenge "${currentActiveChallenge.toUpperCase()}" zurücksetzen?`)) return;
 
     const caseId = activeCaseData.case_id;
 
@@ -1406,20 +1139,15 @@ window.resetCurrentChallenge = function() {
                 docBadge.innerText = `0/${totalDoctordlePuzzles}`;
                 docBadge.style.background = '';
             }
-            if (window.doctordleGame) {
-                window.doctordleGame.resetGame();
-            }
+            if (window.doctordleGame) window.doctordleGame.resetGame();
             break;
     }
-
     checkFinalCompletion();
 };
 
 window.resetCurrentCaseEntirely = function() {
     if (!activeCaseData) return;
-    const title = activeCaseData.metadata?.title || activeCaseData.case_id;
-    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
-
+    if (!window.confirm(`Gesamten Fall zurücksetzen?`)) return;
     ProgressManager.resetEntireCase(activeCaseData.case_id);
     window.loadCaseById(activeCaseData.case_id);
 };
