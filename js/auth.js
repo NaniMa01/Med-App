@@ -2,12 +2,12 @@
  * js/auth.js - Supabase Authentication & Cloud Sync Engine
  */
 
-let supabaseClient = null;
-window.currentSession = null;
+window.supabaseClient = window.supabaseClient || null;
+window.currentSession = window.currentSession || null;
 
-// HIER DEINE ECHTEN ZUGANGSDATEN EINTRAGEN:
-const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
+// IMPORTANT: Setze hier nur den echten Supabase Project-URL + anon/public key ein.
+const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
+const SUPABASE_ANON_KEY = "DEIN_ANON_KEY_HIER_EINTRAGEN";
 
 function getActiveConfig() {
     const url = window.ENV_SUPABASE_URL || SUPABASE_PROJECT_URL;
@@ -18,7 +18,7 @@ function getActiveConfig() {
 function initSupabase() {
     const { url, key } = getActiveConfig();
 
-    if (!url || !key || key.includes("dein_echter_anon_Key")) {
+    if (!url || !key || key.includes("DEIN_ANON_KEY_HIER_EINTRAGEN")) {
         console.warn("Supabase-Konfiguration unvollständig. App läuft im Gastmodus.");
         return false;
     }
@@ -29,15 +29,15 @@ function initSupabase() {
     }
 
     try {
-        supabaseClient = supabase.createClient(url, key);
+        window.supabaseClient = supabase.createClient(url, key);
 
-        supabaseClient.auth.onAuthStateChange((_event, session) => {
+        window.supabaseClient.auth.onAuthStateChange((_event, session) => {
             window.currentSession = session;
             updateAuthUI(session);
             if (session) syncUserDataWithCloud();
         });
 
-        supabaseClient.auth.getSession().then(({ data }) => {
+        window.supabaseClient.auth.getSession().then(({ data }) => {
             window.currentSession = data?.session || null;
             updateAuthUI(window.currentSession);
         });
@@ -70,7 +70,7 @@ function clearAuthFeedback() {
 }
 
 window.authSignIn = async function () {
-    if (!supabaseClient && !initSupabase()) {
+    if (!window.supabaseClient && !initSupabase()) {
         showAuthFeedback("feedback-error", "Supabase ist nicht konfiguriert. Bitte prüfe den anon-Key.");
         return;
     }
@@ -88,7 +88,7 @@ window.authSignIn = async function () {
     showAuthFeedback("feedback-neutral", "Verbindung wird hergestellt...");
 
     try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
+        const { data, error } = await window.supabaseClient.auth.signInWithPassword({
             email,
             password
         });
@@ -115,7 +115,7 @@ window.authSignIn = async function () {
         if (err.name === "AuthRetryableFetchError" || (err.message && err.message.includes("fetch"))) {
             showAuthFeedback(
                 "feedback-error",
-                "Verbindungsabbruch zu Supabase. Mögliche Ursachen: Projekt im Dashboard pausiert (Inaktivität) oder Adblocker aktiv."
+                "Verbindungsabbruch zu Supabase. Prüfe die Project URL, den anon/public Key und ob das Projekt erreichbar ist."
             );
         } else {
             showAuthFeedback("feedback-error", `Anmeldefehler: ${err.message}`);
@@ -124,7 +124,7 @@ window.authSignIn = async function () {
 };
 
 window.authSignUp = async function () {
-    if (!supabaseClient && !initSupabase()) {
+    if (!window.supabaseClient && !initSupabase()) {
         showAuthFeedback("feedback-error", "Supabase ist nicht konfiguriert. Bitte prüfe den anon-Key.");
         return;
     }
@@ -147,7 +147,7 @@ window.authSignUp = async function () {
     showAuthFeedback("feedback-neutral", "Konto wird angelegt...");
 
     try {
-        const { data, error } = await supabaseClient.auth.signUp({
+        const { data, error } = await window.supabaseClient.auth.signUp({
             email,
             password
         });
@@ -166,7 +166,7 @@ window.authSignUp = async function () {
     } catch (err) {
         console.error("Signup-Fehler:", err);
         if (err.name === "AuthRetryableFetchError" || (err.message && err.message.includes("fetch"))) {
-            showAuthFeedback("feedback-error", "Server nicht erreichbar. Bitte Projektstatus im Dashboard prüfen.");
+            showAuthFeedback("feedback-error", "Server nicht erreichbar. Bitte Projektstatus und URL prüfen.");
         } else {
             showAuthFeedback("feedback-error", `Registrierungsfehler: ${err.message}`);
         }
@@ -174,9 +174,9 @@ window.authSignUp = async function () {
 };
 
 window.authSignOut = async function () {
-    if (!supabaseClient) return;
+    if (!window.supabaseClient) return;
     try {
-        await supabaseClient.auth.signOut();
+        await window.supabaseClient.auth.signOut();
         window.currentSession = null;
         updateAuthUI(null);
         showAuthFeedback("feedback-neutral", "Erfolgreich abgemeldet. Die App läuft im Gastmodus.");
@@ -204,7 +204,7 @@ function updateAuthUI(session) {
 }
 
 async function syncUserDataWithCloud() {
-    if (!supabaseClient || !window.currentSession) return;
+    if (!window.supabaseClient || !window.currentSession) return;
     const userId = window.currentSession.user.id;
 
     try {
@@ -212,7 +212,7 @@ async function syncUserDataWithCloud() {
         const solvedCases = JSON.parse(localStorage.getItem("solved_cases") || "[]");
         const progressData = JSON.parse(localStorage.getItem("medcheck_user_progress_v1") || "{}");
 
-        await supabaseClient.from("user_profiles").upsert({
+        await window.supabaseClient.from("user_profiles").upsert({
             id: userId,
             xp: xp,
             solved_cases: solvedCases,
@@ -228,8 +228,8 @@ window.Cloud = {
     isLoggedIn: () => !!window.currentSession,
     scheduleProgressSync: () => syncUserDataWithCloud(),
     saveCloudCase: async (caseData) => {
-        if (!supabaseClient || !window.currentSession) return;
-        return supabaseClient.from("medical_cases").upsert({
+        if (!window.supabaseClient || !window.currentSession) return;
+        return window.supabaseClient.from("medical_cases").upsert({
             case_id: caseData.case_id,
             user_id: window.currentSession.user.id,
             data: caseData,
@@ -237,7 +237,7 @@ window.Cloud = {
         });
     },
     deleteCloudCase: async (caseId) => {
-        if (!supabaseClient || !window.currentSession) return;
-        return supabaseClient.from("medical_cases").delete().eq("case_id", caseId).eq("user_id", window.currentSession.user.id);
+        if (!window.supabaseClient || !window.currentSession) return;
+        return window.supabaseClient.from("medical_cases").delete().eq("case_id", caseId).eq("user_id", window.currentSession.user.id);
     }
 };
