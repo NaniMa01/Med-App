@@ -394,4 +394,3 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .folder-case-item { font-size: 0.76rem; padding: 6px 8px; border-radius: 6px; background: rgba(16, 24, 46, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); color: var(--text-muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between; transition: all 0.15s ease; }
 .folder-case-item:hover { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: #fff; transform: translateX(2px); }
 .folder-case-item.case-solved { border-left: 2px solid var(--color-symptom); }
-
