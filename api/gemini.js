@@ -108,8 +108,7 @@ module.exports = async function handler(req, res) {
         `${encodeURIComponent(model)}:generateContent?key=` +
         `${encodeURIComponent(apiKey)}`;
 
-    const instruction = `
-const instruction = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen (orientiert an IMPP- und NBME-Standards) und leitender didaktischer Software-Architekt für MedCheck. Deine Aufgabe ist es, aus dem übergebenen Vorlesungsskript bzw. medizinischen Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Fall als syntaktisch valides JSON-Objekt zu generieren.
+    const instruction = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen (orientiert an IMPP- und NBME-Standards) und leitender didaktischer Software-Architekt für MedCheck. Deine Aufgabe ist es, aus dem übergebenen Vorlesungsskript bzw. medizinischen Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Fall als syntaktisch valides JSON-Objekt zu generieren.
 
 ZIELGRUPPE & DIDAKTISCHER ANSPRUCH:
 - Medizinstudierende im letzten Masterjahr vor dem Staatsexamen.
@@ -126,7 +125,7 @@ KRITISCHE TECHNISCHE REGELN FÜR DEN IMPORT (ZERO-TOLERANCE):
 - Das JSON muss zwingend vollständig generiert werden und syntaktisch geschlossen mit } enden.
 
 2. STRIKTES ZITATIONSVERBOT (LESEFLUSS & DATENBANK-KOMPATIBILITÄT):
-- Füge NIEMALS Zitationsmarker, Quellenverweise oder Zitations-Tags wie,, [1], (Quelle: ...) in irgendeinen String oder Task ein.
+- Füge NIEMALS Zitationsmarker, Quellenverweise oder Zitations-Tags wie [cite: ...], [source: ...], [1], (Quelle: ...) in irgendeinen String oder Task ein.
 - Alle Texte müssen reine, flüssige, hochprofessionelle klinische Fachsprache ohne Zitationsartefakte sein.
 
 3. STRING-ESCAPING & TEXTFORMATIERUNG:
@@ -361,7 +360,22 @@ JSON-SCHEMA (STRUKTURBEISPIEL):
       }
     ]
   }
-}`;
+}
+
+${prompt}`;
+
+    try {
+        const upstream = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: instruction }] }],
+                generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: 'application/json'
+                }
+            })
+        });
 
         const upstreamText = await upstream.text();
 
