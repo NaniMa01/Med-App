@@ -7,7 +7,7 @@ window.currentSession = null;
 
 // HIER DEINE ECHTEN ZUGANGSDATEN EINTRAGEN:
 const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
-const SUPABASE_ANON_KEY = "DEIN_ECHTER_ANON_KEY_HIER";
+const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
 function getActiveConfig() {
     const url = window.ENV_SUPABASE_URL || SUPABASE_PROJECT_URL;
