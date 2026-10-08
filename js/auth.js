@@ -6,7 +6,7 @@ window.supabaseClient = window.supabaseClient || null;
 window.currentSession = window.currentSession || null;
 
 // IMPORTANT: Setze hier nur den echten Supabase Project-URL + anon/public key ein.
-const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflbl.supabase.co";
+const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvflb.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
 // Ein Wert gilt nur als gültig, wenn er nicht leer ist und kein Platzhalter ("DEIN_...") ist.
