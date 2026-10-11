@@ -718,11 +718,12 @@ async function renameFolder(oldName, newName) {
 
     if (typeof supabaseClient !== 'undefined' && window.currentSession) {
         try {
-            await supabaseClient
+            const { error } = await supabaseClient
                 .from('medical_cases')
                 .update({ folder_name: newName, updated_at: new Date().toISOString() })
                 .eq('folder_name', oldName)
                 .eq('user_id', window.currentSession.user.id);
+            if (error) throw error;
         } catch (err) {
             console.error('Fehler bei Supabase Folder Update:', err);
         }
@@ -770,11 +771,12 @@ async function deleteFolder(folderName, caseCount) {
 
     if (typeof supabaseClient !== 'undefined' && window.currentSession && caseCount > 0) {
         try {
-            await supabaseClient
+            const { error } = await supabaseClient
                 .from('medical_cases')
                 .update({ folder_name: 'Allgemein', updated_at: new Date().toISOString() })
                 .eq('folder_name', folderName)
                 .eq('user_id', window.currentSession.user.id);
+            if (error) throw error;
         } catch (err) {
             console.error('Fehler beim Aktualisieren in Supabase nach Ordner-Löschung:', err);
         }
@@ -794,11 +796,12 @@ async function moveCaseToFolder(caseId, targetFolder) {
 
         if (typeof supabaseClient !== 'undefined' && window.currentSession) {
             try {
-                await supabaseClient
+                const { error } = await supabaseClient
                     .from('medical_cases')
                     .update({ folder_name: targetFolder, updated_at: new Date().toISOString() })
                     .eq('case_id', caseId)
                     .eq('user_id', window.currentSession.user.id);
+                if (error) throw error;
             } catch (err) {
                 console.error('Fehler beim Verschieben in Supabase:', err);
             }
