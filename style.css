@@ -394,3 +394,27 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .folder-case-item { font-size: 0.76rem; padding: 6px 8px; border-radius: 6px; background: rgba(16, 24, 46, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); color: var(--text-muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between; transition: all 0.15s ease; }
 .folder-case-item:hover { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: #fff; transform: translateX(2px); }
 .folder-case-item.case-solved { border-left: 2px solid var(--color-symptom); }
+
+/* ===== Lernen nach Fachrichtung ===== */
+.segmented-control { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 18px; background: rgba(11, 17, 33, 0.7); border: 1px solid var(--card-border); border-radius: 12px; flex-wrap: wrap; }
+.segmented-btn { background: transparent; border: none; color: var(--text-muted); padding: 9px 16px; border-radius: 9px; font-weight: 700; font-size: 0.85rem; cursor: pointer; font-family: inherit; transition: all 0.25s var(--ease-out); }
+.segmented-btn:hover { color: var(--text-main); }
+.segmented-btn.active { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35); }
+.specialty-hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.specialty-card { background: rgba(16, 24, 46, 0.8); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; cursor: pointer; transition: all 0.25s var(--ease-out); display: flex; flex-direction: column; gap: 10px; }
+.specialty-card:hover, .specialty-card:focus-visible { border-color: var(--accent-blue); transform: translateY(-2px); outline: none; }
+.specialty-card h3 { font-size: 1rem; font-weight: 800; color: #f8fafc; margin: 0; }
+.specialty-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; }
+.specialty-progress-track { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.specialty-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition: width 0.4s var(--ease-out); }
+.specialty-empty { color: var(--text-muted); padding: 20px; }
+.blind-mode-header { color: var(--accent-indigo) !important; background: rgba(99, 102, 241, 0.12) !important; letter-spacing: 0.02em; }
+.specialty-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+.specialty-actions .action-btn { flex: 1; min-width: 200px; padding: 14px; }
+.specialty-actions #btn-reveal-diagnosis { background: rgba(99, 102, 241, 0.2); border: 1px solid var(--accent-indigo); color: var(--text-main); }
+.reveal-modal { position: fixed; inset: 0; z-index: 600; background: rgba(3, 6, 14, 0.8); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 16px; }
+.reveal-card { background: rgba(15, 23, 42, 0.98); border: 1px solid var(--accent-blue); border-radius: 16px; padding: 24px; width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8); line-height: 1.6; }
+.reveal-card h3 { color: var(--accent-blue); margin: 0 0 4px; font-size: 1.15rem; }
+.reveal-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-top: 14px; }
+.reveal-pearl { margin-top: 14px; padding: 12px; border-radius: 10px; background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.25); font-size: 0.9rem; }
+.reveal-card .action-btn { width: 100%; margin-top: 18px; }

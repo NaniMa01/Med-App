@@ -85,7 +85,12 @@
                 <div class="panel" id="dashboard-view" style="display: block;">
                     <div class="panel-title">Klinische Module & Themen-Ordner</div>
                     <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-                    <div class="super-folder">
+                    <div class="segmented-control" role="tablist">
+                        <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
+                        <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
+                    </div>
+                    <div id="specialty-hub" class="specialty-hub" style="display: none;"></div>
+                    <div class="super-folder" id="topic-grid">
                         <div class="super-folder-header" onclick="toggleSuperFolder()">
                             <div class="super-folder-title"><svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
                             <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
@@ -158,6 +163,10 @@
 </div>
 
                     </div>
+                    <div class="specialty-actions" id="specialty-actions" style="display: none;">
+                        <button type="button" class="action-btn" id="btn-reveal-diagnosis">🔎 Diagnose enthüllen</button>
+                        <button type="button" class="action-btn" id="btn-next-specialty-case">Nächstes Krankheitsbild →</button>
+                    </div>
                     <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%; margin-top: 24px; padding: 15px; font-size: 1rem; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);">✨ Alle Challenges & Examen gemeistert – Fall abschließen & XP sichern</button>
                 </div>
 
@@ -205,6 +214,10 @@
         </div>
     </div>
     
+    <div id="reveal-modal" class="reveal-modal" style="display: none;">
+        <div class="reveal-card" id="reveal-card"></div>
+    </div>
+
     <div id="tutor-modal" class="tutor-popup">
         <div style="font-weight: 800; margin-bottom: 8px; color: var(--accent-blue); display: flex; align-items: center; gap: 6px;"><span>💡 Sokratischer Tutor</span></div>
         <div id="tutor-text"></div>
@@ -223,5 +236,6 @@
     <script src="js/cascade.js"></script>
     <script src="js/taxonomy.js"></script>
     <script src="js/quiz.js"></script>
+    <script src="js/specialty.js"></script>
 </body>
 </html>

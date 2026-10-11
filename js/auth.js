@@ -228,11 +228,13 @@ async function syncUserDataWithCloud() {
         const solvedCases = JSON.parse(localStorage.getItem("solved_cases") || "[]");
         const progressData = JSON.parse(localStorage.getItem("medcheck_user_progress_v1") || "{}");
 
+        const specialtyProgress = JSON.parse(localStorage.getItem("medcheck_specialty_progress") || "{}");
+
         await window.supabaseClient.from("user_profiles").upsert({
             id: userId,
             xp: xp,
             solved_cases: solvedCases,
-            progress_data: progressData,
+            progress_data: { ...progressData, __mode_specialty: specialtyProgress },
             updated_at: new Date().toISOString()
         });
     } catch (err) {
