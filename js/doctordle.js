@@ -47,7 +47,9 @@ class DoctordleController {
         if (this.nextBtn) {
             this.nextBtn.onclick = () => this.goToNextPuzzle();
         }
-
+        
+        if (this._outsideClickBound) return;
+        this._outsideClickBound = true;
         document.addEventListener('click', (e) => {
             if (this.input && this.autocompleteList && !this.input.contains(e.target) && !this.autocompleteList.contains(e.target)) {
                 this.hideAutocomplete();
@@ -55,8 +57,6 @@ class DoctordleController {
         });
     }
 
-    initCase(caseData) {
-        this.initDOM();
     hideAutocomplete() {
         if (this.autocompleteList) {
             this.autocompleteList.classList.add('hidden');
