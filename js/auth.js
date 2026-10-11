@@ -14,6 +14,11 @@ function isValidConfigValue(value) {
     return typeof value === "string" && value.trim() !== "" && !value.includes("DEIN_");
 }
 
+function assertSupabaseSuccess(result) {
+    if (result?.error) throw result.error;
+    return result;
+}
+
 // Bereinigt die URL: entfernt doppeltes "https://", Pfade wie /rest/v1/ und Slashes am Ende.
 function normalizeSupabaseUrl(raw) {
     if (!isValidConfigValue(raw)) return "";
@@ -53,10 +58,13 @@ function initSupabase() {
             if (session) syncUserDataWithCloud();
         });
 
-        window.supabaseClient.auth.getSession().then(({ data }) => {
-            window.currentSession = data?.session || null;
-            updateAuthUI(window.currentSession);
-        });
+        window.supabaseClient.auth.getSession()
+            .then(result => {
+                assertSupabaseSuccess(result);
+                window.currentSession = result.data?.session || null;
+                updateAuthUI(window.currentSession);
+            })
+            .catch(err => console.error("Session-Ladefehler:", err));
 
         return true;
     } catch (err) {
@@ -192,7 +200,7 @@ window.authSignUp = async function () {
 window.authSignOut = async function () {
     if (!window.supabaseClient) return;
     try {
-        await window.supabaseClient.auth.signOut();
+        assertSupabaseSuccess(await window.supabaseClient.auth.signOut());
         window.currentSession = null;
         updateAuthUI(null);
         showAuthFeedback("feedback-neutral", "Erfolgreich abgemeldet. Die App läuft im Gastmodus.");
@@ -228,15 +236,13 @@ async function syncUserDataWithCloud() {
         const solvedCases = JSON.parse(localStorage.getItem("solved_cases") || "[]");
         const progressData = JSON.parse(localStorage.getItem("medcheck_user_progress_v1") || "{}");
 
-        const specialtyProgress = JSON.parse(localStorage.getItem("medcheck_specialty_progress") || "{}");
-
-        await window.supabaseClient.from("user_profiles").upsert({
+        assertSupabaseSuccess(await window.supabaseClient.from("user_profiles").upsert({
             id: userId,
             xp: xp,
             solved_cases: solvedCases,
             progress_data: { ...progressData, __mode_specialty: specialtyProgress },
             updated_at: new Date().toISOString()
-        });
+        }));
     } catch (err) {
         console.error("Cloud-Sync-Fehler:", err);
     }
@@ -247,15 +253,15 @@ window.Cloud = {
     scheduleProgressSync: () => syncUserDataWithCloud(),
     saveCloudCase: async (caseData) => {
         if (!window.supabaseClient || !window.currentSession) return;
-        return window.supabaseClient.from("medical_cases").upsert({
+        return assertSupabaseSuccess(await window.supabaseClient.from("medical_cases").upsert({
             case_id: caseData.case_id,
             user_id: window.currentSession.user.id,
             data: caseData,
             updated_at: new Date().toISOString()
-        });
+        }));
     },
     deleteCloudCase: async (caseId) => {
         if (!window.supabaseClient || !window.currentSession) return;
-        return window.supabaseClient.from("medical_cases").delete().eq("case_id", caseId).eq("user_id", window.currentSession.user.id);
+        return assertSupabaseSuccess(await window.supabaseClient.from("medical_cases").delete().eq("case_id", caseId).eq("user_id", window.currentSession.user.id));
     }
 };
