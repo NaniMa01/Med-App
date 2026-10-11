@@ -108,7 +108,7 @@ class DoctordleController {
         const p = this.puzzles[this.currentPuzzleIndex];
         if (!p) return;
 
-        if (this.headline) this.headline.innerText = p.title || `Deduktionsrätsel ${index + 1}`;
+        if (this.headline) this.headline.innerText = window.isSpecialtyBlindMode ? `Deduktionsrätsel ${index + 1}` : p.title || `Deduktionsrätsel ${index + 1}`;
         if (this.tracker) this.tracker.innerText = `Rätsel ${index + 1}/${this.puzzles.length}`;
         
         if (this.resultBox) {
@@ -178,13 +178,22 @@ class DoctordleController {
             return;
         }
 
-        let list = [];
+        // Globaler DD-Pool hat Priorität, danach Wörterbuch bzw. lokale Fall-Einträge
+        let extra = [];
         if (window.MedicalDictionary && typeof window.MedicalDictionary.getAllDiagnoses === 'function') {
-            list = window.MedicalDictionary.getAllDiagnoses();
+            extra = window.MedicalDictionary.getAllDiagnoses();
         } else {
-            const entries = activeCaseData?.extra_tasks?.library_entries || [];
-            list = Array.from(new Set(entries));
+            extra = activeCaseData?.extra_tasks?.library_entries || [];
         }
+        const globalPool = window.MedCheckDDLibrary ? Array.from(window.MedCheckDDLibrary) : [];
+        const seen = new Set();
+        const list = [...globalPool, ...extra].filter(item => {
+            if (typeof item !== 'string') return false;
+            const key = item.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
 
         const matches = list.filter(item => item.toLowerCase().includes(trimmed)).slice(0, 6);
 

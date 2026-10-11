@@ -71,10 +71,7 @@
       "bloom_level": "Evaluation & Synthese",
       "difficulty": 5,
       "xp_reward": 250,
-      "file_path": "cases/neuro_demenz_001.json" 
+      "file_path": "cases/neuro_demenz_001.json"
     }
-    }
-  ]
-}
   ]
 }
