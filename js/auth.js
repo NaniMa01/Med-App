@@ -240,7 +240,7 @@ async function syncUserDataWithCloud() {
             id: userId,
             xp: xp,
             solved_cases: solvedCases,
-            progress_data: progressData,
+            progress_data: { ...progressData, __mode_specialty: specialtyProgress },
             updated_at: new Date().toISOString()
         }));
     } catch (err) {

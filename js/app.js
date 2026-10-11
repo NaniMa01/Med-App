@@ -172,7 +172,8 @@ const ProgressManager = {
     },
 
     saveCaseState(caseId, partialState) {
-        if (!caseId) return;
+        // Fachrichtungs-Modus: regulären Themen-Fortschritt nie überschreiben
+        if (!caseId || window.isSpecialtyBlindMode) return;
         const all = this.getAll();
         all[caseId] = {
             ...(all[caseId] || {}),
@@ -187,7 +188,7 @@ const ProgressManager = {
     },
 
     resetChallenge(caseId, challengeKey) {
-        if (!caseId) return;
+        if (!caseId || window.isSpecialtyBlindMode) return;
         const all = this.getAll();
         if (all[caseId] && all[caseId][challengeKey]) {
             delete all[caseId][challengeKey];
@@ -196,7 +197,7 @@ const ProgressManager = {
     },
 
     resetEntireCase(caseId) {
-        if (!caseId) return;
+        if (!caseId || window.isSpecialtyBlindMode) return;
         const all = this.getAll();
         delete all[caseId];
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
@@ -207,6 +208,74 @@ const ProgressManager = {
         localStorage.setItem('solved_cases', JSON.stringify(solved));
     }
 };
+
+// ====================================================
+// GLOBALE DD-BIBLIOTHEK (fallübergreifend, persistent)
+// ====================================================
+const DD_POOL_KEY = 'medcheck_global_dd_pool';
+window.MedCheckDDLibrary = new Set();
+const ddLibraryKeys = new Set();
+
+function addToDDLibrary(term) {
+    if (typeof term !== 'string') return false;
+    const clean = term.trim().replace(/\s+/g, ' ');
+    if (clean.length < 2) return false;
+    const key = clean.toLowerCase();
+    if (ddLibraryKeys.has(key)) return false;
+    ddLibraryKeys.add(key);
+    window.MedCheckDDLibrary.add(clean);
+    return true;
+}
+
+function saveDDLibrary() {
+    try {
+        localStorage.setItem(DD_POOL_KEY, JSON.stringify(Array.from(window.MedCheckDDLibrary)));
+    } catch (e) {
+        console.error('DD-Pool Schreibfehler:', e);
+    }
+}
+
+function loadDDLibrary() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(DD_POOL_KEY) || '[]');
+        if (Array.isArray(stored)) stored.forEach(addToDDLibrary);
+    } catch (e) {
+        console.error('DD-Pool Lesefehler:', e);
+    }
+}
+
+window.registerCaseDDs = function(caseData) {
+    const tasks = caseData?.extra_tasks;
+    if (!tasks) return;
+    let changed = false;
+    const add = t => { if (addToDDLibrary(t)) changed = true; };
+
+    (Array.isArray(tasks.library_entries) ? tasks.library_entries : []).forEach(add);
+    const puzzles = Array.isArray(tasks.doctordle) ? tasks.doctordle : (tasks.doctordle ? [tasks.doctordle] : []);
+    puzzles.forEach(p => {
+        add(p?.target_diagnosis);
+        (Array.isArray(p?.synonyms) ? p.synonyms : []).forEach(add);
+    });
+    if (changed) saveDDLibrary();
+};
+
+async function prefetchManifestDDs() {
+    try {
+        const res = await fetch('manifest.json');
+        if (!res.ok) return;
+        const manifest = await res.json();
+        const files = (manifest.cases || []).map(c => c.file_path).filter(Boolean);
+        await Promise.all(files.map(async path => {
+            try {
+                const r = await fetch(path);
+                if (r.ok) window.registerCaseDDs(await r.json());
+            } catch (e) { /* einzelne Datei fehlerhaft: ignorieren */ }
+        }));
+    } catch (e) { /* Manifest nicht verfügbar */ }
+}
+
+loadDDLibrary();
+
 
 // Globaler Hook für externe Challenge-Module
 window.saveChallengeProgress = function(challengeKey, data) {
@@ -222,6 +291,8 @@ window.saveChallengeProgress = function(challengeKey, data) {
 // ====================================================
 document.addEventListener('DOMContentLoaded', () => {
     initUserData();
+    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
+    prefetchManifestDDs();
     renderSkillsSidebar();
     renderDashboardCases();
 
@@ -273,7 +344,12 @@ function switchTab(tab, el) {
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('active');
 
-    if (tab === 'dashboard') renderDashboardCases();
+    if (tab === 'dashboard') {
+        window.isSpecialtyBlindMode = false;
+        if (window.applyBlindHeader) window.applyBlindHeader(false, null);
+        renderDashboardCases();
+        if (window.renderSpecialtyHub) window.renderSpecialtyHub();
+    }
 }
 
 window.switchPlayerMode = function(mode) {
@@ -411,8 +487,7 @@ function renderSkillsSidebar() {
 // DASHBOARD & BOOKSHELF
 // ====================================================
 function renderDashboardCases() {
-    let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
+    let customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     const container = document.getElementById('dashboard-folders-container');
     
@@ -853,10 +928,35 @@ window.toggleFolder = function(category) {
 // ====================================================
 // FALL LADEN & PLAYER LOGIK
 // ====================================================
-window.loadCaseById = function(caseId) {
-    let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch(e){}
-    let targetCase = [BUILTIN_DEMO_CASE, ...customCases].find(c => c.case_id === caseId);
+function getCustomCases() {
+    try { return JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { return []; }
+}
+
+window.getRegisteredCases = function() {
+    return [BUILTIN_DEMO_CASE, ...getCustomCases().filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
+};
+
+// Reduziert die Challenges für den Fachrichtungs-Modus (1 Kaskade, 1 MC-Frage) mit Fallbacks auf Index 0
+function applySpecialtyFilters(caseData) {
+    const tasks = caseData.extra_tasks;
+    if (!tasks) return;
+    const primary = caseData.metadata?.primary_disease;
+
+    if (Array.isArray(tasks.clinical_cascades) && tasks.clinical_cascades.length) {
+        const match = primary ? tasks.clinical_cascades.find(c => c.disease === primary) : null;
+        tasks.clinical_cascades = [match || tasks.clinical_cascades[0]];
+    }
+    if (Array.isArray(tasks.master_quiz) && tasks.master_quiz.length) {
+        let pool = tasks.master_quiz.filter(q => q.is_primary === true || (primary && q.target_disease === primary));
+        if (!pool.length) pool = [tasks.master_quiz[0]];
+        tasks.master_quiz = [pool[Math.floor(Math.random() * pool.length)]];
+    }
+}
+
+window.loadCaseById = function(caseId, opts = {}) {
+    const specialtyMode = !!opts.specialty;
+    window.isSpecialtyBlindMode = specialtyMode;
+    let targetCase = window.getRegisteredCases().find(c => c.case_id === caseId);
     
     if (!targetCase) { 
         alert("Fall nicht gefunden!"); 
@@ -864,10 +964,11 @@ window.loadCaseById = function(caseId) {
     }
 
     activeCaseData = JSON.parse(JSON.stringify(targetCase));
-    const saved = ProgressManager.getCaseProgress(caseId) || {};
-    
-    const badgeTitle = document.getElementById('player-case-badge-title');
-    if (badgeTitle) badgeTitle.innerText = activeCaseData.metadata?.title || activeCaseData.case_id;
+    window.registerCaseDDs(activeCaseData);
+    if (specialtyMode) applySpecialtyFilters(activeCaseData);
+    const saved = specialtyMode ? {} : (ProgressManager.getCaseProgress(caseId) || {});
+
+    if (window.applyBlindHeader) window.applyBlindHeader(specialtyMode, activeCaseData);
 
     // Timeline / Audit wiederherstellen
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
@@ -930,8 +1031,9 @@ window.loadCaseById = function(caseId) {
     if (hasQuiz) safely('Quiz', window.renderQuiz);
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
 
+    if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
     switchTab('player', document.getElementById('nav-player'));
-    switchPlayerMode('overview');
+    switchPlayerMode(specialtyMode ? 'audit' : 'overview');
     checkFinalCompletion();
 };
 
@@ -1172,8 +1274,9 @@ window.checkFinalCompletion = function() {
     const finishBtn = document.getElementById('finish-case-btn');
     if (finishBtn) {
         // Blendet den Button zuverlässig ein und AUS, wenn eine Challenge resetet wird
-        finishBtn.style.display = allCompleted ? 'block' : 'none';
+        finishBtn.style.display = (allCompleted && !window.isSpecialtyBlindMode) ? 'block' : 'none';
     }
+    if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
 };
 
 window.finishCase = function() {
@@ -1257,9 +1360,10 @@ window.resetCurrentChallenge = function() {
 
 window.resetCurrentCaseEntirely = function() {
     if (!activeCaseData) return;
-    const title = activeCaseData.metadata?.title || activeCaseData.case_id;
+    const blind = !!window.isSpecialtyBlindMode;
+    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
     if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
 
     ProgressManager.resetEntireCase(activeCaseData.case_id);
-    window.loadCaseById(activeCaseData.case_id);
+    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
 };
