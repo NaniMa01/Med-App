@@ -311,6 +311,10 @@ async function syncCloudCasesToLocal() {
         localStorage.setItem("custom_cases", JSON.stringify(formattedCases));
 
         window.dispatchEvent(new CustomEvent("cloudCasesSynced", { detail: { cases: formattedCases } }));
+        if (typeof window.renderDashboardCases === "function") {
+            window.renderDashboardCases();
+        } 
+            
     } catch (err) {
         console.error("Fehler beim Synchronisieren der Cloud-Fälle:", err);
     }
