@@ -321,13 +321,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ====================================================
-// ALLGEMEINE UI & UTILS
+// ALLGEMEINE UI & UTILS (INKL. VIEW TRANSITIONS & HAPTICS)
 // ====================================================
+window.triggerHaptic = function(ms = 8) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(ms); } catch (_e) {}
+    }
+};
+
 window.toggleSidebar = function() {
-    const sidebar = document.querySelector('.sidebar') || document.querySelector('aside');
+    // BUGFIX: <sidebar> Tag wird jetzt zuverlässig gefunden
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.toggle('open');
     if (overlay) overlay.classList.toggle('active');
+    window.triggerHaptic(6);
 };
 
 function escapeHtml(str) {
@@ -338,30 +346,64 @@ function escapeHtml(str) {
 }
 
 window.switchTab = function(tab, el) {
-    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-    if (el) el.classList.add('active');
-    
-    const showTab = (id, displayStyle) => {
-        const element = document.getElementById(id);
-        if (element) element.style.display = displayStyle;
+    window.triggerHaptic(6);
+    const updateDOM = () => {
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+        if (el) el.classList.add('active');
+        
+        const showTab = (id, displayStyle) => {
+            const element = document.getElementById(id);
+            if (element) element.style.display = displayStyle;
+        };
+
+        showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
+        showTab('player-view', tab === 'player' ? 'block' : 'none');
+        showTab('forge-view', tab === 'forge' ? 'block' : 'none');
+        showTab('settings-view', tab === 'settings' ? 'block' : 'none');
+        showTab('nav-player', tab === 'player' ? 'flex' : 'none');
+        
+        const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
+        const overlay = document.querySelector('.sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+
+        if (tab === 'dashboard') {
+            window.isSpecialtyBlindMode = false;
+            window.applyBlindHeader(false, null);
+            renderDashboardCases();
+            if (window.renderSpecialtyHub) window.renderSpecialtyHub();
+        }
     };
 
-    showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
-    showTab('player-view', tab === 'player' ? 'block' : 'none');
-    showTab('forge-view', tab === 'forge' ? 'block' : 'none');
-    showTab('settings-view', tab === 'settings' ? 'block' : 'none');
-    showTab('nav-player', tab === 'player' ? 'flex' : 'none');
-    
-    const sidebar = document.querySelector('.sidebar') || document.querySelector('aside');
-    const overlay = document.querySelector('.sidebar-overlay');
-    if (sidebar) sidebar.classList.remove('open');
-    if (overlay) overlay.classList.remove('active');
+    if (document.startViewTransition) {
+        document.startViewTransition(updateDOM);
+    } else {
+        updateDOM();
+    }
+};
 
-    if (tab === 'dashboard') {
-        window.isSpecialtyBlindMode = false;
-        window.applyBlindHeader(false, null);
-        renderDashboardCases();
-        if (window.renderSpecialtyHub) window.renderSpecialtyHub();
+window.switchPlayerMode = function(mode) {
+    currentActiveChallenge = mode;
+    window.triggerHaptic(6);
+
+    const updateModeDOM = () => {
+        document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        const targetPane = document.getElementById('mode-container-' + mode);
+        const targetTab = document.getElementById('tab-btn-' + mode);
+        if (targetPane) targetPane.style.display = 'block';
+        if (targetTab) targetTab.classList.add('active');
+
+        if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
+            window.initDoctordle(activeCaseData);
+        }
+    };
+
+    if (document.startViewTransition) {
+        document.startViewTransition(updateModeDOM);
+    } else {
+        updateModeDOM();
     }
 };
 
