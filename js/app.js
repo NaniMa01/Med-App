@@ -1614,13 +1614,14 @@ window.addEventListener("cloudCasesSynced", () => {
     }
 });
 // ====================================================
-// SMARTPHONE CHALLENGE-MENÜ (Nutzt direkt switchPlayerMode)
+// SMARTPHONE CHALLENGE-MENÜ (Hochformat-Dropdown & Querformat-FAB)
 // ====================================================
 (function initMobileChallengePicker() {
     function syncMobileChallengePicker() {
         const navBar = document.querySelector('.challenge-nav-bar');
         if (!navBar) return;
 
+        // 1. Hochformat-Dropdown synchronisieren
         let mobileWrapper = document.getElementById('mc-mobile-picker-wrap');
         if (!mobileWrapper) {
             mobileWrapper = document.createElement('div');
@@ -1629,7 +1630,6 @@ window.addEventListener("cloudCasesSynced", () => {
             navBar.parentElement.insertBefore(mobileWrapper, navBar);
         }
 
-        // Lese alle aktuell für diesen Fall sichtbaren Challenge-Buttons aus deiner challenge-nav-bar aus
         const buttons = Array.from(navBar.querySelectorAll('.challenge-tab-btn')).filter(btn => {
             return btn.style.display !== 'none';
         });
@@ -1637,7 +1637,6 @@ window.addEventListener("cloudCasesSynced", () => {
         const optionsHtml = buttons.map(btn => {
             const mode = btn.id.replace('tab-btn-', '');
             const badgeText = btn.querySelector('.tab-badge')?.innerText || '';
-            // Text ohne Badge-Text extrahieren
             const clone = btn.cloneNode(true);
             const b = clone.querySelector('.tab-badge');
             if (b) b.remove();
@@ -1661,9 +1660,60 @@ window.addEventListener("cloudCasesSynced", () => {
                 window.switchPlayerMode(e.target.value);
             });
         }
+
+        // 2. Querformat-FAB (Floating Action Button) synchronisieren
+        let fabContainer = document.getElementById('landscape-fab-container');
+        if (!fabContainer) {
+            fabContainer = document.createElement('div');
+            fabContainer.id = 'landscape-fab-container';
+            fabContainer.className = 'landscape-fab-container';
+            
+            fabContainer.innerHTML = `
+                <div class="landscape-fab-menu" id="landscape-fab-menu"></div>
+                <button class="landscape-fab-btn" id="landscape-fab-btn" title="Menü öffnen">+</button>
+            `;
+            document.body.appendChild(fabContainer);
+            
+            // Toggle Logic für den FAB
+            document.getElementById('landscape-fab-btn').addEventListener('click', () => {
+                const menu = document.getElementById('landscape-fab-menu');
+                const btn = document.getElementById('landscape-fab-btn');
+                menu.classList.toggle('open');
+                btn.classList.toggle('active');
+                window.triggerHaptic(8);
+            });
+        }
+        
+        // FAB nur sichtbar schalten, wenn wir uns im "Player"-Modus befinden
+        const playerView = document.getElementById('player-view');
+        if (playerView && playerView.style.display !== 'none') {
+            fabContainer.classList.add('visible');
+        } else {
+            fabContainer.classList.remove('visible');
+            document.getElementById('landscape-fab-menu').classList.remove('open');
+            document.getElementById('landscape-fab-btn').classList.remove('active');
+        }
+
+        // Menü-Punkte des FABs mit den aktiven Challenges befüllen
+        const fabMenu = document.getElementById('landscape-fab-menu');
+        fabMenu.innerHTML = buttons.map(btn => {
+            const mode = btn.id.replace('tab-btn-', '');
+            const clone = btn.cloneNode(true);
+            const b = clone.querySelector('.tab-badge');
+            if (b) b.remove();
+            const label = clone.innerText.trim();
+            const isActive = (mode === currentActiveChallenge) ? 'active' : '';
+            
+            return `<button class="${isActive}" onclick="
+                window.triggerHaptic(5);
+                window.switchPlayerMode('${mode}'); 
+                document.getElementById('landscape-fab-menu').classList.remove('open'); 
+                document.getElementById('landscape-fab-btn').classList.remove('active');
+            ">${label}</button>`;
+        }).join('');
     }
 
-    // Hänge dich sauber in switchPlayerMode und loadCaseById ein, damit das Menü immer aktuell ist
+    // Hooks in die bestehenden Funktionen, damit UI synchron bleibt
     const origSwitchPlayerMode = window.switchPlayerMode;
     if (typeof origSwitchPlayerMode === 'function') {
         window.switchPlayerMode = function(mode) {
@@ -1676,6 +1726,14 @@ window.addEventListener("cloudCasesSynced", () => {
     if (typeof origLoadCaseById === 'function') {
         window.loadCaseById = function(caseId, opts) {
             origLoadCaseById(caseId, opts);
+            setTimeout(syncMobileChallengePicker, 50);
+        };
+    }
+
+    const origSwitchTab = window.switchTab;
+    if (typeof origSwitchTab === 'function') {
+        window.switchTab = function(tab, el) {
+            origSwitchTab(tab, el);
             setTimeout(syncMobileChallengePicker, 50);
         };
     }
