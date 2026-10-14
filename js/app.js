@@ -1572,170 +1572,67 @@ window.addEventListener("cloudCasesSynced", () => {
     }
 });
 /* ==========================================================================
-   MEDCHECK SMARTPHONE CHALLENGE-SWITCHER & SYNAPSES AUTO-MOUNT
-   Erzeugt auf dem Smartphone ein Auswahl-Menü für die Challenges und zeigt 
-   immer nur die ausgewählte Challenge einzeln und übersichtlich an.
+   MEDCHECK MOBILE LAYOUT GUARD
+   Überwacht das Öffnen von Fällen und macht überbreite Module (Mapping, 
+   Synapses, Tabellen) automatisch horizontal per Touch scrollbar.
    ========================================================================== */
-(function initMedCheckChallengeMenu() {
-  // Definition deiner 6 Module/Kategorien
-  const CHALLENGES = [
-    { id: 'synapses', label: '🧠 Synapsen', keywords: ['synaps', 'connection'] },
-    { id: 'quiz',     label: '❓ Quiz & Fragen', keywords: ['quiz', 'question', 'mc'] },
-    { id: 'cascade',  label: '⚡ Kaskade', keywords: ['cascade', 'kaskade', 'step'] },
-    { id: 'mapping',  label: '🗺️ Mapping', keywords: ['map', 'concept', 'board'] },
-    { id: 'audit',    label: '📋 Klinisches Audit', keywords: ['audit', 'chart', 'error'] },
-    { id: 'taxonomy', label: '🎯 Taxonomie', keywords: ['taxonom', 'bloom'] }
-  ];
+(function initMedCheckMobileGuard() {
+  function optimizeCaseForMobile() {
+    if (window.innerWidth > 768) return; // Nur auf Smartphones aktiv
 
-  let activeChallengeId = 'synapses'; // Startet standardmäßig oder nach Wahl
+    const viewportWidth = window.innerWidth;
 
-  function findChallengeSections() {
-    const found = {};
+    // 1. Falls Body oder HTML durch ein Modal/Fall-Skript für Scrollen gesperrt wurden -> entsperren
+    document.documentElement.style.overflowY = 'auto';
+    document.body.style.overflowY = 'auto';
 
-    // 1. Suche nach vorhandenen Containern im DOM anhand von IDs, Klassen oder Überschriften
-    CHALLENGES.forEach(ch => {
-      const selector = ch.keywords.map(k => `[id*="${k}" i], [class*="${k}" i], [data-challenge*="${k}" i]`).join(', ');
-      const candidates = Array.from(document.querySelectorAll(selector)).filter(el => {
-        // Ignoriere Menü-Buttons selbst und Script-Tags
-        return !el.closest('#mc-mobile-challenge-bar') &&
-               el.tagName !== 'BUTTON' &&
-               el.tagName !== 'SCRIPT' &&
-               el.tagName !== 'NAV';
-      });
+    // 2. Prüfe alle Elemente im geöffneten Fall auf Überbreite
+    const allElements = document.querySelectorAll('body *');
+    allElements.forEach((el) => {
+      const style = window.getComputedStyle(el);
 
-      if (candidates.length > 0) {
-        // Nimm den äußersten relevanten Modul-Container
-        found[ch.id] = candidates[0];
-      }
-    });
-
-    // 2. Garantiere, dass der Synapsen-Container existiert und gerendert ist!
-    if (!found['synapses'] || found['synapses'].innerHTML.trim() === '') {
-      let synEl = document.getElementById('synapses-container');
-      if (!synEl) {
-        synEl = document.createElement('div');
-        synEl.id = 'synapses-container';
-        synEl.className = 'challenge-section';
-        // Füge ihn dort ein, wo auch die anderen Challenges liegen
-        const firstOther = Object.values(found)[0];
-        const targetParent = firstOther ? firstOther.parentElement : (document.querySelector('main') || document.body);
-        targetParent.appendChild(synEl);
-      }
-      if (window.SynapsesChallenge && synEl.innerHTML.trim() === '') {
-        window.SynapsesChallenge.init(window.currentCase || window.activeCase || {}, synEl);
-      }
-      found['synapses'] = synEl;
-    }
-
-    return found;
-  }
-
-  function switchChallenge(challengeId) {
-    activeChallengeId = challengeId;
-    const sections = findChallengeSections();
-
-    // Alle Challenge-Container ausblenden, NUR den ausgewählten anzeigen!
-    Object.keys(sections).forEach(id => {
-      const el = sections[id];
-      if (!el) return;
-      if (id === challengeId) {
-        el.style.setProperty('display', 'block', 'important');
-        el.classList.add('mc-active-challenge');
-        // Falls Synapsen ausgewählt wurde und noch leer ist -> sofort rendern
-        if (id === 'synapses' && window.SynapsesChallenge && !el.querySelector('.syn-wrapper')) {
-          window.SynapsesChallenge.init(window.currentCase || window.activeCase || {}, el);
+      // A. Wenn ein Flexbox-Container im Fall nebeneinander steht und den Screen sprengt -> untereinander stapeln
+      if (style.display === 'flex' && style.flexDirection === 'row' && el.scrollWidth > viewportWidth) {
+        // Ausnahme: Reine Button-/Tab-Leisten oben sollen horizontal wischbar bleiben
+        const isNavOrTabs = el.tagName === 'NAV' || el.className.toLowerCase().includes('tab') || el.className.toLowerCase().includes('nav');
+        if (isNavOrTabs) {
+          el.classList.add('mobile-scroll-x');
+        } else {
+          el.style.flexDirection = 'column';
+          el.style.width = '100%';
+          el.style.maxWidth = '100vw';
         }
-      } else {
-        el.style.setProperty('display', 'none', 'important');
-        el.classList.remove('mc-active-challenge');
+      }
+
+      // B. Wenn ein Canvas, SVG, eine Tabelle oder ein Mapping-Board breiter als das Handy ist -> Eltern-Container scrollbar machen!
+      if ((el.tagName === 'CANVAS' || el.tagName === 'SVG' || el.tagName === 'TABLE' || el.scrollWidth > viewportWidth + 10) && el.parentElement) {
+        const parent = el.parentElement;
+        if (parent && parent !== document.body && parent !== document.documentElement) {
+          parent.style.overflowX = 'auto';
+          parent.style.webkitOverflowScrolling = 'touch';
+          parent.style.maxWidth = '100%';
+          parent.style.display = 'block';
+        }
       }
     });
-
-    // Aktiven Zustand in der Menü-Leiste aktualisieren
-    const bar = document.getElementById('mc-mobile-challenge-bar');
-    if (bar) {
-      bar.querySelectorAll('.mc-ch-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.ch === challengeId);
-      });
-      const select = bar.querySelector('.mc-ch-select');
-      if (select && select.value !== challengeId) {
-        select.value = challengeId;
-      }
-    }
   }
 
-  function injectChallengeMenu() {
-    const sections = findChallengeSections();
-    const availableIds = Object.keys(sections);
-    if (availableIds.length === 0) return;
+  // Bei Größenänderung und beim Start ausführen
+  window.addEventListener('resize', optimizeCaseForMobile);
+  window.addEventListener('DOMContentLoaded', optimizeCaseForMobile);
 
-    // Prüfen, ob die Menüleiste schon existiert
-    let bar = document.getElementById('mc-mobile-challenge-bar');
-    if (!bar) {
-      bar = document.createElement('div');
-      bar.id = 'mc-mobile-challenge-bar';
-      bar.className = 'mc-challenge-bar';
-
-      const firstSection = sections[availableIds[0]];
-      if (firstSection && firstSection.parentElement) {
-        firstSection.parentElement.insertBefore(bar, firstSection);
-      } else {
-        (document.querySelector('main') || document.body).prepend(bar);
-      }
-    }
-
-    const activeChallenges = CHALLENGES.filter(c => availableIds.includes(c.id));
-
-    bar.innerHTML = `
-      <div class="mc-ch-header">
-        <span class="mc-ch-label">🎯 Challenge-Modus wählen:</span>
-        <!-- Kompakter Dropdown-Wähler für schnelle Einhand-Bedienung -->
-        <select class="mc-ch-select" aria-label="Challenge auswählen">
-          ${activeChallenges.map(c => `<option value="${c.id}" ${c.id === activeChallengeId ? 'selected' : ''}>${c.label}</option>`).join('')}
-        </select>
-      </div>
-      <!-- Zusätzliche horizontal wischbare Touch-Pills -->
-      <div class="mc-ch-pills">
-        ${activeChallenges.map(c => `
-          <button type="button" class="mc-ch-tab ${c.id === activeChallengeId ? 'active' : ''}" data-ch="${c.id}">
-            ${c.label}
-          </button>
-        `).join('')}
-      </div>
-    `;
-
-    // Events für Dropdown & Touch-Pills
-    bar.querySelector('.mc-ch-select').addEventListener('change', (e) => {
-      switchChallenge(e.target.value);
-    });
-
-    bar.querySelectorAll('.mc-ch-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        switchChallenge(btn.dataset.ch);
-      });
-    });
-
-    // Sicherstellen, dass nur die aktive Challenge sichtbar ist
-    if (!availableIds.includes(activeChallengeId)) {
-      activeChallengeId = availableIds[0];
-    }
-    switchChallenge(activeChallengeId);
-  }
-
-  // Überwache das Öffnen eines Falls automatisch
-  let debounceTimer = null;
+  // MutationObserver: Reagiert in Echtzeit, sobald du auf "Fall öffnen" klickst!
   const observer = new MutationObserver(() => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      // Nur ausführen, wenn ein Fall geöffnet ist oder Challenge-Elemente im DOM liegen
-      if (!document.getElementById('mc-mobile-challenge-bar')) {
-        injectChallengeMenu();
-      }
-    }, 150);
+    window.requestAnimationFrame(optimizeCaseForMobile);
   });
 
-  window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(injectChallengeMenu, 300);
-    observer.observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('load', () => {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+    optimizeCaseForMobile();
   });
 })();
