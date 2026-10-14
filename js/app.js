@@ -20,6 +20,11 @@ let draggedItemState = null;
 let dragHoverTimer = null;
 let currentLearningMode = 'topic';
 
+// Fachrichtungs-Modus Queue
+let specialtyQueue = [];
+let specialtyIndex = 0;
+let activeSpecialtyName = '';
+
 const defaultSkills = {
     "Triage": { hits: 0, total: 0 },
     "Diagnostik": { hits: 0, total: 0 },
@@ -202,7 +207,7 @@ const ProgressManager = {
 };
 
 // ====================================================
-// GLOBALE DD-BIBLIOTHEK (fallübergreifend, persistent)
+// GLOBALE DD-BIBLIOTHEK
 // ====================================================
 const DD_POOL_KEY = 'medcheck_global_dd_pool';
 window.MedCheckDDLibrary = new Set();
@@ -297,13 +302,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Event-Delegation für die Sticky-Steuerleiste
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.closest('#btn-next-specialty-case')) {
+            window.nextSpecialtyCase();
+        }
+        if (e.target && e.target.closest('#btn-exit-specialty')) {
+            window.isSpecialtyBlindMode = false;
+            window.applyBlindHeader(false, null);
+            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        }
+        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
+            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+            alert(`🔍 Diagnose enthüllt:\n\n${title}`);
+        }
+    });
 });
 
 // ====================================================
 // ALLGEMEINE UI & UTILS
 // ====================================================
 window.toggleSidebar = function() {
-    const sidebar = document.querySelector('sidebar');
+    const sidebar = document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.toggle('open');
     if (overlay) overlay.classList.toggle('active');
@@ -331,14 +352,14 @@ window.switchTab = function(tab, el) {
     showTab('settings-view', tab === 'settings' ? 'block' : 'none');
     showTab('nav-player', tab === 'player' ? 'flex' : 'none');
     
-    const sidebar = document.querySelector('sidebar');
+    const sidebar = document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('active');
 
     if (tab === 'dashboard') {
         window.isSpecialtyBlindMode = false;
-        if (window.applyBlindHeader) window.applyBlindHeader(false, null);
+        window.applyBlindHeader(false, null);
         renderDashboardCases();
         if (window.renderSpecialtyHub) window.renderSpecialtyHub();
     }
@@ -350,7 +371,7 @@ window.switchPlayerMode = function(mode) {
     document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
     
-    const targetPane = document.getElementById('mode-container-' + mode) || document.getElementById('tab-pane-' + mode);
+    const targetPane = document.getElementById('mode-container-' + mode);
     const targetTab = document.getElementById('tab-btn-' + mode);
     if (targetPane) targetPane.style.display = 'block';
     if (targetTab) targetTab.classList.add('active');
@@ -373,7 +394,7 @@ window.showTutorHint = function(taskKey) {
     const tutorText = document.getElementById('tutor-text');
     const tutorModal = document.getElementById('tutor-modal');
     if (tutorText) tutorText.innerText = hint;
-    if (tutorModal) tutorModal.style.display = 'block';
+    if (tutorModal) tutorModal.style.display = 'flex';
 };
 
 window.toggleSuperFolder = function() {
@@ -461,7 +482,7 @@ function renderSkillsSidebar() {
     container.innerHTML = canonicalOrder.map(skill => {
         const data = skills[skill] || { hits: 0, total: 0 };
         const perc = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
-        const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom)')) : 'var(--accent-blue)';
+        const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk, #ef4444)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom, #10b981)')) : 'var(--accent-blue, #38bdf8)';
         return `
             <div style="margin-bottom:16px;">
                 <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
@@ -476,14 +497,14 @@ function renderSkillsSidebar() {
 }
 
 // ====================================================
-// MODUS-STEUERUNG & FACHRICHTUNGS-HUB
+// FACHRICHTUNGS-TRAINING ENGINE
 // ====================================================
 window.setLearningMode = function(mode) {
     currentLearningMode = mode;
     
     const btnTopic = document.getElementById('seg-topic');
     const btnSpecialty = document.getElementById('seg-specialty');
-    const topicGrid = document.getElementById('topic-grid') || document.getElementById('dashboard-folders-container');
+    const topicGrid = document.getElementById('topic-grid');
     const specialtyHub = document.getElementById('specialty-hub');
 
     if (mode === 'specialty') {
@@ -509,19 +530,19 @@ window.renderSpecialtyHub = function() {
     const allCases = window.getRegisteredCases();
     const specialties = {};
     allCases.forEach(c => {
-        const field = (c.metadata?.medical_field || c.medical_field || c.folder_name || 'Allgemeinmedizin').trim();
+        const field = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
         specialties[field] = (specialties[field] || 0) + 1;
     });
 
     if (Object.keys(specialties).length === 0) {
-        hub.innerHTML = `<p style="color: var(--text-muted); padding: 20px;">Keine Fachrichtungen gefunden.</p>`;
+        hub.innerHTML = `<p style="color: var(--text-muted, #94a3b8); padding: 20px;">Keine Fachrichtungen gefunden.</p>`;
         return;
     }
 
     let html = `<div class="specialty-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 15px;">`;
     for (const [spec, count] of Object.entries(specialties)) {
         html += `
-            <div class="specialty-card" onclick="if(window.SpecialtyEngine && typeof window.SpecialtyEngine.start === 'function') { window.SpecialtyEngine.start('${escapeHtml(spec)}'); } else if(typeof window.startSpecialtyMode === 'function') { window.startSpecialtyMode('${escapeHtml(spec)}'); } else { alert('Specialty Engine lädt noch...'); }" style="background: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+            <div class="specialty-card" onclick="window.startSpecialtyMode('${escapeHtml(spec)}')" style="background: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 12px; cursor: pointer; transition: transform 0.2s ease;">
                 <h3 style="color: #38bdf8; margin: 0 0 8px 0; font-size: 1.1rem;">${escapeHtml(spec)}</h3>
                 <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;">${count} Krankheitsbild${count > 1 ? 'er' : ''}</p>
             </div>
@@ -529,6 +550,67 @@ window.renderSpecialtyHub = function() {
     }
     html += `</div>`;
     hub.innerHTML = html;
+};
+
+window.startSpecialtyMode = function(specialtyName) {
+    activeSpecialtyName = specialtyName;
+    const allCases = window.getRegisteredCases();
+
+    specialtyQueue = allCases.filter(c => {
+        const f = (c.folder_name || c.metadata?.medical_field || c.medical_field || '').trim();
+        return f.toLowerCase() === specialtyName.trim().toLowerCase();
+    });
+
+    if (specialtyQueue.length === 0) {
+        alert(`Keine Fälle für die Fachrichtung "${specialtyName}" gefunden.`);
+        return;
+    }
+
+    // Shuffle queue (Fisher-Yates)
+    for (let i = specialtyQueue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [specialtyQueue[i], specialtyQueue[j]] = [specialtyQueue[j], specialtyQueue[i]];
+    }
+
+    specialtyIndex = 0;
+    loadSpecialtyCase(specialtyIndex);
+};
+
+function loadSpecialtyCase(index) {
+    if (index < 0 || index >= specialtyQueue.length) {
+        index = 0;
+        specialtyIndex = 0;
+    }
+    const caseItem = specialtyQueue[index];
+    window.isSpecialtyBlindMode = true;
+    window.loadCaseById(caseItem.case_id, { specialty: true });
+    window.applyBlindHeader(true, caseItem);
+}
+
+window.nextSpecialtyCase = function() {
+    if (specialtyQueue.length === 0) return;
+    specialtyIndex = (specialtyIndex + 1) % specialtyQueue.length;
+    loadSpecialtyCase(specialtyIndex);
+};
+
+window.applyBlindHeader = function(isBlind, caseData) {
+    const bar = document.getElementById('specialty-sticky-bar');
+    if (!bar) return;
+
+    if (isBlind) {
+        bar.style.display = 'flex';
+        const pillName = document.getElementById('specialty-pill-name');
+        const pillCounter = document.getElementById('specialty-pill-counter');
+        if (pillName) pillName.innerText = activeSpecialtyName || caseData?.folder_name || 'Fachrichtung';
+        if (pillCounter) pillCounter.innerText = `Fall ${specialtyIndex + 1} / ${specialtyQueue.length || 1}`;
+    } else {
+        bar.style.display = 'none';
+    }
+};
+
+window.SpecialtyEngine = {
+    start: (s) => window.startSpecialtyMode(s),
+    nextCase: () => window.nextSpecialtyCase()
 };
 
 // ====================================================
@@ -570,7 +652,7 @@ function renderDashboardCases() {
                     <h3>${c.metadata?.title || c.case_id}</h3>
                 </div>
                 <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-                    <span style="color:${isSolved ? 'var(--color-symptom)' : (inProgress ? '#f59e0b' : 'var(--accent-blue)')}; font-weight:700;">
+                    <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
                         ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
                     </span>
                     <span>+${c.metadata?.xp_reward || 900} XP</span>
@@ -660,7 +742,7 @@ function renderBookshelf(casesArray) {
                 <span class="folder-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
                 <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
                 <span class="folder-title-text" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
-                <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan); margin-left:auto; margin-right:4px; flex-shrink:0;">${solvedCount}/${casesInFolder.length}</span>
+                <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan, #38bdf8); margin-left:auto; margin-right:4px; flex-shrink:0;">${solvedCount}/${casesInFolder.length}</span>
             </div>
             <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
                 <button type="button" class="folder-action-btn edit-btn" title="Ordner umbenennen">✏️</button>
@@ -673,7 +755,7 @@ function renderBookshelf(casesArray) {
 
         if (casesInFolder.length === 0) {
             const emptyLi = document.createElement('li');
-            emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim); padding:4px 6px; font-style:italic;';
+            emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim, #64748b); padding:4px 6px; font-style:italic;';
             emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
             list.appendChild(emptyLi);
         } else {
@@ -980,6 +1062,7 @@ window.getRegisteredCases = function() {
 };
 
 function applySpecialtyFilters(caseData) {
+    // 1. Audit strikt auf 3 Schritte begrenzen
     if (Array.isArray(caseData.timeline)) {
         caseData.timeline = caseData.timeline.slice(0, 3).map((step, idx) => ({
             ...step,
@@ -991,11 +1074,13 @@ function applySpecialtyFilters(caseData) {
     if (!tasks) return;
     const primary = caseData.metadata?.primary_disease;
 
+    // 2. Kaskaden auf 1 Kaskade reduzieren
     if (Array.isArray(tasks.clinical_cascades) && tasks.clinical_cascades.length) {
         const match = primary ? tasks.clinical_cascades.find(c => c.disease === primary) : null;
         tasks.clinical_cascades = [match || tasks.clinical_cascades[0]];
     }
 
+    // 3. Quiz auf 1 Frage reduzieren
     if (Array.isArray(tasks.master_quiz) && tasks.master_quiz.length) {
         let pool = tasks.master_quiz.filter(q => q.is_primary === true || (primary && q.target_disease === primary));
         if (!pool.length) pool = [tasks.master_quiz[0]];
@@ -1003,85 +1088,7 @@ function applySpecialtyFilters(caseData) {
     }
 }
 window.applySpecialtyFilters = applySpecialtyFilters;
-// ====================================================
-// FACHRICHTUNGS-STEUERUNGSLEISTE (Auto-Injection)
-// ====================================================
-function ensureSpecialtyBar() {
-    let bar = document.getElementById('specialty-sticky-bar');
-    if (!bar) {
-        bar = document.createElement('header');
-        bar.id = 'specialty-sticky-bar';
-        bar.className = 'specialty-sticky-bar';
-        bar.style.cssText = 'display:none; justify-content:space-between; align-items:center; padding:12px 20px; background:#0f172a; border-bottom:1px solid #1e293b; position:sticky; top:0; z-index:100; margin-bottom:16px; border-radius:8px;';
 
-        bar.innerHTML = `
-            <div style="display:flex; align-items:center; gap:12px;">
-                <button type="button" id="btn-exit-specialty" style="background:#334155; color:#f8fafc; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">✕ Beenden</button>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span id="specialty-pill-name" style="background:#0284c7; color:#fff; padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">Fachrichtung</span>
-                    <span id="specialty-pill-counter" style="background:#1e293b; color:#94a3b8; padding:4px 8px; border-radius:12px; font-size:0.75rem;">Training aktiv</span>
-                </div>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <button type="button" id="btn-reveal-diagnosis" style="background:transparent; border:1px solid #38bdf8; color:#38bdf8; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85rem;">🔍 Diagnose enthüllen</button>
-                <button type="button" id="btn-next-specialty-case" style="background:#0284c7; color:#fff; border:none; padding:6px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem;">Nächstes Krankheitsbild ➔</button>
-            </div>
-        `;
-
-        // Oben in den Player-Bereich einhängen
-        const playerView = document.getElementById('player-view') || document.querySelector('.main-wrapper') || document.body;
-        playerView.insertBefore(bar, playerView.firstChild);
-
-        // Klick auf "Nächstes Krankheitsbild" verdrahten
-        document.getElementById('btn-next-specialty-case')?.addEventListener('click', () => {
-            if (window.SpecialtyEngine && typeof window.SpecialtyEngine.nextCase === 'function') {
-                window.SpecialtyEngine.nextCase();
-            } else {
-                // Fallback: Nächsten Fall aus derselben Fachrichtung zufällig laden
-                const currentField = activeCaseData?.metadata?.medical_field || activeCaseData?.folder_name;
-                const pool = window.getRegisteredCases().filter(c => 
-                    c.case_id !== activeCaseData?.case_id && 
-                    ((c.metadata?.medical_field || c.folder_name) === currentField)
-                );
-                if (pool.length > 0) {
-                    const next = pool[Math.floor(Math.random() * pool.length)];
-                    window.loadCaseById(next.case_id, { specialty: true });
-                } else {
-                    alert('Keine weiteren Fälle in dieser Fachrichtung vorhanden.');
-                }
-            }
-        });
-
-        // Klick auf "Beenden"
-        document.getElementById('btn-exit-specialty')?.addEventListener('click', () => {
-            window.isSpecialtyBlindMode = false;
-            window.applyBlindHeader(false, null);
-            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-        });
-
-        // Klick auf "Diagnose enthüllen"
-        document.getElementById('btn-reveal-diagnosis')?.addEventListener('click', () => {
-            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-            alert(`🔍 Diagnose:\n\n${title}`);
-        });
-    }
-    return bar;
-}
-
-window.applyBlindHeader = function(isBlind, caseData) {
-    const bar = ensureSpecialtyBar();
-    if (!bar) return;
-
-    if (isBlind) {
-        bar.style.display = 'flex';
-        const pillName = document.getElementById('specialty-pill-name');
-        if (pillName && caseData) {
-            pillName.innerText = caseData.metadata?.medical_field || caseData.folder_name || 'Fachrichtung';
-        }
-    } else {
-        bar.style.display = 'none';
-    }
-};
 window.loadCaseById = function(caseId, opts = {}) {
     const specialtyMode = !!opts.specialty || !!window.isSpecialtyBlindMode;
     window.isSpecialtyBlindMode = specialtyMode;
@@ -1098,7 +1105,7 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (specialtyMode) applySpecialtyFilters(activeCaseData);
     const saved = specialtyMode ? {} : (ProgressManager.getCaseProgress(caseId) || {});
 
-    if (window.applyBlindHeader) window.applyBlindHeader(specialtyMode, activeCaseData);
+    window.applyBlindHeader(specialtyMode, activeCaseData);
 
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
@@ -1192,10 +1199,12 @@ window.renderOverview = function() {
         });
     }
 
+    const topicTitle = window.isSpecialtyBlindMode ? "Klinisches Krankheitsbild (Blind-Training)" : (data.topic || 'Thematische Übersicht');
+
     const html = `
         <div class="cornell-wrapper">
             <div class="cornell-header">
-                <h2>${data.topic || 'Thematische Übersicht'}</h2>
+                <h2>${topicTitle}</h2>
             </div>
             ${notesHtml}
             <div class="cornell-summary">
@@ -1269,7 +1278,7 @@ window.generateCaseWithGemini = async function() {
         if (!res.ok || !data) {
             const serverMessage = data?.error || responseText.trim().slice(0, 200);
             throw new Error(
-                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten – bitte erneut versuchen oder den Prompt kürzen.`
+                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten.`
             );
         }
 
@@ -1283,7 +1292,7 @@ window.generateCaseWithGemini = async function() {
             outputInput.value = sanitized;
         }
 
-        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und anschließend validieren/speichern.');
+        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und validieren/speichern.');
     } catch (error) {
         showForgeFeedback('feedback-error', `Generierungsfehler: ${error.message}`);
     } finally {
@@ -1364,7 +1373,7 @@ window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
     if (badge) {
         if (solvedCount >= totalCount && totalCount > 0) {
             badge.innerText = 'Gelöst';
-            badge.style.background = 'var(--color-symptom)';
+            badge.style.background = 'var(--color-symptom, #10b981)';
         } else {
             badge.innerText = `${solvedCount}/${totalCount}`;
             badge.style.background = '';
@@ -1422,10 +1431,8 @@ window.finishCase = function() {
     if (window.isSpecialtyBlindMode) {
         const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
         alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
-        if (window.SpecialtyEngine && typeof window.SpecialtyEngine.nextCase === 'function') {
-            window.SpecialtyEngine.nextCase();
-            return;
-        }
+        window.nextSpecialtyCase();
+        return;
     } else {
         alert('🎉 Gratulation! Alle Challenges gemeistert.');
     }
@@ -1505,7 +1512,7 @@ window.resetCurrentCaseEntirely = function() {
     window.loadCaseById(activeCaseData.case_id, { specialty: blind });
 };
 
-// Automatisches Neuladen des Dashboards & Hubs, sobald Cloud-Fälle synchronisiert sind
+// Automatisches Neuladen des Dashboards, sobald Cloud-Fälle synchronisiert sind
 window.addEventListener("cloudCasesSynced", () => {
     getCustomCases().forEach(window.registerCaseDDs);
     if (typeof renderDashboardCases === "function") {
