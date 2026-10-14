@@ -1003,7 +1003,85 @@ function applySpecialtyFilters(caseData) {
     }
 }
 window.applySpecialtyFilters = applySpecialtyFilters;
+// ====================================================
+// FACHRICHTUNGS-STEUERUNGSLEISTE (Auto-Injection)
+// ====================================================
+function ensureSpecialtyBar() {
+    let bar = document.getElementById('specialty-sticky-bar');
+    if (!bar) {
+        bar = document.createElement('header');
+        bar.id = 'specialty-sticky-bar';
+        bar.className = 'specialty-sticky-bar';
+        bar.style.cssText = 'display:none; justify-content:space-between; align-items:center; padding:12px 20px; background:#0f172a; border-bottom:1px solid #1e293b; position:sticky; top:0; z-index:100; margin-bottom:16px; border-radius:8px;';
 
+        bar.innerHTML = `
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button type="button" id="btn-exit-specialty" style="background:#334155; color:#f8fafc; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">✕ Beenden</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span id="specialty-pill-name" style="background:#0284c7; color:#fff; padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">Fachrichtung</span>
+                    <span id="specialty-pill-counter" style="background:#1e293b; color:#94a3b8; padding:4px 8px; border-radius:12px; font-size:0.75rem;">Training aktiv</span>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button type="button" id="btn-reveal-diagnosis" style="background:transparent; border:1px solid #38bdf8; color:#38bdf8; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.85rem;">🔍 Diagnose enthüllen</button>
+                <button type="button" id="btn-next-specialty-case" style="background:#0284c7; color:#fff; border:none; padding:6px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem;">Nächstes Krankheitsbild ➔</button>
+            </div>
+        `;
+
+        // Oben in den Player-Bereich einhängen
+        const playerView = document.getElementById('player-view') || document.querySelector('.main-wrapper') || document.body;
+        playerView.insertBefore(bar, playerView.firstChild);
+
+        // Klick auf "Nächstes Krankheitsbild" verdrahten
+        document.getElementById('btn-next-specialty-case')?.addEventListener('click', () => {
+            if (window.SpecialtyEngine && typeof window.SpecialtyEngine.nextCase === 'function') {
+                window.SpecialtyEngine.nextCase();
+            } else {
+                // Fallback: Nächsten Fall aus derselben Fachrichtung zufällig laden
+                const currentField = activeCaseData?.metadata?.medical_field || activeCaseData?.folder_name;
+                const pool = window.getRegisteredCases().filter(c => 
+                    c.case_id !== activeCaseData?.case_id && 
+                    ((c.metadata?.medical_field || c.folder_name) === currentField)
+                );
+                if (pool.length > 0) {
+                    const next = pool[Math.floor(Math.random() * pool.length)];
+                    window.loadCaseById(next.case_id, { specialty: true });
+                } else {
+                    alert('Keine weiteren Fälle in dieser Fachrichtung vorhanden.');
+                }
+            }
+        });
+
+        // Klick auf "Beenden"
+        document.getElementById('btn-exit-specialty')?.addEventListener('click', () => {
+            window.isSpecialtyBlindMode = false;
+            window.applyBlindHeader(false, null);
+            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        });
+
+        // Klick auf "Diagnose enthüllen"
+        document.getElementById('btn-reveal-diagnosis')?.addEventListener('click', () => {
+            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+            alert(`🔍 Diagnose:\n\n${title}`);
+        });
+    }
+    return bar;
+}
+
+window.applyBlindHeader = function(isBlind, caseData) {
+    const bar = ensureSpecialtyBar();
+    if (!bar) return;
+
+    if (isBlind) {
+        bar.style.display = 'flex';
+        const pillName = document.getElementById('specialty-pill-name');
+        if (pillName && caseData) {
+            pillName.innerText = caseData.metadata?.medical_field || caseData.folder_name || 'Fachrichtung';
+        }
+    } else {
+        bar.style.display = 'none';
+    }
+};
 window.loadCaseById = function(caseId, opts = {}) {
     const specialtyMode = !!opts.specialty || !!window.isSpecialtyBlindMode;
     window.isSpecialtyBlindMode = specialtyMode;
