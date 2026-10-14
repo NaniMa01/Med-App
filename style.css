@@ -1339,3 +1339,94 @@ topbar {
         padding: 10px 2px 2px 2px !important; 
     }
 }
+
+/* ==========================================================================
+   15. FLOATING ACTION BUTTON (LANDSCAPE MENU)
+   ========================================================================== */
+.landscape-fab-container {
+    display: none; /* Standardmäßig unsichtbar (wird im Querformat aktiviert) */
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.landscape-fab-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 28px;
+    font-weight: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: transform 0.3s var(--ease-spring), background 0.3s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Wird das Menü geöffnet, dreht sich das "+" zu einem "x" */
+.landscape-fab-btn.active {
+    transform: rotate(45deg) scale(0.95);
+    background: linear-gradient(135deg, var(--error), #be123c);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.landscape-fab-menu {
+    position: absolute;
+    bottom: 64px;
+    right: 0;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--accent-blue);
+    border-radius: 14px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    opacity: 0;
+    pointer-events: none; /* Klicks deaktiviert, wenn unsichtbar */
+    transform: translateY(15px) scale(0.9);
+    transition: all 0.28s var(--ease-spring);
+    transform-origin: bottom right;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+.landscape-fab-menu.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+.landscape-fab-menu button {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+    color: var(--text-main);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: right;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s;
+    cursor: pointer;
+}
+
+.landscape-fab-menu button.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.3);
+    color: var(--accent-blue);
+}
+
+/* Aktivierung NUR im Querformat und nur wenn der Container per JS auf .visible gesetzt wird */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+    .landscape-fab-container.visible {
+        display: block;
+        animation: fadeInUp 0.4s var(--ease-spring) both;
+    }
+}
