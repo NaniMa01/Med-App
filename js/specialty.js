@@ -1,5 +1,5 @@
 /**
- * js/specialty.js - Lernen nach Fachrichtung (Blind-Modus, Session-Queue, Diagnose-Enthüllung, persistenter Fortschritt)
+ * js/specialty.js - Lernen nach Fachrichtung (Blind-Modus, Session-Queue, Reveal & automatischer Header-Button)
  */
 
 const SPECIALTY_STORAGE_KEY = 'medcheck_specialty_progress';
@@ -14,7 +14,7 @@ const specialtySession = {
 };
 
 // ============================================================================
-// SPEICHER & PERSISTENZ (PUNKTE & FORTSCHRITT)
+// SPEICHER & PERSISTENZ
 // ============================================================================
 const SpecialtyStore = {
     getAll() {
@@ -50,7 +50,7 @@ const SpecialtyStore = {
 };
 
 // ============================================================================
-// HILFSFUNKTIONEN FÜR FÄLLE & SHUFFLE
+// HILFSFUNKTIONEN
 // ============================================================================
 function escapeHtml(str) {
     if (!str) return '';
@@ -61,7 +61,8 @@ function escapeHtml(str) {
 
 function getSpecialtyCases(field) {
     const norm = (field || '').trim().toLowerCase();
-    return window.getRegisteredCases().filter(c => {
+    const all = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
+    return all.filter(c => {
         const f = (c.metadata?.medical_field || c.folder_name || c.medical_field || '').trim().toLowerCase();
         return f === norm || f.includes(norm);
     });
@@ -80,12 +81,81 @@ function buildQueue(field) {
     const done = new Set(SpecialtyStore.get(field).completedCaseIds);
     const allMatching = getSpecialtyCases(field);
     const ids = allMatching.map(c => c.case_id);
-    
-    // Ungelöste Fälle zuerst, jeweils zufällig gemischt
     const unsolved = shuffleFisherYates(ids.filter(id => !done.has(id)));
     const solved = shuffleFisherYates(ids.filter(id => done.has(id)));
     return [...unsolved, ...solved];
 }
+
+// ============================================================================
+// AUTOMATISCHE INJEKTION DES BUTTONS "NEUER FALL ➔" (OBEN RECHTS)
+// ============================================================================
+function ensureTopNewCaseButton() {
+    // 1. Button existiert bereits im sichtbaren DOM -> nichts tun
+    if (document.getElementById('btn-top-new-case')) return;
+
+    // 2. Den Zurück-Button suchen
+    const backBtn = Array.from(document.querySelectorAll('button, a')).find(el => 
+        el.textContent && el.textContent.includes('Zurück')
+    );
+
+    // 3. Das Element "Aktiver Fall:" im Textbaum aufspüren
+    let activeCaseEl = null;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+        if (node.nodeValue && node.nodeValue.includes('Aktiver Fall')) {
+            activeCaseEl = node.parentElement;
+            break;
+        }
+    }
+
+    // 4. Die obere Kopfleiste ermitteln
+    let targetRow = backBtn?.parentElement;
+    if (!targetRow && activeCaseEl) {
+        targetRow = activeCaseEl.parentElement;
+    }
+    if (!targetRow) return;
+
+    // Sicherstellen, dass die Leiste sauber als Flexbox ausgerichtet ist (Links Zurück, Rechts Fall & Button)
+    targetRow.style.display = 'flex';
+    targetRow.style.justifyContent = 'space-between';
+    targetRow.style.alignItems = 'center';
+
+    // Den Button erzeugen
+    const newBtn = document.createElement('button');
+    newBtn.id = 'btn-top-new-case';
+    newBtn.type = 'button';
+    newBtn.innerHTML = 'Neuer Fall ➔';
+    newBtn.style.cssText = 'background: #0284c7; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); margin-left: 10px; flex-shrink: 0;';
+
+    newBtn.onmouseenter = () => newBtn.style.background = '#0369a1';
+    newBtn.onmouseleave = () => newBtn.style.background = '#0284c7';
+
+    newBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.nextSpecialtyCase();
+    };
+
+    // Platzierung: Rechts neben dem Badge für den aktiven Fall
+    if (activeCaseEl) {
+        if (activeCaseEl.parentElement === targetRow) {
+            const rightGroup = document.createElement('div');
+            rightGroup.id = 'top-bar-right-group';
+            rightGroup.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+            targetRow.replaceChild(rightGroup, activeCaseEl);
+            rightGroup.appendChild(activeCaseEl);
+            rightGroup.appendChild(newBtn);
+        } else {
+            activeCaseEl.insertAdjacentElement('afterend', newBtn);
+        }
+    } else {
+        targetRow.appendChild(newBtn);
+    }
+}
+
+// Ständiger Wächter: Stellt sicher, dass der Button auch nach Tab-Wechseln und Ladevorgängen stets existiert
+setInterval(ensureTopNewCaseButton, 300);
 
 // ============================================================================
 // STEUERUNG DES FACHRICHTUNGS-MODUS
@@ -114,123 +184,63 @@ window.startSpecialty = function(field) {
 window.nextSpecialtyCase = function() {
     window.closeRevealModal();
 
-    if (!specialtySession.queue || specialtySession.queue.length === 0) {
-        showSpecialtyFinished();
+    // 1. Wenn noch Fälle in der Queue liegen:
+    if (specialtySession.queue && specialtySession.queue.length > 0) {
+        const nextId = specialtySession.queue.shift();
+        specialtySession.currentIndex++;
+        specialtySession.currentId = nextId;
+        window.loadCaseById(nextId, { specialty: true });
+        setTimeout(ensureTopNewCaseButton, 50);
         return;
     }
 
-    const nextId = specialtySession.queue.shift();
-    specialtySession.currentIndex++;
-    specialtySession.currentId = nextId;
+    // 2. Fallback: Nächsten Fall aus derselben Fachrichtung rotieren
+    const currentField = (window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name || specialtySession.field || '').trim();
+    const allCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
+    const pool = allCases.filter(c => {
+        const f = (c.metadata?.medical_field || c.folder_name || '').trim();
+        return f.toLowerCase() === currentField.toLowerCase() && c.case_id !== window.activeCaseData?.case_id;
+    });
 
-    window.loadCaseById(nextId, { specialty: true });
-};
-
-// ============================================================================
-// DYNAMISCHE STEUERUNGSLEISTE & BLIND-HEADER
-// ============================================================================
-function ensureSpecialtyStickyBar() {
-    let bar = document.getElementById('specialty-sticky-bar');
-    
-    if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'specialty-sticky-bar';
-        bar.className = 'specialty-sticky-bar';
-
-        // Direkt vor die Challenge-Tabs im Player einfügen
-        const navTabs = document.querySelector('.player-nav-tabs') || document.getElementById('tab-btn-overview')?.parentElement;
-        if (navTabs && navTabs.parentElement) {
-            navTabs.parentElement.insertBefore(bar, navTabs);
-        } else {
-            const playerView = document.getElementById('player-view') || document.body;
-            playerView.insertBefore(bar, playerView.firstChild);
-        }
+    if (pool.length > 0) {
+        const next = pool[Math.floor(Math.random() * pool.length)];
+        window.loadCaseById(next.case_id, { specialty: true });
+        setTimeout(ensureTopNewCaseButton, 50);
+    } else {
+        showSpecialtyFinished();
     }
-
-    bar.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:10px 16px; border-radius:10px; margin-bottom:14px; border:1px solid #38bdf8; box-shadow: 0 4px 14px rgba(0,0,0,0.4); gap:10px; flex-wrap:wrap;';
-
-    const currentNum = specialtySession.currentIndex || 1;
-    const totalNum = specialtySession.totalCount || 1;
-    const fieldName = specialtySession.field || 'Fachrichtung';
-
-    bar.innerHTML = `
-        <div style="display:flex; align-items:center; gap:10px;">
-            <button type="button" id="btn-exit-specialty" style="background:#334155; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.82rem;">✕ Beenden</button>
-            <span id="specialty-pill-name" style="background:#0284c7; color:#fff; padding:4px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">${escapeHtml(fieldName)}</span>
-            <span id="specialty-pill-counter" style="background:#1e293b; color:#94a3b8; padding:4px 8px; border-radius:12px; font-size:0.75rem;">Fall ${currentNum} / ${totalNum}</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <button type="button" id="btn-reveal-diagnosis" style="background:transparent; border:1px solid #38bdf8; color:#38bdf8; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.82rem;">🔍 Diagnose enthüllen</button>
-            <button type="button" id="btn-next-specialty-case" style="background:#0284c7; color:#fff; border:none; padding:7px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem; box-shadow:0 2px 8px rgba(2,132,199,0.4);">Nächstes Krankheitsbild ➔</button>
-        </div>
-    `;
-
-    return bar;
-}
+};
 
 window.applyBlindHeader = function(blind, caseData) {
-    const badge = document.getElementById('player-case-badge-title');
-    const wrap = badge?.parentElement;
-    const field = caseData?.metadata?.medical_field || specialtySession.field || 'Fachrichtung';
+    ensureTopNewCaseButton();
 
-    // 1. Text und Titel setzen
-    if (wrap && wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
-        wrap.firstChild.nodeValue = blind ? '' : 'Aktiver Fall: ';
+    // "Aktiver Fall: Lädt..." durch den tatsächlichen Fachbereich ersetzen
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+        if (node.nodeValue && node.nodeValue.includes('Aktiver Fall')) {
+            const field = caseData?.metadata?.medical_field || specialtySession.field || 'Fachrichtung';
+            node.nodeValue = blind ? `Aktiver Fall: ${field}` : `Aktiver Fall: ${caseData?.metadata?.title || caseData?.case_id || ''}`;
+            break;
+        }
     }
-    if (badge && caseData) {
-        badge.innerText = blind ? `${field} • Training` : (caseData.metadata?.title || caseData.case_id);
-    }
-
-    // 2. Den Button "Neuer Fall ➔" oben rechts garantieren
-    let topNewBtn = document.getElementById('btn-top-new-case');
-    if (!topNewBtn && wrap) {
-        // Container für Badge & Button auf Flexbox stellen
-        wrap.style.display = 'inline-flex';
-        wrap.style.alignItems = 'center';
-        wrap.style.gap = '8px';
-
-        topNewBtn = document.createElement('button');
-        topNewBtn.id = 'btn-top-new-case';
-        topNewBtn.type = 'button';
-        topNewBtn.innerHTML = 'Neuer Fall ➔';
-        topNewBtn.style.cssText = 'background: #0284c7; color: #ffffff; border: none; padding: 5px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); margin-left: 8px;';
-        
-        topNewBtn.onmouseover = () => topNewBtn.style.background = '#0369a1';
-        topNewBtn.onmouseout = () => topNewBtn.style.background = '#0284c7';
-
-        topNewBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (typeof window.nextSpecialtyCase === 'function') {
-                window.nextSpecialtyCase();
-            } else if (window.SpecialtyEngine && typeof window.SpecialtyEngine.nextCase === 'function') {
-                window.SpecialtyEngine.nextCase();
-            }
-        };
-
-        wrap.appendChild(topNewBtn);
-    }
-
-    // Im Fachrichtungs-Modus die Übersicht ausblenden (Blind-Modus)
-    const overviewTab = document.getElementById('tab-btn-overview');
-    if (overviewTab) overviewTab.style.display = blind ? 'none' : '';
 };
 
 // ============================================================================
-// ABSCHLUSS & FORTSCHRITTSTRACKING
+// FORTSCHRITT & MODAL
 // ============================================================================
 function recordSpecialtyCompletion() {
-    if (specialtySession.recorded || !activeCaseData) return;
+    if (specialtySession.recorded || !window.activeCaseData) return;
     specialtySession.recorded = true;
     
-    const field = (activeCaseData.metadata?.medical_field || specialtySession.field || '').trim();
+    const field = (window.activeCaseData.metadata?.medical_field || specialtySession.field || '').trim();
     if (!field) return;
 
-    const reward = activeCaseData.metadata?.xp_reward || 900;
+    const reward = window.activeCaseData.metadata?.xp_reward || 900;
     const entry = SpecialtyStore.get(field);
     
-    if (!entry.completedCaseIds.includes(activeCaseData.case_id)) {
-        entry.completedCaseIds.push(activeCaseData.case_id);
+    if (!entry.completedCaseIds.includes(window.activeCaseData.case_id)) {
+        entry.completedCaseIds.push(window.activeCaseData.case_id);
     }
     entry.totalScore += reward;
     entry.lastPlayed = new Date().toISOString();
@@ -240,30 +250,27 @@ function recordSpecialtyCompletion() {
 window.onSpecialtyCompletionChange = function(allCompleted) {
     if (window.isSpecialtyBlindMode && allCompleted) {
         recordSpecialtyCompletion();
-        const nextBtn = document.getElementById('btn-next-specialty-case');
+        const nextBtn = document.getElementById('btn-top-new-case');
         if (nextBtn) {
-            nextBtn.style.background = 'var(--color-symptom, #10b981)';
-            nextBtn.innerText = '✔ Gelöst! Nächstes Krankheitsbild ➔';
+            nextBtn.style.background = '#10b981';
+            nextBtn.innerText = '✔ Gelöst! Neuer Fall ➔';
         }
     }
 };
 
-// ============================================================================
-// ENTHÜLLUNGS-MODAL
-// ============================================================================
 function closeRevealModal() {
     document.getElementById('reveal-modal')?.remove();
 }
 window.closeRevealModal = closeRevealModal;
 
 window.revealDiagnosis = function() {
-    if (!activeCaseData) return;
-    const meta = activeCaseData.metadata || {};
-    const doc = activeCaseData.extra_tasks?.doctordle;
+    if (!window.activeCaseData) return;
+    const meta = window.activeCaseData.metadata || {};
+    const doc = window.activeCaseData.extra_tasks?.doctordle;
     const pearl = (Array.isArray(doc) ? doc[0] : doc)?.learning_pearl || '';
-    const summary = activeCaseData.case_overview?.summary || '';
+    const summary = window.activeCaseData.case_overview?.summary || '';
     const field = meta.medical_field || specialtySession.field || 'Fachgebiet';
-    const primary = meta.primary_disease || meta.title || activeCaseData.case_id;
+    const primary = meta.primary_disease || meta.title || window.activeCaseData.case_id;
 
     const modalHtml = `
         <div id="reveal-modal" style="position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
@@ -292,7 +299,7 @@ window.revealDiagnosis = function() {
 
                 <div style="display:flex; gap:10px; justify-content:flex-end;">
                     <button type="button" onclick="window.closeRevealModal()" style="background:#334155; color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">Schließen</button>
-                    <button type="button" onclick="window.nextSpecialtyCase()" style="background:#0284c7; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem;">Nächstes Krankheitsbild ➔</button>
+                    <button type="button" onclick="window.nextSpecialtyCase()" style="background:#0284c7; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem;">Neuer Fall ➔</button>
                 </div>
             </div>
         </div>
@@ -310,7 +317,7 @@ function showSpecialtyFinished() {
                 <div style="font-size:2.5rem; margin-bottom:10px;">🏆</div>
                 <h2 style="color:#38bdf8; margin:0 0 10px 0;">Fachrichtung abgeschlossen!</h2>
                 <p style="color:#cbd5e1; font-size:0.9rem; line-height:1.5; margin-bottom:20px;">
-                    Du hast alle verfügbaren Krankheitsbilder aus dem Fachbereich <strong>${escapeHtml(field)}</strong> in dieser Session durchgespielt.
+                    Du hast alle verfügbaren Krankheitsbilder aus dem Fachbereich <strong>${escapeHtml(field)}</strong> durchgespielt.
                 </p>
                 <div style="display:flex; flex-direction:column; gap:10px;">
                     <button type="button" onclick="SpecialtyStore.resetCompleted('${escapeHtml(field)}'); window.startSpecialty('${escapeHtml(field)}');" style="background:#0284c7; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:0.9rem;">
@@ -351,7 +358,8 @@ window.renderSpecialtyHub = function() {
     if (!hub) return;
 
     const fields = {};
-    window.getRegisteredCases().forEach(c => {
+    const all = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
+    all.forEach(c => {
         const f = (c.metadata?.medical_field || c.folder_name || c.medical_field || '').trim();
         if (f) fields[f] = (fields[f] || 0) + 1;
     });
@@ -369,7 +377,7 @@ window.renderSpecialtyHub = function() {
                 const done = SpecialtyStore.get(field).completedCaseIds.filter(id => ids.has(id)).length;
                 const pct = count ? Math.round((done / count) * 100) : 0;
                 return `
-                    <div class="specialty-card" role="button" tabindex="0" onclick="window.startSpecialty('${escapeHtml(field)}')" style="background:#1e293b; border:1px solid #334155; padding:18px; border-radius:12px; cursor:pointer; transition:transform 0.15s ease;">
+                    <div class="specialty-card" role="button" tabindex="0" onclick="window.startSpecialty('${escapeHtml(field)}')" style="background:#1e293b; border:1px solid #334155; padding:18px; border-radius:12px; cursor:pointer;">
                         <h3 style="color:#38bdf8; margin:0 0 8px 0; font-size:1.05rem;">${escapeHtml(field)}</h3>
                         <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:0.8rem; margin-bottom:8px;">
                             <span>${count}${count === 1 ? 'Krankheitsbild' : 'Krankheitsbilder'}</span>
@@ -385,29 +393,13 @@ window.renderSpecialtyHub = function() {
 };
 
 // ============================================================================
-// GLOBALE EVENT-DELEGATION (Klick-Handler)
+// EVENT-LISTENER & EXPORT
 // ============================================================================
-document.addEventListener('click', (e) => {
-    if (e.target.closest('#btn-next-specialty-case')) {
-        e.preventDefault();
-        window.nextSpecialtyCase();
-        return;
-    }
-    if (e.target.closest('#btn-reveal-diagnosis')) {
-        e.preventDefault();
-        window.revealDiagnosis();
-        return;
-    }
-    if (e.target.closest('#btn-exit-specialty')) {
-        e.preventDefault();
-        window.isSpecialtyBlindMode = false;
-        window.applyBlindHeader(false, null);
-        window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-        return;
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    ensureTopNewCaseButton();
+    window.setLearningMode('topic');
 });
 
-// Alias-Objekt für eventuelle externe Aufrufe
 window.SpecialtyEngine = {
     start: (name) => window.startSpecialty(name),
     nextCase: () => window.nextSpecialtyCase()
