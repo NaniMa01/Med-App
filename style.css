@@ -671,3 +671,102 @@ topbar { height: 70px; border-bottom: 1px solid var(--card-border); display: fle
 .reveal-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-top: 14px; }
 .reveal-pearl { margin-top: 14px; padding: 12px; border-radius: 10px; background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.25); font-size: 0.9rem; }
 .reveal-card .action-btn { width: 100%; margin-top: 18px; }
+
+
+/* Sticky Action Bar im Fachrichtungsmodus */
+.specialty-sticky-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 2px solid #334155;
+  padding: 12px 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.specialty-bar-left, .specialty-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.specialty-pill {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.case-counter-pill {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Modal für Diagnose-Auflösung */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 29, 0.85);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.modal-card {
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 100%;
+  padding: 24px;
+  color: #f8fafc;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
+.diag-headline {
+  font-size: 1.75rem;
+  color: #38bdf8;
+  margin: 4px 0 2px 0;
+}
+
+.diag-section, .diag-pearl {
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 14px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.diag-pearl {
+  border-left: 4px solid #f59e0b;
+}
+
+/* Karte bei Abschluss eines 3-Schritt-Audits */
+.audit-patient-complete-card {
+  background: #1e293b;
+  border: 1px solid #10b981;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 24px;
+  text-align: center;
+}
+
+.complete-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
