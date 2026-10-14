@@ -169,32 +169,51 @@ function ensureSpecialtyStickyBar() {
 }
 
 window.applyBlindHeader = function(blind, caseData) {
-    const bar = ensureSpecialtyStickyBar();
+    const badge = document.getElementById('player-case-badge-title');
+    const wrap = badge?.parentElement;
+    const field = caseData?.metadata?.medical_field || specialtySession.field || 'Fachrichtung';
 
-    if (blind) {
-        bar.style.display = 'flex';
-        
-        // Titel im Player anonymisieren (Spoiler-Schutz)
-        const badge = document.getElementById('player-case-badge-title');
-        const wrap = badge?.parentElement;
-        const field = caseData?.metadata?.medical_field || specialtySession.field || 'Fachrichtung';
-
-        if (wrap && wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
-            wrap.firstChild.nodeValue = '';
-        }
-        if (badge) {
-            badge.innerText = `${field} • Klinische Fall-Challenge`;
-        }
-
-        const overviewTab = document.getElementById('tab-btn-overview');
-        if (overviewTab) overviewTab.style.display = 'none';
-
-        specialtySession.recorded = false;
-    } else {
-        bar.style.display = 'none';
-        const overviewTab = document.getElementById('tab-btn-overview');
-        if (overviewTab) overviewTab.style.display = '';
+    // 1. Text und Titel setzen
+    if (wrap && wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
+        wrap.firstChild.nodeValue = blind ? '' : 'Aktiver Fall: ';
     }
+    if (badge && caseData) {
+        badge.innerText = blind ? `${field} • Training` : (caseData.metadata?.title || caseData.case_id);
+    }
+
+    // 2. Den Button "Neuer Fall ➔" oben rechts garantieren
+    let topNewBtn = document.getElementById('btn-top-new-case');
+    if (!topNewBtn && wrap) {
+        // Container für Badge & Button auf Flexbox stellen
+        wrap.style.display = 'inline-flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '8px';
+
+        topNewBtn = document.createElement('button');
+        topNewBtn.id = 'btn-top-new-case';
+        topNewBtn.type = 'button';
+        topNewBtn.innerHTML = 'Neuer Fall ➔';
+        topNewBtn.style.cssText = 'background: #0284c7; color: #ffffff; border: none; padding: 5px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); margin-left: 8px;';
+        
+        topNewBtn.onmouseover = () => topNewBtn.style.background = '#0369a1';
+        topNewBtn.onmouseout = () => topNewBtn.style.background = '#0284c7';
+
+        topNewBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.nextSpecialtyCase === 'function') {
+                window.nextSpecialtyCase();
+            } else if (window.SpecialtyEngine && typeof window.SpecialtyEngine.nextCase === 'function') {
+                window.SpecialtyEngine.nextCase();
+            }
+        };
+
+        wrap.appendChild(topNewBtn);
+    }
+
+    // Im Fachrichtungs-Modus die Übersicht ausblenden (Blind-Modus)
+    const overviewTab = document.getElementById('tab-btn-overview');
+    if (overviewTab) overviewTab.style.display = blind ? 'none' : '';
 };
 
 // ============================================================================
