@@ -1571,3 +1571,68 @@ window.addEventListener("cloudCasesSynced", () => {
         window.renderSpecialtyHub();
     }
 });
+/* ==========================================================================
+   MEDCHECK MOBILE LAYOUT GUARD
+   Überwacht das Öffnen von Fällen und macht überbreite Module (Mapping, 
+   Synapses, Tabellen) automatisch horizontal per Touch scrollbar.
+   ========================================================================== */
+(function initMedCheckMobileGuard() {
+  function optimizeCaseForMobile() {
+    if (window.innerWidth > 768) return; // Nur auf Smartphones aktiv
+
+    const viewportWidth = window.innerWidth;
+
+    // 1. Falls Body oder HTML durch ein Modal/Fall-Skript für Scrollen gesperrt wurden -> entsperren
+    document.documentElement.style.overflowY = 'auto';
+    document.body.style.overflowY = 'auto';
+
+    // 2. Prüfe alle Elemente im geöffneten Fall auf Überbreite
+    const allElements = document.querySelectorAll('body *');
+    allElements.forEach((el) => {
+      const style = window.getComputedStyle(el);
+
+      // A. Wenn ein Flexbox-Container im Fall nebeneinander steht und den Screen sprengt -> untereinander stapeln
+      if (style.display === 'flex' && style.flexDirection === 'row' && el.scrollWidth > viewportWidth) {
+        // Ausnahme: Reine Button-/Tab-Leisten oben sollen horizontal wischbar bleiben
+        const isNavOrTabs = el.tagName === 'NAV' || el.className.toLowerCase().includes('tab') || el.className.toLowerCase().includes('nav');
+        if (isNavOrTabs) {
+          el.classList.add('mobile-scroll-x');
+        } else {
+          el.style.flexDirection = 'column';
+          el.style.width = '100%';
+          el.style.maxWidth = '100vw';
+        }
+      }
+
+      // B. Wenn ein Canvas, SVG, eine Tabelle oder ein Mapping-Board breiter als das Handy ist -> Eltern-Container scrollbar machen!
+      if ((el.tagName === 'CANVAS' || el.tagName === 'SVG' || el.tagName === 'TABLE' || el.scrollWidth > viewportWidth + 10) && el.parentElement) {
+        const parent = el.parentElement;
+        if (parent && parent !== document.body && parent !== document.documentElement) {
+          parent.style.overflowX = 'auto';
+          parent.style.webkitOverflowScrolling = 'touch';
+          parent.style.maxWidth = '100%';
+          parent.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  // Bei Größenänderung und beim Start ausführen
+  window.addEventListener('resize', optimizeCaseForMobile);
+  window.addEventListener('DOMContentLoaded', optimizeCaseForMobile);
+
+  // MutationObserver: Reagiert in Echtzeit, sobald du auf "Fall öffnen" klickst!
+  const observer = new MutationObserver(() => {
+    window.requestAnimationFrame(optimizeCaseForMobile);
+  });
+
+  window.addEventListener('load', () => {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+    optimizeCaseForMobile();
+  });
+})();
