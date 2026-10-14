@@ -496,6 +496,44 @@ function renderDashboardCases() {
         grouped[cat].push(c);
     });
 
+    /**
+ * Steuert den Lernmodus im Dashboard:
+ * 'topic' = Reguläre Themen- und Ordneransicht
+ * 'specialty' = Fachrichtungs-Hub mit syndromalem Training
+ */
+function setLearningMode(mode) {
+  state.currentMode = mode;
+  
+  const btnTopic = document.getElementById('seg-topic');
+  const btnSpecialty = document.getElementById('seg-specialty');
+  const topicGrid = document.getElementById('topic-grid');
+  const specialtyHub = document.getElementById('specialty-hub');
+
+  if (mode === 'specialty') {
+    // Aktiven Button umschalten
+    btnTopic?.classList.remove('active');
+    btnSpecialty?.classList.add('active');
+    
+    // Grid ausblenden, Fachrichtungs-Hub anzeigen
+    if (topicGrid) topicGrid.style.display = 'none';
+    if (specialtyHub) {
+      specialtyHub.style.display = 'block';
+      // Rendert die Fachrichtungen (z.B. HNO, Neurologie etc.) dynamisch
+      if (typeof renderSpecialtyHub === 'function') {
+        renderSpecialtyHub();
+      }
+    }
+  } else {
+    // Aktiven Button umschalten
+    btnSpecialty?.classList.remove('active');
+    btnTopic?.classList.add('active');
+    
+    // Fachrichtungs-Hub ausblenden, reguläres Grid anzeigen
+    if (specialtyHub) specialtyHub.style.display = 'none';
+    if (topicGrid) topicGrid.style.display = 'block';
+  }
+}
+
     container.innerHTML = Object.entries(grouped).map(([category, cases], catIdx) => {
         const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
         const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
