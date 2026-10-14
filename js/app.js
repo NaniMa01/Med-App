@@ -593,21 +593,70 @@ window.nextSpecialtyCase = function() {
     loadSpecialtyCase(specialtyIndex);
 };
 
-window.applyBlindHeader = function(isBlind, caseData) {
-    const bar = document.getElementById('specialty-sticky-bar');
-    if (!bar) return;
+window.applyBlindHeader = function(blind, caseData) {
+    // 1. Das Badge und den Container aus DEINEM HTML suchen
+    const badge = document.getElementById('player-case-badge-title');
+    const wrap = badge ? badge.parentElement : null;
+    
+    // Fachrichtung bestimmen
+    let field = 'Fachrichtung';
+    if (caseData && caseData.metadata && caseData.metadata.medical_field) {
+        field = caseData.metadata.medical_field;
+    } else if (caseData && caseData.folder_name) {
+        field = caseData.folder_name;
+    } else if (typeof specialtySession !== 'undefined' && specialtySession.field) {
+        field = specialtySession.field;
+    }
 
-    if (isBlind) {
-        bar.style.display = 'flex';
-        const pillName = document.getElementById('specialty-pill-name');
-        const pillCounter = document.getElementById('specialty-pill-counter');
-        if (pillName) pillName.innerText = activeSpecialtyName || caseData?.folder_name || 'Fachrichtung';
-        if (pillCounter) pillCounter.innerText = `Fall ${specialtyIndex + 1} / ${specialtyQueue.length || 1}`;
-    } else {
-        bar.style.display = 'none';
+    if (wrap) {
+        // Text anonymisieren ("Aktiver Fall:" ausblenden im Blind-Modus)
+        wrap.classList.toggle('blind-mode-header', blind);
+        if (wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
+            wrap.firstChild.nodeValue = blind ? '' : 'Aktiver Fall: ';
+        }
+
+        // 2. DEN BUTTON "NEUER FALL" ERSTELLEN UND DIREKT EINHÄNGEN
+        let nextBtn = document.getElementById('btn-top-new-case');
+        if (!nextBtn) {
+            nextBtn = document.createElement('button');
+            nextBtn.id = 'btn-top-new-case';
+            nextBtn.innerHTML = 'Neuer Fall ➔';
+            nextBtn.style.cssText = 'background: #0284c7; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 15px; font-size: 0.85rem; box-shadow: 0 2px 8px rgba(2,132,199,0.4); flex-shrink: 0;';
+            
+            nextBtn.onmouseenter = () => nextBtn.style.background = '#0369a1';
+            nextBtn.onmouseleave = () => nextBtn.style.background = '#0284c7';
+
+            nextBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof window.nextSpecialtyCase === 'function') {
+                    window.nextSpecialtyCase();
+                } else if (window.SpecialtyEngine && typeof window.SpecialtyEngine.nextCase === 'function') {
+                    window.SpecialtyEngine.nextCase();
+                }
+            };
+            
+            // Button rechts neben das Badge setzen
+            wrap.appendChild(nextBtn);
+            wrap.style.display = 'inline-flex';
+            wrap.style.alignItems = 'center';
+        }
+        
+        // Button nur im Fachrichtungs-Modus (blind = true) anzeigen
+        nextBtn.style.display = blind ? 'inline-block' : 'none';
+    }
+
+    // 3. Titel des Badges setzen
+    if (badge && caseData) {
+        badge.innerText = blind ? `${field} • Training` : (caseData.metadata?.title || caseData.case_id);
+    }
+
+    // 4. Übersicht-Tab im Fachrichtungsmodus verstecken (Spoiler-Schutz)
+    const overviewTab = document.getElementById('tab-btn-overview');
+    if (overviewTab) {
+        overviewTab.style.display = blind ? 'none' : '';
     }
 };
-
 window.SpecialtyEngine = {
     start: (s) => window.startSpecialtyMode(s),
     nextCase: () => window.nextSpecialtyCase()
