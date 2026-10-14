@@ -1427,4 +1427,11 @@ window.resetCurrentCaseEntirely = function() {
 
     ProgressManager.resetEntireCase(activeCaseData.case_id);
     window.loadCaseById(activeCaseData.case_id, { specialty: blind });
+
+    // Automatisches Neuladen der Dashboard-Ansicht, sobald die Cloud-Fälle synchronisiert sind
+window.addEventListener("cloudCasesSynced", () => {
+    if (typeof renderDashboardCases === "function") {
+        renderDashboardCases();
+    }
+});
 };
