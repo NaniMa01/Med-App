@@ -533,7 +533,39 @@ function setLearningMode(mode) {
     if (topicGrid) topicGrid.style.display = 'block';
   }
 }
+    /**
+ * Baut die Fachrichtungs-Auswahlkarten im Hub basierend auf den vorhandenen Fällen
+ */
+function renderSpecialtyHub() {
+  const hub = document.getElementById('specialty-hub');
+  if (!hub) return;
 
+  // Alle Fachrichtungen aus state.allCases extrahieren
+  const specialties = {};
+  (state.allCases || []).forEach(c => {
+    const field = c.metadata?.medical_field || c.medical_field || c.category || 'Allgemeinmedizin';
+    if (!specialties[field]) specialties[field] = 0;
+    specialties[field]++;
+  });
+
+  if (Object.keys(specialties).length === 0) {
+    hub.innerHTML = `<p style="color: var(--text-muted); padding: 20px;">Keine Fachrichtungen gefunden.</p>`;
+    return;
+  }
+
+  let html = `<div class="specialty-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 15px;">`;
+  
+  for (const [spec, count] of Object.entries(specialties)) {
+    html > `
+      <div class="specialty-card" onclick="SpecialtyEngine.start('${spec}')" style="background: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+        <h3 style="color: #38bdf8; margin: 0 0 8px 0; font-size: 1.1rem;">${spec}</h3>
+        <p style="color: #94a3b8; font-size: 0.85rem; margin: 0;">${count} Krankheitsbild${count > 1 ? 'er' : ''}</p>
+      </div>
+    `;
+  }
+  html += `</div>`;
+  hub.innerHTML = html;
+}
     container.innerHTML = Object.entries(grouped).map(([category, cases], catIdx) => {
         const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
         const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
