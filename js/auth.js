@@ -247,12 +247,24 @@ window.Cloud = {
     scheduleProgressSync: () => syncUserDataWithCloud(),
     saveCloudCase: async (caseData) => {
         if (!window.supabaseClient || !window.currentSession) return;
-        return window.supabaseClient.from("medical_cases").upsert({
+        
+        // Versuche, Titel und Fachbereich direkt mitzuschicken, falls sie existieren
+        const payload = {
             case_id: caseData.case_id,
             user_id: window.currentSession.user.id,
-            data: caseData,
+            case_data: caseData, // Korrigiert von 'data' zu 'case_data'
             updated_at: new Date().toISOString()
-        });
+        };
+
+        if (caseData.metadata?.title) payload.title = caseData.metadata.title;
+        if (caseData.metadata?.medical_field) payload.medical_field = caseData.metadata.medical_field;
+        if (caseData.metadata?.folder_name) payload.folder_name = caseData.metadata.folder_name;
+
+        const { data, error } = await window.supabaseClient.from("medical_cases").upsert(payload);
+        if (error) {
+            console.error("Fehler beim Speichern des Falls in der Cloud:", error);
+        }
+        return { data, error };
     },
     deleteCloudCase: async (caseId) => {
         if (!window.supabaseClient || !window.currentSession) return;
