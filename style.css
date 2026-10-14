@@ -1295,11 +1295,67 @@ topbar {
     .delete-case-btn { width: 30px; height: 30px; }
 }
 
+/* ==========================================================================
+   MEDCHECK MOBILE MENÜ & QUERFORMAT (LANDSCAPE) OPTIMIERUNG
+   ========================================================================== */
+
+/* 1. Mobile Menu-Toggle (Hamburger-Button) in der Topbar auf kleinen Screens garantieren */
+@media screen and (max-width: 1024px) {
+    .menu-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        background: rgba(56, 189, 248, 0.15);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        color: var(--accent-blue);
+        padding: 8px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.1rem;
+        line-height: 1;
+        transition: background 0.2s;
+        z-index: 30;
+    }
+    
+    .menu-toggle:hover {
+        background: rgba(56, 189, 248, 0.28);
+    }
+}
+
+/* 2. QUERFORMAT (LANDSCAPE) AUF SMARTPHONES: Maximale vertikale Raumausnutzung */
 @media screen and (max-height: 600px) and (orientation: landscape) {
-    topbar { height: 50px !important; padding: 0 16px !important; }
-    .challenge-nav-bar, .mc-mobile-picker-wrap { display: none !important; }
-    .content-body { padding: 8px 16px !important; gap: 10px !important; }
-    .panel { padding: 12px 16px !important; }
-    .synapses-grid-4x4 { gap: 4px !important; margin-bottom: 8px !important; }
-    .synapse-tile-modern { min-height: 64px !important; padding: 14px 2px 4px 2px !important; }
+
+    /* Topbar im Querformat kompakter machen */
+    topbar {
+        height: 50px !important;
+        padding: 0 16px !important;
+    }
+
+    /* Challenge-Tabs (Desktop-Leiste) und das mobile Dropdown im Querformat komplett ausblenden, 
+       um wertvolle vertikale Höhe für den klinischen Fall freizugeben */
+    .challenge-nav-bar,
+    .mc-mobile-picker-wrap {
+        display: none !important;
+    }
+
+    /* Innenabstände im Querformat straffen */
+    .content-body {
+        padding: 8px 16px !important;
+        gap: 10px !important;
+    }
+
+    .panel {
+        padding: 12px 16px !important;
+    }
+
+    /* Synapsen-Grid im Querformat etwas kompakter halten */
+    .synapses-grid-4x4 {
+        gap: 4px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .synapse-tile-modern {
+        min-height: 64px !important;
+        padding: 14px 2px 4px 2px !important;
+    }
 }
