@@ -1,252 +1,237 @@
 <!DOCTYPE html>
 <html lang="de">
-    <link rel="icon" href="csm_EKG_Stetoskop_AdobeStock_309834451_7335931d23.jpeg" type="image/jpeg">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MediChecker - V6.0 Cornell Edition</title>
-
-    <!-- Supabase Konfiguration -->
-    <script>
-        window.ENV_SUPABASE_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
-        window.ENV_SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
-    </script>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediChecker - Klinische Fallanalyse</title>
+  <link rel="icon" href="csm_EKG_Stetoskop_AdobeStock_309834451_7335931d23.jpeg" type="image/jpeg">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-    <sidebar>
-        <div class="brand">
-            <div class="brand-icon-wrap"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
-            <span>MediChecker</span><span class="brand-badge">V6.0</span>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">🩺</span>
+      <span class="brand-title">MediChecker</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button type="button" class="nav-item active" onclick="window.switchTab('dashboard', this)">
+        <span class="nav-icon">📊</span>
+        <span>Dashboard</span>
+      </button>
+      <button type="button" class="nav-item" id="nav-player" style="display:none;" onclick="window.switchTab('player', this)">
+        <span class="nav-icon">🔬</span>
+        <span>Fall-Player</span>
+      </button>
+      <button type="button" class="nav-item" onclick="window.switchTab('forge', this)">
+        <span class="nav-icon">⚡</span>
+        <span>Fall-Schmiede</span>
+      </button>
+      <button type="button" class="nav-item" onclick="window.switchTab('settings', this)">
+        <span class="nav-icon">⚙️</span>
+        <span>Einstellungen</span>
+      </button>
+    </nav>
+
+    <!-- SKILLS WIDGET -->
+    <div class="sidebar-skills">
+      <h4 class="sidebar-subtitle">Klinische Kompetenzen</h4>
+      <div id="skills-sidebar-container"></div>
+    </div>
+
+    <!-- BOOKSHELF FOLDER TREE -->
+    <div class="sidebar-bookshelf">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h4 class="sidebar-subtitle" style="margin:0;">Bibliothek</h4>
+        <button type="button" id="add-bookshelf-folder-btn" class="mini-icon-btn" title="Neuer Ordner">+</button>
+      </div>
+      <div id="bookshelf-container"></div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" onclick="window.toggleSidebar()"></div>
+
+  <!-- HAUPTBEREICH -->
+  <div class="main-wrapper">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="button" class="menu-toggle-btn" onclick="window.toggleSidebar()">☰</button>
+        <div class="hud-stat-pill">
+          <span>XP:</span>
+          <strong id="stat-xp">0</strong>
         </div>
-        <div class="nav-section-label">Navigation</div>
-        <ul class="nav-links">
-            <li class="nav-item active" onclick="switchTab('dashboard', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></li>
-            <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span>Challenge Hub</span></li>
-            <li class="nav-item" onclick="switchTab('forge', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg><span>Fall-Generator (Dev)</span></li>
-            <li class="nav-item" onclick="switchTab('settings', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span>Einstellungen</span></li>
-        </ul>
-
-      <!-- Bookshelf Sidebar Sektion -->
-        <div class="bookshelf-header-row" style="margin-top: 20px;">
-            <span class="bookshelf-title">Bookshelf</span>
-            <button type="button" class="bookshelf-add-btn" id="add-bookshelf-folder-btn" title="Neuen Ordner erstellen">+</button>
+        <div class="hud-stat-pill">
+          <span>Rang:</span>
+          <strong id="stat-rank" style="color:var(--accent-cyan, #38bdf8);">Famulus</strong>
         </div>
-        <div id="bookshelf-container" class="bookshelf-container" style="flex: 1; overflow-y: auto;"></div>
+      </div>
 
-        <div class="sidebar-footer">
-            <div class="sidebar-pulse"></div>
-            <div>
-                <div style="font-size: 0.78rem; font-weight: 700; color: #f1f5f9;">Engine Bereit</div>
-                <div style="font-size: 0.7rem; color: var(--text-dim);">Sokratischer Kern v6.0</div>
-            </div>
+      <!-- AUTH BEREICH -->
+      <div class="topbar-auth">
+        <div id="auth-user" style="display:none; align-items:center; gap:10px;">
+          <span id="auth-user-email" style="font-size:0.82rem; color:#94a3b8;"></span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.authSignOut()">Abmelden</button>
         </div>
-    </sidebar>
+        <div id="auth-panel" style="display:flex; align-items:center; gap:8px;">
+          <input type="email" id="auth-email" placeholder="E-Mail" class="auth-input">
+          <input type="password" id="auth-password" placeholder="Passwort" class="auth-input">
+          <button type="button" class="btn btn-primary btn-sm" onclick="window.authSignIn()">Login</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.authSignUp()">Registrieren</button>
+        </div>
+      </div>
+    </header>
+    <div id="auth-fb" class="feedback-box" style="display:none; margin: 10px 24px 0 24px;"></div>
+    <div id="hud-popup-container"></div>
 
-    <div class="main-wrapper">
-        <topbar>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <button class="menu-toggle" onclick="toggleSidebar()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
-                <div class="topbar-engine-tag"><span class="dot"></span><span class="engine-text">V6.0 Cornell Note Engine</span></div>
-            </div>
-            <div class="user-hud">
-                <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
-                <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
-                <div id="hud-popup-container"></div>
-                <div class="auth-user" id="auth-user" style="display: none;">
-                    <span class="auth-email" id="auth-user-email"></span>
-                    <button class="action-btn secondary" onclick="authSignOut()">Abmelden</button>
-                </div>
-            </div>
-        </topbar>
+    <!-- 1. DASHBOARD VIEW -->
+    <main id="dashboard-view" class="view-pane" style="display:block;">
+      <div class="dashboard-header">
+        <h1>Klinische Fälle & Fachrichtungen</h1>
+        <div class="segmented-control">
+          <button type="button" id="seg-topic" class="segment-btn active" onclick="window.setLearningMode('topic')">Themen & Ordner</button>
+          <button type="button" id="seg-specialty" class="segment-btn" onclick="window.setLearningMode('specialty')">Lernen nach Fachrichtung</button>
+        </div>
+      </div>
 
-    <header id="specialty-sticky-bar" class="specialty-sticky-bar hidden">
-  <div class="specialty-bar-left">
-    <button type="button" class="btn btn-secondary btn-sm" id="btn-exit-specialty">✕ Beenden</button>
-    <div class="specialty-meta">
-      <span class="specialty-pill" id="specialty-pill-name">Fachrichtung</span>
-      <span class="case-counter-pill" id="specialty-pill-counter">Fall 1 / 5</span>
+      <!-- Specialty Hub -->
+      <section id="specialty-hub" style="display:none;"></section>
+
+      <!-- Topic Grid / Ordner -->
+      <section id="topic-grid">
+        <div class="super-folder-header" onclick="window.toggleSuperFolder()" style="cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+          <span id="super-folder-arrow">▼</span>
+          <h3 style="margin:0;">Alle Fachbereiche</h3>
+        </div>
+        <div id="dashboard-folders-container"></div>
+      </section>
+    </main>
+
+    <!-- 2. FALL-PLAYER VIEW -->
+    <main id="player-view" class="view-pane" style="display:none;">
+
+      <!-- PERSISTENTER STICKY-HEADER FÜR DEN FACHRICHTUNGS-MODUS -->
+      <div id="specialty-sticky-bar" style="display:none; justify-content:space-between; align-items:center; background:#0f172a; padding:12px 18px; border-radius:10px; margin-bottom:15px; border:1px solid #38bdf8; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button type="button" id="btn-exit-specialty" style="background:#334155; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">✕ Beenden</button>
+          <span id="specialty-pill-name" style="background:#0284c7; color:#fff; padding:4px 10px; border-radius:12px; font-size:0.8rem; font-weight:bold;">Fachrichtung</span>
+          <span id="specialty-pill-counter" style="background:#1e293b; color:#94a3b8; padding:4px 8px; border-radius:12px; font-size:0.75rem;">Fall 1 / 1</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button type="button" id="btn-reveal-diagnosis" style="background:transparent; border:1px solid #38bdf8; color:#38bdf8; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">🔍 Diagnose enthüllen</button>
+          <button type="button" id="btn-next-specialty-case" style="background:#0284c7; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.85rem;">Nächstes Krankheitsbild ➔</button>
+        </div>
+      </div>
+
+      <!-- CHALLENGE NAVIGATION -->
+      <nav class="player-nav-tabs">
+        <button type="button" class="challenge-tab-btn active" id="tab-btn-overview" onclick="window.switchPlayerMode('overview')">Übersicht</button>
+        <button type="button" class="challenge-tab-btn" id="tab-btn-audit" onclick="window.switchPlayerMode('audit')">
+          Klinischer Audit <span class="tab-badge" id="badge-mode-audit">0/0</span>
+        </button>
+        <button type="button" class="challenge-tab-btn" id="tab-btn-synapses" onclick="window.switchPlayerMode('synapses')">Synapsen-Matrix</button>
+        <button type="button" class="challenge-tab-btn" id="tab-btn-cascade" onclick="window.switchPlayerMode('cascade')">Kaskaden</button>
+        <button type="button" class="challenge-tab-btn" id="tab-btn-cat" onclick="window.switchPlayerMode('cat')">Taxonomie</button>
+        <button type="button" class="challenge-tab-btn" id="tab-btn-quiz" onclick="window.switchPlayerMode('quiz')">Master-Quiz</button>
+        <button type="button" class="challenge-tab-btn" id="tab-btn-doctordle" onclick="window.switchPlayerMode('doctordle')">
+          Doctordle <span class="tab-badge" id="badge-mode-doctordle">0/0</span>
+        </button>
+      </nav>
+
+      <!-- CHALLENGE PANES -->
+      <section id="mode-container-overview" class="player-mode-pane" style="display:block;">
+        <div id="overview-container"></div>
+      </section>
+
+      <section id="mode-container-audit" class="player-mode-pane" style="display:none;">
+        <div id="audit-container"></div>
+      </section>
+
+      <section id="mode-container-synapses" class="player-mode-pane" style="display:none;">
+        <div id="synapses-container"></div>
+      </section>
+
+      <section id="mode-container-cascade" class="player-mode-pane" style="display:none;">
+        <div id="cascade-container"></div>
+      </section>
+
+      <section id="mode-container-cat" class="player-mode-pane" style="display:none;">
+        <div id="cat-container"></div>
+      </section>
+
+      <section id="mode-container-quiz" class="player-mode-pane" style="display:none;">
+        <div id="quiz-container"></div>
+      </section>
+
+      <section id="mode-container-doctordle" class="player-mode-pane" style="display:none;">
+        <div id="doctordle-container"></div>
+      </section>
+
+      <!-- AKTIONEN UNTEN -->
+      <div class="player-footer-actions">
+        <button type="button" class="btn btn-secondary" onclick="window.showTutorHint(currentActiveChallenge)">💡 Tutor-Hinweis</button>
+        <button type="button" class="btn btn-secondary" onclick="window.resetCurrentChallenge()">↻ Challenge zurücksetzen</button>
+        <button type="button" class="btn btn-secondary" onclick="window.resetCurrentCaseEntirely()">⚠ Fall neu starten</button>
+        <button type="button" id="finish-case-btn" class="btn btn-success" style="display:none;" onclick="window.finishCase()">Fall abschließen & XP sichern</button>
+      </div>
+    </main>
+
+    <!-- 3. FALL-SCHMIEDE (FORGE) -->
+    <main id="forge-view" class="view-pane" style="display:none;">
+      <h1>Fall-Schmiede</h1>
+      <p style="color:#94a3b8;">Generiere strukturierte Fälle mit Gemini oder importiere JSON-Falldaten direkt.</p>
+      
+      <div class="forge-input-group">
+        <label for="forge-topic"><strong>Klinisches Thema oder Prompt:</strong></label>
+        <textarea id="forge-topic" rows="3" placeholder="z. B. Akute Otitis media, FTLD Sprachabbau..."></textarea>
+        <button type="button" id="forge-generate-btn" class="btn btn-primary" onclick="window.generateCaseWithGemini()">⚡ Mit Gemini generieren</button>
+      </div>
+
+      <div id="forge-fb" class="feedback-box" style="display:none; margin-top:12px;"></div>
+
+      <div class="forge-input-group" style="margin-top:20px;">
+        <label for="forge-input"><strong>JSON-Falldaten:</strong></label>
+        <textarea id="forge-input" rows="12" style="font-family:'JetBrains Mono', monospace; font-size:0.85rem;" placeholder="{ ... }"></textarea>
+        <button type="button" class="btn btn-success" onclick="window.validateAndSaveCustomCase()" style="margin-top:8px;">✔ Validieren & Fall speichern</button>
+      </div>
+    </main>
+
+    <!-- 4. EINSTELLUNGEN -->
+    <main id="settings-view" class="view-pane" style="display:none;">
+      <h1>Einstellungen</h1>
+      <p style="color:#94a3b8;">Verwalte deine Cloud-Synchronisation und Profildaten.</p>
+      <div style="background:#1e293b; padding:16px; border-radius:8px; max-width:500px;">
+        <p><strong>Cloud-Sync-Status:</strong> <span style="color:#38bdf8;">Aktiviert via Supabase</span></p>
+        <button type="button" class="btn btn-secondary" onclick="if(window.Cloud) window.Cloud.loadUserData();">🔄 Daten jetzt synchronisieren</button>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- TUTOR MODAL -->
+  <div id="tutor-modal" class="modal-overlay" style="display:none;" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3>Sokratischer Tutor</h3>
+      <p id="tutor-text" style="margin:16px 0; font-size:0.95rem; line-height:1.5; color:#f1f5f9;"></p>
+      <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('tutor-modal').style.display='none'">Verstanden</button>
     </div>
   </div>
-  <div class="specialty-bar-right">
-    <button type="button" class="btn btn-outline" id="btn-reveal-diagnosis">🔍 Diagnose enthüllen</button>
-    <button type="button" class="btn btn-primary" id="btn-next-specialty-case">Nächstes Krankheitsbild ➔</button>
-  </div>
-</header>
-        
-        <div class="content-body">
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-                
-                <div class="panel" id="auth-panel">
-                    <div class="panel-title">Anmelden</div>
-                    <div class="panel-subtitle">Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).</div>
-                    <form class="auth-panel" onsubmit="return false;">
-                        <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email">
-                        <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password">
-                        <div class="auth-actions">
-                            <button type="submit" class="action-btn" onclick="authSignIn()">Anmelden</button>
-                            <button type="button" class="action-btn secondary" onclick="authSignUp()">Registrieren</button>
-                        </div>
-                    </form>
-                    <div class="feedback-box" id="auth-fb"></div>
-                </div>
 
-                <div class="panel" id="dashboard-view" style="display: block;">
-                    <div class="panel-title">Klinische Module & Themen-Ordner</div>
-                    <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-                    <div class="segmented-control" role="tablist">
-                        <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
-                        <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
-                    </div>
-                    <div id="specialty-hub" class="specialty-hub" style="display: none;"></div>
-                    <div class="super-folder" id="topic-grid">
-                        <div class="super-folder-header" onclick="toggleSuperFolder()">
-                            <div class="super-folder-title"><svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
-                            <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
-                        </div>
-                        <div class="super-folder-body" id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
-                    </div>
-                </div>
-
-                <div class="panel" id="player-view" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
-                        <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
-                        <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">Aktiver Fall: <span id="player-case-badge-title">Lädt...</span></div>
-                    </div>
-
-                    <div class="challenge-nav-bar">
-                        <button class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')"><span>🧭 Übersicht</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Audit</span><span class="tab-badge" id="badge-mode-audit">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display:none;"><span>🧠 Synapsen</span><span class="tab-badge" id="badge-mode-synapses">0/4</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display:none;"><span>🔗 Kaskade</span><span class="tab-badge" id="badge-mode-cascade">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display:none;"><span>🏷️ Taxonomie</span><span class="tab-badge" id="badge-mode-cat">Offen</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-doctordle" onclick="switchPlayerMode('doctordle')" style="display:none;">
-    <span>🔍 Doctordle</span><span class="tab-badge" id="badge-mode-doctordle">0/3</span>
-</button>
-                    </div>
-
-                    <div class="player-mode-pane" id="mode-container-overview" style="display: block;">
-                        <div id="overview-container"></div>
-                    </div>
-                    <div class="player-mode-pane" id="mode-container-audit" style="display: none;"><div id="player-container"></div></div>
-                    <div class="player-mode-pane" id="mode-container-synapses" style="display: none;"><div class="synapses-container"><div class="panel-title">Synapsen-Matrix<button class="tutor-btn" onclick="showTutorHint('synapses_matrix')">💡</button></div><div class="panel-subtitle" id="synapses-desc"></div><div class="synapses-legend"><div class="legend-item" style="color: var(--color-risk);"><span class="legend-dot risk"></span><span>Risiko/Patho</span></div><div class="legend-item" style="color: var(--color-symptom);"><span class="legend-dot symptom"></span><span>Symptom</span></div><div class="legend-item" style="color: var(--color-lab);"><span class="legend-dot lab"></span><span>Diagnostik</span></div><div class="legend-item" style="color: var(--color-treatment);"><span class="legend-dot treatment"></span><span>Therapie</span></div></div><div class="synapse-solved-area" id="synapses-solved-area"></div><div class="synapses-grid-4x4" id="synapses-grid"></div><div class="feedback-box" id="syn-fb"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-cascade" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Clinical Cascades (Flow-Charts)<button class="tutor-btn" onclick="showTutorHint('clinical_cascades')">💡</button></div><div class="panel-subtitle">Bringe die Elemente aus der Bank in die chronologische Reihenfolge der Kaskade.</div><div id="cascades-wrapper"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-cat" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Taxonomie<button class="tutor-btn" onclick="showTutorHint('categorization')">💡</button></div><div class="panel-subtitle" id="cat-desc"></div><div id="categorization-task"></div><button class="action-btn" onclick="evalCategorization()" style="margin-top: 15px; width: 100%;">Zuordnung prüfen</button><div class="feedback-box" id="cat-fb"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-quiz" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div><div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div><div id="quiz-wrapper"></div><button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button><div class="feedback-box" id="quiz-fb"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-doctordle" style="display:none;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <div class="panel-title" id="doctordle-headline" style="margin-bottom: 4px;">Deduktionsrätsel</div>
-                <div class="panel-subtitle" id="doctordle-puzzle-tracker">Rätsel 1/3</div>
-            </div>
-            <div class="hud-stat" id="doctordle-potential-xp" style="color: var(--accent-cyan); font-weight: 700;">Mögliche XP: +600</div>
-        </div>
-
-        <!-- Container für aufgedeckte & gesperrte Hinweise -->
-        <div id="doctordle-hints-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
-
-        <!-- Eingabebereich mit Autocomplete -->
-        <div style="position: relative; margin-bottom: 16px;">
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <div style="position: relative; flex: 1; min-width: 240px;">
-                    <input type="text" id="doctordle-input" class="action-input" placeholder="Verdachtsdiagnose eingeben..." 
-                           style="width: 100%; padding: 12px 14px; background: rgba(6, 9, 19, 0.7); border: 1px solid var(--card-border); border-radius: 8px; color: var(--text-main); font-size: 0.95rem;" 
-                           autocomplete="off">
-                    <ul id="doctordle-autocomplete-list" class="hidden" 
-                        style="position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0b1121; border: 1px solid var(--accent-blue); border-radius: 8px; list-style: none; margin: 0; padding: 0; z-index: 1000; max-height: 200px; overflow-y: auto;">
-                    </ul>
-                </div>
-                <button type="button" class="action-btn" id="doctordle-submit-btn">Deduzieren</button>
-                <button type="button" class="action-btn secondary" id="doctordle-reveal-btn" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Aufdecken (-200 XP)</button>
-            </div>
-        </div>
-
-        <!-- Feedback & Auflösung -->
-        <div id="doctordle-result-box" class="doctordle-result hidden" style="padding: 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.95rem; line-height: 1.5;"></div>
-
-        <!-- Nächstes Rätsel Navigation -->
-        <button type="button" class="action-btn hidden" id="doctordle-next-btn" style="width: 100%; background: var(--accent-blue);">Nächstes Rätsel →</button>
-    </div>
-
-                    <div class="specialty-actions" id="specialty-actions" style="display: none;">
-                        <button type="button" class="action-btn" id="btn-reveal-diagnosis">🔎 Diagnose enthüllen</button>
-                        <button type="button" class="action-btn" id="btn-next-specialty-case">Nächstes Krankheitsbild →</button>
-                    </div>
-                    <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%; margin-top: 24px; padding: 15px; font-size: 1rem; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);">✨ Alle Challenges & Examen gemeistert – Fall abschließen & XP sichern</button>
-                </div>
-
-                <div class="panel" id="forge-view" style="display: none;">
-                    <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
-                    <div class="panel-subtitle">Generiere einen Fall per Gemini oder füge den JSON-Code manuell ein.</div>
-                    <div class="forge-generator-controls">
-                        <label for="forge-topic" class="forge-label">Thema / Prompt</label>
-                        <textarea id="forge-topic" class="forge-topic-input" placeholder="Beispiel: Akute Thoraxschmerzen bei 58-jährigem Patienten mit Risikofaktoren..."></textarea>
-                        <button class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
-                    </div>
-                    <div class="forge-divider"></div>
-                    
-                    <!-- Zielordner-Auswahl für den Custom Case -->
-                    <div class="form-group" style="margin-bottom: 14px;">
-                        <label for="case-folder-input" class="forge-label">Zielordner (Kategorie):</label>
-                        <input type="text" id="case-folder-input" class="forge-topic-input" style="min-height: auto; padding: 10px 14px;" list="existing-folders-list" placeholder="z.B. Neurologie, Kardiologie oder Neuer Ordner..." />
-                        <datalist id="existing-folders-list">
-                            <!-- Wird dynamisch mit bestehenden Ordnern gefüllt -->
-                        </datalist>
-                    </div>
-
-                    <div class="forge-label" style="margin-bottom: 8px;">Fall-JSON (editierbar)</div>
-                    <textarea class="forge-textarea" id="forge-input" placeholder="JSON-Code hier einfügen..."></textarea>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
-                        <button class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Löschen</button>
-                    </div>
-                    <div class="feedback-box" id="forge-fb"></div>
-                </div>
-
-                <div class="panel" id="settings-view" style="display: none;">
-                    <div class="panel-title">Einstellungen</div>
-                    <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-                        <button class="action-btn secondary" onclick="if(confirm('Lernfortschritt & XP wirklich zurücksetzen?')){ localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Lern-Fortschritt & XP zurücksetzen</button>
-                        <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle löschen?')){ localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);">Alle Custom-Fälle löschen</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel" style="height: fit-content; position: sticky; top: 94px;">
-                <div class="panel-title">Kompetenzmatrix</div>
-                <div id="skills-sidebar-container" style="margin-top: 20px;"></div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="reveal-modal" class="reveal-modal" style="display: none;">
-        <div class="reveal-card" id="reveal-card"></div>
-    </div>
-
-    <div id="tutor-modal" class="tutor-popup">
-        <div style="font-weight: 800; margin-bottom: 8px; color: var(--accent-blue); display: flex; align-items: center; gap: 6px;"><span>💡 Sokratischer Tutor</span></div>
-        <div id="tutor-text"></div>
-        <button onclick="document.getElementById('tutor-modal').style.display='none'" style="margin-top: 14px; background: rgba(56,189,248,0.15); border: 1px solid var(--accent-blue); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 700;">Verstanden</button>
-    </div>
-
-    <!-- JAVASCRIPT MODULE LADEN -->
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/doctordle.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/audit.js"></script>
-    <script src="js/synapses.js"></script>
-    <script src="js/cascade.js"></script>
-    <script src="js/taxonomy.js"></script>
-    <script src="js/quiz.js"></script>
-    <script src="js/specialty.js"></script>
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/taxonomy.js"></script>
+  <script src="js/synapses.js"></script>
+  <script src="js/cascade.js"></script>
+  <script src="js/quiz.js"></script>
+  <script src="js/doctordle.js"></script>
+  <script src="js/audit.js"></script>
+  <script src="js/specialty.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
