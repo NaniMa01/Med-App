@@ -1571,68 +1571,72 @@ window.addEventListener("cloudCasesSynced", () => {
         window.renderSpecialtyHub();
     }
 });
-/* ==========================================================================
-   MEDCHECK MOBILE LAYOUT GUARD
-   Überwacht das Öffnen von Fällen und macht überbreite Module (Mapping, 
-   Synapses, Tabellen) automatisch horizontal per Touch scrollbar.
-   ========================================================================== */
-(function initMedCheckMobileGuard() {
-  function optimizeCaseForMobile() {
-    if (window.innerWidth > 768) return; // Nur auf Smartphones aktiv
+// ====================================================
+// SMARTPHONE CHALLENGE-MENÜ (Nutzt direkt switchPlayerMode)
+// ====================================================
+(function initMobileChallengePicker() {
+    function syncMobileChallengePicker() {
+        const navBar = document.querySelector('.challenge-nav-bar');
+        if (!navBar) return;
 
-    const viewportWidth = window.innerWidth;
-
-    // 1. Falls Body oder HTML durch ein Modal/Fall-Skript für Scrollen gesperrt wurden -> entsperren
-    document.documentElement.style.overflowY = 'auto';
-    document.body.style.overflowY = 'auto';
-
-    // 2. Prüfe alle Elemente im geöffneten Fall auf Überbreite
-    const allElements = document.querySelectorAll('body *');
-    allElements.forEach((el) => {
-      const style = window.getComputedStyle(el);
-
-      // A. Wenn ein Flexbox-Container im Fall nebeneinander steht und den Screen sprengt -> untereinander stapeln
-      if (style.display === 'flex' && style.flexDirection === 'row' && el.scrollWidth > viewportWidth) {
-        // Ausnahme: Reine Button-/Tab-Leisten oben sollen horizontal wischbar bleiben
-        const isNavOrTabs = el.tagName === 'NAV' || el.className.toLowerCase().includes('tab') || el.className.toLowerCase().includes('nav');
-        if (isNavOrTabs) {
-          el.classList.add('mobile-scroll-x');
-        } else {
-          el.style.flexDirection = 'column';
-          el.style.width = '100%';
-          el.style.maxWidth = '100vw';
+        let mobileWrapper = document.getElementById('mc-mobile-picker-wrap');
+        if (!mobileWrapper) {
+            mobileWrapper = document.createElement('div');
+            mobileWrapper.id = 'mc-mobile-picker-wrap';
+            mobileWrapper.className = 'mc-mobile-picker-wrap';
+            navBar.parentElement.insertBefore(mobileWrapper, navBar);
         }
-      }
 
-      // B. Wenn ein Canvas, SVG, eine Tabelle oder ein Mapping-Board breiter als das Handy ist -> Eltern-Container scrollbar machen!
-      if ((el.tagName === 'CANVAS' || el.tagName === 'SVG' || el.tagName === 'TABLE' || el.scrollWidth > viewportWidth + 10) && el.parentElement) {
-        const parent = el.parentElement;
-        if (parent && parent !== document.body && parent !== document.documentElement) {
-          parent.style.overflowX = 'auto';
-          parent.style.webkitOverflowScrolling = 'touch';
-          parent.style.maxWidth = '100%';
-          parent.style.display = 'block';
+        // Lese alle aktuell für diesen Fall sichtbaren Challenge-Buttons aus deiner challenge-nav-bar aus
+        const buttons = Array.from(navBar.querySelectorAll('.challenge-tab-btn')).filter(btn => {
+            return btn.style.display !== 'none';
+        });
+
+        const optionsHtml = buttons.map(btn => {
+            const mode = btn.id.replace('tab-btn-', '');
+            const badgeText = btn.querySelector('.tab-badge')?.innerText || '';
+            // Text ohne Badge-Text extrahieren
+            const clone = btn.cloneNode(true);
+            const b = clone.querySelector('.tab-badge');
+            if (b) b.remove();
+            const label = clone.innerText.trim();
+            const selected = (mode === currentActiveChallenge) ? 'selected' : '';
+            return `<option value="${mode}" ${selected}>${label} ${badgeText ? '(' + badgeText + ')' : ''}</option>`;
+        }).join('');
+
+        mobileWrapper.innerHTML = `
+            <div class="mc-mobile-picker-inner">
+                <label for="mc-mobile-challenge-select" class="mc-mobile-picker-label">🎯 Challenge wählen:</label>
+                <select id="mc-mobile-challenge-select" class="mc-mobile-picker-select">
+                    ${optionsHtml}
+                </select>
+            </div>
+        `;
+
+        const selectEl = document.getElementById('mc-mobile-challenge-select');
+        if (selectEl) {
+            selectEl.addEventListener('change', (e) => {
+                window.switchPlayerMode(e.target.value);
+            });
         }
-      }
-    });
-  }
+    }
 
-  // Bei Größenänderung und beim Start ausführen
-  window.addEventListener('resize', optimizeCaseForMobile);
-  window.addEventListener('DOMContentLoaded', optimizeCaseForMobile);
+    // Hänge dich sauber in switchPlayerMode und loadCaseById ein, damit das Menü immer aktuell ist
+    const origSwitchPlayerMode = window.switchPlayerMode;
+    if (typeof origSwitchPlayerMode === 'function') {
+        window.switchPlayerMode = function(mode) {
+            origSwitchPlayerMode(mode);
+            syncMobileChallengePicker();
+        };
+    }
 
-  // MutationObserver: Reagiert in Echtzeit, sobald du auf "Fall öffnen" klickst!
-  const observer = new MutationObserver(() => {
-    window.requestAnimationFrame(optimizeCaseForMobile);
-  });
+    const origLoadCaseById = window.loadCaseById;
+    if (typeof origLoadCaseById === 'function') {
+        window.loadCaseById = function(caseId, opts) {
+            origLoadCaseById(caseId, opts);
+            setTimeout(syncMobileChallengePicker, 50);
+        };
+    }
 
-  window.addEventListener('load', () => {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style']
-    });
-    optimizeCaseForMobile();
-  });
+    window.addEventListener('DOMContentLoaded', () => setTimeout(syncMobileChallengePicker, 200));
 })();
