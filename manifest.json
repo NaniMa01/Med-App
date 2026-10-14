@@ -1,66 +1,19 @@
-
+{
+  "name": "MedCheck – Klinisches Falltraining",
+  "short_name": "MedCheck",
+  "description": "Interaktives medizinisches Falltraining, Diagnostik, Mapping & klinische Audits.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
     {
-      "id": "NEURO_002_ADV",
-      "title": "FTLD Advanced: Das FTD-ALS-Kontinuum & Neuroleptika-Falle",
-      "medical_field": "Neurologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 500,
-      "file_path": "cases/neuro_ftd_002_adv.json"
-    },
-    {
-      "id": "NEURO_LBD_AUDIT_001",
-      "title": "Chart Audit: Psychose im Alter & Die DaTSCAN-Falle",
-      "medical_field": "Neurologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 450,
-      "file_path": "cases/neuro_lbd_audit_001.json"
-    },
-    {
-      "id": "NEURO_CJK_001",
-      "title": "Rasch progrediente Enzephalopathie: Die CJK-Trias & RT-QuIC",
-      "medical_field": "Neurologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 500,
-      "file_path": "cases/neuro_cjk_001.json"
-    },
-    {
-      "id": "NEURO_FTD_PPA_002",
-      "title": "PPA-Diskrepanz: Semantischer Verlust & Molekulare Pathologie",
-      "medical_field": "Neurologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 450,
-      "file_path": "cases/neuro_ftd_ppa_002.json"
-    },
-    {
-      "id": "HAEMATO_LYMPH_001",
-      "title": "Kiefer-Tumor: Der genetische Motor im Keimzentrum",
-      "medical_field": "Hämatopathologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 500,
-      "file_path": "cases/haemato_lymph_001.json"
-    },
-    {
-      "id": "HAEMATO_LYMPH_002",
-      "title": "MALT-Evolution: Vom chronischen Infekt zur Autonomie",
-      "medical_field": "Hämatopathologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 450,
-      "file_path": "cases/haemato_lymph_002.json"
-    },
-    {
-      "id": "FTLD_SPRACHABBAU_001",
-      "title": "Neurokognitive Störungen II: FTLD & Sprachabbau",
-      "medical_field": "Neurologie",
-      "bloom_level": "Evaluation & Synthese",
-      "difficulty": 5,
-      "xp_reward": 250,
-      "file_path": "cases/neuro_demenz_001.json"
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230f172a'/><path d='M15 50 H32 L42 25 L56 75 L66 50 H85' stroke='%2338bdf8' stroke-width='8' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }
