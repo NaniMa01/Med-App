@@ -1,370 +1,29 @@
 /**
- * js/specialty.js - Lernen nach Fachrichtung (Blind-Modus, Session-Queue, Reveal, separater Fortschritt)
+ * js/specialty.js - Lernen nach Fachrichtung (Blind-Modus, Session-Queue, Diagnose-Enthüllung, persistenter Fortschritt)
  */
+
 const SPECIALTY_STORAGE_KEY = 'medcheck_specialty_progress';
-const specialtySession = { field: null, queue: [], currentId: null, recorded: false };
-// ============================================================================
-// MEDCHECK FACHRICHTUNGS-ENGINE & ASPEKT-ROTATION
-// ============================================================================
 
-const SpecialtyEngine = {
-  activeSpecialty: null,
-  caseQueue: [],
-  currentIndex: 0,
-  
-  // Speichert für jeden Fall, welche Bestandteile bereits gezeigt wurden:
-  // { [caseId]: { seenPatients: [0], seenCascades: [1], seenQuestions: [3], seenPuzzles: [0] } }
-  history: JSON.parse(localStorage.getItem('medcheck_aspect_history') || '{}'),
-
-  /**
-   * Startet den Fachrichtungsmodus mit gemischter Fall-Queue
-   */
-  start(specialtyName) {
-    const norm = specialtyName.trim().toLowerCase();
-    
-    // Alle passenden Fälle ermitteln
-    const matches = (state.allCases || []).filter(c => {
-      const field = (c.metadata?.medical_field || c.medical_field || c.category || '').toLowerCase();
-      return field.includes(norm);
-    });
-
-    if (matches.length === 0) {
-      alert(`Keine Fälle für das Fachgebiet "${specialtyName}" hinterlegt.`);
-      return;
-    }
-
-    // Fisher-Yates-Shuffle für unvorhersehbare Fall-Reihenfolge
-    const shuffled = [...matches];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    this.activeSpecialty = specialtyName;
-    this.caseQueue = shuffled;
-    this.currentIndex = 0;
-    state.currentMode = 'specialty';
-
-    this.loadCurrentCase();
-  },
-
-  /**
-   * Lädt den aktuellen Fall der Queue und schneidet ihn auf 1 Teilaufgabe pro Challenge zu
-   */
-  async loadCurrentCase() {
-    if (this.currentIndex >= this.caseQueue.length) {
-      this.renderFinishedScreen();
-      return;
-    }
-
-    const caseItem = this.caseQueue[this.currentIndex];
-
-    // Roh-JSON laden (gecacht oder via Fetch)
-    let rawData = caseItem;
-    if (caseItem.file && !caseItem.timeline) {
-      try {
-        const res = await fetch(caseItem.file);
-        rawData = await res.json();
-      } catch (err) {
-        console.error("Fehler beim Laden des Falls:", err);
-        alert("Fall konnte nicht geladen werden.");
-        return;
-      }
-    }
-
-    // Deep-Clone erstellen, damit das Original im Dashboard vollständig bleibt
-    const clonedCase = JSON.parse(JSON.stringify(rawData));
-    const caseId = clonedCase.case_id || clonedCase.metadata?.title || `case_${this.currentIndex}`;
-
-    // Historie für diesen Fall initialisieren
-    if (!this.history[caseId]) {
-      this.history[caseId] = { seenPatients: [], seenCascades: [], seenQuestions: [], seenPuzzles: [] };
-    }
-    const h = this.history[caseId];
-
-    // -------------------------------------------------------------
-    // 1. AUDIT: Exakt 1 Patient (3 Schritte) rotierend auswählen
-    // -------------------------------------------------------------
-    if (Array.isArray(clonedCase.timeline) && clonedCase.timeline.length > 0) {
-      // Gruppierung nach Patient (entweder nach patient_id oder in 3er-Blöcken)
-      const patientGroups = [];
-      const pidMap = new Map();
-
-      clonedCase.timeline.forEach(step => {
-        const pid = step.patient_id || 'unknown';
-        if (!pidMap.has(pid)) {
-          pidMap.set(pid, []);
-          patientGroups.push(pidMap.get(pid));
-        }
-        pidMap.get(pid).push(step);
-      });
-
-      // Fallback: Falls keine patient_id existiert, stur in 3er-Blöcke schneiden
-      let chunks = patientGroups.filter(g => g.length > 0);
-      if (chunks.length === 1 && chunks[0].length >= 6) {
-        chunks = [];
-        for (let i = 0; i < clonedCase.timeline.length; i += 3) {
-          chunks.push(clonedCase.timeline.slice(i, i + 3));
-        }
-      }
-
-      // Nächsten ungesehenen Patienten wählen (oder Reset bei Volldurchlauf)
-      let availableIndices = chunks.map((_, i) => i).filter(i => !h.seenPatients.includes(i));
-      if (availableIndices.length === 0) {
-        h.seenPatients = [];
-        availableIndices = chunks.map((_, i) => i);
-      }
-      const chosenPatientIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-      h.seenPatients.push(chosenPatientIdx);
-
-      // Die 3 Schritte isolieren und step_id sauber auf 1, 2, 3 normieren
-      const singlePatientTimeline = chunks[chosenPatientIdx].map((step, idx) => ({
-        ...step,
-        step_id: idx + 1 // audit.js setzt auf sequentielle Indizes von 1 bis 3
-      }));
-
-      clonedCase.timeline = singlePatientTimeline;
-    }
-
-    // -------------------------------------------------------------
-    // 2. KASKADE: Exakt 1 Kaskade rotierend auswählen
-    // -------------------------------------------------------------
-    const cascades = clonedCase.extra_tasks?.clinical_cascades;
-    if (Array.isArray(cascades) && cascades.length > 0) {
-      let avail = cascades.map((_, i) => i).filter(i => !h.seenCascades.includes(i));
-      if (avail.length === 0) {
-        h.seenCascades = [];
-        avail = cascades.map((_, i) => i);
-      }
-      const chosenCascadeIdx = avail[Math.floor(Math.random() * avail.length)];
-      h.seenCascades.push(chosenCascadeIdx);
-      clonedCase.extra_tasks.clinical_cascades = [cascades[chosenCascadeIdx]];
-    }
-
-    // -------------------------------------------------------------
-    // 3. MASTER QUIZ: Exakt 1 Multiple-Choice-Frage auswählen
-    // -------------------------------------------------------------
-    const questions = clonedCase.extra_tasks?.master_quiz;
-    if (Array.isArray(questions) && questions.length > 0) {
-      let avail = questions.map((_, i) => i).filter(i => !h.seenQuestions.includes(i));
-      if (avail.length === 0) {
-        h.seenQuestions = [];
-        avail = questions.map((_, i) => i);
-      }
-      const chosenQIdx = avail[Math.floor(Math.random() * avail.length)];
-      h.seenQuestions.push(chosenQIdx);
-      clonedCase.extra_tasks.master_quiz = [questions[chosenQIdx]];
-    }
-
-    // -------------------------------------------------------------
-    // 4. DOCTORDLE: Exakt 1 Rätsel-Fall auswählen
-    // -------------------------------------------------------------
-    const doctordles = clonedCase.extra_tasks?.doctordle;
-    if (Array.isArray(doctordles) && doctordles.length > 0) {
-      let avail = doctordles.map((_, i) => i).filter(i => !h.seenPuzzles.includes(i));
-      if (avail.length === 0) {
-        h.seenPuzzles = [];
-        avail = doctordles.map((_, i) => i);
-      }
-      const chosenDocIdx = avail[Math.floor(Math.random() * avail.length)];
-      h.seenPuzzles.push(chosenDocIdx);
-      clonedCase.extra_tasks.doctordle = [doctordles[chosenDocIdx]];
-    }
-
-    // Historie persistent sichern
-    localStorage.setItem('medcheck_aspect_history', JSON.stringify(this.history));
-
-    // -------------------------------------------------------------
-    // 5. SYNAPSEN & TAXONOMIE: Bleiben vollständig (DD-Training)
-    // -------------------------------------------------------------
-
-    // Aktiven Case setzen & rendern
-    state.currentCase = clonedCase;
-    this.renderCaseView(clonedCase);
-  },
-
-  /**
-   * Bereitet das UI für den Blind-Modus vor und initialisiert die Module
-   */
-  renderCaseView(caseData) {
-    // Views umschalten
-    document.getElementById('view-dashboard')?.classList.add('hidden');
-    document.getElementById('specialty-hub')?.classList.add('hidden');
-    const caseView = document.getElementById('view-case') || document.getElementById('case-container');
-    caseView?.classList.remove('hidden');
-
-    // Sticky-Bar oben einblenden und Daten setzen
-    const bar = document.getElementById('specialty-sticky-bar');
-    if (bar) {
-      bar.classList.remove('hidden');
-      document.getElementById('specialty-pill-name').textContent = this.activeSpecialty;
-      document.getElementById('specialty-pill-counter').textContent = `Fall ${this.currentIndex + 1} / ${this.caseQueue.length}`;
-    }
-
-    // Header anonymisieren (Spoiler-Schutz)
-    const titleEl = document.getElementById('case-title') || document.querySelector('.case-header-title');
-    if (titleEl) {
-      titleEl.textContent = `${this.activeSpecialty} • Syndromale Falldiskussion`;
-    }
-    const subtitleEl = document.getElementById('case-subtitle') || document.querySelector('.case-header-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = "Analysiere die Befunde und erarbeite die Differenzialdiagnose.";
-    }
-
-    // Bestehende Challenge-Module triggern
-    if (typeof initAudit === 'function' && caseData.timeline) {
-      initAudit(caseData.timeline);
-    }
-    if (typeof initCascade === 'function' && caseData.extra_tasks?.clinical_cascades) {
-      initCascade(caseData.extra_tasks.clinical_cascades);
-    }
-    if (typeof initSynapses === 'function' && caseData.extra_tasks?.synapses_matrix) {
-      initSynapses(caseData.extra_tasks.synapses_matrix);
-    }
-    if (typeof initTaxonomy === 'function' && caseData.extra_tasks?.categorization) {
-      initTaxonomy(caseData.extra_tasks.categorization);
-    }
-    if (typeof initQuiz === 'function' && caseData.extra_tasks?.master_quiz) {
-      initQuiz(caseData.extra_tasks.master_quiz);
-    }
-
-    // Fenster nach oben scrollen
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  },
-
-  /**
-   * Springt zum nächsten Fall in der Queue
-   */
-  nextCase() {
-    this.currentIndex++;
-    this.loadCurrentCase();
-  },
-
-  /**
-   * Screen, wenn alle Fälle der Fachrichtung absolviert wurden
-   */
-  renderFinishedScreen() {
-    const caseView = document.getElementById('view-case') || document.getElementById('case-container');
-    if (!caseView) return;
-
-    caseView.innerHTML = `
-      <div class="specialty-finish-card">
-        <div class="finish-icon">🏆</div>
-        <h2>Alle Fälle in ${this.activeSpecialty} abgeschlossen!</h2>
-        <p>Du hast alle registrierten Krankheitsbilder dieser Fachrichtung in verschiedenen Konstellationen analysiert.</p>
-        <div class="finish-actions">
-          <button type="button" class="btn btn-primary" id="btn-restart-specialty">
-            🔄 Fachrichtung erneut trainieren (neue Varianten)
-          </button>
-          <button type="button" class="btn btn-outline" id="btn-exit-specialty">
-            Zurück zur Übersicht
-          </button>
-        </div>
-      </div>
-    `;
-  }
+const specialtySession = {
+    field: null,
+    queue: [],
+    totalCount: 0,
+    currentIndex: 0,
+    currentId: null,
+    recorded: false
 };
 
 // ============================================================================
-// GLOBALE EVENT-DELEGATION (Funktioniert IMMER, unabhängig von innerHTML)
+// SPEICHER & PERSISTENZ (PUNKTE & FORTSCHRITT)
 // ============================================================================
-
-document.addEventListener('click', (e) => {
-  // 1. Klick auf "Nächstes Krankheitsbild"
-  if (e.target.closest('#btn-next-specialty-case')) {
-    e.preventDefault();
-    document.getElementById('reveal-modal')?.remove(); // Offenes Modal schließen
-    SpecialtyEngine.nextCase();
-    return;
-  }
-
-  // 2. Klick auf "Diagnose enthüllen"
-  if (e.target.closest('#btn-reveal-diagnosis')) {
-    e.preventDefault();
-    showDiagnosisModal();
-    return;
-  }
-
-  // 3. Modus beenden / zurück zum Dashboard
-  if (e.target.closest('#btn-exit-specialty')) {
-    e.preventDefault();
-    document.getElementById('specialty-sticky-bar')?.classList.add('hidden');
-    document.getElementById('reveal-modal')?.remove();
-    document.getElementById('view-case')?.classList.add('hidden');
-    document.getElementById('case-container')?.classList.add('hidden');
-    document.getElementById('view-dashboard')?.classList.remove('hidden');
-    return;
-  }
-
-  // 4. Fachrichtung neu starten
-  if (e.target.closest('#btn-restart-specialty')) {
-    e.preventDefault();
-    SpecialtyEngine.start(SpecialtyEngine.activeSpecialty);
-    return;
-  }
-
-  // 5. Modal schließen
-  if (e.target.closest('#btn-close-modal') || e.target.classList.contains('modal-backdrop')) {
-    document.getElementById('reveal-modal')?.remove();
-    return;
-  }
-});
-
-/**
- * Öffnet das Enthüllungs-Modal
- */
-function showDiagnosisModal() {
-  const c = state.currentCase;
-  if (!c) return;
-
-  const title = c.metadata?.title || 'Klinischer Fall';
-  const primary = c.metadata?.primary_disease || title;
-  const summary = c.case_overview?.summary || 'Keine Zusammenfassung hinterlegt.';
-  const pearl = c.extra_tasks?.doctordle?.[0]?.learning_pearl || '';
-
-  const modalHtml = `
-    <div class="modal-backdrop" id="reveal-modal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <span class="badge-tag">${SpecialtyEngine.activeSpecialty}</span>
-          <button class="btn-close" id="btn-close-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <span class="diag-subtitle">Ziel-Diagnose:</span>
-          <h2 class="diag-headline">${primary}</h2>
-          <p class="diag-meta">${title}</p>
-
-          <div class="diag-section">
-            <h4>Pathophysiologische Synthese:</h4>
-            <p>${summary}</p>
-          </div>
-
-          ${pearl ? `
-            <div class="diag-pearl">
-              <strong>Klinische Take-Home-Pearl:</strong>
-              <p>${pearl}</p>
-            </div>
-          ` : ''}
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-primary btn-block" id="btn-next-specialty-case">
-            Nächstes Krankheitsbild bearbeiten ➔
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('reveal-modal')?.remove();
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-
 const SpecialtyStore = {
     getAll() {
         try {
             const data = JSON.parse(localStorage.getItem(SPECIALTY_STORAGE_KEY));
             return data && typeof data === 'object' ? data : {};
-        } catch (e) { return {}; }
+        } catch (e) {
+            return {};
+        }
     },
     get(field) {
         const e = this.getAll()[field] || {};
@@ -377,19 +36,35 @@ const SpecialtyStore = {
     save(field, entry) {
         const all = this.getAll();
         all[field] = entry;
-        try { localStorage.setItem(SPECIALTY_STORAGE_KEY, JSON.stringify(all)); }
-        catch (e) { console.error('Specialty-Progress Schreibfehler:', e); }
+        try {
+            localStorage.setItem(SPECIALTY_STORAGE_KEY, JSON.stringify(all));
+        } catch (e) {
+            console.error('Specialty-Progress Schreibfehler:', e);
+        }
         if (window.Cloud) window.Cloud.scheduleProgressSync();
     },
-    // Fortschritt zurücksetzen (gesammelte Punkte bleiben erhalten)
     resetCompleted(field) {
         const e = this.get(field);
         this.save(field, { ...e, completedCaseIds: [] });
     }
 };
 
+// ============================================================================
+// HILFSFUNKTIONEN FÜR FÄLLE & SHUFFLE
+// ============================================================================
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+    );
+}
+
 function getSpecialtyCases(field) {
-    return window.getRegisteredCases().filter(c => (c.metadata?.medical_field || '').trim() === field);
+    const norm = (field || '').trim().toLowerCase();
+    return window.getRegisteredCases().filter(c => {
+        const f = (c.metadata?.medical_field || c.folder_name || c.medical_field || '').trim().toLowerCase();
+        return f === norm || f.includes(norm);
+    });
 }
 
 function shuffleFisherYates(arr) {
@@ -401,13 +76,254 @@ function shuffleFisherYates(arr) {
     return a;
 }
 
+function buildQueue(field) {
+    const done = new Set(SpecialtyStore.get(field).completedCaseIds);
+    const allMatching = getSpecialtyCases(field);
+    const ids = allMatching.map(c => c.case_id);
+    
+    // Ungelöste Fälle zuerst, jeweils zufällig gemischt
+    const unsolved = shuffleFisherYates(ids.filter(id => !done.has(id)));
+    const solved = shuffleFisherYates(ids.filter(id => done.has(id)));
+    return [...unsolved, ...solved];
+}
+
+// ============================================================================
+// STEUERUNG DES FACHRICHTUNGS-MODUS
+// ============================================================================
+window.startSpecialty = function(field) {
+    const cases = getSpecialtyCases(field);
+    if (!cases.length) {
+        alert(`Keine Fälle für die Fachrichtung "${field}" gefunden.`);
+        return;
+    }
+
+    const ids = new Set(cases.map(c => c.case_id));
+    if (SpecialtyStore.get(field).completedCaseIds.filter(id => ids.has(id)).length >= cases.length) {
+        SpecialtyStore.resetCompleted(field);
+    }
+
+    specialtySession.field = field;
+    specialtySession.queue = buildQueue(field);
+    specialtySession.totalCount = specialtySession.queue.length;
+    specialtySession.currentIndex = 0;
+
+    window.isSpecialtyBlindMode = true;
+    window.nextSpecialtyCase();
+};
+
+window.nextSpecialtyCase = function() {
+    window.closeRevealModal();
+
+    if (!specialtySession.queue || specialtySession.queue.length === 0) {
+        showSpecialtyFinished();
+        return;
+    }
+
+    const nextId = specialtySession.queue.shift();
+    specialtySession.currentIndex++;
+    specialtySession.currentId = nextId;
+
+    window.loadCaseById(nextId, { specialty: true });
+};
+
+// ============================================================================
+// DYNAMISCHE STEUERUNGSLEISTE & BLIND-HEADER
+// ============================================================================
+function ensureSpecialtyStickyBar() {
+    let bar = document.getElementById('specialty-sticky-bar');
+    
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'specialty-sticky-bar';
+        bar.className = 'specialty-sticky-bar';
+
+        // Direkt vor die Challenge-Tabs im Player einfügen
+        const navTabs = document.querySelector('.player-nav-tabs') || document.getElementById('tab-btn-overview')?.parentElement;
+        if (navTabs && navTabs.parentElement) {
+            navTabs.parentElement.insertBefore(bar, navTabs);
+        } else {
+            const playerView = document.getElementById('player-view') || document.body;
+            playerView.insertBefore(bar, playerView.firstChild);
+        }
+    }
+
+    bar.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:10px 16px; border-radius:10px; margin-bottom:14px; border:1px solid #38bdf8; box-shadow: 0 4px 14px rgba(0,0,0,0.4); gap:10px; flex-wrap:wrap;';
+
+    const currentNum = specialtySession.currentIndex || 1;
+    const totalNum = specialtySession.totalCount || 1;
+    const fieldName = specialtySession.field || 'Fachrichtung';
+
+    bar.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" id="btn-exit-specialty" style="background:#334155; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.82rem;">✕ Beenden</button>
+            <span id="specialty-pill-name" style="background:#0284c7; color:#fff; padding:4px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">${escapeHtml(fieldName)}</span>
+            <span id="specialty-pill-counter" style="background:#1e293b; color:#94a3b8; padding:4px 8px; border-radius:12px; font-size:0.75rem;">Fall ${currentNum} / ${totalNum}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" id="btn-reveal-diagnosis" style="background:transparent; border:1px solid #38bdf8; color:#38bdf8; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.82rem;">🔍 Diagnose enthüllen</button>
+            <button type="button" id="btn-next-specialty-case" style="background:#0284c7; color:#fff; border:none; padding:7px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem; box-shadow:0 2px 8px rgba(2,132,199,0.4);">Nächstes Krankheitsbild ➔</button>
+        </div>
+    `;
+
+    return bar;
+}
+
+window.applyBlindHeader = function(blind, caseData) {
+    const bar = ensureSpecialtyStickyBar();
+
+    if (blind) {
+        bar.style.display = 'flex';
+        
+        // Titel im Player anonymisieren (Spoiler-Schutz)
+        const badge = document.getElementById('player-case-badge-title');
+        const wrap = badge?.parentElement;
+        const field = caseData?.metadata?.medical_field || specialtySession.field || 'Fachrichtung';
+
+        if (wrap && wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
+            wrap.firstChild.nodeValue = '';
+        }
+        if (badge) {
+            badge.innerText = `${field} • Klinische Fall-Challenge`;
+        }
+
+        const overviewTab = document.getElementById('tab-btn-overview');
+        if (overviewTab) overviewTab.style.display = 'none';
+
+        specialtySession.recorded = false;
+    } else {
+        bar.style.display = 'none';
+        const overviewTab = document.getElementById('tab-btn-overview');
+        if (overviewTab) overviewTab.style.display = '';
+    }
+};
+
+// ============================================================================
+// ABSCHLUSS & FORTSCHRITTSTRACKING
+// ============================================================================
+function recordSpecialtyCompletion() {
+    if (specialtySession.recorded || !activeCaseData) return;
+    specialtySession.recorded = true;
+    
+    const field = (activeCaseData.metadata?.medical_field || specialtySession.field || '').trim();
+    if (!field) return;
+
+    const reward = activeCaseData.metadata?.xp_reward || 900;
+    const entry = SpecialtyStore.get(field);
+    
+    if (!entry.completedCaseIds.includes(activeCaseData.case_id)) {
+        entry.completedCaseIds.push(activeCaseData.case_id);
+    }
+    entry.totalScore += reward;
+    entry.lastPlayed = new Date().toISOString();
+    SpecialtyStore.save(field, entry);
+}
+
+window.onSpecialtyCompletionChange = function(allCompleted) {
+    if (window.isSpecialtyBlindMode && allCompleted) {
+        recordSpecialtyCompletion();
+        const nextBtn = document.getElementById('btn-next-specialty-case');
+        if (nextBtn) {
+            nextBtn.style.background = 'var(--color-symptom, #10b981)';
+            nextBtn.innerText = '✔ Gelöst! Nächstes Krankheitsbild ➔';
+        }
+    }
+};
+
+// ============================================================================
+// ENTHÜLLUNGS-MODAL
+// ============================================================================
+function closeRevealModal() {
+    document.getElementById('reveal-modal')?.remove();
+}
+window.closeRevealModal = closeRevealModal;
+
+window.revealDiagnosis = function() {
+    if (!activeCaseData) return;
+    const meta = activeCaseData.metadata || {};
+    const doc = activeCaseData.extra_tasks?.doctordle;
+    const pearl = (Array.isArray(doc) ? doc[0] : doc)?.learning_pearl || '';
+    const summary = activeCaseData.case_overview?.summary || '';
+    const field = meta.medical_field || specialtySession.field || 'Fachgebiet';
+    const primary = meta.primary_disease || meta.title || activeCaseData.case_id;
+
+    const modalHtml = `
+        <div id="reveal-modal" style="position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
+            <div style="background:#1e293b; border:1px solid #334155; border-radius:14px; max-width:550px; width:100%; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.6); color:#f8fafc;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <span style="background:#0284c7; color:#fff; padding:4px 10px; border-radius:12px; font-size:0.75rem; font-weight:700;">${escapeHtml(field)}</span>
+                    <button type="button" onclick="window.closeRevealModal()" style="background:none; border:none; color:#94a3b8; font-size:1.4rem; cursor:pointer;">&times;</button>
+                </div>
+                <span style="color:#94a3b8; font-size:0.8rem; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Diagnose:</span>
+                <h2 style="color:#38bdf8; margin:4px 0 8px 0; font-size:1.4rem;">${escapeHtml(primary)}</h2>
+                <p style="color:#cbd5e1; font-size:0.9rem; margin-bottom:16px;">${escapeHtml(meta.title || '')}</p>
+
+                ${summary ? `
+                    <div style="background:#0f172a; padding:12px; border-radius:8px; border-left:3px solid #38bdf8; margin-bottom:14px;">
+                        <h4 style="margin:0 0 6px 0; font-size:0.85rem; color:#94a3b8;">Pathophysiologische Synthese:</h4>
+                        <p style="margin:0; font-size:0.85rem; line-height:1.4;">${escapeHtml(summary)}</p>
+                    </div>
+                ` : ''}
+
+                ${pearl ? `
+                    <div style="background:rgba(16,185,129,0.1); border:1px solid #10b981; padding:12px; border-radius:8px; margin-bottom:18px;">
+                        <strong style="color:#10b981; font-size:0.85rem;">💡 Klinische Take-Home-Pearl:</strong>
+                        <p style="margin:4px 0 0 0; font-size:0.85rem;">${escapeHtml(pearl)}</p>
+                    </div>
+                ` : ''}
+
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" onclick="window.closeRevealModal()" style="background:#334155; color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">Schließen</button>
+                    <button type="button" onclick="window.nextSpecialtyCase()" style="background:#0284c7; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem;">Nächstes Krankheitsbild ➔</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    closeRevealModal();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+function showSpecialtyFinished() {
+    const field = specialtySession.field || 'Fachrichtung';
+    const modalHtml = `
+        <div id="reveal-modal" style="position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
+            <div style="background:#1e293b; border:1px solid #38bdf8; border-radius:14px; max-width:500px; width:100%; padding:28px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.6); color:#f8fafc;">
+                <div style="font-size:2.5rem; margin-bottom:10px;">🏆</div>
+                <h2 style="color:#38bdf8; margin:0 0 10px 0;">Fachrichtung abgeschlossen!</h2>
+                <p style="color:#cbd5e1; font-size:0.9rem; line-height:1.5; margin-bottom:20px;">
+                    Du hast alle verfügbaren Krankheitsbilder aus dem Fachbereich <strong>${escapeHtml(field)}</strong> in dieser Session durchgespielt.
+                </p>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <button type="button" onclick="SpecialtyStore.resetCompleted('${escapeHtml(field)}'); window.startSpecialty('${escapeHtml(field)}');" style="background:#0284c7; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:0.9rem;">
+                        🔄 Fachrichtung erneut trainieren
+                    </button>
+                    <button type="button" onclick="window.closeRevealModal(); window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]); window.setLearningMode('specialty');" style="background:#334155; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.9rem;">
+                        Zurück zur Fachrichtungs-Übersicht
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    closeRevealModal();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ============================================================================
+// DASHBOARD-HUB RENDERING
+// ============================================================================
 window.setLearningMode = function(mode) {
     const specialty = mode === 'specialty';
-    const set = (id, display) => { const el = document.getElementById(id); if (el) el.style.display = display; };
+    const set = (id, display) => { 
+        const el = document.getElementById(id); 
+        if (el) el.style.display = display; 
+    };
+    
     set('topic-grid', specialty ? 'none' : 'block');
-    set('specialty-hub', specialty ? 'grid' : 'none');
+    set('specialty-hub', specialty ? 'block' : 'none');
+    
     document.getElementById('seg-topic')?.classList.toggle('active', !specialty);
     document.getElementById('seg-specialty')?.classList.toggle('active', specialty);
+    
     if (specialty) window.renderSpecialtyHub();
 };
 
@@ -417,168 +333,63 @@ window.renderSpecialtyHub = function() {
 
     const fields = {};
     window.getRegisteredCases().forEach(c => {
-        const f = (c.metadata?.medical_field || '').trim();
+        const f = (c.metadata?.medical_field || c.folder_name || c.medical_field || '').trim();
         if (f) fields[f] = (fields[f] || 0) + 1;
     });
 
     const entries = Object.entries(fields).sort((a, b) => a[0].localeCompare(b[0], 'de'));
     if (!entries.length) {
-        hub.innerHTML = '<div class="specialty-empty">Keine Fachrichtungen verfügbar.</div>';
+        hub.innerHTML = '<div style="color:#94a3b8; padding:20px;">Keine Fachrichtungen verfügbar.</div>';
         return;
     }
 
-    hub.innerHTML = entries.map(([field, count]) => {
-        const ids = new Set(getSpecialtyCases(field).map(c => c.case_id));
-        const done = SpecialtyStore.get(field).completedCaseIds.filter(id => ids.has(id)).length;
-        const pct = count ? Math.round((done / count) * 100) : 0;
-        return `
-            <div class="specialty-card" role="button" tabindex="0" data-field="${encodeURIComponent(field)}">
-                <h3>${escapeHtml(field)}</h3>
-                <div class="specialty-meta"><span>${count} ${count === 1 ? 'Fall' : 'Fälle'}</span><span>${done}/${count} gelöst</span></div>
-                <div class="specialty-progress-track"><div class="specialty-progress-fill" style="width:${pct}%"></div></div>
-                <div class="specialty-meta"><span>${pct}%</span></div>
-            </div>`;
-    }).join('');
-
-    hub.querySelectorAll('.specialty-card').forEach(card => {
-        const field = decodeURIComponent(card.dataset.field);
-        card.addEventListener('click', () => window.startSpecialty(field));
-        card.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.startSpecialty(field); }
-        });
-    });
+    hub.innerHTML = `
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:16px; margin-top:15px;">
+            ${entries.map(([field, count]) => {
+                const ids = new Set(getSpecialtyCases(field).map(c => c.case_id));
+                const done = SpecialtyStore.get(field).completedCaseIds.filter(id => ids.has(id)).length;
+                const pct = count ? Math.round((done / count) * 100) : 0;
+                return `
+                    <div class="specialty-card" role="button" tabindex="0" onclick="window.startSpecialty('${escapeHtml(field)}')" style="background:#1e293b; border:1px solid #334155; padding:18px; border-radius:12px; cursor:pointer; transition:transform 0.15s ease;">
+                        <h3 style="color:#38bdf8; margin:0 0 8px 0; font-size:1.05rem;">${escapeHtml(field)}</h3>
+                        <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:0.8rem; margin-bottom:8px;">
+                            <span>${count}${count === 1 ? 'Krankheitsbild' : 'Krankheitsbilder'}</span>
+                            <span>${done}/${count} gelöst</span>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.4); height:6px; border-radius:10px; overflow:hidden;">
+                            <div style="width:${pct}%; background:#10b981; height:100%;"></div>
+                        </div>
+                    </div>`;
+            }).join('')}
+        </div>
+    `;
 };
 
-function buildQueue(field) {
-    const done = new Set(SpecialtyStore.get(field).completedCaseIds);
-    const ids = getSpecialtyCases(field).map(c => c.case_id);
-    // Offene Fälle zuerst, jeweils per Fisher-Yates gemischt
-    return [...shuffleFisherYates(ids.filter(id => !done.has(id))), ...shuffleFisherYates(ids.filter(id => done.has(id)))];
-}
-
-window.startSpecialty = function(field) {
-    const cases = getSpecialtyCases(field);
-    if (!cases.length) return;
-
-    // Alle gelöst: Fortschritt zurücksetzen (XP/Score bleiben), damit wieder offene Fälle bereitstehen
-    const ids = new Set(cases.map(c => c.case_id));
-    if (SpecialtyStore.get(field).completedCaseIds.filter(id => ids.has(id)).length >= cases.length) {
-        SpecialtyStore.resetCompleted(field);
-    }
-    specialtySession.field = field;
-    specialtySession.queue = buildQueue(field);
-    window.nextSpecialtyCase();
-};
-
-window.nextSpecialtyCase = function() {
-    closeRevealModal();
-    const nextId = specialtySession.queue.shift();
-    if (!nextId) {
-        showSpecialtyFinished();
+// ============================================================================
+// GLOBALE EVENT-DELEGATION (Klick-Handler)
+// ============================================================================
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#btn-next-specialty-case')) {
+        e.preventDefault();
+        window.nextSpecialtyCase();
         return;
     }
-    specialtySession.currentId = nextId;
-    window.loadCaseById(nextId, { specialty: true });
-};
-
-window.applyBlindHeader = function(blind, caseData) {
-    const badge = document.getElementById('player-case-badge-title');
-    const wrap = badge?.parentElement;
-    const field = caseData?.metadata?.medical_field || specialtySession.field || 'Fachrichtung';
-
-    specialtySession.recorded = false;
-    const actions = document.getElementById('specialty-actions');
-    if (actions) actions.style.display = 'none';
-    const overviewTab = document.getElementById('tab-btn-overview');
-    if (overviewTab) overviewTab.style.display = blind ? 'none' : '';
-
-    if (wrap) {
-        wrap.classList.toggle('blind-mode-header', blind);
-        if (wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
-            wrap.firstChild.nodeValue = blind ? '' : 'Aktiver Fall: ';
-        }
+    if (e.target.closest('#btn-reveal-diagnosis')) {
+        e.preventDefault();
+        window.revealDiagnosis();
+        return;
     }
-    if (badge && caseData) {
-        badge.innerText = blind ? `${field} • Klinische Fall-Challenge` : (caseData.metadata?.title || caseData.case_id);
+    if (e.target.closest('#btn-exit-specialty')) {
+        e.preventDefault();
+        window.isSpecialtyBlindMode = false;
+        window.applyBlindHeader(false, null);
+        window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        return;
     }
-};
-
-function recordSpecialtyCompletion() {
-    if (specialtySession.recorded || !activeCaseData) return;
-    specialtySession.recorded = true;
-    const field = (activeCaseData.metadata?.medical_field || specialtySession.field || '').trim();
-    if (!field) return;
-
-    const reward = activeCaseData.metadata?.xp_reward || 900;
-    const entry = SpecialtyStore.get(field);
-    if (!entry.completedCaseIds.includes(activeCaseData.case_id)) entry.completedCaseIds.push(activeCaseData.case_id);
-    entry.totalScore += reward;
-    entry.lastPlayed = new Date().toISOString();
-    SpecialtyStore.save(field, entry);
-    applyXpDelta(reward, 'Fachrichtungs-Fall abgeschlossen');
-}
-
-window.onSpecialtyCompletionChange = function(allCompleted) {
-    const actions = document.getElementById('specialty-actions');
-    if (!actions) return;
-    const show = !!(window.isSpecialtyBlindMode && allCompleted);
-    actions.style.display = show ? 'flex' : 'none';
-    if (show) recordSpecialtyCompletion();
-};
-
-function openRevealModal(html) {
-    const modal = document.getElementById('reveal-modal');
-    const card = document.getElementById('reveal-card');
-    if (!modal || !card) return;
-    card.innerHTML = html;
-    modal.style.display = 'flex';
-}
-
-function closeRevealModal() {
-    const modal = document.getElementById('reveal-modal');
-    if (modal) modal.style.display = 'none';
-}
-window.closeRevealModal = closeRevealModal;
-
-window.revealDiagnosis = function() {
-    if (!activeCaseData) return;
-    const meta = activeCaseData.metadata || {};
-    const doc = activeCaseData.extra_tasks?.doctordle;
-    const pearl = (Array.isArray(doc) ? doc[0] : doc)?.learning_pearl;
-    const summary = activeCaseData.case_overview?.summary;
-
-    openRevealModal(`
-        <h3>${escapeHtml(meta.title || activeCaseData.case_id)}</h3>
-        ${meta.primary_disease ? `<div class="reveal-label">Zielerkrankung</div><div>${escapeHtml(meta.primary_disease)}</div>` : ''}
-        ${summary ? `<div class="reveal-label">Zusammenfassung</div><div>${escapeHtml(summary)}</div>` : ''}
-        ${pearl ? `<div class="reveal-pearl">💡 ${escapeHtml(pearl)}</div>` : ''}
-        <button type="button" class="action-btn" onclick="closeRevealModal()">Schließen</button>`);
-};
-
-function showSpecialtyFinished() {
-    const field = specialtySession.field || '';
-    openRevealModal(`
-        <h3>🎉 Gratulation!</h3>
-        <div>Du hast alle Krankheitsbilder der Fachrichtung <strong>${escapeHtml(field)}</strong> in dieser Session durchgespielt.</div>
-        <button type="button" class="action-btn" id="btn-specialty-restart">Session-Queue zurücksetzen</button>
-        <button type="button" class="action-btn" id="btn-specialty-menu" style="background: rgba(255,255,255,0.08);">Zurück zum Fachrichtungs-Menü</button>`);
-
-    document.getElementById('btn-specialty-restart').onclick = () => {
-        SpecialtyStore.resetCompleted(field);
-        window.startSpecialty(field);
-    };
-    document.getElementById('btn-specialty-menu').onclick = () => {
-        closeRevealModal();
-        switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-        window.setLearningMode('specialty');
-    };
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('btn-reveal-diagnosis')?.addEventListener('click', window.revealDiagnosis);
-    document.getElementById('btn-next-specialty-case')?.addEventListener('click', window.nextSpecialtyCase);
-    document.getElementById('reveal-modal')?.addEventListener('click', e => {
-        if (e.target.id === 'reveal-modal') closeRevealModal();
-    });
-    window.setLearningMode('topic');
 });
+
+// Alias-Objekt für eventuelle externe Aufrufe
+window.SpecialtyEngine = {
+    start: (name) => window.startSpecialty(name),
+    nextCase: () => window.nextSpecialtyCase()
+};
