@@ -5,16 +5,13 @@
 window.supabaseClient = window.supabaseClient || null;
 window.currentSession = window.currentSession || null;
 
-// IMPORTANT: Nur die Projekt-Root-URL (ohne /rest/v1/ und ohne doppeltes https://).
 const SUPABASE_PROJECT_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
-// Ein Wert gilt nur als gültig, wenn er nicht leer ist und kein Platzhalter ("DEIN_...") ist.
 function isValidConfigValue(value) {
     return typeof value === "string" && value.trim() !== "" && !value.includes("DEIN_");
 }
 
-// Bereinigt die URL: entfernt doppeltes "https://", Pfade wie /rest/v1/ und Slashes am Ende.
 function normalizeSupabaseUrl(raw) {
     if (!isValidConfigValue(raw)) return "";
     try {
@@ -47,15 +44,20 @@ function initSupabase() {
     try {
         window.supabaseClient = supabase.createClient(url, key);
 
-        window.supabaseClient.auth.onAuthStateChange((_event, session) => {
+        window.supabaseClient.auth.onAuthStateChange(async (_event, session) => {
             window.currentSession = session;
             updateAuthUI(session);
-            if (session) syncUserDataWithCloud();
+            if (session) {
+                await loadUserDataFromCloud();
+            }
         });
 
-        window.supabaseClient.auth.getSession().then(({ data }) => {
+        window.supabaseClient.auth.getSession().then(async ({ data }) => {
             window.currentSession = data?.session || null;
             updateAuthUI(window.currentSession);
+            if (window.currentSession) {
+                await loadUserDataFromCloud();
+            }
         });
 
         return true;
@@ -219,23 +221,94 @@ function updateAuthUI(session) {
     }
 }
 
+/**
+ * Zieht beim Login die Daten aus der Cloud in den localStorage,
+ * damit niemals versehentlich 0 XP den Cloud-Stand überschreiben.
+ */
+async function loadUserDataFromCloud() {
+    if (!window.supabaseClient || !window.currentSession) return;
+    const userId = window.currentSession.user.id;
+
+    try {
+        // 1. Profil abrufen
+        const { data: profile } = await window.supabaseClient
+            .from("user_profiles")
+            .select("*")
+            .eq("id", userId)
+            .maybeSingle();
+
+        // 2. Fallback: Auch user_progress abfragen, falls dort die 5050 XP liegen
+        const { data: progress } = await window.supabaseClient
+            .from("user_progress")
+            .select("xp, solved_cases")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+        const cloudXp = Math.max(profile?.xp || 0, progress?.xp || 0);
+        const cloudSolved = Array.isArray(profile?.solved_cases) && profile.solved_cases.length > 0 
+            ? profile.solved_cases 
+            : (progress?.solved_cases || []);
+
+        const localXp = parseInt(localStorage.getItem("user_xp") || "0", 10);
+        const localSolved = JSON.parse(localStorage.getItem("solved_cases") || "[]");
+
+        // Immer das Maximum nehmen (kein Fortschrittsverlust)
+        const finalXp = Math.max(localXp, cloudXp);
+        localStorage.setItem("user_xp", finalXp.toString());
+
+        const mergedSolved = Array.from(new Set([...localSolved, ...cloudSolved]));
+        localStorage.setItem("solved_cases", JSON.stringify(mergedSolved));
+
+        if (profile?.progress_data && Object.keys(profile.progress_data).length > 0) {
+            const currentLocalProgress = JSON.parse(localStorage.getItem("medcheck_user_progress_v1") || "{}");
+            const merged = { ...profile.progress_data, ...currentLocalProgress };
+            localStorage.setItem("medcheck_user_progress_v1", JSON.stringify(merged));
+        }
+
+        // Nach dem Pull den konsolidierten Stand sichern
+        await syncUserDataWithCloud();
+
+        // Event für die UI triggern (falls app.js darauf hört)
+        window.dispatchEvent(new CustomEvent("cloudDataSynced", { detail: { xp: finalXp } }));
+    } catch (err) {
+        console.error("Fehler beim Laden der Benutzerdaten aus der Cloud:", err);
+    }
+}
+
+/**
+ * Synchronisiert den lokalen Stand sicher mit beiden Supabase-Tabellen.
+ */
 async function syncUserDataWithCloud() {
     if (!window.supabaseClient || !window.currentSession) return;
     const userId = window.currentSession.user.id;
 
     try {
-        const xp = parseInt(localStorage.getItem("user_xp") || "0");
+        const xp = parseInt(localStorage.getItem("user_xp") || "0", 10);
         const solvedCases = JSON.parse(localStorage.getItem("solved_cases") || "[]");
         const progressData = JSON.parse(localStorage.getItem("medcheck_user_progress_v1") || "{}");
-
         const specialtyProgress = JSON.parse(localStorage.getItem("medcheck_specialty_progress") || "{}");
+        const now = new Date().toISOString();
 
+        // 1. In user_profiles speichern
         await window.supabaseClient.from("user_profiles").upsert({
             id: userId,
             xp: xp,
             solved_cases: solvedCases,
-            progress_data: { ...progressData, __mode_specialty: specialtyProgress },
-            updated_at: new Date().toISOString()
+            progress_data: { 
+                ...progressData, 
+                xp: xp,
+                solved_cases: solvedCases,
+                __mode_specialty: specialtyProgress 
+            },
+            updated_at: now
+        });
+
+        // 2. In user_progress synchron halten
+        await window.supabaseClient.from("user_progress").upsert({
+            user_id: userId,
+            xp: xp,
+            solved_cases: solvedCases,
+            updated_at: now
         });
     } catch (err) {
         console.error("Cloud-Sync-Fehler:", err);
@@ -245,29 +318,85 @@ async function syncUserDataWithCloud() {
 window.Cloud = {
     isLoggedIn: () => !!window.currentSession,
     scheduleProgressSync: () => syncUserDataWithCloud(),
+    loadUserData: () => loadUserDataFromCloud(),
+    
     saveCloudCase: async (caseData) => {
-        if (!window.supabaseClient || !window.currentSession) return;
-        
-        // Versuche, Titel und Fachbereich direkt mitzuschicken, falls sie existieren
-        const payload = {
-            case_id: caseData.case_id,
-            user_id: window.currentSession.user.id,
-            case_data: caseData, // Korrigiert von 'data' zu 'case_data'
-            updated_at: new Date().toISOString()
-        };
-
-        if (caseData.metadata?.title) payload.title = caseData.metadata.title;
-        if (caseData.metadata?.medical_field) payload.medical_field = caseData.metadata.medical_field;
-        if (caseData.metadata?.folder_name) payload.folder_name = caseData.metadata.folder_name;
-
-        const { data, error } = await window.supabaseClient.from("medical_cases").upsert(payload);
-        if (error) {
-            console.error("Fehler beim Speichern des Falls in der Cloud:", error);
+        if (!window.supabaseClient || !window.currentSession) {
+            console.warn("Fall nicht gespeichert: Kein Nutzer eingeloggt.");
+            return null;
         }
-        return { data, error };
+
+        const userId = window.currentSession.user.id;
+        const caseId = caseData.case_id || caseData.id;
+
+        try {
+            // Prüfen, ob der Fall bereits eine Zeilen-ID in Supabase hat
+            const { data: existing } = await window.supabaseClient
+                .from("medical_cases")
+                .select("id")
+                .eq("user_id", userId)
+                .eq("case_id", caseId)
+                .maybeSingle();
+
+            const payload = {
+                user_id: userId,
+                case_id: caseId,
+                title: caseData.title || caseData.metadata?.title || "Medizinischer Fall",
+                medical_field: caseData.medical_field || caseData.metadata?.medical_field || "Allgemein",
+                folder_name: caseData.folder_name || caseData.metadata?.folder_name || "Allgemein",
+                case_data: caseData, // Korrekter Spaltenname
+                updated_at: new Date().toISOString()
+            };
+
+            // Falls bereits vorhanden, ID anhängen für sauberes Update
+            if (existing?.id) {
+                payload.id = existing.id;
+            }
+
+            const { data, error } = await window.supabaseClient
+                .from("medical_cases")
+                .upsert(payload);
+
+            if (error) {
+                console.error("Fehler beim Speichern in medical_cases:", error);
+                throw error;
+            }
+
+            return data;
+        } catch (err) {
+            console.error("saveCloudCase fehlgeschlagen:", err);
+            return null;
+        }
     },
+
     deleteCloudCase: async (caseId) => {
         if (!window.supabaseClient || !window.currentSession) return;
-        return window.supabaseClient.from("medical_cases").delete().eq("case_id", caseId).eq("user_id", window.currentSession.user.id);
+        try {
+            const { error } = await window.supabaseClient
+                .from("medical_cases")
+                .delete()
+                .eq("case_id", caseId)
+                .eq("user_id", window.currentSession.user.id);
+
+            if (error) throw error;
+        } catch (err) {
+            console.error("Fehler beim Löschen des Falls:", err);
+        }
+    },
+
+    getCloudCases: async () => {
+        if (!window.supabaseClient || !window.currentSession) return [];
+        try {
+            const { data, error } = await window.supabaseClient
+                .from("medical_cases")
+                .select("*")
+                .eq("user_id", window.currentSession.user.id);
+
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error("Fehler beim Abrufen der Fälle:", err);
+            return [];
+        }
     }
 };
