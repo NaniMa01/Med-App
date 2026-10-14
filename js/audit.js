@@ -1,3 +1,33 @@
+// In js/audit.js:
+function completeAudit() {
+  const auditContainer = document.getElementById('audit-container') || document.getElementById('timeline-container');
+  if (!auditContainer) return;
+
+  // Wenn der Modus "specialty" aktiv ist, zeigen wir eine kompakte Feedback-Box mit Direktlink zum nächsten Fall
+  if (state.currentMode === 'specialty') {
+    auditContainer.innerHTML += `
+      <div class="audit-patient-complete-card">
+        <div class="complete-header">
+          <span class="check-icon">✓</span>
+          <h3>Patientenfall erfolgreich auditiert!</h3>
+        </div>
+        <p>Du hast alle 3 klinischen Phasen (Anamnese, Diagnostik, Therapie) dieses Patienten geprüft.</p>
+        <div class="complete-actions">
+          <button type="button" class="btn btn-outline" id="btn-reveal-diagnosis">
+            🔍 Diagnose enthüllen
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-next-specialty-case">
+            Nächstes Krankheitsbild ➔
+          </button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // ... Reguläre Dashboard-Logik für 9 Schritte ...
+}
+
 function renderTimeline() {
     const container = document.getElementById('player-container');
     if (!container || !activeCaseData || !activeCaseData.timeline) return;
