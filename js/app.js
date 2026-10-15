@@ -1944,3 +1944,407 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
     applyAppTheme(savedTheme);
 });
+// ==========================================================================
+// LERN-DEPOT (KNOWLEDGE VAULT) MODULE
+// ==========================================================================
+
+const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
+let currentDepotFilter = 'open'; // 'open' | 'mastered' | 'all'
+let pendingSelectionData = null;
+
+// 1. Lokalen Cache lesen & schreiben
+function getLocalDepot() {
+    try {
+        return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveLocalDepot(items) {
+    localStorage.setItem(DEPOT_STORAGE_KEY, JSON.stringify(items));
+    updateDepotBadges(items);
+}
+
+// 2. Supabase-Client ermitteln (kompatibel mit deiner auth.js)
+function getSupabaseInstance() {
+    return window.supabaseClient || window.sb || window.supabase_client || null;
+}
+
+// 3. Synchronisation: Lädt Einträge aus Supabase (falls eingeloggt) und merged mit lokalem Speicher
+async function syncDepotWithSupabase() {
+    const sb = getSupabaseInstance();
+    if (!sb || !sb.auth) {
+        updateDepotBadges(getLocalDepot());
+        return;
+    }
+
+    try {
+        const { data: sessionData } = await sb.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (!user) {
+            updateDepotBadges(getLocalDepot());
+            return;
+        }
+
+        const { data, error } = await sb
+            .from('user_depot')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (!error && Array.isArray(data)) {
+            saveLocalDepot(data);
+            const depotView = document.getElementById('depot-view');
+            if (depotView && depotView.style.display !== 'none') {
+                renderDepotView();
+            }
+        }
+    } catch (err) {
+        console.warn('Depot Offline-Modus aktiv:', err);
+    }
+}
+
+// 4. Text-Markierung in der "Übersicht" überwachen
+function initOverviewSelectionListener() {
+    const popover = document.getElementById('depot-selection-popover');
+    if (!popover) return;
+
+    const handleSelection = () => {
+        const overviewPane = document.getElementById('mode-container-overview');
+        if (!overviewPane || overviewPane.style.display === 'none') {
+            popover.classList.add('hidden');
+            return;
+        }
+
+        const selection = window.getSelection();
+        const selectedText = selection ? selection.toString().trim() : '';
+
+        // Mindestens 5 Zeichen markiert und innerhalb der Übersicht
+        if (selectedText.length < 5 || !overviewPane.contains(selection.anchorNode)) {
+            popover.classList.add('hidden');
+            pendingSelectionData = null;
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        // Prüfen, ob die Markierung in einer Cornell-Zeile liegt, um das Stichwort (Cue) mitzuspeichern
+        let cueContext = '';
+        const anchorEl = selection.anchorNode.nodeType === 3 ? selection.anchorNode.parentElement : selection.anchorNode;
+        const cornellRow = anchorEl ? anchorEl.closest('.cornell-grid') : null;
+        if (cornellRow) {
+            const cueEl = cornellRow.querySelector('.cornell-cue-item');
+            if (cueEl) cueContext = cueEl.textContent.trim();
+        }
+
+        // Aktuellen Fall-Kontext ermitteln
+        const activeCaseObj = window.currentCase || window.activeCase || {};
+        const badgeTitleEl = document.getElementById('player-case-badge-title');
+        const caseTitle = activeCaseObj.title || (badgeTitleEl ? badgeTitleEl.textContent.trim() : 'Klinischer Fall');
+        const caseId = activeCaseObj.id || activeCaseObj.case_id || caseTitle;
+        const category = activeCaseObj.folder || activeCaseObj.category || activeCaseObj.specialty || 'Allgemein';
+
+        pendingSelectionData = {
+            case_id: caseId,
+            case_title: caseTitle,
+            category: category,
+            cue_context: cueContext,
+            highlighted_text: selectedText
+        };
+
+        // Popover exakt mittig über der Textauswahl positionieren
+        const topPos = Math.max(45, rect.top);
+        const leftPos = Math.min(window.innerWidth - 90, Math.max(90, rect.left + rect.width / 2));
+
+        popover.style.top = `${topPos}px`;
+        popover.style.left = `${leftPos}px`;
+        popover.classList.remove('hidden');
+    };
+
+    document.addEventListener('mouseup', () => setTimeout(handleSelection, 20));
+    document.addEventListener('touchend', () => setTimeout(handleSelection, 60));
+
+    // Beim Scrollen ausblenden
+    document.querySelector('.main-wrapper')?.addEventListener('scroll', () => {
+        popover.classList.add('hidden');
+    });
+}
+
+// 5. Markierten Abschnitt ins Depot speichern
+async function saveCurrentSelectionToDepot(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const popover = document.getElementById('depot-selection-popover');
+    if (popover) popover.classList.add('hidden');
+
+    if (!pendingSelectionData) return;
+
+    await createDepotEntry(pendingSelectionData);
+    window.getSelection()?.removeAllRanges();
+    pendingSelectionData = null;
+}
+
+// Manuelles Hinzufügen über die Eingabeleiste im Depot
+async function addManualDepotEntry() {
+    const input = document.getElementById('depot-manual-input');
+    const text = input ? input.value.trim() : '';
+    if (!text) return;
+
+    await createDepotEntry({
+        case_id: 'manual_note',
+        case_title: 'Eigene Notiz / Eselsbrücke',
+        category: 'Eigene Notizen',
+        cue_context: 'Merksatz',
+        highlighted_text: text
+    });
+
+    input.value = '';
+    renderDepotView();
+}
+
+// Zentrale Speicherfunktion (Lokal + Supabase)
+async function createDepotEntry(entryData) {
+    const items = getLocalDepot();
+
+    // Duplikat-Schutz
+    const exists = items.some(i => i.highlighted_text === entryData.highlighted_text && i.case_id === entryData.case_id);
+    if (exists) {
+        if (typeof showScorePopup === 'function') {
+            showScorePopup('Bereits im Lern-Depot vorhanden', 'neutral');
+        }
+        return;
+    }
+
+    const newItem = {
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'dep_' + Date.now(),
+        case_id: entryData.case_id,
+        case_title: entryData.case_title,
+        category: entryData.category || 'Allgemein',
+        cue_context: entryData.cue_context || '',
+        highlighted_text: entryData.highlighted_text,
+        user_note: '',
+        is_mastered: false,
+        created_at: new Date().toISOString()
+    };
+
+    items.unshift(newItem);
+    saveLocalDepot(items);
+
+    // Visuelles Feedback
+    if (typeof showScorePopup === 'function') {
+        showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
+    }
+
+    // Falls angemeldet: In Supabase-Tabelle user_depot speichern
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try {
+            const { data: sessionData } = await sb.auth.getSession();
+            const user = sessionData?.session?.user;
+            if (user) {
+                await sb.from('user_depot').insert([{
+                    id: newItem.id,
+                    user_id: user.id,
+                    case_id: newItem.case_id,
+                    case_title: newItem.case_title,
+                    category: newItem.category,
+                    cue_context: newItem.cue_context,
+                    highlighted_text: newItem.highlighted_text,
+                    user_note: newItem.user_note,
+                    is_mastered: newItem.is_mastered
+                }]);
+            }
+        } catch (e) {
+            console.warn('Supabase Insert im Hintergrund fehlgeschlagen (lokal gesichert):', e);
+        }
+    }
+}
+
+// 6. Status umschalten (Offen <-> Gemeistert)
+async function toggleDepotItemMastered(itemId) {
+    const items = getLocalDepot();
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+
+    target.is_mastered = !target.is_mastered;
+    saveLocalDepot(items);
+    renderDepotView();
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try {
+            await sb.from('user_depot').update({ is_mastered: target.is_mastered }).eq('id', itemId);
+        } catch (e) {}
+    }
+}
+
+// 7. Eigene Notiz zu einem markierten Zitat speichern
+async function updateDepotItemNote(itemId, noteText) {
+    const items = getLocalDepot();
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+
+    target.user_note = noteText.trim();
+    saveLocalDepot(items);
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try {
+            await sb.from('user_depot').update({ user_note: target.user_note }).eq('id', itemId);
+        } catch (e) {}
+    }
+}
+
+// 8. Eintrag löschen
+async function deleteDepotItem(itemId) {
+    const items = getLocalDepot().filter(i => i.id !== itemId);
+    saveLocalDepot(items);
+    renderDepotView();
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try {
+            await sb.from('user_depot').delete().eq('id', itemId);
+        } catch (e) {}
+    }
+}
+
+// 9. Filter setzen & UI rendern
+function setDepotFilter(filterType) {
+    currentDepotFilter = filterType;
+    ['open', 'mastered', 'all'].forEach(type => {
+        const btn = document.getElementById(`depot-filter-${type}`);
+        if (btn) btn.classList.toggle('active', type === filterType);
+    });
+    renderDepotView();
+}
+
+function updateDepotBadges(items = getLocalDepot()) {
+    const openCount = items.filter(i => !i.is_mastered).length;
+    const masteredCount = items.filter(i => i.is_mastered).length;
+
+    const navBadge = document.getElementById('nav-depot-badge');
+    if (navBadge) navBadge.textContent = openCount;
+
+    const openEl = document.getElementById('depot-count-open');
+    if (openEl) openEl.textContent = openCount;
+
+    const masteredEl = document.getElementById('depot-count-mastered');
+    if (masteredEl) masteredEl.textContent = masteredCount;
+}
+
+function escapeDepotHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function renderDepotView() {
+    const container = document.getElementById('depot-items-container');
+    const categorySelect = document.getElementById('depot-category-select');
+    const searchInput = document.getElementById('depot-search-input');
+    if (!container) return;
+
+    const allItems = getLocalDepot();
+    updateDepotBadges(allItems);
+
+    // Kategorien-Dropdown dynamisch aktualisieren
+    if (categorySelect) {
+        const currentVal = categorySelect.value || 'ALL';
+        const categories = [...new Set(allItems.map(i => i.category || 'Allgemein'))];
+        categorySelect.innerHTML = `<option value="ALL">Alle Kategorien (${allItems.length})</option>` +
+            categories.map(c => `<option value="${escapeDepotHtml(c)}">${escapeDepotHtml(c)}</option>`).join('');
+        if (categories.includes(currentVal)) categorySelect.value = currentVal;
+    }
+
+    const selectedCat = categorySelect ? categorySelect.value : 'ALL';
+    const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+    // Filtern nach Tab (Offen / Gemeistert / Alle), Kategorie und Suchbegriff
+    const filtered = allItems.filter(item => {
+        if (currentDepotFilter === 'open' && item.is_mastered) return false;
+        if (currentDepotFilter === 'mastered' && !item.is_mastered) return false;
+        if (selectedCat !== 'ALL' && item.category !== selectedCat) return false;
+        if (query) {
+            const hay = `${item.highlighted_text} ${item.case_title} ${item.cue_context} ${item.user_note}`.toLowerCase();
+            if (!hay.includes(query)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 36px 20px; color: var(--text-muted); background: rgba(10,15,29,0.35); border-radius: 14px; border: 1px dashed var(--card-border);">
+                <div style="font-size: 1.5rem; margin-bottom: 8px;">📌</div>
+                <div style="font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Keine Einträge in dieser Ansicht</div>
+                <div style="font-size: 0.82rem;">Markiere im Tab <strong>„🧭 Übersicht“</strong> eines Falls beliebige Textstellen mit der Maus, um sie direkt hier zu sammeln.</div>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = filtered.map(item => `
+        <div class="depot-card ${item.is_mastered ? 'is-mastered' : ''}">
+            <div>
+                <div class="depot-card-meta">
+                    <span class="depot-case-Origin" title="${escapeDepotHtml(item.case_title)}">
+                        📁 ${escapeDepotHtml(item.case_title)}
+                    </span>
+                    <span class="tag">${escapeDepotHtml(item.category)}</span>
+                </div>
+                ${item.cue_context ? `<div class="depot-cue-tag">💡 ${escapeDepotHtml(item.cue_context)}</div>` : ''}
+                <div class="depot-quote-text">„${escapeDepotHtml(item.highlighted_text)}“</div>
+            </div>
+
+            <div>
+                <input type="text" class="depot-note-input" 
+                       placeholder="Eigene Notiz / Eselsbrücke ergänzen..." 
+                       value="${escapeDepotHtml(item.user_note)}"
+                       onchange="updateDepotItemNote('${item.id}', this.value)">
+                <div class="depot-card-actions" style="margin-top: 8px;">
+                    <button type="button" class="depot-toggle-btn" onclick="toggleDepotItemMastered('${item.id}')">
+                        ${item.is_mastered ? '↺ Zurück zu Offen' : '✓ Als gelernt markieren'}
+                    </button>
+                    <button type="button" class="depot-delete-btn" onclick="deleteDepotItem('${item.id}')" title="Eintrag löschen">🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 10. Nahtlose Integration in deine bestehende switchTab()-Funktion
+function hookDepotIntoSwitchTab() {
+    const originalSwitchTab = window.switchTab;
+    window.switchTab = function(tabName, navEl) {
+        const depotView = document.getElementById('depot-view');
+        if (tabName === 'depot') {
+            // Alle Standard-Panels ausblenden
+            ['dashboard-view', 'player-view', 'forge-view', 'settings-view'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            if (depotView) depotView.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(li => li.classList.remove('active'));
+            if (navEl) navEl.classList.add('active');
+            renderDepotView();
+        } else {
+            if (depotView) depotView.style.display = 'none';
+            if (typeof originalSwitchTab === 'function') {
+                originalSwitchTab(tabName, navEl);
+            }
+        }
+    };
+}
+
+// Initialisierung beim Start
+document.addEventListener('DOMContentLoaded', () => {
+    hookDepotIntoSwitchTab();
+    initOverviewSelectionListener();
+    syncDepotWithSupabase();
+});
