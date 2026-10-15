@@ -8,7 +8,11 @@ function sendJson(res, status, payload) {
 function parseRequestBody(body) {
     if (!body) return {};
     if (typeof body === 'string') {
-        try { return JSON.parse(body); } catch (_error) { return null; }
+        try {
+            return JSON.parse(body);
+        } catch (_error) {
+            return null;
+        }
     }
     return body;
 }
@@ -43,11 +47,13 @@ function extractFlexibleJson(text) {
         }
 
         const lastIdx = value.lastIndexOf(targetEndChar);
+
         if (startIdx === -1 || lastIdx === -1 || lastIdx <= startIdx) {
             throw new Error('No valid JSON structure found in Gemini response.');
         }
 
-        return JSON.parse(value.slice(startIdx, lastIdx + 1));
+        const possibleJson = value.slice(startIdx, lastIdx + 1);
+        return JSON.parse(possibleJson);
     }
 }
 
@@ -73,10 +79,14 @@ module.exports = async function handler(req, res) {
         return sendJson(res, 400, { error: 'Missing "prompt" field.' });
     }
 
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+        return sendJson(res, 400, { error: `Prompt too long. Max ${MAX_PROMPT_LENGTH} characters.` });
+    }
+
     const model = (process.env.GEMINI_MODEL || DEFAULT_MODEL).trim();
     const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-    // Wenn Modus 'depot_quiz' ist, senden wir den IMPP-Prompt direkt. Andernfalls Fall-Schmiede-Instruktion.
+    // Instruktion je nach Modus definieren
     let finalInstruction = prompt;
     if (mode !== 'depot_quiz') {
         finalInstruction = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen... ${prompt}`;
@@ -101,11 +111,20 @@ module.exports = async function handler(req, res) {
         try {
             upstreamJson = upstreamText ? JSON.parse(upstreamText) : null;
         } catch (_error) {
-            return sendJson(res, 502, { error: 'Gemini API returned a non-JSON response.', raw: upstreamText.slice(0, 500) });
+            return sendJson(res, 502, {
+                error: 'Gemini API returned a non-JSON response.',
+                upstreamStatus: upstream.status,
+                rawResponse: upstreamText.slice(0, 2000)
+            });
         }
 
         if (!upstream.ok) {
-            return sendJson(res, 502, { error: upstreamJson?.error?.message || 'Gemini request failed', status: upstream.status });
+            const upstreamMessage =
+                upstreamJson?.error?.message ||
+                upstreamJson?.message ||
+                `Gemini API request failed with status ${upstream.status}.`;
+
+            return sendJson(res, 502, { error: upstreamMessage, upstreamStatus: upstream.status });
         }
 
         const generatedText = upstreamJson?.candidates?.[0]?.content?.parts
@@ -114,19 +133,24 @@ module.exports = async function handler(req, res) {
             .trim();
 
         if (!generatedText) {
-            return sendJson(res, 502, { error: 'Gemini returned no usable content.' });
+            return sendJson(res, 502, {
+                error: 'Gemini returned no usable content.',
+                finishReason: upstreamJson?.candidates?.[0]?.finishReason || null
+            });
         }
 
         let parsedOutput;
         try {
             parsedOutput = extractFlexibleJson(generatedText);
         } catch (error) {
-            return sendJson(res, 502, { error: 'Gemini returned invalid JSON format.', details: error.message });
+            return sendJson(res, 502, {
+                error: 'Gemini returned invalid JSON format.',
+                details: error.message,
+                rawResponse: generatedText.slice(0, 4000)
+            });
         }
 
-        // ===================================================================
-        // MODUS 1: DEPOT-QUIZ (Erwartet ein JSON-Array von Fragen)
-        // ===================================================================
+        // Modus 1: Depot-Quiz (Erwartet ein JSON-Array)
         if (mode === 'depot_quiz') {
             if (!Array.isArray(parsedOutput)) {
                 return sendJson(res, 502, { error: 'Gemini response for depot_quiz must be a JSON array.' });
@@ -138,9 +162,7 @@ module.exports = async function handler(req, res) {
             });
         }
 
-        // ===================================================================
-        // MODUS 2: FALL-SCHMIEDE / STANDARD (Erwartet ein Fall-Objekt)
-        // ===================================================================
+        // Modus 2: Fall-Schmiede (Erwartet ein Fall-Objekt)
         if (!parsedOutput || typeof parsedOutput !== 'object' || Array.isArray(parsedOutput)) {
             return sendJson(res, 502, { error: 'Gemini response is not a JSON object.' });
         }
@@ -158,6 +180,9 @@ module.exports = async function handler(req, res) {
 
     } catch (error) {
         console.error('Gemini API error:', error);
-        return sendJson(res, 500, { error: 'Unexpected server error while contacting Gemini.', details: error?.message });
+        return sendJson(res, 500, {
+            error: 'Unexpected server error while contacting Gemini.',
+            details: error?.message || 'Unknown error'
+        });
     }
 };
