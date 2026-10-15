@@ -214,16 +214,77 @@
                     <div class="feedback-box" id="forge-fb"></div>
                 </div>
 
-                <div class="panel" id="settings-view" style="display: none;">
-                    <div class="panel-title">Einstellungen</div>
-                    <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-                        <button class="action-btn secondary" onclick="if(confirm('Lernfortschritt & XP wirklich zurücksetzen?')){ localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Lern-Fortschritt & XP zurücksetzen</button>
-                        <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle löschen?')){ localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);">Alle Custom-Fälle löschen</button>
+         <div class="panel" id="settings-view" style="display: none;">
+                    <div class="panel-title">Einstellungen & Erscheinungsbild</div>
+                    <div class="panel-subtitle">Passe das visuelle Interface optimal an deine Lernumgebung und Tageszeit an.</div>
+
+                    <!-- THEME AUSWAHL BEREICH -->
+                    <div class="settings-section">
+                        <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
+                        <div class="theme-selector-grid" id="theme-selector-grid">
+                            
+                            <!-- Theme 1: Cyber Midnight (Default) -->
+                            <button type="button" class="theme-card active" data-theme-value="midnight" onclick="applyAppTheme('midnight')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #060913 50%, #0f172a 50%); border-color: #38bdf8;">
+                                    <span class="theme-dot" style="background: #38bdf8;"></span>
+                                    <span class="theme-dot" style="background: #6366f1;"></span>
+                                </div>
+                                <div class="theme-info">
+                                    <div class="theme-name">Cyber Midnight</div>
+                                    <div class="theme-desc">Kontrastreiches Dark-UI (Standard)</div>
+                                </div>
+                            </button>
+
+                            <!-- Theme 2: Clinical Daylight (Light Mode) -->
+                            <button type="button" class="theme-card" data-theme-value="daylight" onclick="applyAppTheme('daylight')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #f1f5f9 50%, #ffffff 50%); border-color: #0284c7;">
+                                    <span class="theme-dot" style="background: #0284c7;"></span>
+                                    <span class="theme-dot" style="background: #4f46e5;"></span>
+                                </div>
+                                <div class="theme-info">
+                                    <div class="theme-name">Clinical Daylight</div>
+                                    <div class="theme-desc">Heller Modus für Tageslicht & Klinik</div>
+                                </div>
+                            </button>
+
+                            <!-- Theme 3: Surgical Scrubs (Emerald) -->
+                            <button type="button" class="theme-card" data-theme-value="scrubs" onclick="applyAppTheme('scrubs')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #041311 50%, #0a221e 50%); border-color: #10b981;">
+                                    <span class="theme-dot" style="background: #10b981;"></span>
+                                    <span class="theme-dot" style="background: #14b8a6;"></span>
+                                </div>
+                                <div class="theme-info">
+                                    <div class="theme-name">Surgical Scrubs</div>
+                                    <div class="theme-desc">Augenschonendes OP-Smaragdgrün</div>
+                                </div>
+                            </button>
+
+                            <!-- Theme 4: Neuro Focus (Amethyst) -->
+                            <button type="button" class="theme-card" data-theme-value="neuro" onclick="applyAppTheme('neuro')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #0b0716 50%, #17112b 50%); border-color: #c084fc;">
+                                    <span class="theme-dot" style="background: #c084fc;"></span>
+                                    <span class="theme-dot" style="background: #f472b6;"></span>
+                                </div>
+                                <div class="theme-info">
+                                    <div class="theme-name">Neuro Focus</div>
+                                    <div class="theme-desc">Tiefes Amethyst für langes Lesen</div>
+                                </div>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <div class="forge-divider" style="margin: 24px 0;"></div>
+
+                    <!-- GEFAHRENZONE / DATENVERWALTUNG -->
+                    <div class="settings-section">
+                        <div class="forge-label" style="margin-bottom: 12px; color: var(--warning);">Daten & Speicherverwaltung</div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="action-btn secondary" onclick="if(confirm('Lernfortschritt & XP wirklich zurücksetzen?')){ localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Lern-Fortschritt & XP zurücksetzen</button>
+                            <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle löschen?')){ localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);">Alle Custom-Fälle löschen</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
     
     <!-- KOMPAKTES EIN-/AUSKLAPPBARES FORTSCHRITTS-WIDGET AM RECHTEN RAND -->
     <aside id="subject-progress-drawer" class="progress-drawer collapsed">
