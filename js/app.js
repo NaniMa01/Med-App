@@ -1740,3 +1740,103 @@ window.addEventListener("cloudCasesSynced", () => {
 
     window.addEventListener('DOMContentLoaded', () => setTimeout(syncMobileChallengePicker, 200));
 })();
+
+// Ein- und Ausklappen des rechten Themen-Panels
+function toggleSubjectDrawer() {
+    const drawer = document.getElementById('subject-progress-drawer');
+    if (!drawer) return;
+    drawer.classList.toggle('collapsed');
+    
+    // Immer frisch berechnen, sobald man es aufklappt
+    if (!drawer.classList.contains('collapsed')) {
+        renderSubjectProgressDrawer();
+    }
+}
+
+// Farbklasse nach Schwellenwert: <=32% Rot, 33-66% Orange, >=67% Grün
+function getSubjectColorClass(pct) {
+    if (pct <= 32) return 'bar-red';
+    if (pct <= 66) return 'bar-orange';
+    return 'bar-green';
+}
+
+// Liest dynamisch alle Themen/Überordner der App aus und berechnet den Fortschritt
+function renderSubjectProgressDrawer() {
+    const listEl = document.getElementById('dynamic-subjects-list');
+    if (!listEl) return;
+
+    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    const folderStats = {};
+
+    // 1. Alle Fälle sammeln (Standard-Bibliothek + Custom Cases)
+    let allAvailableCases = [];
+    if (typeof casesDatabase !== 'undefined' && Array.isArray(casesDatabase)) {
+        allAvailableCases = [...casesDatabase];
+    } else if (window.allCases && Array.isArray(window.allCases)) {
+        allAvailableCases = [...window.allCases];
+    } else {
+        // Fallback: Custom Cases aus localStorage + DOM-Ordner auslesen
+        const custom = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        allAvailableCases = [...custom];
+    }
+
+    // 2. Falls Fälle im Speicher liegen, nach ihrem Überordner/Kategorie gruppieren
+    allAvailableCases.forEach(c => {
+        // Prüft die gängigen Felder deiner Fall-JSONs für Überordner/Themen
+        const categoryName = c.folder || c.category || c.superFolder || c.topic || c.specialty || 'Allgemein';
+        const caseId = c.id || c.case_id || c.title;
+
+        if (!folderStats[categoryName]) {
+            folderStats[categoryName] = { total: 0, solved: 0 };
+        }
+        folderStats[categoryName].total += 1;
+
+        if (solvedIds.includes(caseId)) {
+            folderStats[categoryName].solved += 1;
+        }
+    });
+
+    // 3. Zusätzlich sichtbare Ordner aus dem Dashboard/Bookshelf prüfen (falls ein neuer Ordner noch 0 Fälle hat oder im DOM steht)
+    document.querySelectorAll('.folder-card, .super-folder-title span, #existing-folders-list option').forEach(el => {
+        const name = (el.value || el.textContent || '').trim();
+        if (name && !folderStats[name] && name !== 'Lade Fall-Bibliothek...') {
+            folderStats[name] = { total: 0, solved: 0 };
+        }
+    });
+
+    const entries = Object.entries(folderStats);
+
+    if (entries.length === 0) {
+        listEl.innerHTML = `<div style="font-size:0.75rem; color:var(--text-dim); text-align:center; padding:12px 0;">Noch keine Themen-Ordner geladen.</div>`;
+        return;
+    }
+
+    // Sortieren: Schwächste Fächer (Rot) nach oben, damit man sofort sieht, wo man lernen muss!
+    entries.sort((a, b) => {
+        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
+        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
+        return pctA - pctB;
+    });
+
+    listEl.innerHTML = entries.map(([folderName, stats]) => {
+        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+        const colorClass = getSubjectColorClass(pct);
+
+        return `
+            <div class="subject-item">
+                <div class="subject-item-top">
+                    <span class="subject-item-name" title="${folderName}">${folderName}</span>
+                    <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
+                </div>
+                <div class="subject-bar-track">
+                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Initial einmal beim Laden vorbereiten
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(renderSubjectProgressDrawer, 500);
+});
