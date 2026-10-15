@@ -2404,30 +2404,36 @@ async function generateDepotQuizWithAI() {
         <div class="skeleton" style="height: 110px; width: 100%;"></div>
     `;
 
-    // Strukturierter System-Prompt nach Bloom-Taxonomie (Anwendung & Analyse statt reinem Faktenabfragen)
+ // Strukturierter System-Prompt (IMPP-Stil, klinische Vignetten, homogene Distraktoren)
     const notesContext = sampledItems.map((item, idx) => 
-        `[ID: ${item.id}] (Fall: ${item.case_title} | Thema: ${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz: ${item.user_note})` : ''}`
+        `[ID: ${item.id}] (Thema:${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
 
     const promptText = `
-Du bist ein medizinischer Staatsexamens-Prüfer. Erstelle aus den folgenden markierten Lernlücken eines Medizinstudenten exakt ${Math.min(sampledItems.length, 4)} anspruchsvolle klinische Multiple-Choice-Fragen (Single Choice, 4 Optionen A-D) auf Niveau 2. Staatsexamen (Anwendung/Pathophysiologie/Differenzialdiagnostik).
-Vermeide plumpe Wort-für-Wort-Abfragen; verpacke das Konzept in eine kurze klinische Denksportaufgabe mit plausiblen Distraktoren.
+Du bist ein renommierter Dozent für medizinische Didaktik und Autor für ärztliche Staatsexamensfragen (IMPP-Stil). 
+Deine Aufgabe: Erstelle aus den untenstehenden Lernlücken eines Medizinstudenten exakt ${Math.min(sampledItems.length, 4)} anspruchsvolle Multiple-Choice-Fragen (Single Choice).
 
-Lernlücken:
+STRIKTE REGELN FÜR DIE FRAGEN:
+1. Klinische Vignette: Beginne JEDE Frage mit einer kurzen, realistischen Patientenvignette (Alter, Geschlecht, Leitsymptom/Anamnese, Befund), anstatt nur trockene Fakten abzufragen.
+2. Transferwissen: Frage nach dem nächsten diagnostischen Schritt, der wahrscheinlichsten Diagnose oder dem pathophysiologischen Mechanismus.
+3. Homogene Distraktoren: Die 3 falschen Optionen MÜSSEN klinisch extrem plausibel sein (z.B. Differenzialdiagnosen mit ähnlichen Symptomen). Keine absurden Quatsch-Antworten.
+4. Keine Negativfragen: Nutze niemals "Was ist NICHT richtig?".
+
+LERNLÜCKEN DES STUDENTEN:
 ${notesContext}
 
-Antworte AUSSCHLIESSLICH mit einem validen JSON-Array in genau diesem Format (ohne Markdown-Text drumherum):
+WICHTIG: Antworte AUSSCHLIESSLICH mit einem validen JSON-Array. Kein Markdown, keine Einleitungstexte, keine \`\`\`json Block-Tags.
+Nutze exakt dieses Format:
 [
   {
     "source_depot_id": "Die exakte ID aus [ID: ...]",
-    "topic": "Kurzes Thema / Fachgebiet",
-    "question": "Fragetext / kurze klinische Vignette",
+    "topic": "Kurzes medizinisches Fachgebiet",
+    "question": "Klinische Vignette + eigentliche Prüfungsfrage",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct_index": 0,
-    "explanation": "Prägnante pathophysiologische Begründung, warum diese Antwort stimmt und die Distraktoren falsch sind."
+    "explanation": "Ausführliche Begründung: Erkläre den Mechanismus und warum die richtige Antwort stimmt UND warum die Distraktoren in diesem Fall falsch sind."
   }
 ]`.trim();
-
     try {
         const questions = await fetchQuizFromGeminiEndpoint(promptText, sampledItems);
         currentDepotQuizQuestions = questions;
