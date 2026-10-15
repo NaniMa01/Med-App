@@ -2348,3 +2348,259 @@ document.addEventListener('DOMContentLoaded', () => {
     initOverviewSelectionListener();
     syncDepotWithSupabase();
 });
+
+// ==========================================================================
+// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
+// ==========================================================================
+
+let currentDepotQuizQuestions = [];
+
+function closeDepotQuizArena() {
+    const arena = document.getElementById('depot-quiz-arena');
+    if (arena) arena.classList.add('hidden');
+}
+
+async function generateDepotQuizWithAI() {
+    const allItems = getLocalDepot();
+    const categorySelect = document.getElementById('depot-category-select');
+    const selectedCat = categorySelect ? categorySelect.value : 'ALL';
+
+    // 1. Vorrangig offene Lernlücken filtern (optional nach gewählter Kategorie)
+    let targetItems = allItems.filter(item => !item.is_mastered && (selectedCat === 'ALL' || item.category === selectedCat));
+
+    // Falls keine offenen in dieser Kategorie sind, alle offenen nehmen
+    if (targetItems.length === 0) {
+        targetItems = allItems.filter(item => !item.is_mastered);
+    }
+
+    if (targetItems.length === 0) {
+        if (typeof showScorePopup === 'function') {
+            showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
+        } else {
+            alert('Du hast aktuell keine offenen Lernlücken im Depot. Markiere zuerst Textstellen in einer Fall-Übersicht!');
+        }
+        return;
+    }
+
+    // Maximal 6 zufällige offene Einträge auswählen, um präzise Fragen zu erhalten
+    const sampledItems = [...targetItems]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6);
+
+    const arena = document.getElementById('depot-quiz-arena');
+    const body = document.getElementById('depot-quiz-body');
+    const subtitle = document.getElementById('depot-quiz-subtitle');
+    const btn = document.getElementById('btn-generate-depot-quiz');
+
+    if (!arena || !body) return;
+
+    arena.classList.remove('hidden');
+    if (btn) btn.disabled = true;
+    if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken und konstruiere klinische Prüfungsfragen...`;
+
+    // Skeleton-Loader anzeigen
+    body.innerHTML = `
+        <div class="skeleton" style="height: 110px; width: 100%;"></div>
+        <div class="skeleton" style="height: 110px; width: 100%;"></div>
+    `;
+
+    // Strukturierter System-Prompt nach Bloom-Taxonomie (Anwendung & Analyse statt reinem Faktenabfragen)
+    const notesContext = sampledItems.map((item, idx) => 
+        `[ID: ${item.id}] (Fall: ${item.case_title} | Thema: ${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz: ${item.user_note})` : ''}`
+    ).join('\n');
+
+    const promptText = `
+Du bist ein medizinischer Staatsexamens-Prüfer. Erstelle aus den folgenden markierten Lernlücken eines Medizinstudenten exakt ${Math.min(sampledItems.length, 4)} anspruchsvolle klinische Multiple-Choice-Fragen (Single Choice, 4 Optionen A-D) auf Niveau 2. Staatsexamen (Anwendung/Pathophysiologie/Differenzialdiagnostik).
+Vermeide plumpe Wort-für-Wort-Abfragen; verpacke das Konzept in eine kurze klinische Denksportaufgabe mit plausiblen Distraktoren.
+
+Lernlücken:
+${notesContext}
+
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Array in genau diesem Format (ohne Markdown-Text drumherum):
+[
+  {
+    "source_depot_id": "Die exakte ID aus [ID: ...]",
+    "topic": "Kurzes Thema / Fachgebiet",
+    "question": "Fragetext / kurze klinische Vignette",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_index": 0,
+    "explanation": "Prägnante pathophysiologische Begründung, warum diese Antwort stimmt und die Distraktoren falsch sind."
+  }
+]`.trim();
+
+    try {
+        const questions = await fetchQuizFromGeminiEndpoint(promptText, sampledItems);
+        currentDepotQuizQuestions = questions;
+        if (subtitle) subtitle.textContent = `${questions.length} klinische Fragen aus deinen offenen Lernlücken bereit:`;
+        renderDepotQuizQuestions(questions);
+    } catch (err) {
+        console.warn('KI-Endpunkt nicht erreichbar, nutze intelligenten lokalen Recall-Generator:', err);
+        const fallbackQuestions = buildLocalFallbackQuiz(sampledItems);
+        currentDepotQuizQuestions = fallbackQuestions;
+        if (subtitle) subtitle.textContent = `${fallbackQuestions.length} Active-Recall-Fragen (Offline-Modus) bereit:`;
+        renderDepotQuizQuestions(fallbackQuestions);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// Kommuniziert mit deinem /api/gemini Endpunkt und extrahiert robust das JSON-Array
+async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
+    const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt: promptText,
+            topic: promptText,
+            mode: 'depot_quiz'
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const rawData = await response.json();
+
+    // Extrahiere Text unabhängig davon, wie /api/gemini.js die Antwort verpackt
+    let rawText = '';
+    if (Array.isArray(rawData)) {
+        return rawData;
+    } else if (typeof rawData === 'string') {
+        rawText = rawData;
+    } else if (rawData.text) {
+        rawText = rawData.text;
+    } else if (rawData.result) {
+        rawText = typeof rawData.result === 'string' ? rawData.result : JSON.stringify(rawData.result);
+    } else if (rawData.candidates?.[0]?.content?.parts?.[0]?.text) {
+        rawText = rawData.candidates[0].content.parts[0].text;
+    } else {
+        rawText = JSON.stringify(rawData);
+    }
+
+    // Entferne eventuelle ```json ... ``` Markdown-Wrapper
+    const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const firstBracket = cleaned.indexOf('[');
+    const lastBracket = cleaned.lastIndexOf(']');
+
+    if (firstBracket === -1 || lastBracket === -1) {
+        throw new Error('Kein JSON-Array in der KI-Antwort gefunden');
+    }
+
+    const parsed = JSON.parse(cleaned.substring(firstBracket, lastBracket + 1));
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Leeres Fragen-Array');
+    }
+
+    return parsed;
+}
+
+// Lokaler Fallback, falls der Nutzer offline im Spital/Zug lernt
+function buildLocalFallbackQuiz(sampledItems) {
+    const allItems = getLocalDepot();
+    return sampledItems.slice(0, 4).map(item => {
+        // Baue eine Active-Recall-Zuordnungsfrage aus den vorhandenen Depot-Einträgen
+        const otherQuotes = allItems
+            .filter(other => other.id !== item.id)
+            .map(other => other.highlighted_text)
+            .slice(0, 3);
+
+        while (otherQuotes.length < 3) {
+            otherQuotes.push('Unauffälliger Normalbefund ohne pathologische Relevanz im beschriebenen Kontext.');
+        }
+
+        const options = [item.highlighted_text, ...otherQuotes].sort(() => Math.random() - 0.5);
+        const correctIndex = options.indexOf(item.highlighted_text);
+
+        return {
+            source_depot_id: item.id,
+            topic: item.category || 'Active Recall',
+            question: `Welche klinische Aussage bzw. welcher Pathomechanismus gehört zum Fall „${item.case_title}“ ${item.cue_context ? `(Fokus: ${item.cue_context})` : ''}?`,
+            options: options,
+            correct_index: correctIndex,
+            explanation: `Original-Markierung aus deinem Depot zu „${item.case_title}“: ${item.highlighted_text}`
+        };
+    });
+}
+
+// Rendert die generierten Fragen interaktiv
+function renderDepotQuizQuestions(questions) {
+    const body = document.getElementById('depot-quiz-body');
+    if (!body) return;
+
+    body.innerHTML = questions.map((q, qIdx) => `
+        <div class="depot-q-card" id="depot-q-card-${qIdx}">
+            <div class="depot-q-meta">
+                <span>Frage ${qIdx + 1} / ${questions.length}</span>
+                <span>${escapeDepotHtml(q.topic || 'Klinische Prüfung')}</span>
+            </div>
+            <div class="depot-q-stem">${escapeDepotHtml(q.question)}</div>
+            <div class="depot-q-options">
+                ${(q.options || []).map((opt, optIdx) => `
+                    <button type="button" 
+                            class="quiz-opt-btn" 
+                            id="depot-q-${qIdx}-opt-${optIdx}"
+                            onclick=" evaluateDepotQuizAnswer(${qIdx},${optIdx})">
+                        <span><strong>${String.fromCharCode(65 + optIdx)})</strong>${escapeDepotHtml(opt)}</span>
+                    </button>
+                `).join('')}
+            </div>
+            <div class="depot-q-feedback" id="depot-q-fb-${qIdx}"></div>
+        </div>
+    `).join('');
+}
+
+// Wertet den Klick auf eine Antwortoption sofort aus
+function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
+    const q = currentDepotQuizQuestions[qIdx];
+    if (!q || q.answered) return;
+    q.answered = true;
+
+    const isCorrect = selectedOptIdx === Number(q.correct_index);
+
+    // Buttons optisch markieren (Grün für richtig, Rot für falsch)
+    (q.options || []).forEach((_, idx) => {
+        const btn = document.getElementById(`depot-q-${qIdx}-opt-${idx}`);
+        if (!btn) return;
+        btn.disabled = true;
+        if (idx === Number(q.correct_index)) {
+            btn.classList.add('correct-highlight');
+        } else if (idx === selectedOptIdx && !isCorrect) {
+            btn.classList.add('wrong-highlight');
+        }
+    });
+
+    // XP vergeben bei korrekter Antwort
+    if (isCorrect && typeof showScorePopup === 'function') {
+        showScorePopup('+50 XP (Lernlücke gelöst!)', 'positive');
+    }
+
+    // Erklärung + Direkt-Button zum Abhaken der Lernlücke einblenden
+    const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
+    if (fbEl) {
+        fbEl.style.display = 'block';
+        fbEl.innerHTML = `
+            <div style="font-weight: 700; color: ${isCorrect ? 'var(--color-symptom)' : 'var(--color-risk)'}; margin-bottom: 4px;">
+                ${isCorrect ? '✓ Exakt richtig deduziert!' : '✕ Nicht ganz – hier ist der klinische Hintergrund:'}
+            </div>
+            <div>${escapeDepotHtml(q.explanation || '')}</div>
+            ${q.source_depot_id ? `
+                <div class="depot-mastery-prompt">
+                    <span style="font-size: 0.76rem; color: var(--text-dim);">Sitzt dieses Konzept jetzt sicher?</span>
+                    <button type="button" class="depot-toggle-btn" onclick="markDepotMasteredFromQuiz('${q.source_depot_id}', this)">
+                        ✓ Im Depot als gelernt abhaken
+                    </button>
+                </div>
+            ` : ''}
+        `;
+    }
+}
+
+async function markDepotMasteredFromQuiz(depotId, btnEl) {
+    await toggleDepotItemMastered(depotId);
+    if (btnEl) {
+        btnEl.textContent = '✓ Als gelernt gespeichert!';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.6';
+    }
+}
