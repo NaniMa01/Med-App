@@ -99,252 +99,243 @@
             </div>
         </header>
         
-        <div class="content-body">
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-                
-                <div class="panel" id="auth-panel">
-                    <div class="panel-title">Anmelden</div>
-                    <div class="panel-subtitle">Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).</div>
-                    <form class="auth-panel" onsubmit="return false;">
-                        <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email">
-                        <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password">
-                        <div class="auth-actions">
-                            <button type="submit" class="action-btn" onclick="authSignIn()">Anmelden</button>
-                            <button type="button" class="action-btn secondary" onclick="authSignUp()">Registrieren</button>
-                        </div>
-                    </form>
-                    <div class="feedback-box" id="auth-fb"></div>
+<div class="content-body">
+    <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+        
+        <!-- 1. AUTH PANEL -->
+        <div class="panel" id="auth-panel" style="display: none;">
+            <div class="panel-title">Anmelden</div>
+            <div class="panel-subtitle">Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).</div>
+            <form class="auth-panel" onsubmit="return false;">
+                <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email">
+                <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password">
+                <div class="auth-actions">
+                    <button type="submit" class="action-btn" onclick="authSignIn()">Anmelden</button>
+                    <button type="button" class="action-btn secondary" onclick="authSignUp()">Registrieren</button>
                 </div>
+            </form>
+            <div class="feedback-box" id="auth-fb"></div>
+        </div>
 
-                <div class="panel" id="dashboard-view" style="display: block;">
-                    <div class="panel-title">Klinische Module & Themen-Ordner</div>
-                    <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-                    <div class="segmented-control" role="tablist">
-                        <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
-                        <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
-                    </div>
-                    <div id="specialty-hub" class="specialty-hub" style="display: none;"></div>
-                    <div class="super-folder" id="topic-grid">
-                        <div class="super-folder-header" onclick="toggleSuperFolder()">
-                            <div class="super-folder-title"><svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
-                            <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
-                        </div>
-                        <div class="super-folder-body" id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
-                    </div>
+        <!-- 2. DASHBOARD VIEW (Standardmäßig aktiv) -->
+        <div class="panel" id="dashboard-view" style="display: block;">
+            <div class="panel-title">Klinische Module & Themen-Ordner</div>
+            <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
+            <div class="segmented-control" role="tablist">
+                <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
+                <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
+            </div>
+            <div id="specialty-hub" class="specialty-hub" style="display: none;"></div>
+            <div class="super-folder" id="topic-grid">
+                <div class="super-folder-header" onclick="toggleSuperFolder()">
+                    <div class="super-folder-title"><svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
                 </div>
+                <div class="super-folder-body" id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
+            </div>
+        </div>
 
-                <div class="panel" id="player-view" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
-                        <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
-                        <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">Aktiver Fall: <span id="player-case-badge-title">Lädt...</span></div>
+        <!-- 3. PLAYER VIEW -->
+        <div class="panel" id="player-view" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+                <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
+                <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">Aktiver Fall: <span id="player-case-badge-title">Lädt...</span></div>
+            </div>
+
+            <div class="challenge-nav-bar">
+                <button class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')"><span>🧭 Übersicht</span></button>
+                <button class="challenge-tab-btn" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Audit</span><span class="tab-badge" id="badge-mode-audit">0/0</span></button>
+                <button class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display:none;"><span>🧠 Synapsen</span><span class="tab-badge" id="badge-mode-synapses">0/4</span></button>
+                <button class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display:none;"><span>🔗 Kaskade</span><span class="tab-badge" id="badge-mode-cascade">0/0</span></button>
+                <button class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display:none;"><span>🏷️ Taxonomie</span><span class="tab-badge" id="badge-mode-cat">Offen</span></button>
+                <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
+                <button class="challenge-tab-btn" id="tab-btn-doctordle" onclick="switchPlayerMode('doctordle')" style="display:none;"><span>🔍 Doctordle</span><span class="tab-badge" id="badge-mode-doctordle">0/3</span></button>
+            </div>
+
+            <div class="player-mode-pane" id="mode-container-overview" style="display: block;"><div id="overview-container"></div></div>
+            <div class="player-mode-pane" id="mode-container-audit" style="display: none;"><div id="player-container"></div></div>
+            <div class="player-mode-pane" id="mode-container-synapses" style="display: none;"><div class="synapses-container"><div class="panel-title">Synapsen-Matrix<button class="tutor-btn" onclick="showTutorHint('synapses_matrix')">💡</button></div><div class="panel-subtitle" id="synapses-desc"></div><div class="synapses-legend"><div class="legend-item" style="color: var(--color-risk);"><span class="legend-dot risk"></span><span>Risiko/Patho</span></div><div class="legend-item" style="color: var(--color-symptom);"><span class="legend-dot symptom"></span><span>Symptom</span></div><div class="legend-item" style="color: var(--color-lab);"><span class="legend-dot lab"></span><span>Diagnostik</span></div><div class="legend-item" style="color: var(--color-treatment);"><span class="legend-dot treatment"></span><span>Therapie</span></div></div><div class="synapse-solved-area" id="synapses-solved-area"></div><div class="synapses-grid-4x4" id="synapses-grid"></div><div class="feedback-box" id="syn-fb"></div></div></div>
+            <div class="player-mode-pane" id="mode-container-cascade" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Clinical Cascades (Flow-Charts)<button class="tutor-btn" onclick="showTutorHint('clinical_cascades')">💡</button></div><div class="panel-subtitle">Bringe die Elemente aus der Bank in die chronologische Reihenfolge der Kaskade.</div><div id="cascades-wrapper"></div></div></div>
+            <div class="player-mode-pane" id="mode-container-cat" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Taxonomie<button class="tutor-btn" onclick="showTutorHint('categorization')">💡</button></div><div class="panel-subtitle" id="cat-desc"></div><div id="categorization-task"></div><button class="action-btn" onclick="evalCategorization()" style="margin-top: 15px; width: 100%;">Zuordnung prüfen</button><div class="feedback-box" id="cat-fb"></div></div></div>
+            <div class="player-mode-pane" id="mode-container-quiz" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div><div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div><div id="quiz-wrapper"></div><button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button><div class="feedback-box" id="quiz-fb"></div></div></div>
+            <div class="player-mode-pane" id="mode-container-doctordle" style="display:none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <div class="panel-title" id="doctordle-headline" style="margin-bottom: 4px;">Deduktionsrätsel</div>
+                        <div class="panel-subtitle" id="doctordle-puzzle-tracker">Rätsel 1/3</div>
                     </div>
-
-                    <div class="challenge-nav-bar">
-                        <button class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')"><span>🧭 Übersicht</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Audit</span><span class="tab-badge" id="badge-mode-audit">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display:none;"><span>🧠 Synapsen</span><span class="tab-badge" id="badge-mode-synapses">0/4</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display:none;"><span>🔗 Kaskade</span><span class="tab-badge" id="badge-mode-cascade">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display:none;"><span>🏷️ Taxonomie</span><span class="tab-badge" id="badge-mode-cat">Offen</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-doctordle" onclick="switchPlayerMode('doctordle')" style="display:none;"><span>🔍 Doctordle</span><span class="tab-badge" id="badge-mode-doctordle">0/3</span></button>
-                    </div>
-
-                    <div class="player-mode-pane" id="mode-container-overview" style="display: block;">
-                        <div id="overview-container"></div>
-                    </div>
-                    <div class="player-mode-pane" id="mode-container-audit" style="display: none;"><div id="player-container"></div></div>
-                    <div class="player-mode-pane" id="mode-container-synapses" style="display: none;"><div class="synapses-container"><div class="panel-title">Synapsen-Matrix<button class="tutor-btn" onclick="showTutorHint('synapses_matrix')">💡</button></div><div class="panel-subtitle" id="synapses-desc"></div><div class="synapses-legend"><div class="legend-item" style="color: var(--color-risk);"><span class="legend-dot risk"></span><span>Risiko/Patho</span></div><div class="legend-item" style="color: var(--color-symptom);"><span class="legend-dot symptom"></span><span>Symptom</span></div><div class="legend-item" style="color: var(--color-lab);"><span class="legend-dot lab"></span><span>Diagnostik</span></div><div class="legend-item" style="color: var(--color-treatment);"><span class="legend-dot treatment"></span><span>Therapie</span></div></div><div class="synapse-solved-area" id="synapses-solved-area"></div><div class="synapses-grid-4x4" id="synapses-grid"></div><div class="feedback-box" id="syn-fb"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-cascade" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Clinical Cascades (Flow-Charts)<button class="tutor-btn" onclick="showTutorHint('clinical_cascades')">💡</button></div><div class="panel-subtitle">Bringe die Elemente aus der Bank in die chronologische Reihenfolge der Kaskade.</div><div id="cascades-wrapper"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-cat" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Taxonomie<button class="tutor-btn" onclick="showTutorHint('categorization')">💡</button></div><div class="panel-subtitle" id="cat-desc"></div><div id="categorization-task"></div><button class="action-btn" onclick="evalCategorization()" style="margin-top: 15px; width: 100%;">Zuordnung prüfen</button><div class="feedback-box" id="cat-fb"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-quiz" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div><div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div><div id="quiz-wrapper"></div><button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button><div class="feedback-box" id="quiz-fb"></div></div></div>
-                    <div class="player-mode-pane" id="mode-container-doctordle" style="display:none;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                            <div>
-                                <div class="panel-title" id="doctordle-headline" style="margin-bottom: 4px;">Deduktionsrätsel</div>
-                                <div class="panel-subtitle" id="doctordle-puzzle-tracker">Rätsel 1/3</div>
-                            </div>
-                            <div class="hud-stat" id="doctordle-potential-xp" style="color: var(--accent-cyan); font-weight: 700;">Mögliche XP: +600</div>
-                        </div>
-
-                        <div id="doctordle-hints-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
-
-                        <div style="position: relative; margin-bottom: 16px;">
-                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                                <div style="position: relative; flex: 1; min-width: 240px;">
-                                    <input type="text" id="doctordle-input" class="action-input" placeholder="Verdachtsdiagnose eingeben..." autocomplete="off">
-                                    <ul id="doctordle-autocomplete-list" class="hidden" style="position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0b1121; border: 1px solid var(--accent-blue); border-radius: 8px; list-style: none; margin: 0; padding: 0; z-index: 1000; max-height: 200px; overflow-y: auto;"></ul>
-                                </div>
-                                <button type="button" class="action-btn" id="doctordle-submit-btn">Deduzieren</button>
-                                <button type="button" class="action-btn secondary" id="doctordle-reveal-btn" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Aufdecken (-200 XP)</button>
-                            </div>
-                        </div>
-
-                        <div id="doctordle-result-box" class="doctordle-result hidden" style="padding: 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.95rem; line-height: 1.5;"></div>
-                        <button type="button" class="action-btn hidden" id="doctordle-next-btn" style="width: 100%; background: var(--accent-blue);">Nächstes Rätsel →</button>
-                    </div>
-
-                    <div class="specialty-actions" id="specialty-actions" style="display: none;">
-                        <button type="button" class="action-btn" id="btn-reveal-diagnosis">🔎 Diagnose enthüllen</button>
-                        <button type="button" class="action-btn" id="btn-next-specialty-case">Nächstes Krankheitsbild →</button>
-                    </div>
-                    <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%; margin-top: 24px; padding: 15px; font-size: 1rem; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);">✨ Alle Challenges & Examen gemeistert – Fall abschließen & XP sichern</button>
+                    <div class="hud-stat" id="doctordle-potential-xp" style="color: var(--accent-cyan); font-weight: 700;">Mögliche XP: +600</div>
                 </div>
-
-                <div class="panel" id="forge-view" style="display: none;">
-                    <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
-                    <div class="panel-subtitle">Generiere einen Fall per Gemini oder füge den JSON-Code manuell ein.</div>
-                    <div class="forge-generator-controls">
-                        <label for="forge-topic" class="forge-label">Thema / Prompt</label>
-                        <textarea id="forge-topic" class="forge-topic-input" placeholder="Beispiel: Akute Thoraxschmerzen bei 58-jährigem Patienten mit Risikofaktoren..."></textarea>
-                        <button class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
-                    </div>
-                    <div class="forge-divider"></div>
-                    
-                    <div class="form-group" style="margin-bottom: 14px;">
-                        <label for="case-folder-input" class="forge-label">Zielordner (Kategorie):</label>
-                        <input type="text" id="case-folder-input" class="forge-topic-input" style="min-height: auto; padding: 10px 14px;" list="existing-folders-list" placeholder="z.B. Neurologie, Kardiologie oder Neuer Ordner..." />
-                        <datalist id="existing-folders-list"></datalist>
-                    </div>
-
-                    <div class="forge-label" style="margin-bottom: 8px;">Fall-JSON (editierbar)</div>
-                    <textarea class="forge-textarea" id="forge-input" placeholder="JSON-Code hier einfügen..."></textarea>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
-                        <button class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Löschen</button>
-                    </div>
-                    <div class="feedback-box" id="forge-fb"></div>
-                </div>
-<!-- LERN-DEPOT VIEW (KNOWLEDGE VAULT) -->
-                <div class="panel" id="depot-view" style="display: none;">
-                    <div class="depot-header-row">
-                        <div>
-                            <div class="panel-title">📌 Persönliches Lern-Depot</div>
-                            <div class="panel-subtitle" style="margin-bottom: 0;">Deine markierten High-Yield-Passagen aus den Fall-Übersichten zur gezielten Wiederholung.</div>
+                <div id="doctordle-hints-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
+                <div style="position: relative; margin-bottom: 16px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div style="position: relative; flex: 1; min-width: 240px;">
+                            <input type="text" id="doctordle-input" class="action-input" placeholder="Verdachtsdiagnose eingeben..." autocomplete="off">
+                            <ul id="doctordle-autocomplete-list" class="hidden" style="position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0b1121; border: 1px solid var(--accent-blue); border-radius: 8px; list-style: none; margin: 0; padding: 0; z-index: 1000; max-height: 200px; overflow-y: auto;"></ul>
                         </div>
-                        <div class="depot-stats-pills">
-                            <span class="depot-stat-pill open"><strong id="depot-count-open">0</strong> Offen</span>
-                            <span class="depot-stat-pill mastered"><strong id="depot-count-mastered">0</strong> Gemeistert</span>
-                        </div>
-                        <button type="button" class="action-btn btn-sm" id="btn-generate-depot-quiz" onclick="generateDepotQuizWithAI()">
-                                ✨ KI-Prüfung aus Lücken starten
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- DYNAMISCHER KI-TRAINER CONTAINER (Initial ausgeblendet) -->
-                    <div id="depot-quiz-arena" class="depot-quiz-arena hidden">
-                        <div class="depot-quiz-header">
-                            <div>
-                                <div class="panel-title" style="font-size: 1.02rem; margin-bottom: 2px; color: var(--accent-cyan);">
-                                    🎓 Adaptives Lücken-Examen
-                                </div>
-                                <div id="depot-quiz-subtitle" style="font-size: 0.78rem; color: var(--text-muted);">
-                                    Generiert aus deinen offenen Depot-Einträgen
-                                </div>
-                            </div>
-                            <button type="button" class="action-btn secondary btn-sm" onclick="closeDepotQuizArena()">✕ Schließen</button>
-                        </div>
-                        <div id="depot-quiz-body" class="depot-quiz-body"></div>
-                    </div>
-                    </div>
-
-                    <!-- Filter- & Suchleiste -->
-                    <div class="depot-toolbar">
-                        <div class="segmented-control" style="margin-bottom: 0;">
-                            <button type="button" class="segmented-btn active" id="depot-filter-open" onclick="setDepotFilter('open')">Offene Lernlücken</button>
-                            <button type="button" class="segmented-btn" id="depot-filter-mastered" onclick="setDepotFilter('mastered')">Gemeistert</button>
-                            <button type="button" class="segmented-btn" id="depot-filter-all" onclick="setDepotFilter('all')">Alle</button>
-                        </div>
-
-                        <div class="depot-search-wrap">
-                            <select id="depot-category-select" class="depot-select" onchange="renderDepotView()">
-                                <option value="ALL">Alle Kategorien / Fälle</option>
-                            </select>
-                            <input type="text" id="depot-search-input" class="depot-search-input" placeholder="Stichwort suchen..." oninput="renderDepotView()">
-                        </div>
-                    </div>
-
-                    <!-- Manuelles Hinzufügen (Quick-Add) -->
-                    <div class="depot-quick-add">
-                        <input type="text" id="depot-manual-input" class="depot-search-input" style="flex: 1;" placeholder="Eigene klinische Eselsbrücke oder Lernlücke schnell notieren...">
-                        <button type="button" class="action-btn btn-sm" onclick="addManualDepotEntry()">+ Merken</button>
-                    </div>
-
-                    <!-- Liste der gespeicherten Karten -->
-                    <div id="depot-items-container" class="depot-items-grid"></div>
-                </div>
-         <div class="panel" id="settings-view" style="display: none;">
-                    <div class="panel-title">Einstellungen & Erscheinungsbild</div>
-                    <div class="panel-subtitle">Passe das visuelle Interface optimal an deine Lernumgebung und Tageszeit an.</div>
-
-                    <!-- THEME AUSWAHL BEREICH -->
-                    <div class="settings-section">
-                        <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
-                        <div class="theme-selector-grid" id="theme-selector-grid">
-                            
-                            <!-- Theme 1: Cyber Midnight (Default) -->
-                            <button type="button" class="theme-card active" data-theme-value="midnight" onclick="applyAppTheme('midnight')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #060913 50%, #0f172a 50%); border-color: #38bdf8;">
-                                    <span class="theme-dot" style="background: #38bdf8;"></span>
-                                    <span class="theme-dot" style="background: #6366f1;"></span>
-                                </div>
-                                <div class="theme-info">
-                                    <div class="theme-name">Cyber Midnight</div>
-                                    <div class="theme-desc">Kontrastreiches Dark-UI (Standard)</div>
-                                </div>
-                            </button>
-
-                            <!-- Theme 2: Clinical Daylight (Light Mode) -->
-                            <button type="button" class="theme-card" data-theme-value="daylight" onclick="applyAppTheme('daylight')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #f1f5f9 50%, #ffffff 50%); border-color: #0284c7;">
-                                    <span class="theme-dot" style="background: #0284c7;"></span>
-                                    <span class="theme-dot" style="background: #4f46e5;"></span>
-                                </div>
-                                <div class="theme-info">
-                                    <div class="theme-name">Clinical Daylight</div>
-                                    <div class="theme-desc">Heller Modus für Tageslicht & Klinik</div>
-                                </div>
-                            </button>
-
-                            <!-- Theme 3: Surgical Scrubs (Emerald) -->
-                            <button type="button" class="theme-card" data-theme-value="scrubs" onclick="applyAppTheme('scrubs')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #041311 50%, #0a221e 50%); border-color: #10b981;">
-                                    <span class="theme-dot" style="background: #10b981;"></span>
-                                    <span class="theme-dot" style="background: #14b8a6;"></span>
-                                </div>
-                                <div class="theme-info">
-                                    <div class="theme-name">Surgical Scrubs</div>
-                                    <div class="theme-desc">Augenschonendes OP-Smaragdgrün</div>
-                                </div>
-                            </button>
-
-                            <!-- Theme 4: Neuro Focus (Amethyst) -->
-                            <button type="button" class="theme-card" data-theme-value="neuro" onclick="applyAppTheme('neuro')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #0b0716 50%, #17112b 50%); border-color: #c084fc;">
-                                    <span class="theme-dot" style="background: #c084fc;"></span>
-                                    <span class="theme-dot" style="background: #f472b6;"></span>
-                                </div>
-                                <div class="theme-info">
-                                    <div class="theme-name">Neuro Focus</div>
-                                    <div class="theme-desc">Tiefes Amethyst für langes Lesen</div>
-                                </div>
-                            </button>
-
-                        </div>
-                    </div>
-
-                    <div class="forge-divider" style="margin: 24px 0;"></div>
-
-                    <!-- GEFAHRENZONE / DATENVERWALTUNG -->
-                    <div class="settings-section">
-                        <div class="forge-label" style="margin-bottom: 12px; color: var(--warning);">Daten & Speicherverwaltung</div>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <button class="action-btn secondary" onclick="if(confirm('Lernfortschritt & XP wirklich zurücksetzen?')){ localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Lern-Fortschritt & XP zurücksetzen</button>
-                            <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle löschen?')){ localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);">Alle Custom-Fälle löschen</button>
-                        </div>
+                        <button type="button" class="action-btn" id="doctordle-submit-btn">Deduzieren</button>
+                        <button type="button" class="action-btn secondary" id="doctordle-reveal-btn" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Aufdecken (-200 XP)</button>
                     </div>
                 </div>
-    
+                <div id="doctordle-result-box" class="doctordle-result hidden" style="padding: 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.95rem; line-height: 1.5;"></div>
+                <button type="button" class="action-btn hidden" id="doctordle-next-btn" style="width: 100%; background: var(--accent-blue);">Nächstes Rätsel →</button>
+            </div>
+
+            <div class="specialty-actions" id="specialty-actions" style="display: none;">
+                <button type="button" class="action-btn" id="btn-reveal-diagnosis">🔎 Diagnose enthüllen</button>
+                <button type="button" class="action-btn" id="btn-next-specialty-case">Nächstes Krankheitsbild →</button>
+            </div>
+            <button class="action-btn" id="finish-case-btn" onclick="finishCase()" style="display: none; width: 100%; margin-top: 24px; padding: 15px; font-size: 1rem; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);">✨ Alle Challenges & Examen gemeistert – Fall abschließen & XP sichern</button>
+        </div>
+
+        <!-- 4. FORGE VIEW -->
+        <div class="panel" id="forge-view" style="display: none;">
+            <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
+            <div class="panel-subtitle">Generiere einen Fall per Gemini oder füge den JSON-Code manuell ein.</div>
+            <div class="forge-generator-controls">
+                <label for="forge-topic" class="forge-label">Thema / Prompt</label>
+                <textarea id="forge-topic" class="forge-topic-input" placeholder="Beispiel: Akute Thoraxschmerzen bei 58-jährigem Patienten mit Risikofaktoren..."></textarea>
+                <button class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
+            </div>
+            <div class="forge-divider"></div>
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label for="case-folder-input" class="forge-label">Zielordner (Kategorie):</label>
+                <input type="text" id="case-folder-input" class="forge-topic-input" style="min-height: auto; padding: 10px 14px;" list="existing-folders-list" placeholder="z.B. Neurologie, Kardiologie oder Neuer Ordner..." />
+                <datalist id="existing-folders-list"></datalist>
+            </div>
+            <div class="forge-label" style="margin-bottom: 8px;">Fall-JSON (editierbar)</div>
+            <textarea class="forge-textarea" id="forge-input" placeholder="JSON-Code hier einfügen..."></textarea>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
+                <button class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Löschen</button>
+            </div>
+            <div class="feedback-box" id="forge-fb"></div>
+        </div>
+
+        <!-- 5. LERN-DEPOT VIEW (Standardmäßig unsichtbar per style="display: none;") -->
+        <div class="panel" id="depot-view" style="display: none;">
+            <div class="depot-header-row">
+                <div>
+                    <div class="panel-title">📌 Persönliches Lern-Depot</div>
+                    <div class="panel-subtitle" style="margin-bottom: 0;">Deine markierten High-Yield-Passagen aus den Fall-Übersichten zur gezielten Wiederholung.</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div class="depot-stats-pills">
+                        <span class="depot-stat-pill open"><strong id="depot-count-open">0</strong> Offen</span>
+                        <span class="depot-stat-pill mastered"><strong id="depot-count-mastered">0</strong> Gemeistert</span>
+                    </div>
+                    <button type="button" class="action-btn btn-sm" id="btn-generate-depot-quiz" onclick="generateDepotQuizWithAI()">
+                        ✨ KI-Prüfung aus Lücken starten
+                    </button>
+                </div>
+            </div>
+
+            <!-- DYNAMISCHER KI-TRAINER CONTAINER -->
+            <div id="depot-quiz-arena" class="depot-quiz-arena hidden">
+                <div class="depot-quiz-header">
+                    <div>
+                        <div class="panel-title" style="font-size: 1.02rem; margin-bottom: 2px; color: var(--accent-cyan);">
+                            🎓 Adaptives Lücken-Examen
+                        </div>
+                        <div id="depot-quiz-subtitle" style="font-size: 0.78rem; color: var(--text-muted);">
+                            Generiert aus deinen offenen Depot-Einträgen
+                        </div>
+                    </div>
+                    <button type="button" class="action-btn secondary btn-sm" onclick="closeDepotQuizArena()">✕ Schließen</button>
+                </div>
+                <div id="depot-quiz-body" class="depot-quiz-body"></div>
+            </div>
+
+            <!-- Filter- & Suchleiste -->
+            <div class="depot-toolbar">
+                <div class="segmented-control" style="margin-bottom: 0;">
+                    <button type="button" class="segmented-btn active" id="depot-filter-open" onclick="setDepotFilter('open')">Offene Lernlücken</button>
+                    <button type="button" class="segmented-btn" id="depot-filter-mastered" onclick="setDepotFilter('mastered')">Gemeistert</button>
+                    <button type="button" class="segmented-btn" id="depot-filter-all" onclick="setDepotFilter('all')">Alle</button>
+                </div>
+                <div class="depot-search-wrap">
+                    <select id="depot-category-select" class="depot-select" onchange="renderDepotView()">
+                        <option value="ALL">Alle Kategorien / Fälle</option>
+                    </select>
+                    <input type="text" id="depot-search-input" class="depot-search-input" placeholder="Stichwort suchen..." oninput="renderDepotView()">
+                </div>
+            </div>
+
+            <!-- Manuelles Hinzufügen (Quick-Add) -->
+            <div class="depot-quick-add">
+                <input type="text" id="depot-manual-input" class="depot-search-input" style="flex: 1;" placeholder="Eigene klinische Eselsbrücke oder Lernlücke schnell notieren...">
+                <button type="button" class="action-btn btn-sm" onclick="addManualDepotEntry()">+ Merken</button>
+            </div>
+
+            <!-- Liste der gespeicherten Karten -->
+            <div id="depot-items-container" class="depot-items-grid"></div>
+        </div>
+
+        <!-- 6. SETTINGS VIEW -->
+        <div class="panel" id="settings-view" style="display: none;">
+            <div class="panel-title">Einstellungen & Erscheinungsbild</div>
+            <div class="panel-subtitle">Passe das visuelle Interface optimal an deine Lernumgebung und Tageszeit an.</div>
+
+            <!-- THEME AUSWAHL BEREICH -->
+            <div class="settings-section">
+                <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
+                <div class="theme-selector-grid" id="theme-selector-grid">
+                    <button type="button" class="theme-card active" data-theme-value="midnight" onclick="applyAppTheme('midnight')">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #060913 50%, #0f172a 50%); border-color: #38bdf8;">
+                            <span class="theme-dot" style="background: #38bdf8;"></span>
+                            <span class="theme-dot" style="background: #6366f1;"></span>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Cyber Midnight</div>
+                            <div class="theme-desc">Kontrastreiches Dark-UI (Standard)</div>
+                        </div>
+                    </button>
+                    <button type="button" class="theme-card" data-theme-value="daylight" onclick="applyAppTheme('daylight')">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #f1f5f9 50%, #ffffff 50%); border-color: #0284c7;">
+                            <span class="theme-dot" style="background: #0284c7;"></span>
+                            <span class="theme-dot" style="background: #4f46e5;"></span>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Clinical Daylight</div>
+                            <div class="theme-desc">Heller Modus für Tageslicht & Klinik</div>
+                        </div>
+                    </button>
+                    <button type="button" class="theme-card" data-theme-value="scrubs" onclick="applyAppTheme('scrubs')">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #041311 50%, #0a221e 50%); border-color: #10b981;">
+                            <span class="theme-dot" style="background: #10b981;"></span>
+                            <span class="theme-dot" style="background: #14b8a6;"></span>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Surgical Scrubs</div>
+                            <div class="theme-desc">Augenschonendes OP-Smaragdgrün</div>
+                        </div>
+                    </button>
+                    <button type="button" class="theme-card" data-theme-value="neuro" onclick="applyAppTheme('neuro')">
+                        <div class="theme-preview" style="background: linear-gradient(135deg, #0b0716 50%, #17112b 50%); border-color: #c084fc;">
+                            <span class="theme-dot" style="background: #c084fc;"></span>
+                            <span class="theme-dot" style="background: #f472b6;"></span>
+                        </div>
+                        <div class="theme-info">
+                            <div class="theme-name">Neuro Focus</div>
+                            <div class="theme-desc">Tiefes Amethyst für langes Lesen</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="forge-divider" style="margin: 24px 0;"></div>
+
+            <div class="settings-section">
+                <div class="forge-label" style="margin-bottom: 12px; color: var(--warning);">Daten & Speicherverwaltung</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="action-btn secondary" onclick="if(confirm('Lernfortschritt & XP wirklich zurücksetzen?')){ localStorage.setItem('user_xp', '0'); localStorage.setItem('solved_cases', '[]'); localStorage.removeItem('user_skills'); location.reload(); }" style="color: var(--warning); border-color: rgba(245, 158, 11, 0.3);">Lern-Fortschritt & XP zurücksetzen</button>
+                    <button class="action-btn secondary" onclick="if(confirm('Wirklich ALLE selbst erstellten Fälle löschen?')){ localStorage.setItem('custom_cases', '[]'); location.reload(); }" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);">Alle Custom-Fälle löschen</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
     <!-- KOMPAKTES EIN-/AUSKLAPPBARES FORTSCHRITTS-WIDGET AM RECHTEN RAND -->
     <aside id="subject-progress-drawer" class="progress-drawer collapsed">
         <!-- Schmaler Griff zum Ein-/Ausklappen -->
