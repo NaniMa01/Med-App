@@ -374,102 +374,70 @@ topbar {
 .score-popup.positive { background: rgba(16, 185, 129, 0.22); border: 1px solid rgba(16, 185, 129, 0.45); color: #86efac; }
 .score-popup.negative { background: rgba(239, 68, 68, 0.22); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
 
-:root {
-    /* Dynamische Breite der linken Haupt-Sidebar */
-    --sidebar-width: 260px;
-    --sidebar-min-width: 200px;
-    --sidebar-max-width: 480px;
+// ==========================================
+// DYNAMISCHES RESIZING DER SIDEBAR (FIXED)
+// ==========================================
+
+const SIDEBAR_STORAGE_KEY = 'medcheck_sidebar_width';
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 500;
+const DEFAULT_SIDEBAR_WIDTH = 260;
+
+function setSidebarWidth(widthPx) {
+    // Verhindert NaN oder zu kleine Werte, die das Menü unsichtbar machen
+    const validWidth = isNaN(widthPx) ? DEFAULT_SIDEBAR_WIDTH : widthPx;
+    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, validWidth));
+    
+    document.documentElement.style.setProperty('--sidebar-width', `${clamped}px`);
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, clamped.toString());
 }
 
-/* 1. Sidebar an die dynamische Breite koppeln */
-sidebar {
-    width: var(--sidebar-width) !important;
-    min-width: var(--sidebar-min-width);
-    max-width: var(--sidebar-max-width);
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 100;
-    transition: width 0.15s ease-out; /* Weiche Animation beim Pfeil-Klick */
-    user-select: none;
+// Pfeil-Schrittfunktion: verbreitert (+) oder schmälert (-)
+function stepSidebarWidth(deltaPx) {
+    const currentProp = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim();
+    const current = parseInt(currentProp, 10) || DEFAULT_SIDEBAR_WIDTH;
+    setSidebarWidth(current + deltaPx);
 }
 
-/* Deaktiviere Transition während des manuellen Ziehens (Drag) für flüssige 60 FPS */
-body.is-resizing sidebar,
-body.is-resizing .main-wrapper {
-    transition: none !important;
-    cursor: col-resize !important;
-}
-
-/* 2. Main-Wrapper passt seinen linken Abstand dynamisch an */
-.main-wrapper {
-    margin-left: var(--sidebar-width) !important;
-    width: calc(100% - var(--sidebar-width)) !important;
-    transition: margin-left 0.15s ease-out, width 0.15s ease-out;
-}
-
-/* 3. Der Resizer-Trennsteg mit Pfeilen */
-.sidebar-resizer {
-    position: absolute;
-    top: 0;
-    right: -6px;
-    width: 12px;
-    height: 100%;
-    cursor: col-resize;
-    z-index: 110;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.sidebar-resizer:hover .resizer-handle-pill,
-body.is-resizing .resizer-handle-pill {
-    background: var(--accent-blue, #38bdf8);
-    color: #060913;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-}
-
-/* Die kleine Pille mit den Pfeil-Symbolen */
-.resizer-handle-pill {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid var(--card-border, rgba(255, 255, 255, 0.15));
-    border-radius: 12px;
-    padding: 6px 3px;
-    font-size: 0.65rem;
-    color: var(--text-dim, #94a3b8);
-    cursor: col-resize;
-    transition: all 0.2s ease;
-}
-
-.resizer-btn-step {
-    background: transparent;
-    border: none;
-    color: inherit;
-    font-size: 0.7rem;
-    cursor: pointer;
-    padding: 2px;
-    line-height: 1;
-}
-
-.resizer-btn-step:hover {
-    color: #ffffff;
-}
-
-/* Auf mobilen Bildschirmen Resizing ausblenden (Overlay-Modus greift dort) */
-@media (max-width: 768px) {
-    .sidebar-resizer {
-        display: none !important;
+function initSidebarResizer() {
+    const resizer = document.getElementById('sidebar-resizer');
+    
+    // Gespeicherte Breite beim Start sicher laden
+    const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (savedWidth) {
+        setSidebarWidth(parseInt(savedWidth, 10));
+    } else {
+        setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
     }
-    .main-wrapper {
-        margin-left: 0 !important;
-        width: 100% !important;
-    }
+
+    if (!resizer) return;
+
+    let isDragging = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        document.body.classList.add('is-resizing');
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        setSidebarWidth(e.clientX);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            document.body.classList.remove('is-resizing');
+        }
+    });
 }
+
+// Sofort beim Laden ausführen, um Layout-Sprünge zu verhindern
+document.addEventListener('DOMContentLoaded', () => {
+    initSidebarResizer();
+});
 /* ==========================================================================
    5. CONTENT LAYOUT, PANELS & DASHBOARD CARDS
    ========================================================================== */
