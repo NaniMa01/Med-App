@@ -447,6 +447,66 @@ window.toggleSuperFolder = function() {
     if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
 };
 
+// ==========================================
+// DYNAMISCHES RESIZING DER SIDEBAR
+// ==========================================
+
+const SIDEBAR_STORAGE_KEY = 'medcheck_sidebar_width';
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 500;
+
+function setSidebarWidth(widthPx) {
+    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, widthPx));
+    document.documentElement.style.setProperty('--sidebar-width', `${clamped}px`);
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, clamped.toString());
+}
+
+// Pfeil-Schrittfunktion: verbreitert (+) oder schmälert (-)
+function stepSidebarWidth(deltaPx) {
+    const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')) || 260;
+    setSidebarWidth(current + deltaPx);
+}
+
+function initSidebarResizer() {
+    const resizer = document.getElementById('sidebar-resizer');
+    if (!resizer) return;
+
+    // Gespeicherte Breite wiederherstellen
+    const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (savedWidth) {
+        setSidebarWidth(parseInt(savedWidth, 10));
+    }
+
+    let isDragging = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+        // Klicks auf die Pfeil-Buttons nicht als Drag werten
+        if (e.target.tagName === 'BUTTON') return;
+
+        isDragging = true;
+        document.body.classList.add('is-resizing');
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        // Die neue Breite entspricht der horizontalen Mausposition X
+        setSidebarWidth(e.clientX);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            document.body.classList.remove('is-resizing');
+        }
+    });
+}
+
+// Beim Start initialisieren
+document.addEventListener('DOMContentLoaded', () => {
+    initSidebarResizer();
+});
+
 // ====================================================
 // STATS & SKILLS
 // ====================================================
