@@ -72,7 +72,24 @@
                 </div>
             </div>
         </topbar>
+<sidebar>
+        <div class="brand">
+            <!-- Brand Icon & Version -->
+            ...
+        </div>
 
+        <!-- Vorhandene Navigation, Bookshelf etc. -->
+        ...
+
+        <!-- NEU: Resizer-Handle mit Pfeilen am rechten Rand der Sidebar -->
+        <div class="sidebar-resizer" id="sidebar-resizer" title="Ziehen zum Vergrößern/Verkleinern oder Pfeile klicken">
+            <div class="resizer-handle-pill">
+                <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(-30)" title="Schmälern">◀</button>
+                <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(30)" title="Verbreitern">▶</button>
+            </div>
+        </div>
+    </sidebar>
+        
     <header id="specialty-sticky-bar" class="specialty-sticky-bar hidden">
   <div class="specialty-bar-left">
     <button type="button" class="btn btn-secondary btn-sm" id="btn-exit-specialty">✕ Beenden</button>
