@@ -722,6 +722,202 @@ topbar {
 .feedback-error { background: rgba(239, 68, 68, 0.13); border: 1px solid rgba(239, 68, 68, 0.25); border-left: 4px solid var(--color-risk); color: #fecdd3; }
 .feedback-neutral { background: rgba(245, 158, 11, 0.13); border: 1px solid rgba(245, 158, 11, 0.25); border-left: 4px solid var(--warning); color: #fde68a; }
 
+
+/* 1. Hauptbereich nutzt nun 100% der Breite ohne die alte rechte Spalte */
+.content-body {
+    grid-template-columns: 1fr !important;
+}
+
+/* 2. Kompaktes Slide-In Widget am rechten Rand */
+.progress-drawer {
+    position: fixed;
+    top: 88px;
+    right: 0;
+    z-index: 950;
+    display: flex;
+    align-items: flex-start;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Eingeklappt: Nur der kleine Griff schaut rechts heraus */
+.progress-drawer.collapsed {
+    transform: translateX(calc(100% - 38px));
+}
+
+/* Ausgeklappt: Fährt sanft nach links herein */
+.progress-drawer:not(.collapsed) {
+    transform: translateX(0);
+}
+
+/* Der schmale Klick-Reiter am linken Rand des Drawers */
+.progress-drawer-handle {
+    width: 38px;
+    padding: 14px 6px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--card-border, rgba(255,255,255,0.1));
+    border-right: none;
+    border-radius: 12px 0 0 12px;
+    color: var(--accent-blue, #38bdf8);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: -4px 4px 16px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    transition: background 0.2s, color 0.2s;
+}
+
+.progress-drawer-handle:hover {
+    background: rgba(30, 41, 59, 0.98);
+    color: #fff;
+}
+
+.handle-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.handle-arrow {
+    font-size: 0.65rem;
+    opacity: 0.8;
+    transition: transform 0.3s ease;
+}
+
+.progress-drawer:not(.collapsed) .handle-arrow {
+    transform: rotate(180deg);
+}
+
+/* Das eigentliche Panel (kompakt & platzsparend) */
+.progress-drawer-body {
+    width: 270px;
+    max-height: calc(100vh - 110px);
+    background: rgba(11, 17, 33, 0.96);
+    border: 1px solid var(--card-border, rgba(255,255,255,0.1));
+    border-right: none;
+    border-radius: 0 0 0 14px;
+    padding: 16px;
+    box-shadow: -10px 10px 30px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(14px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.progress-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.drawer-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim, #94a3b8);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.drawer-close-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+/* Liste der Kategorien */
+.subjects-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 55vh;
+    padding-right: 4px;
+}
+
+.subject-item {
+    background: rgba(6, 9, 19, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.subject-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.subject-item-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.subject-item-stats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    flex-shrink: 0;
+}
+
+/* Fortschrittsbalken */
+.subject-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.subject-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+/* Exakte Farblogik: Rot <= 32%, Orange 33-66%, Grün >= 67% */
+.bar-red    { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+.bar-orange { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+.bar-green  { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
+/* Legende */
+.progress-drawer-legend {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.68rem;
+    color: var(--text-dim, #94a3b8);
+}
+
+.progress-drawer-legend span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dot-red, .dot-orange, .dot-green {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.dot-red    { background: #ef4444; }
+.dot-orange { background: #f59e0b; }
+.dot-green  { background: #10b981; }
 /* ==========================================================================
    7. CORNELL NOTE SYSTEM
    ========================================================================== */
