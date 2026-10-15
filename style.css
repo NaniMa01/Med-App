@@ -9,6 +9,12 @@
     --card-border: rgba(255, 255, 255, 0.08);
     --card-border-hover: rgba(56, 189, 248, 0.45);
     --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+
+    /* Dynamische Breiten für die linke Sidebar (Resizing) */
+    --sidebar-width: 260px;
+    --sidebar-min-width: 200px;
+    --sidebar-max-width: 480px;
+}
     
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
@@ -374,70 +380,86 @@ topbar {
 .score-popup.positive { background: rgba(16, 185, 129, 0.22); border: 1px solid rgba(16, 185, 129, 0.45); color: #86efac; }
 .score-popup.negative { background: rgba(239, 68, 68, 0.22); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
 
-// ==========================================
-// DYNAMISCHES RESIZING DER SIDEBAR (FIXED)
-// ==========================================
-
-const SIDEBAR_STORAGE_KEY = 'medcheck_sidebar_width';
-const MIN_SIDEBAR_WIDTH = 200;
-const MAX_SIDEBAR_WIDTH = 500;
-const DEFAULT_SIDEBAR_WIDTH = 260;
-
-function setSidebarWidth(widthPx) {
-    // Verhindert NaN oder zu kleine Werte, die das Menü unsichtbar machen
-    const validWidth = isNaN(widthPx) ? DEFAULT_SIDEBAR_WIDTH : widthPx;
-    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, validWidth));
-    
-    document.documentElement.style.setProperty('--sidebar-width', `${clamped}px`);
-    localStorage.setItem(SIDEBAR_STORAGE_KEY, clamped.toString());
+/* Sidebar dynamisch steuern */
+sidebar {
+    width: var(--sidebar-width) !important;
+    min-width: var(--sidebar-min-width);
+    max-width: var(--sidebar-max-width);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 18px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--card-border);
+    transition: width 0.15s ease-out;
+    box-sizing: border-box;
 }
 
-// Pfeil-Schrittfunktion: verbreitert (+) oder schmälert (-)
-function stepSidebarWidth(deltaPx) {
-    const currentProp = getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width').trim();
-    const current = parseInt(currentProp, 10) || DEFAULT_SIDEBAR_WIDTH;
-    setSidebarWidth(current + deltaPx);
+body.is-resizing sidebar,
+body.is-resizing .main-wrapper {
+    transition: none !important;
+    cursor: col-resize !important;
 }
 
-function initSidebarResizer() {
-    const resizer = document.getElementById('sidebar-resizer');
-    
-    // Gespeicherte Breite beim Start sicher laden
-    const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    if (savedWidth) {
-        setSidebarWidth(parseInt(savedWidth, 10));
-    } else {
-        setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
-    }
-
-    if (!resizer) return;
-
-    let isDragging = false;
-
-    resizer.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
-        document.body.classList.add('is-resizing');
-        e.preventDefault();
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        setSidebarWidth(e.clientX);
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            document.body.classList.remove('is-resizing');
-        }
-    });
+.main-wrapper {
+    margin-left: var(--sidebar-width) !important;
+    width: calc(100% - var(--sidebar-width)) !important;
+    transition: margin-left 0.15s ease-out, width 0.15s ease-out;
 }
 
-// Sofort beim Laden ausführen, um Layout-Sprünge zu verhindern
-document.addEventListener('DOMContentLoaded', () => {
-    initSidebarResizer();
-});
+/* Der Resizer-Trennsteg mit Pfeilen am rechten Rand der Sidebar */
+.sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: -6px;
+    width: 12px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-resizer:hover .resizer-handle-pill,
+body.is-resizing .resizer-handle-pill {
+    background: var(--accent-blue);
+    color: #060913;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+.resizer-handle-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 6px 3px;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    cursor: col-resize;
+    transition: all 0.2s ease;
+}
+
+.resizer-btn-step {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+}
+
+.resizer-btn-step:hover {
+    color: #ffffff;
+}
 /* ==========================================================================
    5. CONTENT LAYOUT, PANELS & DASHBOARD CARDS
    ========================================================================== */
