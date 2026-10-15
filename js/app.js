@@ -1900,3 +1900,47 @@ function renderSubjectProgressDrawer() {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(renderSubjectProgressDrawer, 500);
 });
+
+// ==========================================
+// THEME ENGINE (FARBLAYOUT WECHSELN)
+// ==========================================
+
+const THEME_STORAGE_KEY = 'medcheck_ui_theme';
+
+const THEME_META_COLORS = {
+    midnight: '#060913',
+    daylight: '#f1f5f9',
+    scrubs:   '#04110f',
+    neuro:    '#090614'
+};
+
+function applyAppTheme(themeName) {
+    const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
+
+    // 1. Attribut auf <html> setzen (steuert alle CSS-Variablen)
+    if (validTheme === 'midnight') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', validTheme);
+    }
+
+    // 2. Meta-Theme-Color für Mobile/PWA Statusbar aktualisieren
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+        metaTheme.setAttribute('content', THEME_META_COLORS[validTheme]);
+    }
+
+    // 3. Aktiven Status auf den Einstellungs-Karten setzen
+    document.querySelectorAll('.theme-card').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
+    });
+
+    // 4. Dauerhaft im Browser speichern
+    localStorage.setItem(THEME_STORAGE_KEY, validTheme);
+}
+
+// Beim Laden der Seite sofort das gespeicherte Theme aktivieren
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
+    applyAppTheme(savedTheme);
+});
