@@ -2404,7 +2404,7 @@ async function generateDepotQuizWithAI() {
         <div class="skeleton" style="height: 110px; width: 100%;"></div>
     `;
 
- // Strukturierter System-Prompt (IMPP-Stil, klinische Vignetten, homogene Distraktoren)
+    // Strukturierter System-Prompt (IMPP-Stil, klinische Vignetten, homogene Distraktoren)
     const notesContext = sampledItems.map((item, idx) => 
         `[ID: ${item.id}] (Thema:${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
@@ -2434,6 +2434,7 @@ Nutze exakt dieses Format:
     "explanation": "Ausführliche Begründung: Erkläre den Mechanismus und warum die richtige Antwort stimmt UND warum die Distraktoren in diesem Fall falsch sind."
   }
 ]`.trim();
+
     try {
         const questions = await fetchQuizFromGeminiEndpoint(promptText, sampledItems);
         currentDepotQuizQuestions = questions;
@@ -2464,7 +2465,6 @@ async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
     const rawData = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        // Gibt jetzt die exakte Server-Ursache (details/error) in der Konsole aus!
         const serverReason = rawData.details || rawData.error || `HTTP ${response.status}`;
         throw new Error(`Server-Antwort (${response.status}): ${serverReason}`);
     }
@@ -2477,46 +2477,11 @@ async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
 
     throw new Error('Unerwartetes Antwortformat vom Server.');
 }
-    const rawData = await response.json();
-
-    // Extrahiere Text unabhängig davon, wie /api/gemini.js die Antwort verpackt
-    let rawText = '';
-    if (Array.isArray(rawData)) {
-        return rawData;
-    } else if (typeof rawData === 'string') {
-        rawText = rawData;
-    } else if (rawData.text) {
-        rawText = rawData.text;
-    } else if (rawData.result) {
-        rawText = typeof rawData.result === 'string' ? rawData.result : JSON.stringify(rawData.result);
-    } else if (rawData.candidates?.[0]?.content?.parts?.[0]?.text) {
-        rawText = rawData.candidates[0].content.parts[0].text;
-    } else {
-        rawText = JSON.stringify(rawData);
-    }
-
-    // Entferne eventuelle ```json ... ``` Markdown-Wrapper
-    const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const firstBracket = cleaned.indexOf('[');
-    const lastBracket = cleaned.lastIndexOf(']');
-
-    if (firstBracket === -1 || lastBracket === -1) {
-        throw new Error('Kein JSON-Array in der KI-Antwort gefunden');
-    }
-
-    const parsed = JSON.parse(cleaned.substring(firstBracket, lastBracket + 1));
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-        throw new Error('Leeres Fragen-Array');
-    }
-
-    return parsed;
-}
 
 // Lokaler Fallback, falls der Nutzer offline im Spital/Zug lernt
 function buildLocalFallbackQuiz(sampledItems) {
     const allItems = getLocalDepot();
     return sampledItems.slice(0, 4).map(item => {
-        // Baue eine Active-Recall-Zuordnungsfrage aus den vorhandenen Depot-Einträgen
         const otherQuotes = allItems
             .filter(other => other.id !== item.id)
             .map(other => other.highlighted_text)
@@ -2549,16 +2514,16 @@ function renderDepotQuizQuestions(questions) {
         <div class="depot-q-card" id="depot-q-card-${qIdx}">
             <div class="depot-q-meta">
                 <span>Frage ${qIdx + 1} / ${questions.length}</span>
-                <span>${escapeDepotHtml(q.topic || 'Klinische Prüfung')}</span>
+                <span>${escapeHtml(q.topic || 'Klinische Prüfung')}</span>
             </div>
-            <div class="depot-q-stem">${escapeDepotHtml(q.question)}</div>
+            <div class="depot-q-stem">${escapeHtml(q.question)}</div>
             <div class="depot-q-options">
                 ${(q.options || []).map((opt, optIdx) => `
                     <button type="button" 
                             class="quiz-opt-btn" 
                             id="depot-q-${qIdx}-opt-${optIdx}"
-                            onclick=" evaluateDepotQuizAnswer(${qIdx},${optIdx})">
-                        <span><strong>${String.fromCharCode(65 + optIdx)})</strong>${escapeDepotHtml(opt)}</span>
+                            onclick="evaluateDepotQuizAnswer(${qIdx},${optIdx})">
+                        <span><strong>${String.fromCharCode(65 + optIdx)})</strong>${escapeHtml(opt)}</span>
                     </button>
                 `).join('')}
             </div>
@@ -2575,7 +2540,6 @@ function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
 
     const isCorrect = selectedOptIdx === Number(q.correct_index);
 
-    // Buttons optisch markieren (Grün für richtig, Rot für falsch)
     (q.options || []).forEach((_, idx) => {
         const btn = document.getElementById(`depot-q-${qIdx}-opt-${idx}`);
         if (!btn) return;
@@ -2587,12 +2551,10 @@ function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
         }
     });
 
-    // XP vergeben bei korrekter Antwort
     if (isCorrect && typeof showScorePopup === 'function') {
         showScorePopup('+50 XP (Lernlücke gelöst!)', 'positive');
     }
 
-    // Erklärung + Direkt-Button zum Abhaken der Lernlücke einblenden
     const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
     if (fbEl) {
         fbEl.style.display = 'block';
@@ -2600,7 +2562,7 @@ function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
             <div style="font-weight: 700; color: ${isCorrect ? 'var(--color-symptom)' : 'var(--color-risk)'}; margin-bottom: 4px;">
                 ${isCorrect ? '✓ Exakt richtig deduziert!' : '✕ Nicht ganz – hier ist der klinische Hintergrund:'}
             </div>
-            <div>${escapeDepotHtml(q.explanation || '')}</div>
+            <div>${escapeHtml(q.explanation || '')}</div>
             ${q.source_depot_id ? `
                 <div class="depot-mastery-prompt">
                     <span style="font-size: 0.76rem; color: var(--text-dim);">Sitzt dieses Konzept jetzt sicher?</span>
