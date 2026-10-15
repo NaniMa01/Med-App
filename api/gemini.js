@@ -85,14 +85,23 @@ module.exports = async function handler(req, res) {
     }
 
     const model = (process.env.GEMINI_MODEL || DEFAULT_MODEL).trim();
+    
+    // Korrigierte URL ohne Markdown-Artefakte:
     const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    // Unterscheidung der Instruktionen je nach Modus
+    let finalInstruction = prompt;
+    if (mode !== 'depot_quiz') {
+        // Hier greift dein bestehender, mächtiger Fall-Schmiede-System-Prompt
+        finalInstruction = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen... ${prompt}`;
+    }
 
     try {
         const upstream = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                contents: [{ role: 'user', parts: [{ text: finalInstruction }] }],
                 generationConfig: {
                     temperature: 0.7,
                     responseMimeType: 'application/json'
@@ -136,7 +145,7 @@ module.exports = async function handler(req, res) {
 
         let parsedOutput;
         try {
-            parsedOutput = extractJsonOutput(generatedText);
+            parsedOutput = extractFlexibleJson(generatedText);
         } catch (error) {
             return res.status(502).json({
                 error: 'Gemini returned invalid JSON format.',
