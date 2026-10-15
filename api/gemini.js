@@ -3,7 +3,7 @@
 // ==========================================================================
 
 const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
-const FALLBACK_MODEL = 'gemini-1.5-flash';
+const FALLBACK_MODEL = 'gemini-2.5-flash';
 const MAX_PROMPT_LENGTH = 50000;
 
 function sendJson(res, status, payload) {
@@ -65,7 +65,8 @@ function extractFlexibleJson(text) {
 
 // Hilfsfunktion für den Google API Request inkl. automatischem Modell-Fallback
 async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.7) {
-   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(gemini3.5 flash-lite)}:generateContent?key=${apiKey}`;
+    const selectedModel = (modelName || PRIMARY_MODEL).trim();
+    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(selectedModel)}:generateContent?key=${apiKey}`;
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -87,7 +88,7 @@ async function callGeminiUpstream(apiKey, modelName, instructionText, temperatur
         json = null;
     }
 
-    return { ok: response.ok, status: response.status, json, rawText, usedModel: modelName };
+    return { ok: response.ok, status: response.status, json, rawText, usedModel: selectedModel };
 }
 
 module.exports = async function handler(req, res) {
@@ -119,7 +120,7 @@ module.exports = async function handler(req, res) {
     }
 
     const requestedMedicalField = typeof parsedBody.medicalField === 'string' ? parsedBody.medicalField.trim() : '';
-    const medicalField = requestedMedicalField || '29.2.10_Erkrankungen des Rückenmarks und des peripheren Nervensystems';
+    const medicalField = requestedMedicalField || 'Neurologie';
 
     // =======================================================================
     // PROMPT-AUSWAHL JE NACH MODUS ('depot_quiz' vs. 'case_forge')
@@ -127,10 +128,8 @@ module.exports = async function handler(req, res) {
     let finalInstruction = '';
 
     if (mode === 'depot_quiz') {
-        // Im Depot-Quiz-Modus kommt der fertige IMPP-Vignetten-Prompt direkt aus der app.js
         finalInstruction = prompt;
     } else {
-        // Vollständiger System-Prompt für die In-App Fall-Schmiede
         finalInstruction = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen (orientiert an IMPP- und NBME-Standards) und leitender didaktischer Software-Architekt für MedCheck. Deine Aufgabe ist es, aus dem übergebenen Vorlesungsskript bzw. medizinischen Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Fall als syntaktisch valides JSON-Objekt zu generieren.
 
 ZIELGRUPPE & DIDAKTISCHER ANSPRUCH:
@@ -140,7 +139,7 @@ ZIELGRUPPE & DIDAKTISCHER ANSPRUCH:
 
 KRITISCHE TECHNISCHE REGELN FÜR DEN IMPORT (ZERO-TOLERANCE):
 1. Antworte AUSSCHLIESSLICH mit dem validen JSON-Objekt ({ ... }).
-2. Füge NIEMALS Zitationsmarker wie oder [1] ein.
+2. Füge NIEMALS Zitationsmarker wie [1] ein.
 3. HTML-Tags (<p>, <b>, <ul>, <li>) sind ausschließlich im Feld case_overview.cornell_notes[].notes gestattet. Alle übrigen Felder sind reiner Plain-Text.
 
 JSON-SCHEMA:
@@ -148,6 +147,7 @@ JSON-SCHEMA:
   "case_id": "STRING_IDENTIFIER",
   "metadata": {
     "title": "STRING",
+    "primary_disease": "STRING",
     "medical_field": "${medicalField}",
     "bloom_level": "Evaluation & Synthese",
     "difficulty": 5,
@@ -224,6 +224,8 @@ JSON-SCHEMA:
     },
     "master_quiz": [
       {
+        "target_disease": "Erkrankung A",
+        "is_primary": true,
         "question": "Fallvignette + Leitfrage",
         "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
         "correct_index": 0,
@@ -234,20 +236,25 @@ JSON-SCHEMA:
   }
 }
 
- THEMA / SKRIPT:
+THEMA / SKRIPT:
 ${prompt}`;
     }
 
     const configuredModel = (process.env.GEMINI_MODEL || PRIMARY_MODEL).trim();
 
     try {
-        // 1. Versuch mit dem konfigurierten Hauptmodell
+        // 1. Versuch mit gemini-3.5-flash-lite
         let result = await callGeminiUpstream(apiKey, configuredModel, finalInstruction, 0.65);
 
-        // Falls das Modell (z.B. wegen Tippfehler in ENV wie 'gemini-3.5-flash-lite') mit 404/400 ablehnt -> Sofortiger Fallback!
-        if (!result.ok && (result.status === 404 || result.status === 400) && configuredModel !== FALLBACK_MODEL) {
-            console.warn(`Modell ${configuredModel} nicht verfügbar (${result.status}). Wechsle automatisch auf ${FALLBACK_MODEL}...`);
-            result = await callGeminiUpstream(apiKey, FALLBACK_MODEL, finalInstruction, 0.65);
+        // Automatischer Fallback, falls der Modell-Slug (z.B. Preview-Suffix) 404/400 liefert
+        if (!result.ok && (result.status === 404 || result.status === 400)) {
+            const fallbackCandidates = ['gemini-3.5-flash-lite-preview', FALLBACK_MODEL, 'gemini-2.0-flash-lite'];
+            for (const candidate of fallbackCandidates) {
+                if (candidate === configuredModel) continue;
+                console.warn(`Modell ${configuredModel} lieferte ${result.status}. Teste Fallback ${candidate}...`);
+                result = await callGeminiUpstream(apiKey, candidate, finalInstruction, 0.65);
+                if (result.ok) break;
+            }
         }
 
         if (!result.json) {
@@ -278,7 +285,6 @@ ${prompt}`;
             });
         }
 
-        // WICHTIG: Hier rufen wir jetzt korrekt extractFlexibleJson auf!
         let parsedOutput;
         try {
             parsedOutput = extractFlexibleJson(generatedText);
@@ -294,7 +300,6 @@ ${prompt}`;
         // AUSGABE MODUS 1: DEPOT-QUIZ (Erwartet ein JSON-Array mit Fragen)
         // ===================================================================
         if (mode === 'depot_quiz') {
-            // Falls Gemini das Array in ein Objekt wie { "questions": [...] } gewickelt hat, entpacken wir es automatisch:
             const questionsArray = Array.isArray(parsedOutput)
                 ? parsedOutput
                 : (Array.isArray(parsedOutput?.questions) ? parsedOutput.questions : null);
