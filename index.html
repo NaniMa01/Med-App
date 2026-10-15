@@ -225,6 +225,27 @@
                             <span class="depot-stat-pill open"><strong id="depot-count-open">0</strong> Offen</span>
                             <span class="depot-stat-pill mastered"><strong id="depot-count-mastered">0</strong> Gemeistert</span>
                         </div>
+                        <button type="button" class="action-btn btn-sm" id="btn-generate-depot-quiz" onclick="generateDepotQuizWithAI()">
+                                ✨ KI-Prüfung aus Lücken starten
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- DYNAMISCHER KI-TRAINER CONTAINER (Initial ausgeblendet) -->
+                    <div id="depot-quiz-arena" class="depot-quiz-arena hidden">
+                        <div class="depot-quiz-header">
+                            <div>
+                                <div class="panel-title" style="font-size: 1.02rem; margin-bottom: 2px; color: var(--accent-cyan);">
+                                    🎓 Adaptives Lücken-Examen
+                                </div>
+                                <div id="depot-quiz-subtitle" style="font-size: 0.78rem; color: var(--text-muted);">
+                                    Generiert aus deinen offenen Depot-Einträgen
+                                </div>
+                            </div>
+                            <button type="button" class="action-btn secondary btn-sm" onclick="closeDepotQuizArena()">✕ Schließen</button>
+                        </div>
+                        <div id="depot-quiz-body" class="depot-quiz-body"></div>
+                    </div>
                     </div>
 
                     <!-- Filter- & Suchleiste -->
