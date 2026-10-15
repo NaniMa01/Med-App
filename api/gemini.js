@@ -65,7 +65,7 @@ function extractFlexibleJson(text) {
 
 // Hilfsfunktion für den Google API Request inkl. automatischem Modell-Fallback
 async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.7) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(Gemini 3.5 Flash-lite)}:generateContent?key=${apiKey}`;
+   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(gemini3.5 flash-lite)}:generateContent?key=${apiKey}`;
 
     const response = await fetch(endpoint, {
         method: 'POST',
