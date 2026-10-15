@@ -1889,3 +1889,283 @@ body.is-resizing .resizer-handle-pill {
     color: var(--text-muted);
     line-height: 1.3;
 }
+
+/* ==========================================================================
+   17. LERN-DEPOT (KNOWLEDGE VAULT) & TEXT-SELECTION POPOVER
+   ========================================================================== */
+
+/* Dezenter Hinweis in der Übersicht, dass Text markierbar ist */
+#mode-container-overview .cornell-notes,
+#mode-container-overview #overview-container {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}
+
+#mode-container-overview ::selection {
+    background: rgba(56, 189, 248, 0.32);
+    color: #ffffff;
+}
+
+/* Schwebendes Popover über markiertem Text */
+.depot-selection-popover {
+    position: fixed;
+    z-index: 2000;
+    transform: translate(-50%, -100%);
+    margin-top: -10px;
+    pointer-events: auto;
+    animation: fadeInUp 0.16s var(--ease-spring) both;
+}
+
+.depot-popover-btn {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 14px rgba(56, 189, 248, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: transform 0.15s var(--ease-spring);
+}
+
+.depot-popover-btn:hover {
+    transform: scale(1.06);
+}
+
+/* Badge in der linken Sidebar */
+.depot-nav-badge {
+    margin-left: auto;
+    font-size: 0.68rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.18);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+/* Depot Header & Toolbar */
+.depot-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.depot-stats-pills {
+    display: flex;
+    gap: 8px;
+}
+
+.depot-stat-pill {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.depot-stat-pill.open strong { color: var(--warning); font-family: 'JetBrains Mono', monospace; }
+.depot-stat-pill.mastered strong { color: var(--color-symptom); font-family: 'JetBrains Mono', monospace; }
+
+.depot-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.depot-search-wrap {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    min-width: 260px;
+    justify-content: flex-end;
+}
+
+.depot-select,
+.depot-search-input {
+    background: rgba(6, 9, 19, 0.7);
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    outline: none;
+}
+
+.depot-select:focus,
+.depot-search-input:focus {
+    border-color: var(--accent-blue);
+}
+
+.depot-quick-add {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: rgba(10, 15, 29, 0.45);
+    border: 1px dashed var(--card-border);
+    border-radius: 12px;
+}
+
+/* Depot Karten-Grid */
+.depot-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+}
+
+.depot-card {
+    background: rgba(11, 17, 33, 0.72);
+    border: 1px solid var(--card-border);
+    border-left: 4px solid var(--warning);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: var(--surface-highlight), var(--shadow-sm);
+    transition: transform 0.2s var(--ease-spring), border-color 0.2s;
+}
+
+.depot-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.depot-card.is-mastered {
+    border-left-color: var(--color-symptom);
+    opacity: 0.78;
+}
+
+.depot-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+}
+
+.depot-case-Origin {
+    font-weight: 800;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.depot-case-Origin:hover {
+    text-decoration: underline;
+}
+
+.depot-cue-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    background: rgba(34, 211, 238, 0.1);
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    width: fit-content;
+}
+
+.depot-quote-text {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--text-main);
+    background: rgba(6, 9, 19, 0.5);
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow-wrap: break-word;
+}
+
+.depot-note-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.25);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    padding: 4px 2px;
+    font-family: inherit;
+    outline: none;
+}
+
+.depot-note-input:focus {
+    border-bottom-color: var(--accent-blue);
+    color: var(--text-main);
+}
+
+.depot-card-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.depot-toggle-btn {
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #a7f3d0;
+    padding: 5px 11px;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+}
+
+.depot-toggle-btn:hover {
+    background: rgba(16, 185, 129, 0.28);
+    transform: scale(1.03);
+}
+
+.depot-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.82rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.depot-delete-btn:hover {
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+/* Anpassung für Clinical Daylight Theme */
+[data-theme="daylight"] .depot-card,
+[data-theme="daylight"] .depot-quote-text,
+[data-theme="daylight"] .depot-select,
+[data-theme="daylight"] .depot-search-input,
+[data-theme="daylight"] .depot-stat-pill {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
+}
+[data-theme="daylight"] .depot-toggle-btn {
+    color: #065f46;
+}
