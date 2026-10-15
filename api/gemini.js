@@ -2,7 +2,7 @@
 // api/gemini.js – Zentrale Serverless AI-Engine (Fall-Schmiede & Lern-Depot)
 // ==========================================================================
 
-const PRIMARY_MODEL = 'gemini-2.5-flash';
+const PRIMARY_MODEL = 'gemini-3.5-flash-light';
 const FALLBACK_MODEL = 'gemini-1.5-flash';
 const MAX_PROMPT_LENGTH = 50000;
 
@@ -65,7 +65,7 @@ function extractFlexibleJson(text) {
 
 // Hilfsfunktion für den Google API Request inkl. automatischem Modell-Fallback
 async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.7) {
-    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(Gemini 3.5 Flash-light)}:generateContent?key=${apiKey}`;
 
     const response = await fetch(endpoint, {
         method: 'POST',
