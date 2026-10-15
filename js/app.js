@@ -2457,15 +2457,26 @@ async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             prompt: promptText,
-            topic: promptText,
             mode: 'depot_quiz'
         })
     });
 
+    const rawData = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        // Gibt jetzt die exakte Server-Ursache (details/error) in der Konsole aus!
+        const serverReason = rawData.details || rawData.error || `HTTP ${response.status}`;
+        throw new Error(`Server-Antwort (${response.status}): ${serverReason}`);
     }
 
+    if (Array.isArray(rawData.result)) {
+        return rawData.result;
+    } else if (Array.isArray(rawData)) {
+        return rawData;
+    }
+
+    throw new Error('Unerwartetes Antwortformat vom Server.');
+}
     const rawData = await response.json();
 
     // Extrahiere Text unabhängig davon, wie /api/gemini.js die Antwort verpackt
