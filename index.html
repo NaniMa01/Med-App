@@ -27,7 +27,7 @@
 <body>
     <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-    <!-- DIE EINZIGE, KORREKTE LINKE SIDEBAR -->
+    <!-- DIE LINKE SIDEBAR -->
     <sidebar>
         <div class="brand">
             <div class="brand-icon-wrap">
@@ -40,9 +40,18 @@
             <li class="nav-item active" onclick="switchTab('dashboard', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></li>
             <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span>Challenge Hub</span></li>
             <li class="nav-item" onclick="switchTab('forge', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg><span>Fall-Generator (Dev)</span></li>
-            <li class="nav-item" onclick="switchTab('depot', this)" id="nav-depot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path> </svg>   <span>Lern-Depot</span>  <span class="depot-nav-badge" id="nav-depot-badge">0</span></li>       
+            <li class="nav-item" onclick="switchTab('depot', this)" id="nav-depot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path> </svg>   <span>Lern-Depot</span>  <span class="depot-nav-badge" id="nav-depot-badge">0</span></li>      
+            
+            <!-- Pharmakologie Menüpunkt -->
             <li class="nav-item" onclick="switchTab('pharmacology', this)" id="nav-pharmacology">
-              <li class="nav-item" onclick="switchTab('settings', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span>Einstellungen</span></li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.5 20.5 3.5 13.5a4.95 4.95 0 1 1 7-7l7 7a4.95 4.95 0 1 1-7 7Z"></path>
+                    <path d="m8.5 8.5 7 7"></path>
+                </svg>
+                <span>Pharmakologie</span>
+            </li>
+
+            <li class="nav-item" onclick="switchTab('settings', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span>Einstellungen</span></li>
         </ul>
 
         <!-- Bookshelf -->
@@ -60,7 +69,7 @@
             </div>
         </div>
 
-        <!-- RESIZER AM RECHTEN RAND DER SIDEBAR -->
+        <!-- RESIZER -->
         <div class="sidebar-resizer" id="sidebar-resizer" title="Ziehen zum Vergrößern/Verkleinern oder Pfeile klicken">
             <div class="resizer-handle-pill">
                 <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(-30)" title="Schmälern">◀</button>
@@ -118,7 +127,7 @@
             <div class="feedback-box" id="auth-fb"></div>
         </div>
 
-        <!-- 2. DASHBOARD VIEW (Standardmäßig aktiv) -->
+        <!-- 2. DASHBOARD VIEW -->
         <div class="panel" id="dashboard-view" style="display: block;">
             <div class="panel-title">Klinische Module & Themen-Ordner</div>
             <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
@@ -151,8 +160,6 @@
                 <button class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display:none;"><span>🏷️ Taxonomie</span><span class="tab-badge" id="badge-mode-cat">Offen</span></button>
                 <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
                 <button class="challenge-tab-btn" id="tab-btn-doctordle" onclick="switchPlayerMode('doctordle')" style="display:none;"><span>🔍 Doctordle</span><span class="tab-badge" id="badge-mode-doctordle">0/3</span></button>
-        
-    
             </div>
 
             <div class="player-mode-pane" id="mode-container-overview" style="display: block;"><div id="overview-container"></div></div>
@@ -215,7 +222,7 @@
             <div class="feedback-box" id="forge-fb"></div>
         </div>
 
-        <!-- 5. LERN-DEPOT VIEW (Standardmäßig unsichtbar per style="display: none;") -->
+        <!-- 5. LERN-DEPOT VIEW -->
         <div class="panel" id="depot-view" style="display: none;">
             <div class="depot-header-row">
                 <div>
@@ -233,7 +240,6 @@
                 </div>
             </div>
 
-            <!-- DYNAMISCHER KI-TRAINER CONTAINER -->
             <div id="depot-quiz-arena" class="depot-quiz-arena hidden">
                 <div class="depot-quiz-header">
                     <div>
@@ -249,7 +255,6 @@
                 <div id="depot-quiz-body" class="depot-quiz-body"></div>
             </div>
 
-            <!-- Filter- & Suchleiste -->
             <div class="depot-toolbar">
                 <div class="segmented-control" style="margin-bottom: 0;">
                     <button type="button" class="segmented-btn active" id="depot-filter-open" onclick="setDepotFilter('open')">Offene Lernlücken</button>
@@ -264,13 +269,11 @@
                 </div>
             </div>
 
-            <!-- Manuelles Hinzufügen (Quick-Add) -->
             <div class="depot-quick-add">
                 <input type="text" id="depot-manual-input" class="depot-search-input" style="flex: 1;" placeholder="Eigene klinische Eselsbrücke oder Lernlücke schnell notieren...">
                 <button type="button" class="action-btn btn-sm" onclick="addManualDepotEntry()">+ Merken</button>
             </div>
 
-            <!-- Liste der gespeicherten Karten -->
             <div id="depot-items-container" class="depot-items-grid"></div>
         </div>
 
@@ -278,13 +281,7 @@
         <div class="panel" id="settings-view" style="display: none;">
             <div class="panel-title">Einstellungen & Erscheinungsbild</div>
             <div class="panel-subtitle">Passe das visuelle Interface optimal an deine Lernumgebung und Tageszeit an.</div>
-</div>
-        <!-- 7. PHARMAKOLOGIE VIEW (Korrekt als eigenständiges Panel) -->
-            <section id="pharmacology-view" class="view-section hidden">
-    <div id="pharmacology-container"></div>
-</section>
-</div>            
-            <!-- THEME AUSWAHL BEREICH -->
+
             <div class="settings-section">
                 <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
                 <div class="theme-selector-grid" id="theme-selector-grid">
@@ -342,11 +339,16 @@
             </div>
         </div>
 
+        <!-- 7. PHARMAKOLOGIE VIEW (Eigenständiges Panel) -->
+        <div class="panel" id="pharmacology-view" style="display: none;">
+            <div id="pharmacology-container"></div>
+        </div>
+
     </div>
 </div>
-    <!-- KOMPAKTES EIN-/AUSKLAPPBARES FORTSCHRITTS-WIDGET AM RECHTEN RAND -->
+
+    <!-- RECHTES FORTSCHRITTS-WIDGET -->
     <aside id="subject-progress-drawer" class="progress-drawer collapsed">
-        <!-- Schmaler Griff zum Ein-/Ausklappen -->
         <button type="button" class="progress-drawer-handle" onclick="toggleSubjectDrawer()" title="Fächer-Fortschritt ein-/ausklappen">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -357,7 +359,6 @@
             <span class="handle-arrow" id="drawer-arrow">◀</span>
         </button>
 
-        <!-- Ausklappbarer Inhalt -->
         <div class="progress-drawer-body">
             <div class="progress-drawer-header">
                 <div>
@@ -366,11 +367,7 @@
                 </div>
                 <button type="button" class="drawer-close-btn" onclick="toggleSubjectDrawer()">✕</button>
             </div>
-
-            <!-- Hier landen dynamisch alle Überordner/Kategorien -->
             <div id="dynamic-subjects-list" class="subjects-progress-list"></div>
-
-            <!-- Kompakte Legende unten -->
             <div class="progress-drawer-legend">
                 <span><i class="dot-red"></i> &le;32%</span>
                 <span><i class="dot-orange"></i> 33–66%</span>
@@ -388,7 +385,7 @@
         <div id="tutor-text"></div>
         <button onclick="document.getElementById('tutor-modal').style.display='none'" style="margin-top: 14px; background: rgba(56,189,248,0.15); border: 1px solid var(--accent-blue); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 700;">Verstanden</button>
     </div>
-<!-- SCHWEBENDES POPOVER BEIM MARKIEREN VON TEXT IN DER ÜBERSICHT -->
+
     <div id="depot-selection-popover" class="depot-selection-popover hidden">
         <button type="button" class="depot-popover-btn" onmousedown="saveCurrentSelectionToDepot(event)">
             <span>📌 Ins Lern-Depot</span>
@@ -400,7 +397,6 @@
     <script src="js/auth.js"></script>
     <script src="js/doctordle.js"></script>
     <script src="js/pharmacology.js"></script>
-    <script src="js/app.js"></script>
     <script src="js/app.js"></script>
     <script src="js/audit.js"></script>
     <script src="js/synapses.js"></script>
