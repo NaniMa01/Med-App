@@ -372,6 +372,10 @@ window.switchTab = function(tab, el) {
             window.applyBlindHeader(false, null);
             renderDashboardCases();
             if (window.renderSpecialtyHub) window.renderSpecialtyHub();
+
+        if (viewName === 'pharmacology') {
+    PharmacologyModule.init('pharmacology-container');
+}
         }
     };
 
