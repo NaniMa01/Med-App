@@ -2368,3 +2368,416 @@ body.is-resizing .resizer-handle-pill {
     color: #0f172a !important;
     border-color: rgba(15, 23, 42, 0.12) !important;
 }
+/* ==========================================================================
+   PHARMAKOLOGIE HUB & PHARMA-COMPASS (PFEILTASTEN-SPIEL)
+   ========================================================================== */
+
+.pharma-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    color: var(--text-primary, #f8fafc);
+}
+
+.pharma-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.pharma-badge {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.pharma-title {
+    font-size: 1.85rem;
+    font-weight: 800;
+    margin: 0 0 0.4rem 0;
+}
+
+.pharma-subtitle {
+    color: var(--text-secondary, #94a3b8);
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* Modi-Übersicht */
+.pharma-modes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2.25rem;
+}
+
+.pharma-mode-card {
+    background: var(--card-bg, rgba(30, 41, 59, 0.7));
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    position: relative;
+}
+
+.pharma-mode-card.active-mode {
+    border-color: rgba(56, 189, 248, 0.45);
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9));
+}
+
+.pharma-mode-icon {
+    font-size: 1.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.75rem;
+    border-radius: 12px;
+}
+
+.pharma-mode-info h3 {
+    margin: 0 0 0.35rem 0;
+    font-size: 1.05rem;
+}
+
+.pharma-mode-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #94a3b8);
+    line-height: 1.45;
+}
+
+.pharma-mode-tag {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+}
+
+.pharma-mode-tag.tag-muted {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+}
+
+/* Sets-Liste */
+.pharma-section-title {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.pharma-sets-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.pharma-set-card {
+    background: var(--card-bg, rgba(30, 41, 59, 0.75));
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.pharma-set-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.pharma-set-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+}
+
+.pharma-field-pill {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.pharma-type-pill {
+    color: var(--text-secondary, #94a3b8);
+}
+
+/* Kompass-Arena (Das Pfeiltasten-Layout) */
+.compass-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.compass-stats {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.stat-pill {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+}
+
+.compass-arena {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.compass-slot-up,
+.compass-slot-down {
+    width: 100%;
+    max-width: 340px;
+}
+
+.compass-middle-row {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr 1fr;
+    gap: 1rem;
+    width: 100%;
+    align-items: stretch;
+}
+
+.compass-center-patient {
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
+    border: 2px solid rgba(56, 189, 248, 0.35);
+    border-radius: 16px;
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.patient-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #38bdf8;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+}
+
+.patient-context-text {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin: 0 0 0.85rem 0;
+}
+
+.patient-question-prompt {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #f8fafc;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.keyboard-hint {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-align: center;
+}
+
+.keyboard-hint kbd {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    font-family: inherit;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+/* Die 4 Medikamenten-Karten */
+.compass-card {
+    background: var(--card-bg, rgba(30, 41, 59, 0.75));
+    border: 2px solid rgba(148, 163, 184, 0.2);
+    border-radius: 14px;
+    padding: 1.1rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 125px;
+}
+
+.compass-card:hover {
+    border-color: #38bdf8;
+    transform: translateY(-2px);
+    background: rgba(30, 41, 59, 0.95);
+}
+
+.compass-key-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    align-self: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.compass-drug-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.compass-drug-class {
+    font-size: 0.82rem;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.compass-card-feedback {
+    margin-top: 0.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+/* Antwort-Zustände */
+.compass-card.card-correct {
+    border-color: #22c55e;
+    background: rgba(22, 163, 74, 0.18);
+}
+
+.compass-card.card-wrong {
+    border-color: #ef4444;
+    background: rgba(220, 38, 38, 0.18);
+}
+
+.compass-card.card-dimmed {
+    opacity: 0.65;
+}
+
+/* Auflösung & Pearl */
+.compass-resolution-panel {
+    margin-top: 1.25rem;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 14px;
+    padding: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.pearl-box {
+    flex: 1;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+/* Buttons & Importer */
+.pharma-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 0.65rem 1.15rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pharma-btn-primary {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+.pharma-btn-primary:hover {
+    background: #7dd3fc;
+}
+
+.pharma-btn-secondary {
+    background: rgba(148, 163, 184, 0.15);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.pharma-btn-ghost {
+    background: transparent;
+    color: #94a3b8;
+    padding: 0.4rem 0.75rem;
+}
+
+.pharma-btn-ghost:hover {
+    color: #f8fafc;
+}
+
+.pharma-import-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.pharma-import-box {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.pharma-textarea {
+    width: 100%;
+    min-height: 220px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    color: #e2e8f0;
+    padding: 0.8rem;
+    font-family: monospace;
+    font-size: 0.82rem;
+    resize: vertical;
+}
+
+.pharma-error-msg {
+    color: #f87171;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 850px) {
+    .compass-middle-row {
+        grid-template-columns: 1fr;
+    }
+    .compass-slot-up, .compass-slot-down {
+        max-width: 100%;
+    }
+}
