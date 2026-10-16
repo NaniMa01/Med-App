@@ -356,26 +356,35 @@ window.switchTab = function(tab, el) {
             if (element) element.style.display = displayStyle;
         };
 
+        // Alle Haupt-Ansichten sauber ein-/ausblenden
         showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
         showTab('player-view', tab === 'player' ? 'block' : 'none');
         showTab('forge-view', tab === 'forge' ? 'block' : 'none');
         showTab('settings-view', tab === 'settings' ? 'block' : 'none');
+        showTab('depot-view', tab === 'depot' ? 'block' : 'none');
+        showTab('pharmacology-view', tab === 'pharmacology' ? 'block' : 'none');
         showTab('nav-player', tab === 'player' ? 'flex' : 'none');
         
+        // Mobile Sidebar nach Klick schließen
         const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
         const overlay = document.querySelector('.sidebar-overlay');
         if (sidebar) sidebar.classList.remove('open');
         if (overlay) overlay.classList.remove('active');
 
+        // Modulspezifische Initialisierungen beim Öffnen des jeweiligen Tabs
         if (tab === 'dashboard') {
             window.isSpecialtyBlindMode = false;
             window.applyBlindHeader(false, null);
             renderDashboardCases();
             if (window.renderSpecialtyHub) window.renderSpecialtyHub();
-
-        if (viewName === 'pharmacology') {
-    PharmacologyModule.init('pharmacology-container');
-}
+        } else if (tab === 'depot') {
+            if (typeof renderDepotView === 'function') renderDepotView();
+        } else if (tab === 'pharmacology') {
+            window.isSpecialtyBlindMode = false;
+            window.applyBlindHeader(false, null);
+            if (typeof PharmacologyModule !== 'undefined') {
+                PharmacologyModule.init('pharmacology-container');
+            }
         }
     };
 
@@ -385,7 +394,6 @@ window.switchTab = function(tab, el) {
         updateDOM();
     }
 };
-
 window.switchPlayerMode = function(mode) {
     currentActiveChallenge = mode;
     window.triggerHaptic(6);
