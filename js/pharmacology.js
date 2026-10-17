@@ -404,9 +404,9 @@ const PharmacologyModule = (() => {
                 <div class="pharma-sets-list">
                     ${filteredSets.map(set => {
                         const isMatrix = set.game_type === 'drag_matrix';
-                        const countLabel = isMatrix
-                            ? `🧩 ${set.drugs?.length \vert{}\vert{} 0} Medikamente → ${set.categories?.length || 0} Krankheiten`
-                            : `⌨️ ${set.questions?.length || 0} Szenarien`;
+                      const countLabel = isMatrix
+                        ? `🧩 ${set.drugs?.length || 0} Medikamente → ${set.categories?.length || 0} Krankheiten`
+                        : `⌨️ ${set.questions?.length || 0} Szenarien`;
                         return `
                             <div class="pharma-set-card">
                                 <div>
