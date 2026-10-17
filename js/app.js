@@ -1388,7 +1388,7 @@ window.renderOverview = function() {
     container.innerHTML = html;
 
     // ==========================================================================
-    // INTERAKTIVER HOVER-LISTENER FÜR DIE CORNELL NOTES (HIER WIRKT DER EFFEKT)
+    // INTERAKTIVER HOVER-LISTENER FÜR DIE CORNELL NOTES (BLAUES AUFLEUCHTEN)
     // ==========================================================================
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const targetIdx = cueEl.getAttribute('data-target-note');
@@ -1406,7 +1406,6 @@ window.renderOverview = function() {
         }
     });
 };
-
     const topicTitle = window.isSpecialtyBlindMode ? "Klinisches Krankheitsbild (Blind-Training)" : (data.topic || 'Thematische Übersicht');
 
     const html = `
