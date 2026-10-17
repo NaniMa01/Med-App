@@ -1,16 +1,17 @@
 /**
- * Pharmacology Module - Modular Game & Learning Hub (V2.0)
+ * Pharmacology Module - Modular Game & Learning Hub (V2.2)
  * Unterstützt:
  * 1. Pharma-Compass (Pfeiltasten / WASD)
- * 2. Pharma-Matrix (Drag & Drop + Touch/Click Zuordnung von Medikamenten zu Krankheiten)
- * 3. KI-Prompt-Generator & JSON-Import inkl. Supabase-Sync
+ * 2. Indikations-Matrix (Drag & Drop + Touch/Click Zuordnung)
+ * 3. Separate Pharma-Prompt-Bibliothek zum einfachen Kopieren
+ * 4. KI-Prompt-Generator & JSON-Import inkl. Supabase-Sync
  */
 
 const PharmacologyModule = (() => {
     const STORAGE_KEY = 'medcheck_pharma_sets';
 
     let state = {
-        activeSubView: 'hub', // 'hub' | 'arrow_compass' | 'drag_matrix' | 'import'
+        activeSubView: 'hub', // 'hub' | 'arrow_compass' | 'drag_matrix' | 'prompts' | 'import'
         modeFilter: 'all',    // 'all' | 'arrow_compass' | 'drag_matrix'
         importType: 'arrow_compass',
         currentSet: null,
@@ -335,6 +336,8 @@ const PharmacologyModule = (() => {
             container.innerHTML = renderArrowCompass();
         } else if (state.activeSubView === 'drag_matrix') {
             container.innerHTML = renderDragMatrix();
+        } else if (state.activeSubView === 'prompts') {
+            container.innerHTML = renderPromptsHub();
         } else if (state.activeSubView === 'import') {
             container.innerHTML = renderImporter();
         }
@@ -343,7 +346,7 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 1. HUB ANSICHT (BEIDE SPIELMODI + FILTERBARE SETS)
+    // 1. HUB ANSICHT (BEIDE SPIELMODI + PROMPTS BUTTON)
     // =========================================================================
     function renderHub() {
         const allSets = getAllSets();
@@ -357,26 +360,29 @@ const PharmacologyModule = (() => {
 
         return `
             <div class="pharma-wrapper">
-                <div class="pharma-header">
+                <div class="pharma-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
                     <div>
                         <span class="pharma-badge">INTERAKTIVES TRAINING</span>
                         <h1 class="pharma-title">💊 Klinische Pharmakologie</h1>
-                        <p class="pharma-subtitle">Wähle deinen Spielmodus: Blitzschnelle Entscheidungen per Pfeiltasten oder vernetzte Zuordnung per Drag & Drop.</p>
+                        <p class="pharma-subtitle">Wähle deinen Spielmodus oder hole dir direkt die passenden Prompts.</p>
                     </div>
-                    <div class="pharma-header-actions">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="pharma-btn pharma-btn-primary" data-action="open-prompts" style="background:var(--accent-cyan); color:#0f172a; font-weight:700;">
+                            ✨ Pharma-Prompts anzeigen
+                        </button>
                         <button class="pharma-btn pharma-btn-secondary" data-action="open-import">
-                            <span>+ Eigenes Set / KI-Generator</span>
+                            <span>+ JSON Importieren</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Spielmodi-Karten (Klickbar als Filter!) -->
+                <!-- Spielmodi-Karten -->
                 <div class="pharma-modes-grid">
                     <div class="pharma-mode-card ${state.modeFilter === 'arrow_compass' ? 'active-mode' : ''}" data-action="filter-mode" data-mode="arrow_compass" style="cursor:pointer;">
                         <div class="pharma-mode-icon">⌨️</div>
                         <div class="pharma-mode-info">
                             <h3>Pharma-Compass (Pfeiltasten)</h3>
-                            <p>Navigiere mit den Pfeiltasten (↑ ↓ ← →) oder WASD zum Mittel der 1. Wahl und weiche Kontraindikationen aus.</p>
+                            <p>Navigiere mit den Pfeiltasten (↑ ↓ ← →) zum Mittel der 1. Wahl.</p>
                         </div>
                         <span class="pharma-mode-tag">${compassCount} Sets</span>
                     </div>
@@ -385,7 +391,7 @@ const PharmacologyModule = (() => {
                         <div class="pharma-mode-icon">🧩</div>
                         <div class="pharma-mode-info">
                             <h3>Indikations-Matrix (Drag & Drop)</h3>
-                            <p>Ziehe mehrere Medikamente und Wirkstoffklassen per Drag & Drop direkt in die zugehörigen Krankheitsbilder.</p>
+                            <p>Ziehe Medikamente per Drag & Drop in die zugehörigen Krankheitsbilder.</p>
                         </div>
                         <span class="pharma-mode-tag">${matrixCount} Sets</span>
                     </div>
@@ -404,9 +410,9 @@ const PharmacologyModule = (() => {
                 <div class="pharma-sets-list">
                     ${filteredSets.map(set => {
                         const isMatrix = set.game_type === 'drag_matrix';
-                      const countLabel = isMatrix
-                        ? `🧩 ${set.drugs?.length || 0} Medikamente → ${set.categories?.length || 0} Krankheiten`
-                        : `⌨️ ${set.questions?.length || 0} Szenarien`;
+                        const countLabel = isMatrix
+                            ? `🧩 ${set.drugs?.length \vert{}\vert{} 0} Medikamente → ${set.categories?.length || 0} Krankheiten`
+                            : `⌨️ ${set.questions?.length || 0} Szenarien`;
                         return `
                             <div class="pharma-set-card">
                                 <div>
@@ -428,7 +434,81 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 2. SPIELMODUS A: PFEILTASTEN-SPIEL (ARROW COMPASS)
+    // 2. SEPARATER PROMPT-BEREICH FÜR PHARMA
+    // =========================================================================
+    function renderPromptsHub() {
+        const compassPromptTemp = `Erstelle ein valides JSON-Objekt für mein Pharmakologie-Spiel "Pharma-Compass" zu folgendem Thema: [HIER THEMA EINFÜGEN].
+Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
+{
+  "set_id": "pharma_custom_${Date.now()}",
+  "title": "Titel des Sets",
+  "medical_field": "Fachbereich",
+  "game_type": "arrow_compass",
+  "questions": [
+    {
+      "id": "q1",
+      "patient_context": "Prägnante klinische Vignette inkl. Vitalparameter, Labor oder Komedikation.",
+      "prompt": "Präzise Frage nach dem Mittel der 1. Wahl oder einer spezifischen Kontraindikation.",
+      "directions": {
+        "up": { "drug": "Wirkstoff A", "class": "Wirkstoffklasse", "is_correct": false, "feedback": "Warum falsch?" },
+        "right": { "drug": "Wirkstoff B", "class": "Wirkstoffklasse", "is_correct": true, "feedback": "Warum exakt richtig?" },
+        "down": { "drug": "Wirkstoff C", "class": "Wirkstoffklasse", "is_correct": false, "feedback": "Warum falsch?" },
+        "left": { "drug": "Wirkstoff D", "class": "Wirkstoffklasse", "is_correct": false, "feedback": "Warum falsch?" }
+      },
+      "pearl": "Hochrelevanter klinischer Merksatz auf Staatsexamens-Niveau."
+    }
+  ]
+}
+Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left. Erstelle 5 anspruchsvolle Fragen.`;
+
+        const matrixPromptTemp = `Erstelle ein valides JSON-Objekt für mein Drag-and-Drop Pharmakologie-Spiel "Pharma-Matrix" zu folgendem Thema: [HIER THEMA EINFÜGEN].
+Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
+{
+  "set_id": "pharma_matrix_${Date.now()}",
+  "title": "Titel des Drag & Drop Sets",
+  "medical_field": "Fachbereich",
+  "game_type": "drag_matrix",
+  "description": "Ordne die Medikamente den passenden Krankheitsbildern / Indikationen zu.",
+  "categories": [
+    { "id": "cat_1", "name": "Krankheitsbild / Indikation 1" },
+    { "id": "cat_2", "name": "Krankheitsbild / Indikation 2" },
+    { "id": "cat_3", "name": "Krankheitsbild / Indikation 3" },
+    { "id": "cat_4", "name": "Krankheitsbild / Indikation 4" }
+  ],
+  "drugs": [
+    { "id": "d1", "name": "Wirkstoff 1", "subtitle": "Wirkstoffklasse", "correct_cat": "cat_1" },
+    { "id": "d2", "name": "Wirkstoff 2", "subtitle": "Wirkstoffklasse", "correct_cat": "cat_2" }
+  ]
+}
+Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 passende Medikamente (drugs).`;
+
+        return `
+            <div class="pharma-wrapper">
+                <div class="compass-topbar" style="margin-bottom: 1.5rem;">
+                    <button class="pharma-btn pharma-btn-ghost" data-action="back-to-hub">← Zurück zum Pharma-Hub</button>
+                    <h2>✨ Separate Pharma-Prompt-Bibliothek</h2>
+                </div>
+                <p class="pharma-subtitle" style="margin-bottom: 1.5rem;">Kopiere dir hier die passenden KI-Prompts heraus, um sie für neue Pharmakologie-Spiele zu nutzen.</p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+                    <div class="pharma-import-box">
+                        <h3>⌨️ Prompt für Pharma-Compass</h3>
+                        <textarea id="box-prompt-compass" readonly class="pharma-textarea" style="height:180px;">${compassPromptTemp}</textarea>
+                        <button class="pharma-btn pharma-btn-primary" data-action="copy-specific-prompt" data-target-id="box-prompt-compass" style="background:#38bdf8; color:#0f172a; border:none; padding:10px; border-radius:8px; font-weight:700; cursor:pointer;">📋 Kompass-Prompt kopieren</button>
+                    </div>
+
+                    <div class="pharma-import-box">
+                        <h3>🧩 Prompt für Indikations-Matrix</h3>
+                        <textarea id="box-prompt-matrix" readonly class="pharma-textarea" style="height:180px;">${matrixPromptTemp}</textarea>
+                        <button class="pharma-btn pharma-btn-primary" data-action="copy-specific-prompt" data-target-id="box-prompt-matrix" style="background:var(--accent-cyan); color:#0f172a; border:none; padding:10px; border-radius:8px; font-weight:700; cursor:pointer;">📋 Matrix-Prompt kopieren</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // =========================================================================
+    // 3. SPIELMODUS A: PFEILTASTEN-SPIEL (ARROW COMPASS)
     // =========================================================================
     function renderArrowCompass() {
         const set = state.currentSet;
@@ -525,7 +605,7 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 3. SPIELMODUS B: DRAG & DROP MATRIX (MEDIKAMENTE -> KRANKHEITSBILDER)
+    // 4. SPIELMODUS B: DRAG & DROP MATRIX (MEDIKAMENTE -> KRANKHEITSBILDER)
     // =========================================================================
     function renderDragMatrix() {
         const set = state.currentSet;
@@ -632,7 +712,7 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 4. KI-PROMPT-GENERATOR & JSON-IMPORTER (BEIDE SPIELTYPEN)
+    // 5. KI-PROMPT-GENERATOR & JSON-IMPORTER (BEIDE SPIELTYPEN)
     // =========================================================================
     function renderImporter() {
         const isMatrix = state.importType === 'drag_matrix';
@@ -717,7 +797,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
     }
 
     // =========================================================================
-    // INTERAKTIONS-LOGIK (COMPASS & DRAG-MATRIX)
+    // INTERAKTIONS-LOGIK (COMPASS, MATRIX & PROMPTS)
     // =========================================================================
     function selectDirection(dir) {
         if (state.isAnswered) return;
@@ -761,7 +841,6 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
     }
 
     function attachEvents(container) {
-        // 1. Standard Button- & Karten-Aktionen
         container.querySelectorAll('[data-action]').forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -769,6 +848,9 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
 
                 if (action === 'filter-mode') {
                     state.modeFilter = el.getAttribute('data-mode') || 'all';
+                    render();
+                } else if (action === 'open-prompts') {
+                    state.activeSubView = 'prompts';
                     render();
                 } else if (action === 'start-set') {
                     const setId = el.getAttribute('data-set-id');
@@ -778,7 +860,6 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                     state.currentSet = JSON.parse(JSON.stringify(found));
 
                     if (found.game_type === 'drag_matrix') {
-                        // Medikamente beim Start mischen
                         state.currentSet.drugs = [...(found.drugs || [])].sort(() => Math.random() - 0.5);
                         state.matrixPlacements = {};
                         state.matrixEvaluated = false;
@@ -836,6 +917,21 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                     navigator.clipboard.writeText(promptArea.value);
                     el.textContent = '✅ Kopiert!';
                     setTimeout(() => { el.textContent = '📋 Prompt in Zwischenablage kopieren'; }, 2000);
+                } else if (action === 'copy-specific-prompt') {
+                    const targetId = el.getAttribute('data-target-id');
+                    const ta = document.getElementById(targetId);
+                    if (!ta) return;
+                    navigator.clipboard.writeText(ta.value).then(() => {
+                        const origText = el.textContent;
+                        el.textContent = '✅ Kopiert!';
+                        el.style.background = '#10b981';
+                        el.style.color = '#fff';
+                        setTimeout(() => {
+                            el.textContent = origText;
+                            el.style.background = '';
+                            el.style.color = '';
+                        }, 2000);
+                    });
                 } else if (action === 'save-json') {
                     const input = document.getElementById('pharma-json-input').value.trim();
                     const errBox = document.getElementById('pharma-import-error');
@@ -863,7 +959,6 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                         state.customSets.push(parsed);
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.customSets));
 
-                        // Cloud-Sync mit Supabase Account auslösen
                         if (typeof window.savePharmaSet === 'function') {
                             window.savePharmaSet(parsed);
                         }
@@ -909,7 +1004,6 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                     assignDrugToCategory(drugId, catId);
                 });
 
-                // Click-to-Move Unterstützung (für Tablet / Smartphone oder schnelles Klicken)
                 zone.addEventListener('click', (e) => {
                     if (e.target.closest('.pharma-matrix-card')) return;
                     if (!state.selectedDrugForClickMove) return;
