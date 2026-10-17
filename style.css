@@ -1819,7 +1819,7 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   CLINICAL DAYLIGHT STYLE (Vollständig Blauer Look für Ordner, Kacheln & UI-Blöcke)
+   CLINICAL DAYLIGHT STYLE (Vollständig Blauer Look für UI, Ordner, Kacheln & Challenges)
    ========================================================================== */
 [data-theme="daylight"] {
     /* Heller, augenschonender Hintergrund für die App */
@@ -1856,6 +1856,9 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .progress-drawer-handle,
 [data-theme="daylight"] .resizer-handle-pill,
 [data-theme="daylight"] .step-content,
+[data-theme="daylight"] .player-mode-pane > div,
+[data-theme="daylight"] .challenge-container,
+[data-theme="daylight"] [id^="mode-container-"] > div,
 [data-theme="daylight"] .cornell-wrapper,
 [data-theme="daylight"] .synapses-container,
 [data-theme="daylight"] .quiz-card,
@@ -1867,6 +1870,7 @@ body.is-resizing .resizer-handle-pill {
     background-color: #e0f2fe !important;
     color: #0f172a !important;
     border-color: #38bdf8 !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
 }
 
 /* Challenge-Navigation, Tabs und Segmented Controls in Blau */
@@ -1888,7 +1892,7 @@ body.is-resizing .resizer-handle-pill {
     border-color: #004080 !important;
 }
 
-/* Quiz-Optionen (vorher dunkelgraue Balken) jetzt in klarem Blau */
+/* Quiz-Optionen & Challenge-Elemente in klarem Blau */
 [data-theme="daylight"] .quiz-opt-btn {
     background: #e0f2fe !important;
     border: 1px solid #38bdf8 !important;
@@ -1904,6 +1908,19 @@ body.is-resizing .resizer-handle-pill {
     background: #7dd3fc !important;
     border-color: #0284c7 !important;
     color: #000000 !important;
+}
+
+/* Spezifische Elemente innerhalb der Challenge-Blöcke */
+[data-theme="daylight"] .step-content p,
+[data-theme="daylight"] .step-content span,
+[data-theme="daylight"] .step-content div,
+[data-theme="daylight"] .audit-item,
+[data-theme="daylight"] .stealth-word {
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .step-content:hover {
+    border-color: #0284c7 !important;
 }
 
 /* ==========================================================================
@@ -2003,7 +2020,6 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .btn:hover {
     background: #004080 !important;
 }
-
 /* Theme: Surgical Scrubs (OP-Smaragdgrün) */
 [data-theme="scrubs"] {
     --bg-color: #04110f;
