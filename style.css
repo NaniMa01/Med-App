@@ -38,7 +38,31 @@
     --shadow-md: 0 12px 32px -4px rgba(0, 0, 0, 0.45);
     --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.22);
 }
+#intro-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #0f172a; /* Ein dunkler, passender Medical-Hintergrundton als Fallback */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999; /* Garantiert, dass es über allem anderen liegt */
+    transition: opacity 0.6s ease-in-out, visibility 0.6s ease-in-out;
+}
 
+#intro-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Passt das Video perfekt an, ohne Verzerrung */
+}
+
+/* Klasse zum Ausblenden */
+#intro-screen.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
 /* Globaler Reset (Bugfix: * statt -) */
 *, *::before, *::after {
     box-sizing: border-box;
