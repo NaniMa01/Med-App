@@ -1358,13 +1358,22 @@ window.renderOverview = function() {
     if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
         data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
+            
+            // Wir bauen die Cues und splitten die Notes modular auf, 
+            // damit das Highlighting zielgenau auf einzelne Zeilen/Absätze greift.
             notesHtml += `
                 <div class="cornell-grid" id="cornell-row-${noteIdx}">
                     <div class="cornell-cues">
-                        ${cuesArray.map(c => `<div class="cornell-cue-item" data-target-note="${noteIdx}">• ${escapeHtml(c)}</div>`).join('')}
+                        ${cuesArray.map((c, cueSubIdx) => `
+                            <div class="cornell-cue-item" data-target-note="${noteIdx}" data-cue-sub="${cueSubIdx}">
+                                • ${escapeHtml(c)}
+                            </div>
+                        `).join('')}
                     </div>
                     <div class="cornell-notes" id="cornell-note-text-${noteIdx}">
-                        ${note.notes || ''}
+                        <div class="cornell-note-content-inner">
+                            ${note.notes || ''}
+                        </div>
                     </div>
                 </div>
             `;
@@ -1388,25 +1397,32 @@ window.renderOverview = function() {
     container.innerHTML = html;
 
     // ==========================================================================
-    // INTERAKTIVER HOVER-LISTENER FÜR DIE CORNELL NOTES (BLAUES AUFLEUCHTEN)
+    // PRÄZISER HOVER-LISTENER FÜR DIE SPECIFISCHEN ABSCHNITTE
     // ==========================================================================
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const targetIdx = cueEl.getAttribute('data-target-note');
-        const targetNoteBox = document.getElementById(`cornell-note-text-${targetIdx}`);
+        const cueSubIdx = cueEl.getAttribute('data-cue-sub');
+        
+        // Wir suchen das spezifische Ziel innerhalb der Box
+        const rowBox = document.getElementById(`cornell-row-${targetIdx}`);
 
-        if (targetNoteBox) {
+        if (rowBox) {
             cueEl.addEventListener('mouseenter', () => {
-                targetNoteBox.classList.add('highlight-target');
+                cueEl.classList.add('cue-active-highlight');
+                // Optional: Hier können wir gezielt die Zeile oder Box markieren
+                const noteBox = rowBox.querySelector('.cornell-notes');
+                if (noteBox) noteBox.classList.add('highlight-target');
                 window.triggerHaptic(4);
             });
 
             cueEl.addEventListener('mouseleave', () => {
-                targetNoteBox.classList.remove('highlight-target');
+                cueEl.classList.remove('cue-active-highlight');
+                const noteBox = rowBox.querySelector('.cornell-notes');
+                if (noteBox) noteBox.classList.remove('highlight-target');
             });
         }
     });
 };
-
 // ====================================================
 // FORGE / GEMINI API
 // ====================================================
