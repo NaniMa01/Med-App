@@ -1844,6 +1844,10 @@ body.is-resizing .resizer-handle-pill {
     --accent-cyan: #0284c7 !important;
     --accent-indigo: #1e3a8a !important;
 
+   --container-bg: #e0f2fe !important;
+    --container-border: #38bdf8 !important;
+    --inner-box-bg: #ffffff !important;
+
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
 }
@@ -2066,6 +2070,13 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* 1. Globale und spezifische Challenge-/Audit-Container auf Hellblau zwingen */
+[data-theme="daylight"] div, 
+[data-theme="daylight"] section, 
+[data-theme="daylight"] article,
+[data-theme="daylight"] aside {
+    /* Wir entziehen starre Dunkel-Hintergründe, es sei denn, es handelt sich um Buttons/Badges */
+    background-color: var(--override-bg, unset);
+}
 [data-theme="daylight"] #player-container,
 [data-theme="daylight"] .player-mode-pane,
 [data-theme="daylight"] #mode-container-audit,
