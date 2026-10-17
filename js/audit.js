@@ -1,33 +1,55 @@
 // js/audit.js - Challenge Audit mit semantischen Satzbausteinen (3-6 Wörter)
 
 // Hilfsfunktion zum Aufteilen von Text in semantische Chunks (3-6 Wörter)
-function chunkTextIntoSegments(text, hotspots = []) {
-    // Wörter trennen, aber Leerzeichen/Zeilenumbrüche respektieren
-    const words = text.split(/\s+/);
-    const chunks = [];
-    let i = 0;
+// js/audit.js - Semantische Klausel-Segmentierung für den Audit-Modus
+
+// Zerlegt den Text intelligent in sprachlich sinnvolle Sinnabschnitte (Klauseln/Phrasen)
+function chunkTextIntoSemanticSegments(text, hotspots = []) {
+    if (!text) return [];
+
+    // Wir trennen den Text an natürlichen Satzgrenzen und Klausel-Bindern 
+    // (Kommata, Semikolons, Punkte, Konjunktionen), damit jeder Baustein Sinn ergibt.
+    const rawParts = text.split(/([,;.]\s+|\s+und\s+|\s+oder\s+|\s+während\s+|\s+sodass\s+)/g);
     
-    while (i < words.length) {
-        // Bestimme eine realistische Baustein-Länge zwischen 3 und 6 Wörtern
-        const targetLength = Math.min(Math.floor(Math.random() * 4) + 3, words.length - i);
-        const chunkWords = words.slice(i, i + targetLength);
-        const chunkTextStr = chunkWords.join(' ');
+    let segments = [];
+    let currentChunk = '';
+
+    rawParts.forEach(part => {
+        if (!part) return;
+        currentChunk += part;
         
-        // Prüfen, ob in diesem Chunk einer der definierten Hotspots/Fehler liegt
+        // Wenn ein Trennzeichen erreicht ist oder der Baustein eine solide semantische Länge hat
+        if (/[,;.]/.test(part) || currentChunk.split(/\s+/).length >= 6) {
+            if (currentChunk.trim().length > 0) {
+                segments.push(currentChunk.trim());
+                currentChunk = '';
+            }
+        }
+    });
+
+    if (currentChunk.trim().length > 0) {
+        segments.push(currentChunk.trim());
+    }
+
+    // Fallback, falls der Text keine klassischen Trennzeichen hat: Mindestens den Rohtext als Sinnabschnitt behalten
+    if (segments.length === 0) {
+        segments.push(text);
+    }
+
+    // Mappen der Segmente auf klickbare Bausteine und Abgleich mit definierten Hotspots
+    return segments.map((segText, index) => {
+        // Prüfen, ob ein definierter Hotspot in diesem Sinnabschnitt liegt oder exakt übereinstimmt
         const matchingHotspotIndex = hotspots.findIndex(hs => {
-            return chunkTextStr.includes(hs.phrase) || hs.phrase.includes(chunkTextStr);
+            return segText.includes(hs.phrase) || hs.phrase.includes(segText);
         });
 
-        chunks.push({
-            id: `chunk_${i}`,
-            text: chunkTextStr,
+        return {
+            id: `seg_${index}`,
+            text: segText,
             hasError: matchingHotspotIndex !== -1,
             hotspotIndex: matchingHotspotIndex !== -1 ? matchingHotspotIndex : null
-        });
-
-        i += targetLength;
-    }
-    return chunks;
+        };
+    });
 }
 
 function renderTimeline() {
@@ -38,24 +60,24 @@ function renderTimeline() {
         let rawText = step.content || "";
         const hotspots = step.hotspots || []; 
 
-        // Text in 3-6 Wörter Chunks zerlegen
-        const chunks = chunkTextIntoSegments(rawText, hotspots);
+        // Sinnhafte semantische Segmente generieren
+        const segments = chunkTextIntoSemanticSegments(rawText, hotspots);
 
-        // Chunks in HTML-Spans umwandeln, die als Einheit hovern und anklickbar sind
-        const renderedChunksHTML = chunks.map((chunk, cIndex) => {
-            if (chunk.hasError) {
-                // Ein echter Fehler-Baustein
-                return `<span class="audit-chunk stealth-hotspot" id="hs-${index}-${chunk.hotspotIndex}" onclick="evaluateAuditHotspot(${index}, ${chunk.hotspotIndex})">${chunk.text}</span>`;
+        // Rendering mit deinen bewährten Stealth-Klassen
+        const renderedHTML = segments.map((seg) => {
+            if (seg.hasError) {
+                // Echter Fehler-Baustein (Hotspot)
+                return `<span class="stealth-hotspot" id="hs-${index}-${seg.hotspotIndex}" onclick="evaluateAuditHotspot(${index}, ${seg.hotspotIndex})">${seg.text}</span>`;
             } else {
-                // Ein fehlerfreier Ablenkungs-Baustein
-                return `<span class="audit-chunk stealth-word" onclick="handleGenericChunkClick(this)">${chunk.text}</span>`;
+                // Sinnvoller, aber korrekter Ablenkungs-Baustein
+                return `<span class="stealth-word" onclick="handleGenericChunkClick(this)">${seg.text}</span>`;
             }
         }).join(' ');
 
         return `
             <div class="audit-step-container" style="margin-top: 25px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                 <div style="font-size:0.75rem; font-weight:800; color:var(--accent-blue); text-transform:uppercase; margin-bottom:12px;">Abschnitt ${index+1}: ${step.phase}</div>
-                <div class="step-content audit-chunk-row" style="line-height: 2.0; font-size: 1rem;">${renderedChunksHTML}</div>
+                <div class="step-content" style="line-height: 2.2; font-size: 1rem;">${renderedHTML}</div>
                 <div class="feedback-box" id="audit-fb-${index}" style="display:none; margin-top: 15px;"></div>
                 <button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="width:100%; margin-top:15px;">Abschnitt freigeben (Makellos)</button>
             </div>`;
@@ -65,11 +87,7 @@ function renderTimeline() {
 window.handleGenericChunkClick = function(el) {
     if (el.classList.contains('resolved-noise') || el.classList.contains('resolved-generic')) return;
     el.classList.add('resolved-noise');
-    applyXpDelta(-20, 'Fehlalarm im Satzbaustein');
-    
-    // Kleines optisches Feedback direkt am Baustein
-    el.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
-    el.style.borderColor = '#ef4444';
+    applyXpDelta(-20, 'Fehlalarm im Sinnabschnitt');
 };
 
 window.clearStep = function(stepIndex) {
