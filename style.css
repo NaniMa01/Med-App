@@ -1006,225 +1006,167 @@ body.is-resizing .resizer-handle-pill {
 .dot-orange { background: #f59e0b; }
 .dot-green  { background: #10b981; }
 /* ==========================================================================
-   7. CORNELL NOTE SYSTEM
+   7. CORNELL NOTE SYSTEM (EDITORIAL & HIGH READABILITY)
    ========================================================================== */
 .cornell-wrapper {
     display: flex;
     flex-direction: column;
-    background: rgba(11, 17, 33, 0.65);
-    border: 1px solid var(--card-border);
-    box-shadow: var(--surface-highlight), var(--shadow-sm);
+    background: #0b1121;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
     border-radius: 16px;
     overflow: hidden;
+    margin-bottom: 2rem;
 }
+
 .cornell-header {
-    background: linear-gradient(90deg, rgba(16, 24, 46, 0.95), rgba(56, 189, 248, 0.16));
-    border-bottom: 2px solid var(--accent-blue);
-    padding: 22px;
-    text-align: center;
-}
-.cornell-header h2 { 
-    margin: 0; 
-    font-size: 1.25rem; 
-    font-weight: 800; 
-    color: #fff; 
-    overflow-wrap: break-word; 
-}
-.cornell-grid { 
-    display: grid; 
-    grid-template-columns: 28% 72%; 
-    border-bottom: 1px solid var(--card-border); 
-    transition: background 0.2s; 
-}
-.cornell-grid:hover { 
-    background: rgba(255, 255, 255, 0.015); 
-}
-.cornell-grid:last-child { 
-    border-bottom: none; 
-}
-.cornell-cues { 
-    background: rgba(16, 24, 46, 0.45); 
-    border-right: 2px solid rgba(56, 189, 248, 0.6); 
-    padding: 20px; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 8px; 
-}
-.cornell-cue-item {
-    font-size: 0.81rem;
-    font-weight: 700;
-    color: var(--accent-cyan);
-    background: rgba(34, 211, 238, 0.1);
-    padding: 7px 11px;
-    border-radius: 7px;
-    border-left: 3px solid var(--accent-cyan);
-    line-height: 1.35;
-    overflow-wrap: break-word;
-    word-break: break-word;
-    cursor: pointer;
-    transition: transform 0.2s var(--ease-spring), background 0.2s, color 0.2s;
-}
-.cornell-cue-item:hover,
-.cornell-cue-item.cue-active-highlight {
-    transform: translateX(3px);
-    background: rgba(34, 211, 238, 0.16);
-    color: #38bdf8;
-}
-
-/* Markierte Textstelle beim Hover über den Cornell-Cue */
-.cornell-note-item {
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.cornell-notes { 
-    padding: 20px 24px; 
-    font-size: 0.92rem; 
-    line-height: 1.65; 
-    color: var(--text-main); 
-    overflow-wrap: break-word; 
-    word-break: break-word;
-    transition: background-color 0.25s ease, border-left-color 0.25s ease;
-    border-left: 3px solid transparent;
-    border-radius: 4px;
-}
-
-.cornell-notes.highlight-target {
-    background-color: rgba(56, 189, 248, 0.08); /* Dezentes, zielgenaues Hellblau */
-    border-left: 3px solid #38bdf8;
-}
-
-.cornell-notes strong { color: var(--accent-blue); }
-.cornell-summary { background: rgba(16, 24, 46, 0.85); border-top: 2px solid var(--accent-blue); padding: 20px; text-align: center; }
-.cornell-summary h4 { margin: 0 0 8px 0; color: var(--accent-blue); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.06em; }
-.cornell-summary p { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--text-main); line-height: 1.55; font-style: italic; overflow-wrap: break-word; }
-
-/* ==========================================================================
-   7. CORNELL NOTE SYSTEM (HÖHENSYNCHRONISIERTES GRID)
-   ========================================================================== */
-.cornell-wrapper {
+    background: linear-gradient(90deg, #0f172a, #1e293b);
+    border-bottom: 2px solid var(--accent-blue, #38bdf8);
+    padding: 20px 24px;
+    text-align: left;
     display: flex;
-    flex-direction: column;
-    background: rgba(11, 17, 33, 0.65);
-    border: 1px solid var(--card-border);
-    box-shadow: var(--surface-highlight), var(--shadow-sm);
-    border-radius: 16px;
-    overflow: hidden;
-}
-
-.cornell-header {
-    background: linear-gradient(90deg, rgba(16, 24, 46, 0.95), rgba(56, 189, 248, 0.16));
-    border-bottom: 2px solid var(--accent-blue);
-    padding: 22px;
-    text-align: center;
+    align-items: center;
+    gap: 12px;
 }
 
 .cornell-header h2 { 
     margin: 0; 
-    font-size: 1.25rem; 
-    font-weight: 800; 
-    color: #fff; 
-    overflow-wrap: break-word; 
+    font-size: 1.2rem; 
+    font-weight: 700; 
+    color: #f8fafc;
+    letter-spacing: -0.01em;
 }
 
-/* Jede Zeile verbindet exakt einen Cue links mit einem Textfragment rechts auf gleicher Höhe */
+/* Jede Tabellenzeile: Feste, angenehme Breitenverteilung */
 .cornell-row-item {
     display: grid;
-    grid-template-columns: 28% 72%;
-    border-bottom: 1px solid var(--card-border);
-    transition: background 0.2s;
-    align-items: stretch; /* Sorgt dafür, dass beide Spalten flexibel die gleiche Höhe einnehmen */
+    grid-template-columns: 240px 1fr;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s ease;
+    align-items: stretch;
 }
 
 .cornell-row-item:hover { 
-    background: rgba(255, 255, 255, 0.015); 
+    background: rgba(255, 255, 255, 0.02); 
 }
 
 .cornell-row-item:last-child { 
     border-bottom: none; 
 }
 
+/* Linke Spalte: Stichworte (Cues) */
 .cornell-cue-col { 
-    background: rgba(16, 24, 46, 0.45); 
-    border-right: 2px solid rgba(56, 189, 248, 0.6); 
-    padding: 16px 20px; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center; /* Zentriert den Cue vertikal genau auf Höhe des Textfragments */
+    background: rgba(15, 23, 42, 0.7);
+    border-right: 1px solid rgba(56, 189, 248, 0.15);
+    padding: 18px 16px;
+    display: flex;
+    align-items: flex-start;
 }
 
 .cornell-cue-item {
-    font-size: 0.81rem;
+    font-size: 0.82rem;
     font-weight: 700;
-    color: var(--accent-cyan);
-    background: rgba(34, 211, 238, 0.1);
-    padding: 7px 11px;
-    border-radius: 7px;
-    border-left: 3px solid var(--accent-cyan);
-    line-height: 1.35;
-    overflow-wrap: break-word;
-    word-break: break-word;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-left: 3px solid #38bdf8;
+    padding: 8px 12px;
+    border-radius: 6px;
+    line-height: 1.4;
     cursor: pointer;
-    transition: transform 0.2s var(--ease-spring), background 0.2s, color 0.2s;
+    width: 100%;
+    transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .cornell-cue-item:hover,
 .cornell-cue-item.cue-active-highlight {
-    transform: translateX(3px);
-    background: rgba(34, 211, 238, 0.16);
-    color: #38bdf8;
+    transform: translateX(4px);
+    background: rgba(56, 189, 248, 0.18);
+    border-color: #38bdf8;
+    color: #ffffff;
 }
 
+/* Rechte Spalte: Notizen und Inhalt */
 .cornell-note-col {
-    padding: 16px 24px;
+    padding: 16px 28px;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
 
-/* Das spezifische Textfragment, das beim Hover exakt lokal aufleuchtet */
+/* Der Fließtext: Optimale Leselänge und Zeilenhöhe */
 .cornell-fragment {
-    font-size: 0.92rem;
-    line-height: 1.65;
-    color: var(--text-main);
-    overflow-wrap: break-word;
-    word-break: break-word;
-    padding: 6px 10px;
-    border-radius: 6px;
+    font-size: 0.96rem;
+    line-height: 1.75;
+    color: #cbd5e1;
+    max-width: 880px; /* Begrenzt die Zeilenlänge für entspanntes Lesen */
+    padding: 8px 14px;
+    border-radius: 8px;
     border-left: 3px solid transparent;
-    transition: background-color 0.25s ease, border-left-color 0.25s ease, padding-left 0.25s ease;
+    transition: all 0.25s ease;
 }
 
+/* Hervorhebung beim Überfahren des linken Cues */
 .cornell-fragment.highlight-target {
-    background-color: rgba(56, 189, 248, 0.12); /* Dezentes, zielgenaues Hellblau */
-    border-left: 3px solid #38bdf8;
-    padding-left: 14px;
+    background-color: rgba(56, 189, 248, 0.08);
+    border-left-color: #38bdf8;
+    color: #f8fafc;
+    padding-left: 18px;
 }
 
-.cornell-fragment strong { color: var(--accent-blue); }
+/* Semantische Auszeichnungen im Text */
+.cornell-fragment strong, 
+.cornell-fragment b {
+    color: #f1f5f9;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
 
+/* Kennzeichnung von Leit- oder Fachbegriffen am Satzanfang */
+.cornell-fragment strong:first-child {
+    color: #38bdf8;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+/* Zusammenfassungsbox am Ende */
 .cornell-summary { 
-    background: rgba(16, 24, 46, 0.85); 
-    border-top: 2px solid var(--accent-blue); 
-    padding: 20px; 
-    text-align: center; 
+    background: #0f172a;
+    border-top: 1px solid rgba(56, 189, 248, 0.2);
+    padding: 24px 28px;
 }
 
 .cornell-summary h4 { 
     margin: 0 0 8px 0; 
-    color: var(--accent-blue); 
+    color: #38bdf8; 
     text-transform: uppercase; 
     font-size: 0.78rem; 
-    letter-spacing: 0.06em; 
+    letter-spacing: 0.08em; 
+    font-weight: 700;
 }
 
 .cornell-summary p { 
     margin: 0; 
-    font-size: 0.92rem; 
-    font-weight: 600; 
-    color: var(--text-main); 
-    line-height: 1.55; 
-    font-style: italic; 
-    overflow-wrap: break-word; 
+    font-size: 0.95rem; 
+    font-weight: 500; 
+    color: #e2e8f0; 
+    line-height: 1.65; 
+    max-width: 900px;
+}
+
+/* Mobile & Tablet-Anpassung */
+@media (max-width: 860px) {
+    .cornell-row-item {
+        grid-template-columns: 1fr;
+    }
+    .cornell-cue-col {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 12px 16px;
+    }
+    .cornell-note-col {
+        padding: 14px 16px;
+    }
 }
 /* ==========================================================================
    8. SYNAPSEN-MATRIX & DOCTORDLE
