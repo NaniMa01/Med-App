@@ -1486,24 +1486,21 @@ body.is-resizing .resizer-handle-pill {
 }
 
 /* ==========================================
-   AUDIT-MODUS & STEALTH-KLICKS (3-6 Wörter)
+   AUDIT-MODUS & NATÜRLICHER FLIESSZEIT-STYLE
    ========================================== */
 .stealth-word, .stealth-hotspot {
     cursor: pointer;
-    display: inline-block; /* Wichtig, damit 3-6 Wörter als geschlossener Baustein reagieren */
-    border-radius: 4px;
-    padding: 2px 5px;
-    margin: 1px 2px;
+    display: inline; /* Hält den Text absolut im natürlichen Fluss ohne Block-Abstände */
+    border-radius: 3px;
+    padding: 1px 2px;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     user-select: text;
     overflow-wrap: break-word;
-    border-bottom: 2px solid transparent;
 }
 
-/* Sanftes gemeinsames Aufhellen beim rüberfahren mit der Maus */
+/* Sanftes gemeinsames Aufhellen des Sinnabschnitts beim Hovern */
 .stealth-word:hover, .stealth-hotspot:hover {
     background-color: rgba(56, 189, 248, 0.15);
-    border-bottom-color: rgba(56, 189, 248, 0.4);
 }
 
 /* Korrekt gefundener Fehler (Signal) */
@@ -1520,7 +1517,6 @@ body.is-resizing .resizer-handle-pill {
     text-decoration: line-through;
     color: var(--text-muted) !important;
     cursor: default !important;
-    border-bottom: 2px solid #94a3b8 !important;
 }
 
 .resolved-generic { 
