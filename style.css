@@ -1097,6 +1097,29 @@ body.is-resizing .resizer-handle-pill {
 .cornell-summary { background: rgba(16, 24, 46, 0.85); border-top: 2px solid var(--accent-blue); padding: 20px; text-align: center; }
 .cornell-summary h4 { margin: 0 0 8px 0; color: var(--accent-blue); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.06em; }
 .cornell-summary p { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--text-main); line-height: 1.55; font-style: italic; overflow-wrap: break-word; }
+
+/* ==========================================================================
+   7. CORNELL NOTE SYSTEM (ERWEITERTES SEKTIONS-HIGHLIGHTING)
+   ========================================================================== */
+
+/* Das eigentliche Text-Segment, das beim Hover aufleuchtet */
+.cornell-note-segment {
+    transition: background-color 0.25s ease, padding-left 0.25s ease, border-left-color 0.25s ease;
+    border-left: 3px solid transparent;
+    border-radius: 4px;
+}
+
+.cornell-note-segment.highlight-target {
+    background-color: rgba(56, 189, 248, 0.1); /* Dezentes, zielgenaues Hellblau */
+    border-left: 3px solid #38bdf8;
+    padding-left: 8px;
+}
+
+.cornell-cue-item.cue-active-highlight {
+    transform: translateX(3px);
+    background: rgba(34, 211, 238, 0.16);
+    color: #38bdf8;
+}
 /* ==========================================================================
    8. SYNAPSEN-MATRIX & DOCTORDLE
    ========================================================================== */
