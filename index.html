@@ -341,30 +341,10 @@
         </div>
 
 
-<!-- 7. PHARMAKOLOGIE VIEW (Eigenständiges Panel für das Drag & Drop Modul) -->
+<!-- 7. PHARMAKOLOGIE VIEW (Wird dynamisch von js/pharmacology.js gerendert) -->
         <div class="panel" id="pharmacology-view" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-                <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück zum Dashboard</button>
-                <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">Modul: Klinische Pharmakologie</div>
-            </div>
-
-            <div class="panel-title">💊 Pharma-Matrix: Wirkstoff- & Indikations-Zuordnung</div>
-            <div class="panel-subtitle">Ordne die Psychopharmaka (Antidepressiva & Antipsychotika) per Drag-and-Drop den korrekten Hauptindikationen oder Wirkmechanismen zu.</div>
-
-            <!-- Medikamenten-Pool (Quell-Container) -->
-            <div class="pharma-bank-section">
-                <div class="bank-title">Verfügbare Wirkstoffe (Wartebereich):</div>
-                <div class="pharma-drug-pool" id="pharma-matrix-pool" ondragover="allowMatrixDragOver(event)" ondrop="dropToPool(event)"></div>
-            </div>
-
-            <!-- Ziel-Spalten (Krankheitsbilder / Indikationen) -->
-            <div class="pharma-categories-grid" id="pharma-matrix-categories"></div>
-
-            <!-- Feedback & Validierung -->
-            <div class="feedback-box" id="pharma-matrix-fb"></div>
-            <button type="button" class="action-btn" onclick="validatePharmaMatrix()" style="width: 100%; margin-top: 20px;">Zuordnung überprüfen ✓</button>
+            <div id="pharmacology-container"></div>
         </div>
-
 
     <!-- RECHTES FORTSCHRITTS-WIDGET -->
     <aside id="subject-progress-drawer" class="progress-drawer collapsed">
