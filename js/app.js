@@ -2595,3 +2595,54 @@ async function markDepotMasteredFromQuiz(depotId, btnEl) {
         btnEl.style.opacity = '0.6';
     }
 }
+
+// ====================================================
+// PHARMA-COMPASS SPEICHER-MODULE
+// ====================================================
+
+async function savePharmaSet(setObj) {
+    if (!setObj || !setObj.set_id) {
+        console.error('Ungültiges Pharma-Set übergeben.');
+        return;
+    }
+
+    // 1. Lokaler Speicher (LocalStorage als Fallback & für den Gastmodus)
+    try {
+        let savedSets = JSON.parse(localStorage.getItem('pharma_compass_sets') || '[]');
+        savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
+        savedSets.push(setObj);
+        localStorage.setItem('pharma_compass_sets', JSON.stringify(savedSets));
+        console.log('Pharma-Set erfolgreich lokal gespeichert.');
+    } catch (e) {
+        console.error('Fehler beim Speichern im LocalStorage:', e);
+    }
+
+    // 2. Supabase Cloud-Sync (wenn der Nutzer eingeloggt ist)
+    const sb = window.supabaseClient || window.sb || null;
+    if (sb && sb.auth) {
+        try {
+            const { data: sessionData } = await sb.auth.getSession();
+            const user = sessionData?.session?.user;
+            
+            if (user) {
+                const { error } = await sb.from('pharma_sets').upsert([{
+                    set_id: setObj.set_id,
+                    user_id: user.id,
+                    title: setObj.title,
+                    medical_field: setObj.medical_field,
+                    game_type: setObj.game_type,
+                    content: setObj,
+                    updated_at: new Date().toISOString()
+                }]);
+
+                if (error) {
+                    console.error('Supabase Sync-Fehler für Pharma-Set:', error.message);
+                } else {
+                    console.log('Pharma-Set erfolgreich mit dem Supabase-Account synchronisiert.');
+                }
+            }
+        } catch (err) {
+            console.warn('Cloud-Sync im Hintergrund fehlgeschlagen (Daten sind lokal gesichert):', err);
+        }
+    }
+}
