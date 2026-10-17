@@ -348,49 +348,70 @@ function escapeHtml(str) {
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
     const updateDOM = () => {
+        // 1. Aktiven Zustand der Navigation aktualisieren
         document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
         if (el) el.classList.add('active');
         
-        const showTab = (id, displayStyle) => {
-            const element = document.getElementById(id);
-            if (element) element.style.display = displayStyle;
+        // 2. Liste aller Haupt-Views der App
+        const allViews = [
+            'dashboard-view', 
+            'player-view', 
+            'forge-view', 
+            'settings-view', 
+            'depot-view', 
+            'pharmacology-view'
+        ];
+
+        // 3. Alle Views strikt ausblenden
+        allViews.forEach(viewId => {
+            const element = document.getElementById(viewId);
+            if (element) element.style.display = 'none';
+        });
+
+        // 4. Nur die gewünschte Ziel-View einblenden
+        const targetViewMap = {
+            'dashboard': 'dashboard-view',
+            'player': 'player-view',
+            'forge': 'forge-view',
+            'settings': 'settings-view',
+            'depot': 'depot-view',
+            'pharmacology': 'pharmacology-view'
         };
 
-        // Alle Haupt-Ansichten sauber ein-/ausblenden
-        showTab('dashboard-view', tab === 'dashboard' ? 'block' : 'none');
-        showTab('player-view', tab === 'player' ? 'block' : 'none');
-        showTab('forge-view', tab === 'forge' ? 'block' : 'none');
-        showTab('settings-view', tab === 'settings' ? 'block' : 'none');
-        showTab('depot-view', tab === 'depot' ? 'block' : 'none');
-        showTab('pharmacology-view', tab === 'pharmacology' ? 'block' : 'none');
-        showTab('nav-player', tab === 'player' ? 'flex' : 'none');
+        const activeViewId = targetViewMap[tab];
+        if (activeViewId) {
+            const targetElement = document.getElementById(activeViewId);
+            if (targetElement) targetElement.style.display = 'block';
+        }
+
+        // Challenge Hub Nav-Anpassung
+        const navPlayer = document.getElementById('nav-player');
+        if (navPlayer) {
+            navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
+        }
         
-        // Mobile Sidebar nach Klick schließen
+        // Mobile Sidebar nach Klick automatisch schließen
         const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
         const overlay = document.querySelector('.sidebar-overlay');
         if (sidebar) sidebar.classList.remove('open');
         if (overlay) overlay.classList.remove('active');
 
-        // Modulspezifische Initialisierungen beim Öffnen des jeweiligen Tabs
+        // 5. Modulspezifische Initialisierungen beim Tab-Wechsel
         if (tab === 'dashboard') {
             window.isSpecialtyBlindMode = false;
-            window.applyBlindHeader(false, null);
-            renderDashboardCases();
-            if (window.renderSpecialtyHub) window.renderSpecialtyHub();
+            if (typeof renderDashboardCases === 'function') renderDashboardCases();
+            if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
         } else if (tab === 'depot') {
             if (typeof renderDepotView === 'function') renderDepotView();
         } else if (tab === 'pharmacology') {
             window.isSpecialtyBlindMode = false;
-            window.applyBlindHeader(false, null);
-            if (typeof PharmacologyModule !== 'undefined') {
+            if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
                 PharmacologyModule.init('pharmacology-container');
-
-                } else {
-        console.error("PharmacologyModule wurde nicht gefunden!");
             }
         }
     };
 
+    // View Transitions API nutzen, falls vom Browser unterstützt
     if (document.startViewTransition) {
         document.startViewTransition(updateDOM);
     } else {
