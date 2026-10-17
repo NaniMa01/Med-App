@@ -1359,19 +1359,18 @@ window.renderOverview = function() {
         data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             
-            // Wir bauen die Cues und splitten die Notes modular auf, 
-            // damit das Highlighting zielgenau auf einzelne Zeilen/Absätze greift.
+            // Jedes Paar aus Cues und Notizen bekommt eine eindeutige ID-Struktur
             notesHtml += `
                 <div class="cornell-grid" id="cornell-row-${noteIdx}">
                     <div class="cornell-cues">
                         ${cuesArray.map((c, cueSubIdx) => `
-                            <div class="cornell-cue-item" data-target-note="${noteIdx}" data-cue-sub="${cueSubIdx}">
+                            <div class="cornell-cue-item" data-row="${noteIdx}" data-sub="${cueSubIdx}">
                                 • ${escapeHtml(c)}
                             </div>
                         `).join('')}
                     </div>
-                    <div class="cornell-notes" id="cornell-note-text-${noteIdx}">
-                        <div class="cornell-note-content-inner">
+                    <div class="cornell-notes" id="cornell-note-box-${noteIdx}">
+                        <div class="cornell-note-segment" id="cornell-segment-${noteIdx}">
                             ${note.notes || ''}
                         </div>
                     </div>
@@ -1397,28 +1396,22 @@ window.renderOverview = function() {
     container.innerHTML = html;
 
     // ==========================================================================
-    // PRÄZISER HOVER-LISTENER FÜR DIE SPECIFISCHEN ABSCHNITTE
+    // PRÄZISER HOVER-LISTENER FÜR DAS ZEILENGENAUE HIGHLIGHTING
     // ==========================================================================
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
-        const targetIdx = cueEl.getAttribute('data-target-note');
-        const cueSubIdx = cueEl.getAttribute('data-cue-sub');
-        
-        // Wir suchen das spezifische Ziel innerhalb der Box
-        const rowBox = document.getElementById(`cornell-row-${targetIdx}`);
+        const rowIdx = cueEl.getAttribute('data-row');
+        const targetSegment = document.getElementById(`cornell-segment-${rowIdx}`);
 
-        if (rowBox) {
+        if (targetSegment) {
             cueEl.addEventListener('mouseenter', () => {
                 cueEl.classList.add('cue-active-highlight');
-                // Optional: Hier können wir gezielt die Zeile oder Box markieren
-                const noteBox = rowBox.querySelector('.cornell-notes');
-                if (noteBox) noteBox.classList.add('highlight-target');
+                targetSegment.classList.add('highlight-target');
                 window.triggerHaptic(4);
             });
 
             cueEl.addEventListener('mouseleave', () => {
                 cueEl.classList.remove('cue-active-highlight');
-                const noteBox = rowBox.querySelector('.cornell-notes');
-                if (noteBox) noteBox.classList.remove('highlight-target');
+                targetSegment.classList.remove('highlight-target');
             });
         }
     });
