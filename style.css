@@ -1006,6 +1006,99 @@ body.is-resizing .resizer-handle-pill {
 .dot-orange { background: #f59e0b; }
 .dot-green  { background: #10b981; }
 /* ==========================================================================
+   7. CORNELL NOTE SYSTEM
+   ========================================================================== */
+.cornell-wrapper {
+    display: flex;
+    flex-direction: column;
+    background: rgba(11, 17, 33, 0.65);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--surface-highlight), var(--shadow-sm);
+    border-radius: 16px;
+    overflow: hidden;
+}
+.cornell-header {
+    background: linear-gradient(90deg, rgba(16, 24, 46, 0.95), rgba(56, 189, 248, 0.16));
+    border-bottom: 2px solid var(--accent-blue);
+    padding: 22px;
+    text-align: center;
+}
+.cornell-header h2 { 
+    margin: 0; 
+    font-size: 1.25rem; 
+    font-weight: 800; 
+    color: #fff; 
+    overflow-wrap: break-word; 
+}
+.cornell-grid { 
+    display: grid; 
+    grid-template-columns: 28% 72%; 
+    border-bottom: 1px solid var(--card-border); 
+    transition: background 0.2s; 
+}
+.cornell-grid:hover { 
+    background: rgba(255, 255, 255, 0.015); 
+}
+.cornell-grid:last-child { 
+    border-bottom: none; 
+}
+.cornell-cues { 
+    background: rgba(16, 24, 46, 0.45); 
+    border-right: 2px solid rgba(56, 189, 248, 0.6); 
+    padding: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+}
+.cornell-cue-item {
+    font-size: 0.81rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    background: rgba(34, 211, 238, 0.1);
+    padding: 7px 11px;
+    border-radius: 7px;
+    border-left: 3px solid var(--accent-cyan);
+    line-height: 1.35;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-spring), background 0.2s, color 0.2s;
+}
+.cornell-cue-item:hover,
+.cornell-cue-item.cue-active-highlight {
+    transform: translateX(3px);
+    background: rgba(34, 211, 238, 0.16);
+    color: #38bdf8;
+}
+
+/* Markierte Textstelle beim Hover über den Cornell-Cue */
+.cornell-note-item {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.cornell-notes { 
+    padding: 20px 24px; 
+    font-size: 0.92rem; 
+    line-height: 1.65; 
+    color: var(--text-main); 
+    overflow-wrap: break-word; 
+    word-break: break-word;
+    transition: background-color 0.25s ease, border-left-color 0.25s ease;
+    border-left: 3px solid transparent;
+    border-radius: 4px;
+}
+
+.cornell-notes.highlight-target {
+    background-color: rgba(56, 189, 248, 0.08); /* Dezentes, zielgenaues Hellblau */
+    border-left: 3px solid #38bdf8;
+}
+
+.cornell-notes strong { color: var(--accent-blue); }
+.cornell-summary { background: rgba(16, 24, 46, 0.85); border-top: 2px solid var(--accent-blue); padding: 20px; text-align: center; }
+.cornell-summary h4 { margin: 0 0 8px 0; color: var(--accent-blue); text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.06em; }
+.cornell-summary p { margin: 0; font-size: 0.92rem; font-weight: 600; color: var(--text-main); line-height: 1.55; font-style: italic; overflow-wrap: break-word; }
+
+/* ==========================================================================
    7. CORNELL NOTE SYSTEM (HÖHENSYNCHRONISIERTES GRID)
    ========================================================================== */
 .cornell-wrapper {
