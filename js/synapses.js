@@ -1,3 +1,4 @@
+let synapseMistakesCount = 0;
 function getCategoryData(typeStr) {
     const t = (typeStr || '').toLowerCase();
     if (t.includes('symptom') || t.includes('klinik')) return { class: 'category-symptom', dotClass: 'dot-symptom', label: 'Symptom' };
@@ -78,6 +79,19 @@ window.evaluateSynapsesGroup = function() {
             fb.className = 'feedback-box feedback-success';
             fb.innerHTML = '<strong>Hervorragend!</strong> Alle Synapsen-Verknüpfungen wurden gelöst.';
             document.getElementById('badge-mode-synapses').innerText = '✓ Gelöst';
+if (window.SpacedRepetitionEngine && activeCaseData && activeCaseData.case_id) {
+                const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('synapses', {
+                    mistakes: synapseMistakesCount
+                });
+
+                window.SpacedRepetitionEngine.recordReview({
+                    itemId: `${activeCaseData.case_id}_synapses`,
+                    moduleType: 'synapses',
+                    quality: quality,
+                    medicalField: activeCaseData.metadata?.medical_field || activeCaseData.folder_name
+                }).catch(err => console.warn('[Synapses] SM-2 Record Warning:', err));
+            }
+            
             checkFinalCompletion();
         }
     } else {
