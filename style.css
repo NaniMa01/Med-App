@@ -1819,33 +1819,37 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   CLINICAL LIGHT MODE (Schlichtes Grau & Weiss, funktionelle Buttons intakt)
+   CLINICAL DAYLIGHT STYLE (Inspiriert vom professionellen Praxis-Design)
    ========================================================================== */
 [data-theme="daylight"] {
-    /* Angenehmes, schlichtes Hellgrau als Basis statt grellem Reinweiss */
-    --bg-color: #f1f5f9 !important;
-    --bg-gradient: 
-        radial-gradient(circle at 12% 18%, rgba(2, 132, 199, 0.04) 0%, transparent 42%),
-        radial-gradient(circle at 88% 12%, rgba(79, 70, 229, 0.04) 0%, transparent 38%),
-        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    /* Helles, professionelles Praxis-Umfeld mit einem Hauch von neutralem Hellgrau */
+    --bg-color: #f4f6f9 !important;
+    --bg-gradient: none !important;
     
-    --sidebar-bg: rgba(255, 255, 255, 0.92) !important;
+    /* Karten und Sidebar in klarem, reinem Weiss mit präzisen Rändern */
+    --sidebar-bg: #ffffff !important;
     --card-bg: #ffffff !important;
-    --card-bg-hover: #f8fafc !important;
-    --card-border: #cbd5e1 !important;
-    --card-border-hover: #94a3b8 !important;
+    --card-bg-hover: #ffffff !important;
+    --card-border: #cbd5e1 !important; /* Klare, strukturierte Linien wie im Layout */
+    --card-border-hover: #0055a5 !important;
     --surface-highlight: none !important;
 
-    /* Dunkle, kontrastreiche Schrift für perfekte Lesbarkeit auf Grau/Weiss */
+    /* Tiefes Schieferblau/Schwarz für maximale Lesbarkeit und Seriosität */
     --text-main: #0f172a !important;
     --text-muted: #475569 !important;
     --text-dim: #64748b !important;
 
-    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
-    --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
+    /* Das prägnante, professionelle Praxis-Blau für primäre Elemente */
+    --accent-blue: #0055a5 !important;
+    --accent-cyan: #0284c7 !important;
+    --accent-indigo: #1e3a8a !important;
+
+    /* Dezente, saubere Schatten für strukturierte Content-Boxen */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-/* UI-Container und Panels im schlichten Light-Look */
+/* UI-Komponenten, Container und Panels im klaren Praxis-Look */
 [data-theme="daylight"] topbar,
 [data-theme="daylight"] sidebar,
 [data-theme="daylight"] .panel,
@@ -1870,7 +1874,7 @@ body.is-resizing .resizer-handle-pill {
     border-color: #cbd5e1 !important;
 }
 
-/* Überschriften und Texte in den Karten explizit dunkel steuern */
+/* Überschriften und Textstrukturen kontrastreich und sauber dark halten */
 [data-theme="daylight"] .case-card h3,
 [data-theme="daylight"] .specialty-card h3,
 [data-theme="daylight"] .super-folder-title,
@@ -1885,9 +1889,23 @@ body.is-resizing .resizer-handle-pill {
     color: #0f172a !important;
 }
 
+/* Sektions-Header mit einem dezenten Grauton absetzen (analog zur Vorlage) */
 [data-theme="daylight"] .super-folder-header {
     background: #e2e8f0 !important;
     border-bottom: 1px solid #cbd5e1 !important;
+}
+
+/* Primäre Aktions-Buttons im markanten Praxis-Blau mit weißer Schrift */
+[data-theme="daylight"] .action-btn,
+[data-theme="daylight"] .btn {
+    background: #0055a5 !important;
+    color: #ffffff !important;
+    border: 1px solid #004080 !important;
+}
+
+[data-theme="daylight"] .action-btn:hover,
+[data-theme="daylight"] .btn:hover {
+    background: #004080 !important;
 }
 /* Theme: Neuro Focus (Amethyst / Deep Purple) */
 [data-theme="neuro"] {
