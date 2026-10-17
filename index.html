@@ -41,6 +41,7 @@
             <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span>Challenge Hub</span></li>
             <li class="nav-item" onclick="switchTab('forge', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg><span>Fall-Generator (Dev)</span></li>
             <li class="nav-item" onclick="switchTab('depot', this)" id="nav-depot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path> </svg>   <span>Lern-Depot</span>  <span class="depot-nav-badge" id="nav-depot-badge">0</span></li>      
+
             
             <!-- Pharmakologie Menüpunkt -->
             <li class="nav-item" onclick="switchTab('pharmacology', this)" id="nav-pharmacology">
@@ -339,13 +340,31 @@
             </div>
         </div>
 
-        <!-- 7. PHARMAKOLOGIE VIEW (Eigenständiges Panel) -->
+
+<!-- 7. PHARMAKOLOGIE VIEW (Eigenständiges Panel für das Drag & Drop Modul) -->
         <div class="panel" id="pharmacology-view" style="display: none;">
-            <div id="pharmacology-container"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück zum Dashboard</button>
+                <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">Modul: Klinische Pharmakologie</div>
+            </div>
+
+            <div class="panel-title">💊 Pharma-Matrix: Wirkstoff- & Indikations-Zuordnung</div>
+            <div class="panel-subtitle">Ordne die Psychopharmaka (Antidepressiva & Antipsychotika) per Drag-and-Drop den korrekten Hauptindikationen oder Wirkmechanismen zu.</div>
+
+            <!-- Medikamenten-Pool (Quell-Container) -->
+            <div class="pharma-bank-section">
+                <div class="bank-title">Verfügbare Wirkstoffe (Wartebereich):</div>
+                <div class="pharma-drug-pool" id="pharma-matrix-pool" ondragover="allowMatrixDragOver(event)" ondrop="dropToPool(event)"></div>
+            </div>
+
+            <!-- Ziel-Spalten (Krankheitsbilder / Indikationen) -->
+            <div class="pharma-categories-grid" id="pharma-matrix-categories"></div>
+
+            <!-- Feedback & Validierung -->
+            <div class="feedback-box" id="pharma-matrix-fb"></div>
+            <button type="button" class="action-btn" onclick="validatePharmaMatrix()" style="width: 100%; margin-top: 20px;">Zuordnung überprüfen ✓</button>
         </div>
 
-    </div>
-</div>
 
     <!-- RECHTES FORTSCHRITTS-WIDGET -->
     <aside id="subject-progress-drawer" class="progress-drawer collapsed">
