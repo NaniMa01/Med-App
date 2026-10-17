@@ -1359,30 +1359,30 @@ window.renderOverview = function() {
         data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             
-            // Wir wandeln den Notiz-Text in Absätze um, um sie gezielt anzusprechen
+            // Wir splitten den Text in logische Absätze auf, um sie exakt den Cues zuzuordnen
             const rawNotes = note.notes || '';
             const paragraphs = rawNotes.split(/<br\s*\/?>/i).filter(p => p.trim().length > 0);
 
-            notesHtml += `
-                <div class="cornell-grid" id="cornell-row-${noteIdx}">
-                    <div class="cornell-cues">
-                        ${cuesArray.map((c, cueSubIdx) => `
-                            <div class="cornell-cue-item" data-row="${noteIdx}" data-sub="${cueSubIdx}">
-                                • ${escapeHtml(c)}
+            // Wir kombinieren Cues und Absätze zeilenweise (Pairing)
+            const maxRows = Math.max(cuesArray.length, paragraphs.length);
+            
+            for (let i = 0; i < maxRows; i++) {
+                const cueText = cuesArray[i] || '';
+                const paragraphText = paragraphs[i] || paragraphs[paragraphs.length - 1] || '';
+
+                notesHtml + `
+                    <div class="cornell-row-item" data-row="${noteIdx}-${i}">
+                        <div class="cornell-cue-col">
+                            ${cueText ? `<div class="cornell-cue-item" data-target="frag-${noteIdx}-${i}">• ${escapeHtml(cueText)}</div>` : ''}
+                        </div>
+                        <div class="cornell-note-col">
+                            <div class="cornell-fragment" id="frag-${noteIdx}-${i}">
+                                ${paragraphText}
                             </div>
-                        `).join('')}
-                    </div>
-                    <div class="cornell-notes" id="cornell-note-box-${noteIdx}">
-                        <div class="cornell-note-content-inner">
-                            ${paragraphs.map((p, pIdx) => `
-                                <div class="cornell-fragment" id="fragment-${noteIdx}-${pIdx}">
-                                    ${p}
-                                </div>
-                            `).join('')}
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         });
     }
 
@@ -1393,7 +1393,9 @@ window.renderOverview = function() {
             <div class="cornell-header">
                 <h2>${escapeHtml(topicTitle)}</h2>
             </div>
-            ${notesHtml}
+            <div class="cornell-container-body">
+                ${notesHtml}
+            </div>
             <div class="cornell-summary">
                 <h4>Zusammenfassung (Take-Home Message)</h4>
                 <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
@@ -1403,14 +1405,11 @@ window.renderOverview = function() {
     container.innerHTML = html;
 
     // ==========================================================================
-    // PRÄZISER HOVER-LISTENER: Ordnet Fragmente den Cues zu
+    // PRÄZISER HOVER-LISTENER FÜR DAS ZEILENGENAUE HIGHLIGHTING
     // ==========================================================================
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
-        const rowIdx = cueEl.getAttribute('data-row');
-        const subIdx = parseInt(cueEl.getAttribute('data-sub'), 10);
-        
-        // Den passenden Absatz/Fragment über den Index zuordnen
-        const targetFragment = document.getElementById(`fragment-${rowIdx}-${subIdx}`) || document.getElementById(`fragment-${rowIdx}-0`);
+        const targetId = cueEl.getAttribute('data-target');
+        const targetFragment = document.getElementById(targetId);
 
         if (targetFragment) {
             cueEl.addEventListener('mouseenter', () => {
