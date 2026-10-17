@@ -317,7 +317,23 @@ class DoctordleController {
                 Die richtige Diagnose war: <em>${p.target_diagnosis}</em>
             `;
         }
+if (window.SpacedRepetitionEngine && this.currentCaseId) {
+            // Wir nutzen die integrierte Metrik-Ableitung für Doctordle (wertet Versuche & Gewinn aus)
+            const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
+                won: won,
+                attempts: this.currentAttempt + 1 // 1 bis 6 Versuche
+            });
 
+            // Eindeutige Item-ID pro Rätsel innerhalb des Falls generieren
+            const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
+
+            window.SpacedRepetitionEngine.recordReview({
+                itemId: itemId,
+                moduleType: 'doctordle',
+                quality: quality,
+                medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
+            }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+        }
         // Globalen Callback und Auto-Save triggern
         if (typeof window.onDoctordlePuzzleSolved === 'function') {
             window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
