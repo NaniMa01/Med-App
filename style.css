@@ -1819,41 +1819,85 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   ANPASSUNG DER DUNKELGRAUEN BALKEN & BLÖCKE ZU BLAU (Daylight-Modus)
+   CLINICAL DAYLIGHT STYLE (Vollständig Blauer Look für Ordner, Kacheln & UI-Blöcke)
    ========================================================================== */
+[data-theme="daylight"] {
+    /* Heller, augenschonender Hintergrund für die App */
+    --bg-color: #f4f6f9 !important;
+    --bg-gradient: none !important;
+    
+    /* Globale Standardwerte für Karten und Container in Hellblau */
+    --sidebar-bg: #ffffff !important;
+    --card-bg: #e0f2fe !important; /* Sanftes, modernes Hellblau für Kacheln */
+    --card-bg-hover: #bae6fd !important;
+    --card-border: #38bdf8 !important; 
+    --card-border-hover: #0284c7 !important;
+    --surface-highlight: none !important;
 
-/* 1. Challenge-Navigationsleiste & Segmentierte Steuerelemente */
+    /* Dunkle Schriftfarben für maximale Lesbarkeit */
+    --text-main: #0f172a !important;
+    --text-muted: #334155 !important;
+    --text-dim: #475569 !important;
+
+    /* Primäre Akzentfarben */
+    --accent-blue: #0055a5 !important;
+    --accent-cyan: #0284c7 !important;
+    --accent-indigo: #1e3a8a !important;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+/* UI-Container, Panels, Content-Blöcke & Reader-Boxen im blauen Look */
+[data-theme="daylight"] topbar,
+[data-theme="daylight"] sidebar,
+[data-theme="daylight"] .panel,
+[data-theme="daylight"] .progress-drawer-body,
+[data-theme="daylight"] .progress-drawer-handle,
+[data-theme="daylight"] .resizer-handle-pill,
+[data-theme="daylight"] .step-content,
+[data-theme="daylight"] .cornell-wrapper,
+[data-theme="daylight"] .synapses-container,
+[data-theme="daylight"] .quiz-card,
+[data-theme="daylight"] .subject-item,
+[data-theme="daylight"] .hud-stat,
+[data-theme="daylight"] .forge-textarea,
+[data-theme="daylight"] .forge-topic-input,
+[data-theme="daylight"] .auth-panel input {
+    background-color: #e0f2fe !important;
+    color: #0f172a !important;
+    border-color: #38bdf8 !important;
+}
+
+/* Challenge-Navigation, Tabs und Segmented Controls in Blau */
 [data-theme="daylight"] .challenge-nav-bar,
 [data-theme="daylight"] .segmented-control {
-    background: #e0f2fe !important; /* Frisches, helles Praxis-Blau */
+    background: #e0f2fe !important;
     border-color: #38bdf8 !important;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04) !important;
 }
 
-/* Inaktive Tabs in der Navigationsleiste lesbar machen */
 [data-theme="daylight"] .challenge-tab-btn {
-    background: rgba(255, 255, 255, 0.7) !important;
+    background: #bae6fd !important;
     color: #0f172a !important;
-    border-color: rgba(56, 189, 248, 0.3) !important;
+    border-color: #38bdf8 !important;
 }
 
-[data-theme="daylight"] .challenge-tab-btn:hover {
-    background: #ffffff !important;
-    color: #000000 !important;
+[data-theme="daylight"] .challenge-tab-btn.active {
+    background: #0055a5 !important;
+    color: #ffffff !important;
+    border-color: #004080 !important;
 }
 
-/* 2. Quiz-Antwortoptionen (Die vorher dunkelgrauen Balken) */
+/* Quiz-Optionen (vorher dunkelgraue Balken) jetzt in klarem Blau */
 [data-theme="daylight"] .quiz-opt-btn {
-    background: #e0f2fe !important; /* Blauer Hintergrund passend zu den Buttons */
+    background: #e0f2fe !important;
     border: 1px solid #38bdf8 !important;
-    color: #0f172a !important; /* Dunkle/schwarze Schrift für perfekten Kontrast */
-    font-weight: 600 !important;
+    color: #0f172a !important;
 }
 
 [data-theme="daylight"] .quiz-opt-btn:hover {
     background: #bae6fd !important;
     border-color: #0284c7 !important;
-    color: #000000 !important;
 }
 
 [data-theme="daylight"] .quiz-opt-btn.selected {
@@ -1862,12 +1906,102 @@ body.is-resizing .resizer-handle-pill {
     color: #000000 !important;
 }
 
-/* 3. Allgemeine graue Balken / Leisten (falls im Audit oder anderen Modi vorhanden) */
-[data-theme="daylight"] .drag-bank,
-[data-theme="daylight"] .synapses-legend {
-    background: #e0f2fe !important;
-    border-color: #38bdf8 !important;
+/* ==========================================================================
+   SPEZIFISCHE BLAU-FÄRBUNG FÜR ORDNER, SUPER-FOLDER & FALLKARTEN
+   ========================================================================== */
+[data-theme="daylight"] .case-card,
+[data-theme="daylight"] .specialty-card {
+    background: linear-gradient(160deg, #e0f2fe 0%, #bae6fd 100%) !important;
+    border: 1px solid #38bdf8 !important;
     color: #0f172a !important;
+}
+
+[data-theme="daylight"] .case-card:hover,
+[data-theme="daylight"] .specialty-card:hover {
+    background: linear-gradient(160deg, #bae6fd 0%, #7dd3fc 100%) !important;
+    border-color: #0284c7 !important;
+}
+
+/* Super-Folder & Kategorie-Ordner im blauen Design */
+[data-theme="daylight"] .super-folder {
+    background: rgba(224, 242, 254, 0.8) !important;
+    border: 1px solid #38bdf8 !important;
+}
+
+[data-theme="daylight"] .super-folder-header {
+    background: linear-gradient(90deg, #bae6fd, #e0f2fe) !important;
+    border-bottom: 1px solid #38bdf8 !important;
+}
+
+[data-theme="daylight"] .category-folder {
+    background: #e0f2fe !important;
+    border: 1px solid #7dd3fc !important;
+}
+
+[data-theme="daylight"] .category-header {
+    background: #bae6fd !important;
+}
+
+/* Bookshelf Folder-Groups (Sidebar-Ordner) im blauen Stil */
+[data-theme="daylight"] .folder-group {
+    background: #e0f2fe !important;
+    border: 1px solid #7dd3fc !important;
+}
+
+[data-theme="daylight"] .folder-header {
+    background: #bae6fd !important;
+}
+
+[data-theme="daylight"] .folder-cases-list {
+    background: rgba(224, 242, 254, 0.6) !important;
+}
+
+[data-theme="daylight"] .folder-case-item {
+    background: #ffffff !important;
+    border: 1px solid #7dd3fc !important;
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .folder-case-item:hover {
+    background: #bae6fd !important;
+    color: #000000 !important;
+}
+
+/* ==========================================================================
+   SCHRIFTFARBEN-ERZWUNGUNG (Tiefschwarz für absolute Klarheit)
+   ========================================================================== */
+[data-theme="daylight"] h1, 
+[data-theme="daylight"] h2, 
+[data-theme="daylight"] h3, 
+[data-theme="daylight"] h4, 
+[data-theme="daylight"] h5, 
+[data-theme="daylight"] h6,
+[data-theme="daylight"] .case-card h3,
+[data-theme="daylight"] .specialty-card h3,
+[data-theme="daylight"] .super-folder-title,
+[data-theme="daylight"] .folder-title-text,
+[data-theme="daylight"] .subject-item-name,
+[data-theme="daylight"] .syn-tile-text,
+[data-theme="daylight"] .panel-title,
+[data-theme="daylight"] .panel-subtitle,
+[data-theme="daylight"] .category-title-wrap,
+[data-theme="daylight"] p,
+[data-theme="daylight"] span,
+[data-theme="daylight"] label {
+    color: #0f172a !important;
+}
+
+/* Primäre Aktions-Buttons im markanten Praxis-Blau mit weißem Text */
+[data-theme="daylight"] .action-btn,
+[data-theme="daylight"] .btn {
+    background: #0055a5 !important;
+    color: #ffffff !important;
+    border: 1px solid #004080 !important;
+}
+
+[data-theme="daylight"] .action-btn:hover,
+[data-theme="daylight"] .btn:hover {
+    background: #004080 !important;
 }
 /* Theme: Neuro Focus (Amethyst / Deep Purple) */
 [data-theme="neuro"] {
