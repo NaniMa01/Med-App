@@ -1819,98 +1819,29 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   PROFESSIONELLES PRAXIS-DESIGN (Clinical Daylight Mode)
-   Exakt abgestimmt auf das saubere, strukturierte Layout der Vorlage
+   ANPASSUNG DER FALLKARTEN IM DAYLIGHT-MODUS (Blau & Schwarze Schrift)
    ========================================================================== */
-[data-theme="daylight"] {
-    /* Heller, augenschonender Hintergrund */
-    --bg-color: #f4f6f9 !important;
-    --bg-gradient: none !important;
-    
-    /* Karten und Sidebar in klarem Weiß mit strukturierten Rahmen */
-    --sidebar-bg: #ffffff !important;
-    --card-bg: #ffffff !important;
-    --card-bg-hover: #ffffff !important;
-    --card-border: #cbd5e1 !important; 
-    --card-border-hover: #0055a5 !important;
-    --surface-highlight: none !important;
-
-    /* Dunkles Schieferblau/Schwarz für maximale Lesbarkeit */
-    --text-main: #0f172a !important;
-    --text-muted: #334155 !important;
-    --text-dim: #475569 !important;
-
-    /* Das prägnante Praxis-Blau als primäre Akzentfarbe */
-    --accent-blue: #0055a5 !important;
-    --accent-cyan: #0284c7 !important;
-    --accent-indigo: #1e3a8a !important;
-
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+[data-theme="daylight"] .case-card {
+    background: linear-gradient(160deg, #e0f2fe 0%, #bae6fd 100%) !important; /* Ein modernes, augenschonendes Hellblau */
+    border-color: #38bdf8 !important; /* Klarer blauer Rand passend zu den oberen Buttons */
+    color: #000000 !important;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.1) !important;
 }
 
-/* UI-Container, Panels und Cards im sauberen Praxis-Look */
-[data-theme="daylight"] topbar,
-[data-theme="daylight"] sidebar,
-[data-theme="daylight"] .panel,
-[data-theme="daylight"] .progress-drawer-body,
-[data-theme="daylight"] .progress-drawer-handle,
-[data-theme="daylight"] .resizer-handle-pill,
-[data-theme="daylight"] .step-content,
-[data-theme="daylight"] .cornell-wrapper,
-[data-theme="daylight"] .synapses-container,
-[data-theme="daylight"] .quiz-card,
-[data-theme="daylight"] .subject-item,
-[data-theme="daylight"] .hud-stat,
-[data-theme="daylight"] .forge-textarea,
-[data-theme="daylight"] .forge-topic-input,
-[data-theme="daylight"] .auth-panel input,
-[data-theme="daylight"] .case-card,
-[data-theme="daylight"] .specialty-card,
-[data-theme="daylight"] .super-folder,
-[data-theme="daylight"] .category-folder {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #cbd5e1 !important;
-}
-
-/* Erzwinge tiefe, dunkle Schriftfarben für alle Titel, Überschriften und Texte */
-[data-theme="daylight"] h1, 
-[data-theme="daylight"] h2, 
-[data-theme="daylight"] h3, 
-[data-theme="daylight"] h4, 
-[data-theme="daylight"] h5, 
-[data-theme="daylight"] h6,
+/* Erzwinge tiefschwarze Schrift für alle Texte und Tags innerhalb der Fallkarten */
 [data-theme="daylight"] .case-card h3,
-[data-theme="daylight"] .specialty-card h3,
-[data-theme="daylight"] .super-folder-title,
-[data-theme="daylight"] .folder-title-text,
-[data-theme="daylight"] .subject-item-name,
-[data-theme="daylight"] .syn-tile-text,
-[data-theme="daylight"] .panel-title,
-[data-theme="daylight"] .panel-subtitle,
-[data-theme="daylight"] p,
-[data-theme="daylight"] span,
-[data-theme="daylight"] label {
-    color: #0f172a !important;
+[data-theme="daylight"] .case-card span,
+[data-theme="daylight"] .case-card div,
+[data-theme="daylight"] .case-card .tag {
+    color: #000000 !important;
 }
 
-[data-theme="daylight"] .super-folder-header {
-    background: #e2e8f0 !important;
-    border-bottom: 1px solid #cbd5e1 !important;
-}
-
-/* Primäre Aktions-Buttons im markanten Praxis-Blau mit weißem Text */
-[data-theme="daylight"] .action-btn,
-[data-theme="daylight"] .btn {
-    background: #0055a5 !important;
-    color: #ffffff !important;
-    border: 1px solid #004080 !important;
-}
-
-[data-theme="daylight"] .action-btn:hover,
-[data-theme="daylight"] .btn:hover {
-    background: #004080 !important;
+/* Eleganter Interaktions-Hover für die blauen Karten */
+[data-theme="daylight"] .case-card:hover {
+    background: linear-gradient(160deg, #bae6fd 0%, #7dd3fc 100%) !important;
+    border-color: #0284c7 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(2, 132, 199, 0.18) !important;
 }
 /* Theme: Neuro Focus (Amethyst / Deep Purple) */
 [data-theme="neuro"] {
