@@ -1855,10 +1855,6 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .progress-drawer-body,
 [data-theme="daylight"] .progress-drawer-handle,
 [data-theme="daylight"] .resizer-handle-pill,
-[data-theme="daylight"] .step-content,
-[data-theme="daylight"] .player-mode-pane > div,
-[data-theme="daylight"] .challenge-container,
-[data-theme="daylight"] [id^="mode-container-"] > div,
 [data-theme="daylight"] .cornell-wrapper,
 [data-theme="daylight"] .synapses-container,
 [data-theme="daylight"] .quiz-card,
@@ -1871,6 +1867,45 @@ body.is-resizing .resizer-handle-pill {
     color: #0f172a !important;
     border-color: #38bdf8 !important;
     box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
+}
+
+/* Challenge-Container, Audit-Blätter & Modi-Panels in Blau */
+[data-theme="daylight"] #player-container,
+[data-theme="daylight"] .player-mode-pane,
+[data-theme="daylight"] #mode-container-audit,
+[data-theme="daylight"] .audit-container,
+[data-theme="daylight"] .content-body .panel,
+[data-theme="daylight"] .player-mode-pane > div,
+[data-theme="daylight"] .challenge-container,
+[data-theme="daylight"] [id^="mode-container-"] > div {
+    background-color: #e0f2fe !important;
+    border-color: #38bdf8 !important;
+    color: #0f172a !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
+}
+
+[data-theme="daylight"] #player-container *,
+[data-theme="daylight"] .player-mode-pane * {
+    color: #0f172a;
+}
+
+/* Spezifische Text- und Inhaltsklarheit in den Audit-Schritten (.step-content als weißer Träger auf blauem Grund) */
+[data-theme="daylight"] .step-content {
+    background-color: #ffffff !important;
+    border: 1px solid #38bdf8 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .step-content p,
+[data-theme="daylight"] .step-content span,
+[data-theme="daylight"] .step-content div,
+[data-theme="daylight"] .audit-item,
+[data-theme="daylight"] .stealth-word {
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .step-content:hover {
+    border-color: #0284c7 !important;
 }
 
 /* Challenge-Navigation, Tabs und Segmented Controls in Blau */
@@ -1908,19 +1943,6 @@ body.is-resizing .resizer-handle-pill {
     background: #7dd3fc !important;
     border-color: #0284c7 !important;
     color: #000000 !important;
-}
-
-/* Spezifische Elemente innerhalb der Challenge-Blöcke */
-[data-theme="daylight"] .step-content p,
-[data-theme="daylight"] .step-content span,
-[data-theme="daylight"] .step-content div,
-[data-theme="daylight"] .audit-item,
-[data-theme="daylight"] .stealth-word {
-    color: #0f172a !important;
-}
-
-[data-theme="daylight"] .step-content:hover {
-    border-color: #0284c7 !important;
 }
 
 /* ==========================================================================
