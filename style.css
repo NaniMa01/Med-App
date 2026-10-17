@@ -2060,6 +2060,52 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .btn:hover {
     background: #004080 !important;
 }
+
+/* ==========================================================================
+   FINALER DAYLIGHT-FIX: ALLE CONTAINER, PANELS & AUDIT-FLÄCHEN IN BLAU
+   ========================================================================== */
+
+/* 1. Globale und spezifische Challenge-/Audit-Container auf Hellblau zwingen */
+[data-theme="daylight"] #player-container,
+[data-theme="daylight"] .player-mode-pane,
+[data-theme="daylight"] #mode-container-audit,
+[data-theme="daylight"] .audit-container,
+[data-theme="daylight"] .content-body .panel,
+[data-theme="daylight"] .panel,
+[data-theme="daylight"] .player-mode-pane > div,
+[data-theme="daylight"] .challenge-container,
+[data-theme="daylight"] [id^="mode-container-"] > div {
+    background-color: #e0f2fe !important;
+    border-color: #38bdf8 !important;
+    color: #0f172a !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
+}
+
+/* 2. Textfarbe für alle Elemente innerhalb dieser Container erzwingen */
+[data-theme="daylight"] #player-container *,
+[data-theme="daylight"] .player-mode-pane *,
+[data-theme="daylight"] .panel * {
+    color: #0f172a !important;
+}
+
+/* 3. Spezifischer Weiß-Träger für die eigentlichen Lesebereiche (Audit-Schritte) */
+[data-theme="daylight"] .step-content {
+    background-color: #ffffff !important;
+    border: 1px solid #38bdf8 !important;
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .step-content p,
+[data-theme="daylight"] .step-content span,
+[data-theme="daylight"] .step-content div,
+[data-theme="daylight"] .audit-item,
+[data-theme="daylight"] .stealth-word {
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .step-content:hover {
+    border-color: #0284c7 !important;
+}
 /* Theme: Surgical Scrubs (OP-Smaragdgrün) */
 [data-theme="scrubs"] {
     --bg-color: #04110f;
