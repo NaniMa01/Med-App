@@ -1490,12 +1490,11 @@ body.is-resizing .resizer-handle-pill {
    ========================================== */
 .stealth-word, .stealth-hotspot {
     cursor: pointer;
-    display: inline; /* Hält den Text absolut im natürlichen Fluss ohne Block-Abstände */
+    display: inline; /* Verhindert jegliche künstlichen Block-Abstände */
     border-radius: 3px;
     padding: 1px 2px;
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
     user-select: text;
-    overflow-wrap: break-word;
 }
 
 /* Sanftes gemeinsames Aufhellen des Sinnabschnitts beim Hovern */
