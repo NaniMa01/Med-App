@@ -384,6 +384,9 @@ window.switchTab = function(tab, el) {
             window.applyBlindHeader(false, null);
             if (typeof PharmacologyModule !== 'undefined') {
                 PharmacologyModule.init('pharmacology-container');
+
+                } else {
+        console.error("PharmacologyModule wurde nicht gefunden!");
             }
         }
     };
