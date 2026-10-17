@@ -1946,6 +1946,24 @@ body.is-resizing .resizer-handle-pill {
 }
 
 /* ==========================================================================
+   FIX: SCHRIFTFARBE FÜR DOCTORDLE-HINWEISE IM DAYLIGHT-MODUS
+   ========================================================================== */
+[data-theme="daylight"] #doctordle-hints-container div,
+[data-theme="daylight"] #doctordle-hints-container span,
+[data-theme="daylight"] #doctordle-hints-container p,
+[data-theme="daylight"] .doctordle-hint-card,
+[data-theme="daylight"] [id*="doctordle"] div {
+    color: #0f172a !important;
+}
+
+/* Falls gesperrte Hinweise ebenfalls angepasst werden sollen */
+[data-theme="daylight"] #doctordle-hints-container div[style*="opacity"],
+[data-theme="daylight"] .locked-hint {
+    color: #334155 !important;
+    opacity: 0.85 !important; /* Verhindert, dass gesperrte Hinweise unsichtbar werden */
+}
+
+/* ==========================================================================
    SPEZIFISCHE BLAU-FÄRBUNG FÜR ORDNER, SUPER-FOLDER & FALLKARTEN
    ========================================================================== */
 [data-theme="daylight"] .case-card,
