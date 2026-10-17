@@ -108,7 +108,18 @@ window.clearStep = function(stepIndex) {
         if (badge && typeof totalStepsCount !== 'undefined') {
             badge.innerText = `${clearedStepsCount}/${totalStepsCount}`;
         }
-        
+        // In js/audit.js bei Abschluss des Audits:
+if (window.SpacedRepetitionEngine && currentCase?.id) {
+    const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('audit', {
+        scorePercent: finalAuditPercentage // z.B. 0 bis 100
+    });
+    await window.SpacedRepetitionEngine.recordReview({
+        itemId: currentCase.id,
+        moduleType: 'audit',
+        quality,
+        medicalField: currentCase.medical_field
+    });
+}
         if (typeof checkFinalCompletion === 'function') checkFinalCompletion();
     }
 };
