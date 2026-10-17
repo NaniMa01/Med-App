@@ -1406,6 +1406,23 @@ window.renderOverview = function() {
         }
     });
 };
+    const topicTitle = window.isSpecialtyBlindMode ? "Klinisches Krankheitsbild (Blind-Training)" : (data.topic || 'Thematische Übersicht');
+
+    const html = `
+        <div class="cornell-wrapper">
+            <div class="cornell-header">
+                <h2>${topicTitle}</h2>
+            </div>
+            ${notesHtml}
+            <div class="cornell-summary">
+                <h4>Zusammenfassung (Take-Home Message)</h4>
+                <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
+            </div>
+        </div>
+    `;
+    container.innerHTML = html;
+};
+
 // ====================================================
 // FORGE / GEMINI API
 // ====================================================
