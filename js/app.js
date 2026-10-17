@@ -32,7 +32,7 @@ const defaultSkills = {
     "Pathophysiologie": { hits: 0, total: 0 }
 };
 
-// V6.0 BUILT-IN DEMO CASE (Cornell Edition mit 3 Doctordle-Rätseln)
+// V6.0 BUILT-IN DEMO CASE
 const BUILTIN_DEMO_CASE = {
     "case_id": "MYELON_MASTER_001_USB",
     "metadata": {
@@ -47,15 +47,15 @@ const BUILTIN_DEMO_CASE = {
         "cornell_notes": [
             {
                 "cues": ["A. spinalis anterior", "Dissoziierte Empfindungsstörung", "Eulenaugen-Zeichen", "Wann? Perakut!"],
-                "notes": "<strong>Vaskuläre Myelopathien:</strong><br>Oft durch eine <em>Aortendissektion</em> (Verlegung der A. radicularis magna) ausgelöst.<br>Führt zur Ischämie der ventralen 2/3 des Myelons (Vorderhörner = Motorikausfall; Tractus spinothalamicus = Schmerz-/Temperaturausfall).<br><em>Warum bleibt der Lagesinn intakt?</em> Die Hinterstränge werden separat durch die posterioren Spinalarterien versorgt."
+                "notes": "<strong>Vaskuläre Myelopathien:</strong><br><br>Oft durch eine <em>Aortendissektion</em> (Verlegung der A. radicularis magna) ausgelöst.<br><br>Führt zur Ischämie der ventralen 2/3 des Myelons (Vorderhörner = Motorikausfall; Tractus spinothalamicus = Schmerz-/Temperaturausfall).<br><br><em>Warum bleibt der Lagesinn intakt?</em> Die Hinterstränge werden separat durch die posterioren Spinalarterien versorgt."
             },
             {
                 "cues": ["NMOSD", "LETM (≥3 Segmente)", "AQP4-IgG", "Wer? Meist Frauen", "Vorsicht: Kein Interferon!"],
-                "notes": "<strong>Autoimmun-Demyelinisierend:</strong><br>Neuromyelitis-optica-Spektrum-Erkrankungen sind primär <em>Astrozytopathien</em>. <br>Diagnostisch beweisend ist eine longitudinale extensive transversale Myelitis (LETM) im MRT sowie eine massive neutrophile Pleozytose (meist <em>ohne</em> oligoklonale Banden).<br>Normale MS-Basismedikation ist absolut kontraindiziert und triggert Schübe."
+                "notes": "<strong>Autoimmun-Demyelinisierend:</strong><br><br>Neuromyelitis-optica-Spektrum-Erkrankungen sind primär <em>Astrozytopathien</em>. <br><br>Diagnostisch beweisend ist eine longitudinale extensive transversale Myelitis (LETM) im MRT sowie eine massive neutrophile Pleozytose (meist <em>ohne</em> oligoklonale Banden).<br><br>Normale MS-Basismedikation ist absolut kontraindiziert und triggert Schübe."
             },
             {
                 "cues": ["Funikuläre Myelose", "Lachgas (N2O)", "MMA erhöht", "Was? Spinale Ataxie"],
-                "notes": "<strong>Metabolisch/Toxisch:</strong><br>Degeneration der Hinterstränge und kortikospinalen Bahnen.<br><em>Mechanismus:</em> Lachgas oxidiert das Cobalt-Ion im Vitamin B12, was die Methionin-Synthase inaktiviert.<br><em>Marker:</em> Methylmalonsäure (MMA) ist massiv erhöht, selbst wenn der absolute B12-Wert im Serum noch normal erscheint."
+                "notes": "<strong>Metabolisch/Toxisch:</strong><br><br>Degeneration der Hinterstränge und kortikospinalen Bahnen.<br><br><em>Mechanismus:</em> Lachgas oxidiert das Cobalt-Ion im Vitamin B12, was die Methionin-Synthase inaktiviert.<br><br><em>Marker:</em> Methylmalonsäure (MMA) ist massiv erhöht, selbst wenn der absolute B12-Wert im Serum noch normal erscheint."
             }
         ],
         "summary": "Die Triage von Myelopathien erfordert exakte Klinik: Perakuter Schmerz weist auf eine Ischämie hin, eine LETM mit Neutrophilie auf eine NMOSD. Funktionelle B12-Mängel (z. B. durch Lachgas) müssen frühzeitig über MMA-Bestimmung aufgedeckt und substituiert werden."
@@ -97,36 +97,6 @@ const BUILTIN_DEMO_CASE = {
                     "Stufe 6: Perfusionsausfall der ventralen zwei Drittel des Myelons."
                 ],
                 "learning_pearl": "Die dissoziierte Sensibilitätsstörung beweist das Arteria-spinalis-anterior-Syndrom."
-            },
-            {
-                "puzzle_id": 2,
-                "title": "Deduktion 2: Subakute autoimmune Myelitis",
-                "target_diagnosis": "Neuromyelitis-optica-Spektrum-Erkrankung",
-                "synonyms": ["NMOSD", "Morbus Devic", "Devic-Syndrom", "Aquaporin-4-Autoimmunenzephalomyelitis"],
-                "hints": [
-                    "Stufe 1: Sehkraftverlust rechts gefolgt von progredienter Paraparese.",
-                    "Stufe 2: Positiver Babinski, therapierefraktärer Schluckauf und Nausea.",
-                    "Stufe 3: Pleozytose mit überwiegend neutrophilen Granulozyten, OKB negativ.",
-                    "Stufe 4: Hochtiteriger Nachweis von Aquaporin-4-Antikörpern (AQP4-IgG).",
-                    "Stufe 5: LETM über 4 Segmente sowie T2-Läsion in der Area postrema.",
-                    "Stufe 6: Keine Remission unter Interferon-beta."
-                ],
-                "learning_pearl": "LETM (≥3 Segmente) + negative OKB + AQP4-IgG sichert die Diagnose NMOSD."
-            },
-            {
-                "puzzle_id": 3,
-                "title": "Deduktion 3: Metabolisch-toxische Ataxie",
-                "target_diagnosis": "Funikuläre Myelose",
-                "synonyms": ["Subakute kombinierte Degeneration", "Vitamin-B12-Mangel-Myelopathie", "Distickstoffmonoxid-induzierte Myelopathie", "Cobalamin-Mangelsyndrom"],
-                "hints": [
-                    "Stufe 1 (Initialpräsentation): 26-jähriger Partygänger bemerkt seit drei Wochen symmetrische Parästhesien ('Pelzigkeitsgefühl') an Händen und Füßen sowie Gangunsicherheit im Dunkeln.",
-                    "Stufe 2 (Klinischer Status): Spinale Ataxie, erloschenes Vibrationsempfinden an beiden Malleoli (Pallhypästhesie 0/8), Pyramidenbahnzeichen positiv.",
-                    "Stufe 3 (Spezifisches Labor): Serum-Vitamin-B12 grenzwertig normal, jedoch Methylmalonsäure (MMA) und Homocystein massiv erhöht.",
-                    "Stufe 4 (Anamnestischer Trigger): Regelmäßige Inhalation von Distickstoffmonoxid (Lachgas, N2O) zur Entspannung am Wochenende.",
-                    "Stufe 5 (MRT Spine): T2-Hyperintensität der dorsalen Kolumnen (Hinterstränge) mit typischem umgekehrtem V-Zeichen ('Inverted V Sign').",
-                    "Stufe 6 (Pathophysiologie): Irreversible Oxidation des zentralen Cobalt-Ions (Co+ zu Co+++) führt zum Ausfall der Methionin-Synthase und Demyelinisierung der Hinterstränge."
-                ],
-                "learning_pearl": "Lachgas inaktiviert Vitamin B12 funktionell; MMA ist wegweisend erhöht."
             }
         ],
         "library_entries": [
@@ -138,12 +108,6 @@ const BUILTIN_DEMO_CASE = {
                 "options": ["Kurzstreckige posterolaterale Läsion <1 Segment", "Longitudinale extensive transversale Myelitis (LETM) ≥3 Segmente", "Bilaterale Hyperintensität der Vorderhörner (Eulenaugen-Zeichen)", "Symmetrisches umgekehrtes V-Zeichen der Hinterstränge"],
                 "correct_index": 1,
                 "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD. Typische MS-Plaques sind meist kurzstreckig."
-            },
-            {
-                "question": "Ein 24-jähriger Patient zeigt eine spinale Ataxie, Pallhypästhesie und gesteigerte Reflexe. Welcher toxische Trigger führt funktionell zum gleichen klinischen Bild wie eine klassische funikuläre Myelose?",
-                "options": ["Chronischer Cannabis-Konsum", "Inhalation von Distickstoffmonoxid (Lachgas)", "Exzessiver Konsum von Energy-Drinks (Taurin)", "Systemische Corticosteroid-Langzeittherapie"],
-                "correct_index": 1,
-                "explanation": "Lachgas (N2O) oxidiert das zentrale Cobalt-Ion von Vitamin B12. Dies inaktiviert das Vitamin B12 intrazellulär irreversibel und führt zur Demyelinisierung der Hinterstränge."
             }
         ]
     }
@@ -266,9 +230,9 @@ async function prefetchManifestDDs() {
             try {
                 const r = await fetch(path);
                 if (r.ok) window.registerCaseDDs(await r.json());
-            } catch (e) { /* fehlerhafte Datei ignorieren */ }
+            } catch (e) {}
         }));
-    } catch (e) { /* Manifest nicht verfügbar */ }
+    } catch (e) {}
 }
 
 loadDDLibrary();
@@ -293,22 +257,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.renderSpecialtyHub();
     }
 
-// In js/app.js nach Auth-Init / Dashboard-Load:
-if (window.SpacedRepetitionEngine) {
-    window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', (itemId, moduleType) => {
-        // Lädt gezielt den fälligen Fall und öffnet direkt das fällige Modul
-        this.loadCaseById(itemId).then(() => {
-            this.switchModule(moduleType);
-        });
-    });
-}
-
-// Automatischer Re-Render der Heatmap, sobald ein Modul abgeschlossen wurde
-window.addEventListener('sr:updated', () => {
+    // SAUBERER AUFRUF OHNE `this`-Konflikt
     if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget');
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', (itemId, moduleType) => {
+            if(window.loadCaseById) {
+                window.loadCaseById(itemId);
+            }
+            if(moduleType && window.switchPlayerMode) {
+                window.switchPlayerMode(moduleType);
+            }
+        });
     }
-});
+
+    window.addEventListener('sr:updated', () => {
+        if (window.SpacedRepetitionEngine) {
+            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget');
+        }
+    });
     
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn) {
@@ -320,7 +285,6 @@ window.addEventListener('sr:updated', () => {
         });
     }
 
-    // Event-Delegation für die Sticky-Steuerleiste
     document.addEventListener('click', (e) => {
         if (e.target && e.target.closest('#btn-next-specialty-case')) {
             window.nextSpecialtyCase();
@@ -335,6 +299,8 @@ window.addEventListener('sr:updated', () => {
             alert(`🔍 Diagnose enthüllt:\n\n${title}`);
         }
     });
+
+    setTimeout(renderSubjectProgressDrawer, 500);
 });
 
 // ====================================================
@@ -347,7 +313,6 @@ window.triggerHaptic = function(ms = 8) {
 };
 
 window.toggleSidebar = function() {
-    // BUGFIX: <sidebar> Tag wird jetzt zuverlässig gefunden
     const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.toggle('open');
@@ -365,11 +330,9 @@ function escapeHtml(str) {
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
     const updateDOM = () => {
-        // 1. Aktiven Zustand der Navigation aktualisieren
         document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
         if (el) el.classList.add('active');
         
-        // 2. Liste aller Haupt-Views der App
         const allViews = [
             'dashboard-view', 
             'player-view', 
@@ -379,13 +342,11 @@ window.switchTab = function(tab, el) {
             'pharmacology-view'
         ];
 
-        // 3. Alle Views strikt ausblenden
         allViews.forEach(viewId => {
             const element = document.getElementById(viewId);
             if (element) element.style.display = 'none';
         });
 
-        // 4. Nur die gewünschte Ziel-View einblenden
         const targetViewMap = {
             'dashboard': 'dashboard-view',
             'player': 'player-view',
@@ -401,19 +362,16 @@ window.switchTab = function(tab, el) {
             if (targetElement) targetElement.style.display = 'block';
         }
 
-        // Challenge Hub Nav-Anpassung
         const navPlayer = document.getElementById('nav-player');
         if (navPlayer) {
             navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
         }
         
-        // Mobile Sidebar nach Klick automatisch schließen
         const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
         const overlay = document.querySelector('.sidebar-overlay');
         if (sidebar) sidebar.classList.remove('open');
         if (overlay) overlay.classList.remove('active');
 
-        // 5. Modulspezifische Initialisierungen beim Tab-Wechsel
         if (tab === 'dashboard') {
             window.isSpecialtyBlindMode = false;
             if (typeof renderDashboardCases === 'function') renderDashboardCases();
@@ -428,13 +386,13 @@ window.switchTab = function(tab, el) {
         }
     };
 
-    // View Transitions API nutzen, falls vom Browser unterstützt
     if (document.startViewTransition) {
         document.startViewTransition(updateDOM);
     } else {
         updateDOM();
     }
 };
+
 window.switchPlayerMode = function(mode) {
     currentActiveChallenge = mode;
     window.triggerHaptic(6);
@@ -459,7 +417,6 @@ window.switchPlayerMode = function(mode) {
         updateModeDOM();
     }
 };
-
 
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
@@ -488,7 +445,6 @@ window.toggleSuperFolder = function() {
 // ==========================================
 // DYNAMISCHES RESIZING DER SIDEBAR
 // ==========================================
-
 const SIDEBAR_STORAGE_KEY = 'medcheck_sidebar_width';
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 500;
@@ -499,7 +455,6 @@ function setSidebarWidth(widthPx) {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, clamped.toString());
 }
 
-// Pfeil-Schrittfunktion: verbreitert (+) oder schmälert (-)
 function stepSidebarWidth(deltaPx) {
     const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')) || 260;
     setSidebarWidth(current + deltaPx);
@@ -509,7 +464,6 @@ function initSidebarResizer() {
     const resizer = document.getElementById('sidebar-resizer');
     if (!resizer) return;
 
-    // Gespeicherte Breite wiederherstellen
     const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (savedWidth) {
         setSidebarWidth(parseInt(savedWidth, 10));
@@ -518,9 +472,7 @@ function initSidebarResizer() {
     let isDragging = false;
 
     resizer.addEventListener('mousedown', (e) => {
-        // Klicks auf die Pfeil-Buttons nicht als Drag werten
         if (e.target.tagName === 'BUTTON') return;
-
         isDragging = true;
         document.body.classList.add('is-resizing');
         e.preventDefault();
@@ -528,7 +480,6 @@ function initSidebarResizer() {
 
     window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        // Die neue Breite entspricht der horizontalen Mausposition X
         setSidebarWidth(e.clientX);
     });
 
@@ -540,7 +491,6 @@ function initSidebarResizer() {
     });
 }
 
-// Beim Start initialisieren
 document.addEventListener('DOMContentLoaded', () => {
     initSidebarResizer();
 });
@@ -706,7 +656,6 @@ window.startSpecialtyMode = function(specialtyName) {
         return;
     }
 
-    // Shuffle queue (Fisher-Yates)
     for (let i = specialtyQueue.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [specialtyQueue[i], specialtyQueue[j]] = [specialtyQueue[j], specialtyQueue[i]];
@@ -734,11 +683,9 @@ window.nextSpecialtyCase = function() {
 };
 
 window.applyBlindHeader = function(blind, caseData) {
-    // 1. Das Badge und den Container aus DEINEM HTML suchen
     const badge = document.getElementById('player-case-badge-title');
     const wrap = badge ? badge.parentElement : null;
     
-    // Fachrichtung bestimmen
     let field = 'Fachrichtung';
     if (caseData && caseData.metadata && caseData.metadata.medical_field) {
         field = caseData.metadata.medical_field;
@@ -749,13 +696,11 @@ window.applyBlindHeader = function(blind, caseData) {
     }
 
     if (wrap) {
-        // Text anonymisieren ("Aktiver Fall:" ausblenden im Blind-Modus)
         wrap.classList.toggle('blind-mode-header', blind);
         if (wrap.firstChild && wrap.firstChild.nodeType === Node.TEXT_NODE) {
             wrap.firstChild.nodeValue = blind ? '' : 'Aktiver Fall: ';
         }
 
-        // 2. DEN BUTTON "NEUER FALL" ERSTELLEN UND DIREKT EINHÄNGEN
         let nextBtn = document.getElementById('btn-top-new-case');
         if (!nextBtn) {
             nextBtn = document.createElement('button');
@@ -776,27 +721,24 @@ window.applyBlindHeader = function(blind, caseData) {
                 }
             };
             
-            // Button rechts neben das Badge setzen
             wrap.appendChild(nextBtn);
             wrap.style.display = 'inline-flex';
             wrap.style.alignItems = 'center';
         }
         
-        // Button nur im Fachrichtungs-Modus (blind = true) anzeigen
         nextBtn.style.display = blind ? 'inline-block' : 'none';
     }
 
-    // 3. Titel des Badges setzen
     if (badge && caseData) {
         badge.innerText = blind ? `${field} • Training` : (caseData.metadata?.title || caseData.case_id);
     }
 
-    // 4. Übersicht-Tab im Fachrichtungsmodus verstecken (Spoiler-Schutz)
     const overviewTab = document.getElementById('tab-btn-overview');
     if (overviewTab) {
         overviewTab.style.display = blind ? 'none' : '';
     }
 };
+
 window.SpecialtyEngine = {
     start: (s) => window.startSpecialtyMode(s),
     nextCase: () => window.nextSpecialtyCase()
@@ -1251,7 +1193,6 @@ window.getRegisteredCases = function() {
 };
 
 function applySpecialtyFilters(caseData) {
-    // 1. Audit strikt auf 3 Schritte begrenzen
     if (Array.isArray(caseData.timeline)) {
         caseData.timeline = caseData.timeline.slice(0, 3).map((step, idx) => ({
             ...step,
@@ -1263,13 +1204,11 @@ function applySpecialtyFilters(caseData) {
     if (!tasks) return;
     const primary = caseData.metadata?.primary_disease;
 
-    // 2. Kaskaden auf 1 Kaskade reduzieren
     if (Array.isArray(tasks.clinical_cascades) && tasks.clinical_cascades.length) {
         const match = primary ? tasks.clinical_cascades.find(c => c.disease === primary) : null;
         tasks.clinical_cascades = [match || tasks.clinical_cascades[0]];
     }
 
-    // 3. Quiz auf 1 Frage reduzieren
     if (Array.isArray(tasks.master_quiz) && tasks.master_quiz.length) {
         let pool = tasks.master_quiz.filter(q => q.is_primary === true || (primary && q.target_disease === primary));
         if (!pool.length) pool = [tasks.master_quiz[0]];
@@ -1441,6 +1380,7 @@ window.renderOverview = function() {
         }
     });
 };
+
 // ====================================================
 // FORGE / GEMINI API
 // ====================================================
@@ -1737,7 +1677,6 @@ window.resetCurrentCaseEntirely = function() {
     window.loadCaseById(activeCaseData.case_id, { specialty: blind });
 };
 
-// Automatisches Neuladen des Dashboards, sobald Cloud-Fälle synchronisiert sind
 window.addEventListener("cloudCasesSynced", () => {
     getCustomCases().forEach(window.registerCaseDDs);
     if (typeof renderDashboardCases === "function") {
@@ -1747,6 +1686,7 @@ window.addEventListener("cloudCasesSynced", () => {
         window.renderSpecialtyHub();
     }
 });
+
 // ====================================================
 // SMARTPHONE CHALLENGE-MENÜ (Hochformat-Dropdown & Querformat-FAB)
 // ====================================================
@@ -1755,7 +1695,6 @@ window.addEventListener("cloudCasesSynced", () => {
         const navBar = document.querySelector('.challenge-nav-bar');
         if (!navBar) return;
 
-        // 1. Hochformat-Dropdown synchronisieren
         let mobileWrapper = document.getElementById('mc-mobile-picker-wrap');
         if (!mobileWrapper) {
             mobileWrapper = document.createElement('div');
@@ -1776,7 +1715,7 @@ window.addEventListener("cloudCasesSynced", () => {
             if (b) b.remove();
             const label = clone.innerText.trim();
             const selected = (mode === currentActiveChallenge) ? 'selected' : '';
-            return `<option value="${mode}" ${selected}>${label} ${badgeText ? '(' + badgeText + ')' : ''}</option>`;
+            return `<option value="${mode}" ${selected}>${label}${badgeText ? '(' + badgeText + ')' : ''}</option>`;
         }).join('');
 
         mobileWrapper.innerHTML = `
@@ -1795,7 +1734,6 @@ window.addEventListener("cloudCasesSynced", () => {
             });
         }
 
-        // 2. Querformat-FAB (Floating Action Button) synchronisieren
         let fabContainer = document.getElementById('landscape-fab-container');
         if (!fabContainer) {
             fabContainer = document.createElement('div');
@@ -1808,7 +1746,6 @@ window.addEventListener("cloudCasesSynced", () => {
             `;
             document.body.appendChild(fabContainer);
             
-            // Toggle Logic für den FAB
             document.getElementById('landscape-fab-btn').addEventListener('click', () => {
                 const menu = document.getElementById('landscape-fab-menu');
                 const btn = document.getElementById('landscape-fab-btn');
@@ -1818,7 +1755,6 @@ window.addEventListener("cloudCasesSynced", () => {
             });
         }
         
-        // FAB nur sichtbar schalten, wenn wir uns im "Player"-Modus befinden
         const playerView = document.getElementById('player-view');
         if (playerView && playerView.style.display !== 'none') {
             fabContainer.classList.add('visible');
@@ -1828,7 +1764,6 @@ window.addEventListener("cloudCasesSynced", () => {
             document.getElementById('landscape-fab-btn').classList.remove('active');
         }
 
-        // Menü-Punkte des FABs mit den aktiven Challenges befüllen
         const fabMenu = document.getElementById('landscape-fab-menu');
         fabMenu.innerHTML = buttons.map(btn => {
             const mode = btn.id.replace('tab-btn-', '');
@@ -1847,7 +1782,6 @@ window.addEventListener("cloudCasesSynced", () => {
         }).join('');
     }
 
-    // Hooks in die bestehenden Funktionen, damit UI synchron bleibt
     const origSwitchPlayerMode = window.switchPlayerMode;
     if (typeof origSwitchPlayerMode === 'function') {
         window.switchPlayerMode = function(mode) {
@@ -1875,26 +1809,22 @@ window.addEventListener("cloudCasesSynced", () => {
     window.addEventListener('DOMContentLoaded', () => setTimeout(syncMobileChallengePicker, 200));
 })();
 
-// Ein- und Ausklappen des rechten Themen-Panels
 function toggleSubjectDrawer() {
     const drawer = document.getElementById('subject-progress-drawer');
     if (!drawer) return;
     drawer.classList.toggle('collapsed');
     
-    // Immer frisch berechnen, sobald man es aufklappt
     if (!drawer.classList.contains('collapsed')) {
         renderSubjectProgressDrawer();
     }
 }
 
-// Farbklasse nach Schwellenwert: <=32% Rot, 33-66% Orange, >=67% Grün
 function getSubjectColorClass(pct) {
     if (pct <= 32) return 'bar-red';
     if (pct <= 66) return 'bar-orange';
     return 'bar-green';
 }
 
-// Liest dynamisch alle Themen/Überordner der App aus und berechnet den Fortschritt
 function renderSubjectProgressDrawer() {
     const listEl = document.getElementById('dynamic-subjects-list');
     if (!listEl) return;
@@ -1902,21 +1832,17 @@ function renderSubjectProgressDrawer() {
     const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     const folderStats = {};
 
-    // 1. Alle Fälle sammeln (Standard-Bibliothek + Custom Cases)
     let allAvailableCases = [];
     if (typeof casesDatabase !== 'undefined' && Array.isArray(casesDatabase)) {
         allAvailableCases = [...casesDatabase];
     } else if (window.allCases && Array.isArray(window.allCases)) {
         allAvailableCases = [...window.allCases];
     } else {
-        // Fallback: Custom Cases aus localStorage + DOM-Ordner auslesen
         const custom = JSON.parse(localStorage.getItem('custom_cases') || '[]');
         allAvailableCases = [...custom];
     }
 
-    // 2. Falls Fälle im Speicher liegen, nach ihrem Überordner/Kategorie gruppieren
     allAvailableCases.forEach(c => {
-        // Prüft die gängigen Felder deiner Fall-JSONs für Überordner/Themen
         const categoryName = c.folder || c.category || c.superFolder || c.topic || c.specialty || 'Allgemein';
         const caseId = c.id || c.case_id || c.title;
 
@@ -1930,7 +1856,6 @@ function renderSubjectProgressDrawer() {
         }
     });
 
-    // 3. Zusätzlich sichtbare Ordner aus dem Dashboard/Bookshelf prüfen (falls ein neuer Ordner noch 0 Fälle hat oder im DOM steht)
     document.querySelectorAll('.folder-card, .super-folder-title span, #existing-folders-list option').forEach(el => {
         const name = (el.value || el.textContent || '').trim();
         if (name && !folderStats[name] && name !== 'Lade Fall-Bibliothek...') {
@@ -1945,7 +1870,6 @@ function renderSubjectProgressDrawer() {
         return;
     }
 
-    // Sortieren: Schwächste Fächer (Rot) nach oben, damit man sofort sieht, wo man lernen muss!
     entries.sort((a, b) => {
         const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
         const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
@@ -1970,17 +1894,10 @@ function renderSubjectProgressDrawer() {
     }).join('');
 }
 
-// Initial einmal beim Laden vorbereiten
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(renderSubjectProgressDrawer, 500);
-});
-
 // ==========================================
 // THEME ENGINE (FARBLAYOUT WECHSELN)
 // ==========================================
-
 const THEME_STORAGE_KEY = 'medcheck_ui_theme';
-
 const THEME_META_COLORS = {
     midnight: '#060913',
     daylight: '#f1f5f9',
@@ -1991,42 +1908,36 @@ const THEME_META_COLORS = {
 function applyAppTheme(themeName) {
     const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
 
-    // 1. Attribut auf <html> setzen (steuert alle CSS-Variablen)
     if (validTheme === 'midnight') {
         document.documentElement.removeAttribute('data-theme');
     } else {
         document.documentElement.setAttribute('data-theme', validTheme);
     }
 
-    // 2. Meta-Theme-Color für Mobile/PWA Statusbar aktualisieren
     const metaTheme = document.querySelector('meta[name="theme-color"]');
     if (metaTheme) {
         metaTheme.setAttribute('content', THEME_META_COLORS[validTheme]);
     }
 
-    // 3. Aktiven Status auf den Einstellungs-Karten setzen
     document.querySelectorAll('.theme-card').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
     });
 
-    // 4. Dauerhaft im Browser speichern
     localStorage.setItem(THEME_STORAGE_KEY, validTheme);
 }
 
-// Beim Laden der Seite sofort das gespeicherte Theme aktivieren
 document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
     applyAppTheme(savedTheme);
 });
+
 // ==========================================================================
 // LERN-DEPOT (KNOWLEDGE VAULT) MODULE
 // ==========================================================================
-
 const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
-let currentDepotFilter = 'open'; // 'open' | 'mastered' | 'all'
+let currentDepotFilter = 'open';
 let pendingSelectionData = null;
 
-// 1. Lokalen Cache lesen & schreiben
 function getLocalDepot() {
     try {
         return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
@@ -2040,12 +1951,10 @@ function saveLocalDepot(items) {
     updateDepotBadges(items);
 }
 
-// 2. Supabase-Client ermitteln (kompatibel mit deiner auth.js)
 function getSupabaseInstance() {
     return window.supabaseClient || window.sb || window.supabase_client || null;
 }
 
-// 3. Synchronisation: Lädt Einträge aus Supabase (falls eingeloggt) und merged mit lokalem Speicher
 async function syncDepotWithSupabase() {
     const sb = getSupabaseInstance();
     if (!sb || !sb.auth) {
@@ -2076,11 +1985,8 @@ async function syncDepotWithSupabase() {
     } catch (err) {
         console.warn('Depot Offline-Modus aktiv:', err);
     }
-
-    
 }
 
-// 4. Text-Markierung in der "Übersicht" überwachen
 function initOverviewSelectionListener() {
     const popover = document.getElementById('depot-selection-popover');
     if (!popover) return;
@@ -2095,7 +2001,6 @@ function initOverviewSelectionListener() {
         const selection = window.getSelection();
         const selectedText = selection ? selection.toString().trim() : '';
 
-        // Mindestens 5 Zeichen markiert und innerhalb der Übersicht
         if (selectedText.length < 5 || !overviewPane.contains(selection.anchorNode)) {
             popover.classList.add('hidden');
             pendingSelectionData = null;
@@ -2105,7 +2010,6 @@ function initOverviewSelectionListener() {
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
 
-        // Prüfen, ob die Markierung in einer Cornell-Zeile liegt, um das Stichwort (Cue) mitzuspeichern
         let cueContext = '';
         const anchorEl = selection.anchorNode.nodeType === 3 ? selection.anchorNode.parentElement : selection.anchorNode;
         const cornellRow = anchorEl ? anchorEl.closest('.cornell-grid') : null;
@@ -2114,7 +2018,6 @@ function initOverviewSelectionListener() {
             if (cueEl) cueContext = cueEl.textContent.trim();
         }
 
-        // Aktuellen Fall-Kontext ermitteln
         const activeCaseObj = window.currentCase || window.activeCase || {};
         const badgeTitleEl = document.getElementById('player-case-badge-title');
         const caseTitle = activeCaseObj.title || (badgeTitleEl ? badgeTitleEl.textContent.trim() : 'Klinischer Fall');
@@ -2129,7 +2032,6 @@ function initOverviewSelectionListener() {
             highlighted_text: selectedText
         };
 
-        // Popover exakt mittig über der Textauswahl positionieren
         const topPos = Math.max(45, rect.top);
         const leftPos = Math.min(window.innerWidth - 90, Math.max(90, rect.left + rect.width / 2));
 
@@ -2141,13 +2043,11 @@ function initOverviewSelectionListener() {
     document.addEventListener('mouseup', () => setTimeout(handleSelection, 20));
     document.addEventListener('touchend', () => setTimeout(handleSelection, 60));
 
-    // Beim Scrollen ausblenden
     document.querySelector('.main-wrapper')?.addEventListener('scroll', () => {
         popover.classList.add('hidden');
     });
 }
 
-// 5. Markierten Abschnitt ins Depot speichern
 async function saveCurrentSelectionToDepot(event) {
     if (event) {
         event.preventDefault();
@@ -2164,7 +2064,6 @@ async function saveCurrentSelectionToDepot(event) {
     pendingSelectionData = null;
 }
 
-// Manuelles Hinzufügen über die Eingabeleiste im Depot
 async function addManualDepotEntry() {
     const input = document.getElementById('depot-manual-input');
     const text = input ? input.value.trim() : '';
@@ -2182,11 +2081,9 @@ async function addManualDepotEntry() {
     renderDepotView();
 }
 
-// Zentrale Speicherfunktion (Lokal + Supabase)
 async function createDepotEntry(entryData) {
     const items = getLocalDepot();
 
-    // Duplikat-Schutz
     const exists = items.some(i => i.highlighted_text === entryData.highlighted_text && i.case_id === entryData.case_id);
     if (exists) {
         if (typeof showScorePopup === 'function') {
@@ -2210,12 +2107,10 @@ async function createDepotEntry(entryData) {
     items.unshift(newItem);
     saveLocalDepot(items);
 
-    // Visuelles Feedback
     if (typeof showScorePopup === 'function') {
         showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
     }
 
-    // Falls angemeldet: In Supabase-Tabelle user_depot speichern
     const sb = getSupabaseInstance();
     if (sb && sb.auth) {
         try {
@@ -2240,7 +2135,6 @@ async function createDepotEntry(entryData) {
     }
 }
 
-// 6. Status umschalten (Offen <-> Gemeistert)
 async function toggleDepotItemMastered(itemId) {
     const items = getLocalDepot();
     const target = items.find(i => i.id === itemId);
@@ -2258,7 +2152,6 @@ async function toggleDepotItemMastered(itemId) {
     }
 }
 
-// 7. Eigene Notiz zu einem markierten Zitat speichern
 async function updateDepotItemNote(itemId, noteText) {
     const items = getLocalDepot();
     const target = items.find(i => i.id === itemId);
@@ -2275,7 +2168,6 @@ async function updateDepotItemNote(itemId, noteText) {
     }
 }
 
-// 8. Eintrag löschen
 async function deleteDepotItem(itemId) {
     const items = getLocalDepot().filter(i => i.id !== itemId);
     saveLocalDepot(items);
@@ -2289,7 +2181,6 @@ async function deleteDepotItem(itemId) {
     }
 }
 
-// 9. Filter setzen & UI rendern
 function setDepotFilter(filterType) {
     currentDepotFilter = filterType;
     ['open', 'mastered', 'all'].forEach(type => {
@@ -2330,7 +2221,6 @@ function renderDepotView() {
     const allItems = getLocalDepot();
     updateDepotBadges(allItems);
 
-    // Kategorien-Dropdown dynamisch aktualisieren
     if (categorySelect) {
         const currentVal = categorySelect.value || 'ALL';
         const categories = [...new Set(allItems.map(i => i.category || 'Allgemein'))];
@@ -2342,13 +2232,12 @@ function renderDepotView() {
     const selectedCat = categorySelect ? categorySelect.value : 'ALL';
     const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
-    // Filtern nach Tab (Offen / Gemeistert / Alle), Kategorie und Suchbegriff
     const filtered = allItems.filter(item => {
         if (currentDepotFilter === 'open' && item.is_mastered) return false;
         if (currentDepotFilter === 'mastered' && !item.is_mastered) return false;
         if (selectedCat !== 'ALL' && item.category !== selectedCat) return false;
         if (query) {
-            const hay = `${item.highlighted_text} ${item.case_title} ${item.cue_context} ${item.user_note}`.toLowerCase();
+            const hay = `${item.highlighted_text}${item.case_title} ${item.cue_context}${item.user_note}`.toLowerCase();
             if (!hay.includes(query)) return false;
         }
         return true;
@@ -2394,13 +2283,11 @@ function renderDepotView() {
     `).join('');
 }
 
-// 10. Nahtlose Integration in deine bestehende switchTab()-Funktion
 function hookDepotIntoSwitchTab() {
     const originalSwitchTab = window.switchTab;
     window.switchTab = function(tabName, navEl) {
         const depotView = document.getElementById('depot-view');
         if (tabName === 'depot') {
-            // ALLE Standard-Panels UND die Pharmakologie-View explizit ausblenden
             ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'pharmacology-view'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
@@ -2418,7 +2305,6 @@ function hookDepotIntoSwitchTab() {
     };
 }
 
-// Initialisierung beim Start
 document.addEventListener('DOMContentLoaded', () => {
     hookDepotIntoSwitchTab();
     initOverviewSelectionListener();
@@ -2428,7 +2314,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 // KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
 // ==========================================================================
-
 let currentDepotQuizQuestions = [];
 
 function closeDepotQuizArena() {
@@ -2441,10 +2326,8 @@ async function generateDepotQuizWithAI() {
     const categorySelect = document.getElementById('depot-category-select');
     const selectedCat = categorySelect ? categorySelect.value : 'ALL';
 
-    // 1. Vorrangig offene Lernlücken filtern (optional nach gewählter Kategorie)
     let targetItems = allItems.filter(item => !item.is_mastered && (selectedCat === 'ALL' || item.category === selectedCat));
 
-    // Falls keine offenen in dieser Kategorie sind, alle offenen nehmen
     if (targetItems.length === 0) {
         targetItems = allItems.filter(item => !item.is_mastered);
     }
@@ -2458,7 +2341,6 @@ async function generateDepotQuizWithAI() {
         return;
     }
 
-    // Maximal 6 zufällige offene Einträge auswählen, um präzise Fragen zu erhalten
     const sampledItems = [...targetItems]
         .sort(() => Math.random() - 0.5)
         .slice(0, 6);
@@ -2474,13 +2356,11 @@ async function generateDepotQuizWithAI() {
     if (btn) btn.disabled = true;
     if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken und konstruiere klinische Prüfungsfragen...`;
 
-    // Skeleton-Loader anzeigen
     body.innerHTML = `
         <div class="skeleton" style="height: 110px; width: 100%;"></div>
         <div class="skeleton" style="height: 110px; width: 100%;"></div>
     `;
 
-    // Strukturierter System-Prompt (IMPP-Stil, klinische Vignetten, homogene Distraktoren)
     const notesContext = sampledItems.map((item, idx) => 
         `[ID: ${item.id}] (Thema:${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
@@ -2527,7 +2407,6 @@ Nutze exakt dieses Format:
     }
 }
 
-// Kommuniziert mit deinem /api/gemini Endpunkt und extrahiert robust das JSON-Array
 async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
     const response = await fetch('/api/gemini', {
         method: 'POST',
@@ -2554,7 +2433,6 @@ async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
     throw new Error('Unerwartetes Antwortformat vom Server.');
 }
 
-// Lokaler Fallback, falls der Nutzer offline im Spital/Zug lernt
 function buildLocalFallbackQuiz(sampledItems) {
     const allItems = getLocalDepot();
     return sampledItems.slice(0, 4).map(item => {
@@ -2581,7 +2459,6 @@ function buildLocalFallbackQuiz(sampledItems) {
     });
 }
 
-// Rendert die generierten Fragen interaktiv
 function renderDepotQuizQuestions(questions) {
     const body = document.getElementById('depot-quiz-body');
     if (!body) return;
@@ -2608,7 +2485,6 @@ function renderDepotQuizQuestions(questions) {
     `).join('');
 }
 
-// Wertet den Klick auf eine Antwortoption sofort aus
 function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
     const q = currentDepotQuizQuestions[qIdx];
     if (!q || q.answered) return;
@@ -2660,11 +2536,9 @@ async function markDepotMasteredFromQuiz(depotId, btnEl) {
     }
 }
 
-
 // ====================================================
 // PHARMA-COMPASS & MATRIX CLOUD-SPEICHER-MODULE
 // ====================================================
-
 const PHARMA_STORAGE_KEY = 'medcheck_pharma_sets';
 
 window.savePharmaSet = async function(setObj) {
@@ -2673,7 +2547,6 @@ window.savePharmaSet = async function(setObj) {
         return;
     }
 
-    // 1. Lokaler Speicher (Synchron mit PharmacologyModule)
     try {
         let savedSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
         savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
@@ -2683,7 +2556,6 @@ window.savePharmaSet = async function(setObj) {
         console.error('Fehler beim Speichern im LocalStorage:', e);
     }
 
-    // 2. Supabase Cloud-Sync (falls eingeloggt)
     const sb = window.supabaseClient || window.sb || null;
     if (sb && sb.auth) {
         try {
