@@ -1819,93 +1819,60 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   CLINICAL DAYLIGHT STYLE (Inspiriert vom professionellen Praxis-Design)
+   KONTRAST-FIX FÜR DEN DAYLIGHT-MODUS (Schriftfarben-Bereinigung)
    ========================================================================== */
 [data-theme="daylight"] {
-    /* Helles, professionelles Praxis-Umfeld mit einem Hauch von neutralem Hellgrau */
-    --bg-color: #f4f6f9 !important;
-    --bg-gradient: none !important;
-    
-    /* Karten und Sidebar in klarem, reinem Weiss mit präzisen Rändern */
-    --sidebar-bg: #ffffff !important;
-    --card-bg: #ffffff !important;
-    --card-bg-hover: #ffffff !important;
-    --card-border: #cbd5e1 !important; /* Klare, strukturierte Linien wie im Layout */
-    --card-border-hover: #0055a5 !important;
-    --surface-highlight: none !important;
-
-    /* Tiefes Schieferblau/Schwarz für maximale Lesbarkeit und Seriosität */
+    /* Globale Text-Variablen auf saubere, dunkle Werte setzen */
     --text-main: #0f172a !important;
-    --text-muted: #475569 !important;
-    --text-dim: #64748b !important;
-
-    /* Das prägnante, professionelle Praxis-Blau für primäre Elemente */
-    --accent-blue: #0055a5 !important;
-    --accent-cyan: #0284c7 !important;
-    --accent-indigo: #1e3a8a !important;
-
-    /* Dezente, saubere Schatten für strukturierte Content-Boxen */
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    --text-muted: #334155 !important;
+    --text-dim: #475569 !important;
 }
 
-/* UI-Komponenten, Container und Panels im klaren Praxis-Look */
-[data-theme="daylight"] topbar,
-[data-theme="daylight"] sidebar,
-[data-theme="daylight"] .panel,
-[data-theme="daylight"] .progress-drawer-body,
-[data-theme="daylight"] .progress-drawer-handle,
-[data-theme="daylight"] .resizer-handle-pill,
-[data-theme="daylight"] .step-content,
-[data-theme="daylight"] .cornell-wrapper,
-[data-theme="daylight"] .synapses-container,
-[data-theme="daylight"] .quiz-card,
-[data-theme="daylight"] .subject-item,
-[data-theme="daylight"] .hud-stat,
-[data-theme="daylight"] .forge-textarea,
-[data-theme="daylight"] .forge-topic-input,
-[data-theme="daylight"] .auth-panel input,
-[data-theme="daylight"] .case-card,
-[data-theme="daylight"] .specialty-card,
-[data-theme="daylight"] .super-folder,
-[data-theme="daylight"] .category-folder {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #cbd5e1 !important;
-}
-
-/* Überschriften und Textstrukturen kontrastreich und sauber dark halten */
-[data-theme="daylight"] .case-card h3,
-[data-theme="daylight"] .specialty-card h3,
-[data-theme="daylight"] .super-folder-title,
-[data-theme="daylight"] .folder-title-text,
-[data-theme="daylight"] .subject-item-name,
-[data-theme="daylight"] .syn-tile-text,
-[data-theme="daylight"] .panel-title,
-[data-theme="daylight"] .panel-subtitle,
-[data-theme="daylight"] p,
+/* Erzwinge dunkle Schriftfarben für alle Titel, Überschriften und Fließtexte in Karten & Ansichten */
+[data-theme="daylight"] h1,
+[data-theme="daylight"] h2,
+[data-theme="daylight"] h3,
+[data-theme="daylight"] h4,
+[data-theme="daylight"] h5,
+[data-theme="daylight"] h6,
+[data-theme="daylight"] .pharma-title,
+[data-theme="daylight"] .pharma-subtitle,
+[data-theme="daylight"] .pharma-mode-info h3,
+[data-theme="daylight"] .pharma-mode-info p,
+[data-theme="daylight"] .pharma-set-card p,
+[data-theme="daylight"] .pharma-set-card h3,
+[data-theme="daylight"] .patient-context-text,
+[data-theme="daylight"] .patient-question-prompt,
+[data-theme="daylight"] .compass-drug-name,
+[data-theme="daylight"] .compass-drug-class,
+[data-theme="daylight"] card,
+[data-theme="daylight"] .card-title,
+[data-theme="daylight"] .card-subtitle,
+[data-theme="daylight"] description,
 [data-theme="daylight"] span,
-[data-theme="daylight"] label {
+[data-theme="daylight"] p {
+    color: inherit; /* Fällt standardmäßig auf --text-main zurück, sofern keine Spezialfarbe nötig ist */
+}
+
+/* Konkrete Überschreibungen für bisher verblasste UI-Bereiche im Light Mode */
+[data-theme="daylight"] .pharma-title,
+[data-theme="daylight"] .panel-title,
+[data-theme="daylight"] h3 {
     color: #0f172a !important;
 }
 
-/* Sektions-Header mit einem dezenten Grauton absetzen (analog zur Vorlage) */
-[data-theme="daylight"] .super-folder-header {
-    background: #e2e8f0 !important;
-    border-bottom: 1px solid #cbd5e1 !important;
+[data-theme="daylight"] .pharma-subtitle,
+[data-theme="daylight"] .panel-subtitle,
+[data-theme="daylight"] .pharma-mode-info p,
+[data-theme="daylight"] .pharma-set-card span,
+[data-theme="daylight"] p {
+    color: #334155 !important;
 }
 
-/* Primäre Aktions-Buttons im markanten Praxis-Blau mit weißer Schrift */
-[data-theme="daylight"] .action-btn,
-[data-theme="daylight"] .btn {
-    background: #0055a5 !important;
-    color: #ffffff !important;
-    border: 1px solid #004080 !important;
-}
-
-[data-theme="daylight"] .action-btn:hover,
-[data-theme="daylight"] .btn:hover {
-    background: #004080 !important;
+/* Verhindere, dass Platzhalter oder Icons unsichtbar werden */
+[data-theme="daylight"] input::placeholder,
+[data-theme="daylight"] textarea::placeholder {
+    color: #94a3b8 !important;
 }
 /* Theme: Neuro Focus (Amethyst / Deep Purple) */
 [data-theme="neuro"] {
