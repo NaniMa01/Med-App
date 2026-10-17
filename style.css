@@ -1509,42 +1509,211 @@ body.is-resizing .resizer-handle-pill {
     overflow-wrap: break-word;
 }
 
-/* ==========================================
-   AUDIT-MODUS & NATÜRLICHER FLIESSZEIT-STYLE
-   ========================================== */
-.stealth-word, .stealth-hotspot {
+/* ==========================================================================
+   AUDIT-MODUS: EDITORIAL SCIENTIFIC ARTICLE LAYOUT
+   Schlichtes, ruhiges Satzbild mit dezentem Satzbaustein-Hover
+   ========================================================================== */
+
+#player-container {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 8px 0 24px 0;
+}
+
+.audit-step-container {
+    background: rgba(11, 17, 33, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    padding: 32px 36px;
+    transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+
+.audit-step-container:hover {
+    border-color: rgba(255, 255, 255, 0.13);
+}
+
+.audit-step-header {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.audit-step-kicker {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim, #64748b);
+}
+
+.audit-step-title {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--text-main, #f8fafc);
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    margin: 0;
+}
+
+/* Der eigentliche Lesebereich: Ruhige Buch-/Journal-Typografie */
+.step-content.audit-editorial-body {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    font-size: 1.04rem;
+    line-height: 1.88;
+    color: #e2e8f0;
+    max-width: 68ch; /* Optimale Zeilenlänge für ermüdungsfreies Lesen */
+    font-weight: 400;
+    letter-spacing: 0.002em;
+}
+
+.audit-paragraph {
+    margin: 0 0 1.25em 0;
+    text-align: left;
+}
+
+.audit-paragraph:last-child {
+    margin-bottom: 0;
+}
+
+/* Interaktive Satzbausteine im Fließtext (ohne künstliche Wortabstände) */
+.stealth-word,
+.stealth-hotspot {
     cursor: pointer;
-    display: inline; /* Verhindert jegliche künstlichen Block-Abstände */
-    border-radius: 3px;
-    padding: 1px 2px;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    display: inline;
+    border-radius: 4px;
+    padding: 2px 0;
+    margin: 0;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
     user-select: text;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
 }
 
-/* Sanftes gemeinsames Aufhellen des Sinnabschnitts beim Hovern */
-.stealth-word:hover, .stealth-hotspot:hover {
-    background-color: rgba(56, 189, 248, 0.15);
+/* Dezentes, einheitliches Hervorheben beim Überfahren mit der Maus */
+.stealth-word:hover,
+.stealth-hotspot:hover {
+    background-color: rgba(148, 163, 184, 0.14);
+    box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+    color: #ffffff;
 }
 
-/* Korrekt gefundener Fehler (Signal) */
+/* Gefundener klinischer Fehler (ruhige, aber klare Unterstreichung) */
 .resolved-signal {
-    background-color: rgba(239, 68, 68, 0.25) !important;
-    border-bottom: 2px solid var(--color-risk, #ef4444) !important;
-    color: #fca5a5 !important;
+    background-color: rgba(239, 68, 68, 0.14) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.14) !important;
+    border-bottom: 1.5px solid rgba(239, 68, 68, 0.85) !important;
+    color: #fecaca !important;
     cursor: default !important;
 }
 
-/* Fehlalarm / Geklickter normaler Baustein (Noise) */
+/* Nach Aufdecken der Synthese wechselt die Unterstreichung dezent auf Grün */
+.resolved-signal.resolved-corrected {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12) !important;
+    border-bottom-color: rgba(16, 185, 129, 0.8) !important;
+    color: #d1fae5 !important;
+}
+
+/* Angeklickter korrekter Satzbaustein (Fehlalarm – dezent ausgegraut) */
 .resolved-noise {
-    background-color: rgba(148, 163, 184, 0.15) !important;
-    text-decoration: line-through;
-    color: var(--text-muted) !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    color: var(--text-dim, #64748b) !important;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.35);
     cursor: default !important;
 }
 
-.resolved-generic { 
-    opacity: 0.6; 
-    cursor: default !important; 
+.resolved-generic {
+    opacity: 0.65;
+    cursor: default !important;
+}
+
+/* Ruhige Fußzeile & Feedback-Darstellung im Audit */
+.audit-step-footer {
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.audit-clear-btn {
+    width: auto !important;
+    padding: 9px 18px !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+}
+
+.audit-fb-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+}
+
+.audit-fb-text {
+    font-size: 0.92rem;
+    line-height: 1.65;
+    margin: 0;
+    color: var(--text-main);
+}
+
+.audit-fb-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+/* Anpassung für Clinical Daylight Theme */
+[data-theme="daylight"] .audit-step-container {
+    background-color: #ffffff !important;
+    border-color: #bae6fd !important;
+    box-shadow: 0 2px 10px rgba(2, 132, 199, 0.05) !important;
+}
+
+[data-theme="daylight"] .audit-step-header,
+[data-theme="daylight"] .audit-step-footer {
+    border-color: #e2e8f0 !important;
+}
+
+[data-theme="daylight"] .step-content.audit-editorial-body {
+    background-color: transparent !important;
+    border: none !important;
+    color: #1e293b !important;
+}
+
+[data-theme="daylight"] .stealth-word:hover,
+[data-theme="daylight"] .stealth-hotspot:hover {
+    background-color: rgba(2, 132, 199, 0.12) !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12) !important;
+    color: #0f172a !important;
+}
+
+@media screen and (max-width: 768px) {
+    .audit-step-container {
+        padding: 20px 18px !important;
+    }
+    .step-content.audit-editorial-body {
+        font-size: 0.96rem !important;
+        line-height: 1.75 !important;
+    }
+    .audit-step-footer {
+        justify-content: stretch;
+    }
+    .audit-clear-btn {
+        width: 100% !important;
+    }
 }
 
 /* SKILL MATRIX & AUTH (Dein bestehender Code) */
