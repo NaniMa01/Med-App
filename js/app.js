@@ -2345,8 +2345,8 @@ function hookDepotIntoSwitchTab() {
     window.switchTab = function(tabName, navEl) {
         const depotView = document.getElementById('depot-view');
         if (tabName === 'depot') {
-            // Alle Standard-Panels ausblenden
-            ['dashboard-view', 'player-view', 'forge-view', 'settings-view'].forEach(id => {
+            // ALLE Standard-Panels UND die Pharmakologie-View explizit ausblenden
+            ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'pharmacology-view'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
