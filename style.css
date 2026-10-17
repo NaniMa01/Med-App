@@ -1485,34 +1485,50 @@ body.is-resizing .resizer-handle-pill {
     overflow-wrap: break-word;
 }
 
-/* AUDIT-MODUS & STEALTH-KLICKS */
+/* ==========================================
+   AUDIT-MODUS & STEALTH-KLICKS (3-6 Wörter)
+   ========================================== */
 .stealth-word, .stealth-hotspot {
     cursor: pointer;
-    display: inline;
+    display: inline-block; /* Wichtig, damit 3-6 Wörter als geschlossener Baustein reagieren */
     border-radius: 4px;
-    padding: 1px 3px;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    padding: 2px 5px;
+    margin: 1px 2px;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     user-select: text;
     overflow-wrap: break-word;
+    border-bottom: 2px solid transparent;
 }
+
+/* Sanftes gemeinsames Aufhellen beim rüberfahren mit der Maus */
 .stealth-word:hover, .stealth-hotspot:hover {
-    background-color: rgba(56, 189, 248, 0.1);
+    background-color: rgba(56, 189, 248, 0.15);
+    border-bottom-color: rgba(56, 189, 248, 0.4);
 }
+
+/* Korrekt gefundener Fehler (Signal) */
 .resolved-signal {
     background-color: rgba(239, 68, 68, 0.25) !important;
-    border-bottom: 2px solid var(--color-risk) !important;
+    border-bottom: 2px solid var(--color-risk, #ef4444) !important;
     color: #fca5a5 !important;
     cursor: default !important;
 }
+
+/* Fehlalarm / Geklickter normaler Baustein (Noise) */
 .resolved-noise {
     background-color: rgba(148, 163, 184, 0.15) !important;
     text-decoration: line-through;
     color: var(--text-muted) !important;
     cursor: default !important;
+    border-bottom: 2px solid #94a3b8 !important;
 }
-.resolved-generic { opacity: 0.6; cursor: default !important; }
 
-/* SKILL MATRIX & AUTH */
+.resolved-generic { 
+    opacity: 0.6; 
+    cursor: default !important; 
+}
+
+/* SKILL MATRIX & AUTH (Dein bestehender Code) */
 .skill-scope-toggle { display: flex; background: rgba(6, 9, 19, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 3px; margin-bottom: 14px; gap: 4px; }
 .skill-scope-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); font-size: 0.72rem; font-weight: 700; padding: 5px 8px; border-radius: 6px; cursor: pointer; transition: all 0.2s; text-align: center; }
 .skill-scope-btn.active { background: rgba(56, 189, 248, 0.2); color: #fff; border: 1px solid rgba(56, 189, 248, 0.4); }
