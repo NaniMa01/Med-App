@@ -1316,20 +1316,19 @@ window.renderOverview = function() {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             const rawNotes = note.notes || '';
             
-            // Trennt die Absätze sauber an den <br><br>-Markern
-            const paragraphs = rawNotes.split(/<br\s*\/?>\s*<br\s*\/?>/i)
+            // Trennt Textblöcke verlässlich an <br><br> oder <p>-Tags
+            const paragraphs = rawNotes.split(/<br\s*\/?>\s*<br\s*\/?>|<\/p>/i)
                 .map(p => p.trim())
                 .filter(p => p.length > 0);
 
-            // 1:1 Pairing: Jeder Cue bekommt exakt seinen korrespondierenden Absatz
             cuesArray.forEach((cueText, cueIdx) => {
-                const paragraphText = paragraphs[cueIdx] || paragraphs[0] || rawNotes;
+                let paragraphText = paragraphs[cueIdx] || paragraphs[0] || rawNotes;
 
                 notesHtml += `
                     <div class="cornell-row-item" data-row="${noteIdx}-${cueIdx}">
                         <div class="cornell-cue-col">
                             <div class="cornell-cue-item" data-target="frag-${noteIdx}-${cueIdx}">
-                                • ${escapeHtml(cueText)}
+                                ${escapeHtml(cueText)}
                             </div>
                         </div>
                         <div class="cornell-note-col">
@@ -1348,20 +1347,21 @@ window.renderOverview = function() {
     const html = `
         <div class="cornell-wrapper">
             <div class="cornell-header">
+                <span style="font-size: 1.1rem;">📖</span>
                 <h2>${escapeHtml(topicTitle)}</h2>
             </div>
             <div class="cornell-container-body">
                 ${notesHtml}
             </div>
             <div class="cornell-summary">
-                <h4>Zusammenfassung (Take-Home Message)</h4>
+                <h4>Take-Home Message (Zusammenfassung)</h4>
                 <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
             </div>
         </div>
     `;
     container.innerHTML = html;
 
-    // Hover-Verknüpfung: Cue berühren -> Nur das exakte Textfragment leuchtet auf
+    // Hover-Effekt: Verknüpfung von Cue und Textabschnitt
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const targetId = cueEl.getAttribute('data-target');
         const targetFragment = document.getElementById(targetId);
@@ -1370,7 +1370,7 @@ window.renderOverview = function() {
             cueEl.addEventListener('mouseenter', () => {
                 cueEl.classList.add('cue-active-highlight');
                 targetFragment.classList.add('highlight-target');
-                window.triggerHaptic(4);
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
             });
 
             cueEl.addEventListener('mouseleave', () => {
@@ -1380,7 +1380,6 @@ window.renderOverview = function() {
         }
     });
 };
-
 // ====================================================
 // FORGE / GEMINI API
 // ====================================================
