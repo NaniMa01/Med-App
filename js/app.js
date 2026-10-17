@@ -1356,20 +1356,56 @@ window.renderOverview = function() {
 
     let notesHtml = '';
     if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
-        data.cornell_notes.forEach(note => {
+        data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             notesHtml += `
-                <div class="cornell-grid">
+                <div class="cornell-grid" id="cornell-row-${noteIdx}">
                     <div class="cornell-cues">
-                        ${cuesArray.map(c => `<div class="cornell-cue-item">${c}</div>`).join('')}
+                        ${cuesArray.map(c => `<div class="cornell-cue-item" data-target-note="${noteIdx}">• ${escapeHtml(c)}</div>`).join('')}
                     </div>
-                    <div class="cornell-notes">
+                    <div class="cornell-notes" id="cornell-note-text-${noteIdx}">
                         ${note.notes || ''}
                     </div>
                 </div>
             `;
         });
     }
+
+    const topicTitle = window.isSpecialtyBlindMode ? "Klinisches Krankheitsbild (Blind-Training)" : (data.topic || 'Thematische Übersicht');
+
+    const html = `
+        <div class="cornell-wrapper">
+            <div class="cornell-header">
+                <h2>${escapeHtml(topicTitle)}</h2>
+            </div>
+            ${notesHtml}
+            <div class="cornell-summary">
+                <h4>Zusammenfassung (Take-Home Message)</h4>
+                <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
+            </div>
+        </div>
+    `;
+    container.innerHTML = html;
+
+    // ==========================================================================
+    // INTERAKTIVER HOVER-LISTENER FÜR DIE CORNELL NOTES (HIER WIRKT DER EFFEKT)
+    // ==========================================================================
+    container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
+        const targetIdx = cueEl.getAttribute('data-target-note');
+        const targetNoteBox = document.getElementById(`cornell-note-text-${targetIdx}`);
+
+        if (targetNoteBox) {
+            cueEl.addEventListener('mouseenter', () => {
+                targetNoteBox.classList.add('highlight-target');
+                window.triggerHaptic(4);
+            });
+
+            cueEl.addEventListener('mouseleave', () => {
+                targetNoteBox.classList.remove('highlight-target');
+            });
+        }
+    });
+};
 
     const topicTitle = window.isSpecialtyBlindMode ? "Klinisches Krankheitsbild (Blind-Training)" : (data.topic || 'Thematische Übersicht');
 
