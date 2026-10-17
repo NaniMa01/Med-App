@@ -3479,3 +3479,126 @@ body.is-resizing .resizer-handle-pill {
 .text-danger {
     color: #f87171;
 }
+
+/* ==========================================================================
+   DOCTORDLE MODERNER EINGABEBEREICH & AUTOCOMPLETE (UI/UX REFACTOR)
+   ========================================================================== */
+
+.doctordle-input-wrapper {
+    position: relative;
+    display: flex;
+    gap: 10px;
+    margin-top: 1.25rem;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+/* Das Textfeld als moderne, saubere Bar */
+#doctordle-input {
+    flex: 1;
+    min-width: 240px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    color: var(--text-main, #f1f5f9);
+    outline: none;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    font-family: inherit;
+}
+
+#doctordle-input:focus {
+    border-color: var(--accent-blue, #38bdf8);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Primäre & Sekundäre Doctordle Buttons */
+#doctordle-submit-btn, 
+#doctordle-reveal-btn, 
+#doctordle-next-btn {
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+#doctordle-submit-btn {
+    background: var(--accent-blue, #38bdf8);
+    color: #0f172a;
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+}
+
+#doctordle-submit-btn:hover:not(:disabled) {
+    background: #7dd3fc;
+    transform: translateY(-1px);
+}
+
+#doctordle-reveal-btn {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+#doctordle-reveal-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+/* Schickes, modernes Autocomplete-Dropdown */
+#doctordle-autocomplete-list {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    list-style: none;
+    padding: 4px;
+    margin: 0;
+    z-index: 100;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+#doctordle-autocomplete-list li {
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-main, #f1f5f9);
+    transition: background 0.15s ease;
+}
+
+#doctordle-autocomplete-list li:hover {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+
+/* Clinical Daylight (Light-Mode) Unterstützung für Doctordle-Inputs */
+[data-theme="daylight"] #doctordle-input {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #38bdf8 !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list {
+    background: #ffffff !important;
+    border-color: #38bdf8 !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list li {
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
+    background: #bae6fd !important;
+    color: #000000 !important;
+}
