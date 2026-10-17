@@ -2596,6 +2596,152 @@ async function markDepotMasteredFromQuiz(depotId, btnEl) {
     }
 }
 
+// ==========================================================================
+// PHARMACOLOGY MATRIX ENGINE (DRAG & DROP)
+// ==========================================================================
+
+const pharmaMatrixDataSet = {
+    title: "Antidepressiva & Antipsychotika (Differenzialtherapie)",
+    categories: [
+        { id: 'cat_ssri', name: 'Major Depression & Angststörungen (1. Wahl: SSRI)' },
+        { id: 'cat_tca', name: 'Schwere Depression / Therapieresistenz (TCA)' },
+        { id: 'cat_atypical', name: 'Schizophrenie / Psychosen (Atypika / 2. Gen)' },
+        { id: 'cat_bipolar', name: 'Bipolare Störungen & Phasenprophylaxe' }
+    ],
+    drugs: [
+        { id: 'd1', name: 'Sertralin', correct_cat: 'cat_ssri' },
+        { id: 'd2', name: 'Citalopram', correct_cat: 'cat_ssri' },
+        { id: 'd3', name: 'Amitriptylin', correct_cat: 'cat_tca' },
+        { id: 'd4', name: 'Clomipramin', correct_cat: 'cat_tca' },
+        { id: 'd5', name: 'Clozapin', correct_cat: 'cat_atypical' },
+        { id: 'd6', name: 'Olanzapin', correct_cat: 'cat_atypical' },
+        { id: 'd7', name: 'Lithium', correct_cat: 'cat_bipolar' },
+        { id: 'd8', name: 'Quetiapin', correct_cat: 'cat_bipolar' }
+    ]
+};
+
+window.openPharmaMatrixModule = function(navEl) {
+    window.triggerHaptic(6);
+    
+    // Andere Haupt-Views ausblenden
+    ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'depot-view'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    const matrixView = document.getElementById('pharma-matrix-view');
+    if (matrixView) matrixView.style.display = 'block';
+
+    document.querySelectorAll('.nav-item').forEach(li => li.classList.remove('active'));
+    if (navEl) navEl.classList.add('active');
+
+    renderPharmaMatrixBoard();
+};
+
+function renderPharmaMatrixBoard() {
+    const poolEl = document.getElementById('pharma-matrix-pool');
+    const gridEl = document.getElementById('pharma-matrix-categories');
+    const fb = document.getElementById('pharma-matrix-fb');
+    if (!poolEl || !gridEl) return;
+
+    poolEl.innerHTML = '';
+    gridEl.innerHTML = '';
+    if (fb) { fb.style.display = 'none'; fb.className = 'feedback-box'; }
+
+    // Kategorien-Spalten erstellen
+    pharmaMatrixDataSet.categories.forEach(cat => {
+        const col = document.createElement('div');
+        col.className = 'pharma-category-column';
+        col.dataset.catId = cat.id;
+
+        col.innerHTML = `
+            <div class="pharma-cat-header">${escapeHtml(cat.name)}</div>
+            <div class="pharma-cat-dropzone" ondragover="allowMatrixDragOver(event)" ondrop="dropDrugToCategory(event, '${cat.id}')"></div>
+        `;
+        gridEl.appendChild(col);
+    });
+
+    // Medikamenten-Karten (zufällig gemischt) in den Pool legen
+    const shuffled = [...pharmaMatrixDataSet.drugs].sort(() => Math.random() - 0.5);
+    shuffled.forEach(drug => {
+        const card = document.createElement('div');
+        card.className = 'pharma-matrix-card';
+        card.draggable = true;
+        card.id = `matrix_drug_${drug.id}`;
+        card.dataset.drugId = drug.id;
+        card.innerText = drug.name;
+
+        card.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', drug.id);
+            card.classList.add('dragging');
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+        });
+
+        poolEl.appendChild(card);
+    });
+}
+
+function allowMatrixDragOver(ev) {
+    ev.preventDefault();
+}
+
+function dropDrugToCategory(ev, catId) {
+    ev.preventDefault();
+    const drugId = ev.dataTransfer.getData('text/plain');
+    const card = document.getElementById(`matrix_drug_${drugId}`);
+    
+    if (card) {
+        const dropzone = ev.currentTarget.closest('.pharma-category-column').querySelector('.pharma-cat-dropzone');
+        if (dropzone) {
+            dropzone.appendChild(card);
+        }
+    }
+}
+
+function dropToPool(ev) {
+    ev.preventDefault();
+    const drugId = ev.dataTransfer.getData('text/plain');
+    const card = document.getElementById(`matrix_drug_${drugId}`);
+    if (card) {
+        document.getElementById('pharma-matrix-pool').appendChild(card);
+    }
+}
+
+function validatePharmaMatrix() {
+    let correct = 0;
+    let total = pharmaMatrixDataSet.drugs.length;
+
+    pharmaMatrixDataSet.drugs.forEach(drug => {
+        const card = document.getElementById(`matrix_drug_${drug.id}`);
+        if (!card) return;
+
+        const parentCol = card.closest('.pharma-category-column');
+        if (parentCol && parentCol.dataset.catId === drug.correct_cat) {
+            correct++;
+            card.style.borderColor = 'var(--color-symptom, #10b981)';
+        } else {
+            card.style.borderColor = 'var(--color-risk, #ef4444)';
+        }
+    });
+
+    const fb = document.getElementById('pharma-matrix-fb');
+    if (!fb) return;
+    fb.style.display = 'block';
+
+    if (correct === total) {
+        fb.className = 'feedback-box feedback-success';
+        fb.innerHTML = `<strong>🎉 Hervorragend!</strong> Alle ${total} Wirkstoffe wurden exakt den richtigen Indikationen zugeordnet. +150 XP gesichert!`;
+        if (typeof applyXpDelta === 'function') {
+            applyXpDelta(150, 'Pharma-Matrix gelöst');
+        }
+    } else {
+        fb.className = 'feedback-box feedback-error';
+        fb.innerHTML = `<strong>Noch nicht ganz:</strong> ${correct} von ${total} Wirkstoffen sind am korrekten Platz. Falsch einsortierte Karten sind rot markiert.`;
+    }
+}
 // ====================================================
 // PHARMA-COMPASS SPEICHER-MODULE
 // ====================================================
