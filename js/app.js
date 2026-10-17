@@ -745,17 +745,51 @@ window.SpecialtyEngine = {
 };
 
 // ====================================================
-// DASHBOARD & BOOKSHELF
+// DASHBOARD DRAG & DROP FOLDER SORTING
 // ====================================================
+const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
+let draggedDashboardFolder = null;
+
+function getDashboardFolderOrder() {
+    try {
+        return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]');
+    } catch (_e) {
+        return [];
+    }
+}
+
+function saveDashboardFolderOrder(orderArray) {
+    try {
+        localStorage.setItem(DASHBOARD_FOLDER_ORDER_KEY, JSON.stringify(orderArray));
+    } catch (e) {
+        console.error('Fehler beim Speichern der Ordner-Reihenfolge:', e);
+    }
+}
+
+function reorderDashboardFolders(draggedCat, targetCat) {
+    if (!draggedCat || !targetCat || draggedCat === targetCat) return;
+
+    let order = getDashboardFolderOrder();
+    const fromIdx = order.indexOf(draggedCat);
+    const toIdx = order.indexOf(targetCat);
+
+    if (fromIdx !== -1 && toIdx !== -1) {
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedCat);
+        saveDashboardFolderOrder(order);
+        renderDashboardCases();
+    }
+}
+
 function renderDashboardCases() {
-    let customCases = getCustomCases();
+    const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     const container = document.getElementById('dashboard-folders-container');
-    
     if (!container) return;
 
-    let allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
+    const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
     
+    // 1. Fälle nach Kategorie gruppieren
     const grouped = {};
     allCases.forEach(c => {
         const cat = (c.folder_name || c.metadata?.medical_field || "Allgemeine Neurologie").trim();
@@ -763,7 +797,20 @@ function renderDashboardCases() {
         grouped[cat].push(c);
     });
 
-    container.innerHTML = Object.entries(grouped).map(([category, cases], catIdx) => {
+    // 2. Gespeicherte Reihenfolge synchronisieren
+    let savedOrder = getDashboardFolderOrder();
+    const existingCats = Object.keys(grouped);
+
+    // Neue Ordner anhängen, gelöschte aussortieren
+    savedOrder = savedOrder.filter(cat => existingCats.includes(cat));
+    existingCats.forEach(cat => {
+        if (!savedOrder.includes(cat)) savedOrder.push(cat);
+    });
+    saveDashboardFolderOrder(savedOrder);
+
+    // 3. HTML rendern
+    container.innerHTML = savedOrder.map((category, catIdx) => {
+        const cases = grouped[category] || [];
         const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
         const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
         
@@ -792,21 +839,74 @@ function renderDashboardCases() {
         }).join('');
 
         return `
-            <div class="category-folder">
-                <div class="category-header" data-category="${encodeURIComponent(category)}">
-                    <div class="category-title-wrap"><span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span><span>📁 ${category}</span></div>
+            <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" id="dashboard-folder-${catIdx}">
+                <div class="category-header">
+                    <div class="category-title-wrap">
+                        <span class="category-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
+                        <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span>
+                        <span>📁 ${escapeHtml(category)}</span>
+                    </div>
                     <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
                 </div>
                 <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
             </div>`;
     }).join('');
 
-    container.querySelectorAll('.category-header[data-category]').forEach(header => {
-        header.addEventListener('click', () => {
-            toggleFolder(decodeURIComponent(header.dataset.category));
+    // 4. Klick-Handler für Folder Header (Auf/Zuklappen ohne Drag-Interferenz)
+    container.querySelectorAll('.category-folder').forEach(folderEl => {
+        const catName = decodeURIComponent(folderEl.dataset.category);
+        const header = folderEl.querySelector('.category-header');
+
+        if (header) {
+            header.addEventListener('click', (e) => {
+                // Klick auf Drag-Handle ignoriert das Toggle
+                if (e.target.closest('.category-drag-handle')) return;
+                toggleFolder(catName);
+            });
+        }
+
+        // 5. Drag-and-Drop Event Listener für die Ordner
+        folderEl.addEventListener('dragstart', (e) => {
+            // Drag nur starten, wenn nicht eine Fall-Karte innerhalb des Ordners gezogen wird
+            if (e.target !== folderEl && !e.target.closest('.category-header')) return;
+            draggedDashboardFolder = catName;
+            folderEl.classList.add('folder-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', catName);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+        });
+
+        folderEl.addEventListener('dragend', () => {
+            folderEl.classList.remove('folder-dragging');
+            draggedDashboardFolder = null;
+            container.querySelectorAll('.category-folder').forEach(f => f.classList.remove('folder-drag-over'));
+        });
+
+        folderEl.addEventListener('dragover', (e) => {
+            if (!draggedDashboardFolder || draggedDashboardFolder === catName) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            folderEl.classList.add('folder-drag-over');
+        });
+
+        folderEl.addEventListener('dragleave', (e) => {
+            // Verhindern von Flackern beim Überfahren von Kindelementen
+            if (!folderEl.contains(e.relatedTarget)) {
+                folderEl.classList.remove('folder-drag-over');
+            }
+        });
+
+        folderEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            folderEl.classList.remove('folder-drag-over');
+            if (!draggedDashboardFolder || draggedDashboardFolder === catName) return;
+
+            reorderDashboardFolders(draggedDashboardFolder, catName);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
         });
     });
 
+    // 6. Klick- und Lösch-Handler für Fall-Karten
     container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
         card.addEventListener('click', () => window.loadCaseById(caseId));
