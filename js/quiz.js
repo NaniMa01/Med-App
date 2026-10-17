@@ -62,6 +62,19 @@ window.evalQuiz = function() {
     document.getElementById('eval-quiz-btn').style.display = 'none';
 
     const scorePercent = Math.round((correctCount / quizList.length) * 100);
+
+    if (window.SpacedRepetitionEngine && activeCaseData && activeCaseData.case_id) {
+        const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('quiz', {
+            scorePercent: scorePercent
+        });
+
+        window.SpacedRepetitionEngine.recordReview({
+            itemId: `${activeCaseData.case_id}_quiz`,
+            moduleType: 'quiz',
+            quality: quality,
+            medicalField: activeCaseData.metadata?.medical_field || activeCaseData.folder_name
+        }).catch(err => console.warn('[Quiz] SM-2 Record Warning:', err));
+    }
     if (scorePercent >= 70) {
         fb.className = 'feedback-box feedback-success';
         fb.innerHTML = `<strong>Prüfung bestanden!</strong> ${correctCount} von ${quizList.length} Fragen richtig (${scorePercent}%).`;
