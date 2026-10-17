@@ -1,31 +1,33 @@
-// In js/audit.js:
-function completeAudit() {
-  const auditContainer = document.getElementById('audit-container') || document.getElementById('timeline-container');
-  if (!auditContainer) return;
+// js/audit.js - Challenge Audit mit semantischen Satzbausteinen (3-6 Wörter)
 
-  // Wenn der Modus "specialty" aktiv ist, zeigen wir eine kompakte Feedback-Box mit Direktlink zum nächsten Fall
-  if (state.currentMode === 'specialty') {
-    auditContainer.innerHTML += `
-      <div class="audit-patient-complete-card">
-        <div class="complete-header">
-          <span class="check-icon">✓</span>
-          <h3>Patientenfall erfolgreich auditiert!</h3>
-        </div>
-        <p>Du hast alle 3 klinischen Phasen (Anamnese, Diagnostik, Therapie) dieses Patienten geprüft.</p>
-        <div class="complete-actions">
-          <button type="button" class="btn btn-outline" id="btn-reveal-diagnosis">
-            🔍 Diagnose enthüllen
-          </button>
-          <button type="button" class="btn btn-primary" id="btn-next-specialty-case">
-            Nächstes Krankheitsbild ➔
-          </button>
-        </div>
-      </div>
-    `;
-    return;
-  }
+// Hilfsfunktion zum Aufteilen von Text in semantische Chunks (3-6 Wörter)
+function chunkTextIntoSegments(text, hotspots = []) {
+    // Wörter trennen, aber Leerzeichen/Zeilenumbrüche respektieren
+    const words = text.split(/\s+/);
+    const chunks = [];
+    let i = 0;
+    
+    while (i < words.length) {
+        // Bestimme eine realistische Baustein-Länge zwischen 3 und 6 Wörtern
+        const targetLength = Math.min(Math.floor(Math.random() * 4) + 3, words.length - i);
+        const chunkWords = words.slice(i, i + targetLength);
+        const chunkTextStr = chunkWords.join(' ');
+        
+        // Prüfen, ob in diesem Chunk einer der definierten Hotspots/Fehler liegt
+        const matchingHotspotIndex = hotspots.findIndex(hs => {
+            return chunkTextStr.includes(hs.phrase) || hs.phrase.includes(chunkTextStr);
+        });
 
-  // ... Reguläre Dashboard-Logik für 9 Schritte ...
+        chunks.push({
+            id: `chunk_${i}`,
+            text: chunkTextStr,
+            hasError: matchingHotspotIndex !== -1,
+            hotspotIndex: matchingHotspotIndex !== -1 ? matchingHotspotIndex : null
+        });
+
+        i += targetLength;
+    }
+    return chunks;
 }
 
 function renderTimeline() {
@@ -33,50 +35,42 @@ function renderTimeline() {
     if (!container || !activeCaseData || !activeCaseData.timeline) return;
 
     container.innerHTML = activeCaseData.timeline.map((step, index) => {
-        let text = step.content;
-        const hotspots = step.hotspots || []; // Fallback: Leeres Array, falls keine Fehler im JSON definiert sind
+        let rawText = step.content || "";
+        const hotspots = step.hotspots || []; 
 
-        // 1. Linebreaks (\n) schützen, damit lange Texte Absätze behalten
-        text = text.replace(/\n/g, '___NEWLINE___');
+        // Text in 3-6 Wörter Chunks zerlegen
+        const chunks = chunkTextIntoSegments(rawText, hotspots);
 
-        if (hotspots.length > 0) {
-            // 2. Phrasen durch Platzhalter ersetzen
-            hotspots.forEach((hs, i) => {
-                const escapedPhrase = hs.phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`\\[?${escapedPhrase}\\]?`, 'g');
-                text = text.replace(regex, `___HOTSPOT_TOKEN_${i}___`);
-            });
-        }
-
-        // 3. ALLE regulären Wörter mit stealth-word ummanteln (auch wenn es 0 Fehler gibt!)
-        text = text.split(/(\s+)/).map(part => {
-            if (part.includes('___HOTSPOT_TOKEN_') || /^\s+$/.test(part) || part === '___NEWLINE___') {
-                return part;
+        // Chunks in HTML-Spans umwandeln, die als Einheit hovern und anklickbar sind
+        const renderedChunksHTML = chunks.map((chunk, cIndex) => {
+            if (chunk.hasError) {
+                // Ein echter Fehler-Baustein
+                return `<span class="audit-chunk stealth-hotspot" id="hs-${index}-${chunk.hotspotIndex}" onclick="evaluateAuditHotspot(${index}, ${chunk.hotspotIndex})">${chunk.text}</span>`;
+            } else {
+                // Ein fehlerfreier Ablenkungs-Baustein
+                return `<span class="audit-chunk stealth-word" onclick="handleGenericChunkClick(this)">${chunk.text}</span>`;
             }
-            return `<span class="stealth-word" onclick="handleGenericClick(this)">${part}</span>`;
-        }).join('');
-
-        // 4. Hotspot-Tokens wieder in klickbare Fehlerspans umwandeln
-        if (hotspots.length > 0) {
-            hotspots.forEach((hs, i) => {
-                const token = `___HOTSPOT_TOKEN_${i}___`;
-                const replacement = `<span class="stealth-hotspot" id="hs-${index}-${i}" onclick="evaluateAuditHotspot(${index}, ${i})">${hs.phrase}</span>`;
-                text = text.split(token).join(replacement);
-            });
-        }
-
-        // 5. Absätze (<br>) für lange Texte wiederherstellen
-        text = text.split('___NEWLINE___').join('<br>');
+        }).join(' ');
 
         return `
-            <div class="audit-step-container" style="margin-top: 25px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+            <div class="audit-step-container" style="margin-top: 25px; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                 <div style="font-size:0.75rem; font-weight:800; color:var(--accent-blue); text-transform:uppercase; margin-bottom:12px;">Abschnitt ${index+1}: ${step.phase}</div>
-                <div class="step-content" style="line-height: 1.6; font-size: 1rem;">${text}</div>
+                <div class="step-content audit-chunk-row" style="line-height: 2.0; font-size: 1rem;">${renderedChunksHTML}</div>
                 <div class="feedback-box" id="audit-fb-${index}" style="display:none; margin-top: 15px;"></div>
                 <button class="action-btn secondary" id="clear-step-btn-${index}" onclick="clearStep(${index})" style="width:100%; margin-top:15px;">Abschnitt freigeben (Makellos)</button>
             </div>`;
     }).join('');
 }
+
+window.handleGenericChunkClick = function(el) {
+    if (el.classList.contains('resolved-noise') || el.classList.contains('resolved-generic')) return;
+    el.classList.add('resolved-noise');
+    applyXpDelta(-20, 'Fehlalarm im Satzbaustein');
+    
+    // Kleines optisches Feedback direkt am Baustein
+    el.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+    el.style.borderColor = '#ef4444';
+};
 
 window.clearStep = function(stepIndex) {
     const step = activeCaseData.timeline[stepIndex];
@@ -90,15 +84,15 @@ window.clearStep = function(stepIndex) {
     if (hasUnresolved) {
         applyXpDelta(-100, 'Fahrlässige Freigabe');
         fb.className = 'feedback-box feedback-error';
-        fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Es befinden sich noch unentdeckte Fehler in diesem Abschnitt!`;
+        fb.innerHTML = `<strong>Grobe Fahrlässigkeit (-100 XP):</strong> Dieser Abschnitt enthält noch unentdeckte klinische Fehler! Studiere die Satzbausteine genauer.`;
     } else {
         applyXpDelta(100, 'Abschnitt validiert');
         fb.className = 'feedback-box feedback-success';
         
         if (hotspots.filter(hs => hs.is_error).length === 0) {
-            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Hervorragend! Du hast dich nicht täuschen lassen, dieser Abschnitt war komplett fehlerfrei.`;
+            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Hervorragend! Du hast dich nicht täuschen lassen – dieser Abschnitt war komplett fehlerfrei.`;
         } else {
-            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle Fehler in diesem Abschnitt verifiziert.`;
+            fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle Fehler in diesem Abschnitt korrekt verifiziert.`;
         }
         
         document.getElementById(`clear-step-btn-${stepIndex}`).style.display = 'none';
@@ -109,12 +103,10 @@ window.clearStep = function(stepIndex) {
             badge.innerText = `${clearedStepsCount}/${totalStepsCount}`;
         }
 
-        // Korrigierter SM-2 Tracking-Hook
+        // SM-2 Tracking Hook
         if (window.SpacedRepetitionEngine && activeCaseData && activeCaseData.case_id) {
             const scorePercent = Math.round((clearedStepsCount / totalStepsCount) * 100);
-            const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('audit', {
-                scorePercent: scorePercent
-            });
+            const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('audit', { scorePercent });
 
             window.SpacedRepetitionEngine.recordReview({
                 itemId: activeCaseData.case_id,
@@ -128,18 +120,12 @@ window.clearStep = function(stepIndex) {
     }
 };
 
-window.handleGenericClick = function(el) {
-    if (el.classList.contains('resolved-generic')) return;
-    el.classList.add('resolved-generic');
-    applyXpDelta(-10, 'Unsystematischer Klick');
-};
-
 window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const span = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
     
-    if (span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
+    if (!span || span.classList.contains('resolved-noise') || span.classList.contains('resolved-signal')) return;
 
     fb.style.display = 'block';
 
@@ -151,7 +137,7 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
         
         fb.innerHTML = `
             <div style="font-weight: 800; color: var(--accent-red, #ef4444); margin-bottom: 6px;">
-                ⚠️ Kritischer Fehler identifiziert (+100 XP)
+                ⚠️ Kritischer Fehler in Satzbaustein identifiziert (+100 XP)
             </div>
             <div style="margin-bottom: 15px; line-height: 1.5; color: var(--text-main, #f1f5f9);">
                 Du hast eine pathophysiologisch inkorrekte Aussage gefunden. Kannst du den Fehler im Kopf korrigieren?
@@ -175,7 +161,7 @@ window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
                 Fehlalarm (-40 XP)
             </div>
             <div style="line-height: 1.5; color: var(--text-main, #f1f5f9);">
-                <strong>Erklärung:</strong> ${hs.feedback || 'Diese Feststellung ist im klinischen Kontext fachlich korrekt.'}
+                <strong>Erklärung:</strong> ${hs.feedback || 'Dieser Satzbaustein ist im klinischen Kontext fachlich korrekt.'}
             </div>
         `;
     }
@@ -185,9 +171,7 @@ window.revealHint = function(stepIndex, hotspotIndex) {
     const hs = activeCaseData.timeline[stepIndex].hotspots[hotspotIndex];
     const fb = document.getElementById(`audit-fb-${stepIndex}`);
 
-    // XP-Abzug auslösen und tracken
     applyXpDelta(-50, 'Tutor-Impuls angefordert');
-
     const explanationText = hs.explanation || hs.feedback || hs.socratic_trap || 'Überlege, welche pathophysiologischen Mechanismen hier wirklich greifen.';
 
     fb.innerHTML = `
