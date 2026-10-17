@@ -1375,31 +1375,32 @@ window.renderOverview = function() {
     if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
         data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
-            
-            // Wir wandeln den Notiz-Text in Absätze um, um sie gezielt anzusprechen
             const rawNotes = note.notes || '';
-            const paragraphs = rawNotes.split(/<br\s*\/?>/i).filter(p => p.trim().length > 0);
+            
+            // Trennt die Absätze sauber an den <br><br>-Markern
+            const paragraphs = rawNotes.split(/<br\s*\/?>\s*<br\s*\/?>/i)
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
 
-            notesHtml += `
-                <div class="cornell-grid" id="cornell-row-${noteIdx}">
-                    <div class="cornell-cues">
-                        ${cuesArray.map((c, cueSubIdx) => `
-                            <div class="cornell-cue-item" data-row="${noteIdx}" data-sub="${cueSubIdx}">
-                                • ${escapeHtml(c)}
+            // 1:1 Pairing: Jeder Cue bekommt exakt seinen korrespondierenden Absatz
+            cuesArray.forEach((cueText, cueIdx) => {
+                const paragraphText = paragraphs[cueIdx] || paragraphs[0] || rawNotes;
+
+                notesHtml += `
+                    <div class="cornell-row-item" data-row="${noteIdx}-${cueIdx}">
+                        <div class="cornell-cue-col">
+                            <div class="cornell-cue-item" data-target="frag-${noteIdx}-${cueIdx}">
+                                • ${escapeHtml(cueText)}
                             </div>
-                        `).join('')}
-                    </div>
-                    <div class="cornell-notes" id="cornell-note-box-${noteIdx}">
-                        <div class="cornell-note-content-inner">
-                            ${paragraphs.map((p, pIdx) => `
-                                <div class="cornell-fragment" id="fragment-${noteIdx}-${pIdx}">
-                                    ${p}
-                                </div>
-                            `).join('')}
+                        </div>
+                        <div class="cornell-note-col">
+                            <div class="cornell-fragment" id="frag-${noteIdx}-${cueIdx}">
+                                ${paragraphText}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            });
         });
     }
 
@@ -1410,7 +1411,9 @@ window.renderOverview = function() {
             <div class="cornell-header">
                 <h2>${escapeHtml(topicTitle)}</h2>
             </div>
-            ${notesHtml}
+            <div class="cornell-container-body">
+                ${notesHtml}
+            </div>
             <div class="cornell-summary">
                 <h4>Zusammenfassung (Take-Home Message)</h4>
                 <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
@@ -1419,15 +1422,10 @@ window.renderOverview = function() {
     `;
     container.innerHTML = html;
 
-    // ==========================================================================
-    // PRÄZISER HOVER-LISTENER: Ordnet Fragmente den Cues zu
-    // ==========================================================================
+    // Hover-Verknüpfung: Cue berühren -> Nur das exakte Textfragment leuchtet auf
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
-        const rowIdx = cueEl.getAttribute('data-row');
-        const subIdx = parseInt(cueEl.getAttribute('data-sub'), 10);
-        
-        // Den passenden Absatz/Fragment über den Index zuordnen
-        const targetFragment = document.getElementById(`fragment-${rowIdx}-${subIdx}`) || document.getElementById(`fragment-${rowIdx}-0`);
+        const targetId = cueEl.getAttribute('data-target');
+        const targetFragment = document.getElementById(targetId);
 
         if (targetFragment) {
             cueEl.addEventListener('mouseenter', () => {
