@@ -293,6 +293,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.renderSpecialtyHub();
     }
 
+// In js/app.js nach Auth-Init / Dashboard-Load:
+if (window.SpacedRepetitionEngine) {
+    window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', (itemId, moduleType) => {
+        // Lädt gezielt den fälligen Fall und öffnet direkt das fällige Modul
+        this.loadCaseById(itemId).then(() => {
+            this.switchModule(moduleType);
+        });
+    });
+}
+
+// Automatischer Re-Render der Heatmap, sobald ein Modul abgeschlossen wurde
+window.addEventListener('sr:updated', () => {
+    if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget');
+    }
+});
+    
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn) {
         addFolderBtn.addEventListener('click', () => {
@@ -2061,6 +2078,8 @@ async function syncDepotWithSupabase() {
     } catch (err) {
         console.warn('Depot Offline-Modus aktiv:', err);
     }
+
+    
 }
 
 // 4. Text-Markierung in der "Übersicht" überwachen
