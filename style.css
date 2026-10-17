@@ -608,6 +608,41 @@ body.is-resizing .resizer-handle-pill {
 }
 
 /* ==========================================================================
+   DASHBOARD CATEGORY FOLDER DRAG & DROP
+   ========================================================================== */
+.category-folder {
+    transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.category-folder.folder-dragging {
+    opacity: 0.45;
+    transform: scale(0.98);
+}
+
+.category-folder.folder-drag-over {
+    border: 2px dashed #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.05);
+}
+
+.category-drag-handle {
+    cursor: grab;
+    user-select: none;
+    font-size: 0.9rem;
+    color: var(--text-dim, #64748b);
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+}
+
+.category-drag-handle:hover {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+}
+
+.category-drag-handle:active {
+    cursor: grabbing;
+}
+/* ==========================================================================
    6. BUTTONS, TABS & FEEDBACK BOXES (Inkl. fehlender .btn-Klassen!)
    ========================================================================== */
 .challenge-nav-bar {
