@@ -6,11 +6,12 @@
 // Zerlegt den Text intelligent in sprachlich sinnvolle Sinnabschnitte (Klauseln/Phrasen)
 // js/audit.js - Natürliche semantische Klausel-Segmentierung für den Audit-Modus
 
+// js/audit.js - Semantische Klausel-Segmentierung im natürlichen Lesefluss
+
 function chunkTextIntoSemanticSegments(text, hotspots = []) {
     if (!text) return [];
 
-    // Trennung an echten Satzgrenzen und Klausel-Bindern (Kommas, Semikolons, Punkte, Konjunktionen)
-    // Das sorgt dafür, dass die Textabschnitte inhaltlich und grammatikalisch Sinn ergeben.
+    // Trennung an echten Satzgrenzen und Klauseln für korrekte Sinnzusammenhänge
     const rawParts = text.split(/([,;.]\s+|\s+und\s+|\s+oder\s+|\s+während\s+|\s+sodass\s+|\s+da\s+|\s+weil\s+)/g);
     
     let segments = [];
@@ -20,7 +21,6 @@ function chunkTextIntoSemanticSegments(text, hotspots = []) {
         if (!part) return;
         currentChunk += part;
         
-        // Wenn ein echtes Satzzeichen erreicht ist oder der Baustein eine sinnvolle Länge erreicht hat
         if (/[,;.]/.test(part) || currentChunk.split(/\s+/).length >= 5) {
             if (currentChunk.trim().length > 0) {
                 segments.push(currentChunk.trim());
@@ -37,7 +37,6 @@ function chunkTextIntoSemanticSegments(text, hotspots = []) {
         segments.push(text);
     }
 
-    // Segmente mit den definierten Hotspots/Fehlern abgleichen
     return segments.map((segText, index) => {
         const matchingHotspotIndex = hotspots.findIndex(hs => {
             return segText.includes(hs.phrase) || hs.phrase.includes(segText);
@@ -60,12 +59,10 @@ function renderTimeline() {
         let rawText = step.content || "";
         const hotspots = step.hotspots || []; 
 
-        // Sinnhafte semantische Segmente generieren
         const segments = chunkTextIntoSemanticSegments(rawText, hotspots);
 
-        // Rendering als natürlicher Fließtext mit deinen Stealth-Klassen
+        // Rendering als natürlicher Fließtext ohne veränderte Abstände
         const renderedHTML = segments.map((seg) => {
-            // Wichtig: Wir hängen ein Leerzeichen an, damit die Wörter im Fließtext nicht zusammenkleben
             const textWithSpace = seg.text + ' ';
 
             if (seg.hasError) {
