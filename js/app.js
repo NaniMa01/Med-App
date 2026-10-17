@@ -419,21 +419,6 @@ window.switchPlayerMode = function(mode) {
     }
 };
 
-window.switchPlayerMode = function(mode) {
-    currentActiveChallenge = mode;
-
-    document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
-    
-    const targetPane = document.getElementById('mode-container-' + mode);
-    const targetTab = document.getElementById('tab-btn-' + mode);
-    if (targetPane) targetPane.style.display = 'block';
-    if (targetTab) targetTab.classList.add('active');
-
-    if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
-        window.initDoctordle(activeCaseData);
-    }
-};
 
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
