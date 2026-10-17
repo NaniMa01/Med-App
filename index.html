@@ -132,6 +132,10 @@
         <div class="panel" id="dashboard-view" style="display: block;">
             <div class="panel-title">Klinische Module & Themen-Ordner</div>
             <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
+         
+            
+            <section id="sr-dashboard-widget"></section>
+            
             <div class="segmented-control" role="tablist">
                 <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
                 <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
@@ -404,5 +408,6 @@
     <script src="js/cascade.js"></script>
     <script src="js/taxonomy.js"></script>
     <script src="js/quiz.js"></script>
+    <script type="module" src="js/spaced_repetition.js"></script>
 </body>
 </html>
