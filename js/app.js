@@ -1359,7 +1359,10 @@ window.renderOverview = function() {
         data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             
-            // Jedes Paar aus Cues und Notizen bekommt eine eindeutige ID-Struktur
+            // Wir wandeln den Notiz-Text in Absätze um, um sie gezielt anzusprechen
+            const rawNotes = note.notes || '';
+            const paragraphs = rawNotes.split(/<br\s*\/?>/i).filter(p => p.trim().length > 0);
+
             notesHtml += `
                 <div class="cornell-grid" id="cornell-row-${noteIdx}">
                     <div class="cornell-cues">
@@ -1370,8 +1373,12 @@ window.renderOverview = function() {
                         `).join('')}
                     </div>
                     <div class="cornell-notes" id="cornell-note-box-${noteIdx}">
-                        <div class="cornell-note-segment" id="cornell-segment-${noteIdx}">
-                            ${note.notes || ''}
+                        <div class="cornell-note-content-inner">
+                            ${paragraphs.map((p, pIdx) => `
+                                <div class="cornell-fragment" id="fragment-${noteIdx}-${pIdx}">
+                                    ${p}
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 </div>
@@ -1396,22 +1403,25 @@ window.renderOverview = function() {
     container.innerHTML = html;
 
     // ==========================================================================
-    // PRÄZISER HOVER-LISTENER FÜR DAS ZEILENGENAUE HIGHLIGHTING
+    // PRÄZISER HOVER-LISTENER: Ordnet Fragmente den Cues zu
     // ==========================================================================
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const rowIdx = cueEl.getAttribute('data-row');
-        const targetSegment = document.getElementById(`cornell-segment-${rowIdx}`);
+        const subIdx = parseInt(cueEl.getAttribute('data-sub'), 10);
+        
+        // Den passenden Absatz/Fragment über den Index zuordnen
+        const targetFragment = document.getElementById(`fragment-${rowIdx}-${subIdx}`) || document.getElementById(`fragment-${rowIdx}-0`);
 
-        if (targetSegment) {
+        if (targetFragment) {
             cueEl.addEventListener('mouseenter', () => {
                 cueEl.classList.add('cue-active-highlight');
-                targetSegment.classList.add('highlight-target');
+                targetFragment.classList.add('highlight-target');
                 window.triggerHaptic(4);
             });
 
             cueEl.addEventListener('mouseleave', () => {
                 cueEl.classList.remove('cue-active-highlight');
-                targetSegment.classList.remove('highlight-target');
+                targetFragment.classList.remove('highlight-target');
             });
         }
     });
