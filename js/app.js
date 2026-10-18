@@ -2779,11 +2779,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE (60 FPS EDGE SCROLLING)
+// DRAG & DROP AUTO-SCROLL ENGINE (60 FPS EDGE SCROLLING - SICHER)
 // ==========================================================================
 (function initDragAutoScroll() {
-    const EDGE_THRESHOLD = 90; // Abstand zum Rand in Pixeln, ab dem gescrollt wird
-    const MAX_SCROLL_SPEED = 18; // Maximale Pixel pro Frame (bei 60 FPS)
+    const EDGE_THRESHOLD = 90; 
+    const MAX_SCROLL_SPEED = 18; 
 
     let isDraggingActive = false;
     let currentMouseY = 0;
@@ -2807,7 +2807,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let scrolled = false;
         const viewportHeight = window.innerHeight;
 
-        // 1. Prüfen, ob wir uns über dem linken Bookshelf-Container befinden
         const bookshelf = document.getElementById('bookshelf-container');
         if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight) {
             const rect = bookshelf.getBoundingClientRect();
@@ -2828,11 +2827,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 2. Hauptfenster / Dashboard am oberen oder unteren Bildrand scrollen
         if (!scrolled) {
             const scrollTarget = getScrollableMainContainer();
             if (currentMouseY < EDGE_THRESHOLD) {
-                // Nähe oberer Bildrand -> nach oben scrollen
                 const intensity = Math.max(0.1, 1 - (currentMouseY / EDGE_THRESHOLD));
                 const delta = -Math.ceil(MAX_SCROLL_SPEED * intensity);
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
@@ -2841,7 +2838,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollTarget.scrollTop += delta;
                 }
             } else if (currentMouseY > viewportHeight - EDGE_THRESHOLD) {
-                // Nähe unterer Bildrand -> nach unten scrollen
                 const distFromBottom = viewportHeight - currentMouseY;
                 const intensity = Math.max(0.1, 1 - (distFromBottom / EDGE_THRESHOLD));
                 const delta = Math.ceil(MAX_SCROLL_SPEED * intensity);
@@ -2857,19 +2853,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('dragstart', (e) => {
-        isDraggingActive = true;
-        currentMouseY = e.clientY;
-        currentMouseX = e.clientX;
-        if (!scrollFrameId) {
-            scrollFrameId = requestAnimationFrame(performAutoScroll);
+        if (e.target.classList.contains('category-folder') || e.target.classList.contains('case-card') || e.target.classList.contains('folder-case-item') || e.target.closest('.folder-group')) {
+            isDraggingActive = true;
+            if (!scrollFrameId) {
+                scrollFrameId = requestAnimationFrame(performAutoScroll);
+            }
         }
-    }, true);
+    });
 
-    document.addEventListener('dragover', (e) => {
+    document.addEventListener('drag', (e) => {
         if (!isDraggingActive) return;
-        currentMouseY = e.clientY;
-        currentMouseX = e.clientX;
-    }, { passive: true, capture: true });
+        if (e.clientY > 0) {
+            currentMouseY = e.clientY;
+            currentMouseX = e.clientX;
+        }
+    }, { passive: true });
 
     const stopAutoScroll = () => {
         isDraggingActive = false;
@@ -2879,6 +2877,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    document.addEventListener('dragend', stopAutoScroll, true);
-    document.addEventListener('drop', stopAutoScroll, true);
+    document.addEventListener('dragend', stopAutoScroll);
+    document.addEventListener('drop', stopAutoScroll);
 })();
