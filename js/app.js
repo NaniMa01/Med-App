@@ -2491,11 +2491,10 @@ function hookDepotIntoSwitchTab() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    hookDepotIntoSwitchTab();
+  
     initOverviewSelectionListener();
     syncDepotWithSupabase();
 });
-
 // ==========================================================================
 // KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
 // ==========================================================================
