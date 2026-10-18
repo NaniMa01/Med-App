@@ -383,79 +383,69 @@ function escapeHtml(str) {
     );
 }
 
-// ====================================================
-// ROBUSTE TAB-SWITCHING ENGINE (FÜR ALLE ANSICHTEN)
-// ====================================================
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
+    const updateDOM = () => {
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+        if (el) el.classList.add('active');
+        
+        const allViews = [
+            'dashboard-view', 
+            'player-view', 
+            'forge-view', 
+            'settings-view', 
+            'depot-view', 
+            'pharmacology-view'
+        ];
 
-    // 1. Navigation Active-State aktualisieren
-    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-    if (el) {
-        el.classList.add('active');
-    } else {
-        // Fallback: passendes Nav-Item anhand des Tabs finden
-        document.querySelectorAll('.nav-item').forEach(item => {
-            if (item.getAttribute('onclick')?.includes(`'${tab}'`)) {
-                item.classList.add('active');
-            }
+        allViews.forEach(viewId => {
+            const element = document.getElementById(viewId);
+            if (element) element.style.display = 'none';
         });
-    }
 
-    // 2. Alle Haupt-Views definieren und ausblenden
-    const allViews = {
-        'dashboard': 'dashboard-view',
-        'player': 'player-view',
-        'forge': 'forge-view',
-        'settings': 'settings-view',
-        'depot': 'depot-view',
-        'pharmacology': 'pharmacology-view'
+        const targetViewMap = {
+            'dashboard': 'dashboard-view',
+            'player': 'player-view',
+            'forge': 'forge-view',
+            'settings': 'settings-view',
+            'depot': 'depot-view',
+            'pharmacology': 'pharmacology-view'
+        };
+
+        const activeViewId = targetViewMap[tab];
+        if (activeViewId) {
+            const targetElement = document.getElementById(activeViewId);
+            if (targetElement) targetElement.style.display = 'block';
+        }
+
+        const navPlayer = document.getElementById('nav-player');
+        if (navPlayer) {
+            navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
+        }
+        
+        const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
+        const overlay = document.querySelector('.sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+
+        if (tab === 'dashboard') {
+            window.isSpecialtyBlindMode = false;
+            if (typeof renderDashboardCases === 'function') renderDashboardCases();
+            if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+        } else if (tab === 'depot') {
+            if (typeof renderDepotView === 'function') renderDepotView();
+        } else if (tab === 'pharmacology') {
+            window.isSpecialtyBlindMode = false;
+            if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
+                PharmacologyModule.init('pharmacology-container');
+            }
+        }
     };
 
-    Object.values(allViews).forEach(viewId => {
-        const element = document.getElementById(viewId);
-        if (element) {
-            element.style.display = 'none';
-        }
-    });
-
-    // Auch das Auth-Panel sicherheitshalber ausblenden
-    const authPanel = document.getElementById('auth-panel');
-    if (authPanel) authPanel.style.display = 'none';
-
-    // 3. Ziel-View gezielt einblenden
-    const targetViewId = allViews[tab];
-    if (targetViewId) {
-        const targetElement = document.getElementById(targetViewId);
-        if (targetElement) {
-            targetElement.style.display = 'block';
-        }
-    }
-
-    // 4. Challenge-Hub / Player Tab Sichtbarkeit in der Sidebar
-    const navPlayer = document.getElementById('nav-player');
-    if (navPlayer) {
-        navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
-    }
-
-    // 5. Mobile Sidebar schließen (falls offen)
-    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
-    const overlay = document.querySelector('.sidebar-overlay');
-    if (sidebar) sidebar.classList.remove('open');
-    if (overlay) overlay.classList.remove('active');
-
-    // 6. Modulspezifische Initialisierungen ausführen
-    if (tab === 'dashboard') {
-        window.isSpecialtyBlindMode = false;
-        if (typeof renderDashboardCases === 'function') renderDashboardCases();
-        if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
-    } else if (tab === 'depot') {
-        if (typeof renderDepotView === 'function') renderDepotView();
-    } else if (tab === 'pharmacology') {
-        window.isSpecialtyBlindMode = false;
-        if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
-            PharmacologyModule.init('pharmacology-container');
-        }
+    if (document.startViewTransition) {
+        document.startViewTransition(updateDOM);
+    } else {
+        updateDOM();
     }
 };
 
@@ -2461,7 +2451,27 @@ function renderDepotView() {
     `).join('');
 }
 
-
+function hookDepotIntoSwitchTab() {
+    const originalSwitchTab = window.switchTab;
+    window.switchTab = function(tabName, navEl) {
+        const depotView = document.getElementById('depot-view');
+        if (tabName === 'depot') {
+            ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'pharmacology-view'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            if (depotView) depotView.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(li => li.classList.remove('active'));
+            if (navEl) navEl.classList.add('active');
+            renderDepotView();
+        } else {
+            if (depotView) depotView.style.display = 'none';
+            if (typeof originalSwitchTab === 'function') {
+                originalSwitchTab(tabName, navEl);
+            }
+        }
+    };
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     hookDepotIntoSwitchTab();
@@ -2769,11 +2779,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE (GEREGELT & SICHER)
+// DRAG & DROP AUTO-SCROLL ENGINE (60 FPS EDGE SCROLLING)
 // ==========================================================================
 (function initDragAutoScroll() {
-    const EDGE_THRESHOLD = 90; // Randbereich in Pixeln
-    const MAX_SCROLL_SPEED = 16; // Scroll-Geschwindigkeit
+    const EDGE_THRESHOLD = 90; // Abstand zum Rand in Pixeln, ab dem gescrollt wird
+    const MAX_SCROLL_SPEED = 18; // Maximale Pixel pro Frame (bei 60 FPS)
 
     let isDraggingActive = false;
     let currentMouseY = 0;
@@ -2797,36 +2807,44 @@ document.addEventListener('DOMContentLoaded', () => {
         let scrolled = false;
         const viewportHeight = window.innerHeight;
 
-        // Bookshelf-Container (linke Sidebar) Auto-Scroll
+        // 1. Prüfen, ob wir uns über dem linken Bookshelf-Container befinden
         const bookshelf = document.getElementById('bookshelf-container');
         if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight) {
             const rect = bookshelf.getBoundingClientRect();
-            const isInside = currentMouseX >= rect.left && currentMouseX <= rect.right && currentMouseY >= rect.top && currentMouseY <= rect.bottom;
+            const isInsideBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
+            const isInsideBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
 
-            if (isInside) {
-                const edgeSize = Math.min(50, rect.height * 0.25);
-                if (currentMouseY < rect.top + edgeSize) {
-                    bookshelf.scrollTop -= MAX_SCROLL_SPEED;
+            if (isInsideBookshelfX && isInsideBookshelfY) {
+                const booksEdge = Math.min(60, rect.height * 0.25);
+                if (currentMouseY < rect.top + booksEdge) {
+                    const intensity = 1 - ((currentMouseY - rect.top) / booksEdge);
+                    bookshelf.scrollTop -= Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
                     scrolled = true;
-                } else if (currentMouseY > rect.bottom - edgeSize) {
-                    bookshelf.scrollTop += MAX_SCROLL_SPEED;
+                } else if (currentMouseY > rect.bottom - booksEdge) {
+                    const intensity = 1 - ((rect.bottom - currentMouseY) / booksEdge);
+                    bookshelf.scrollTop += Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
                     scrolled = true;
                 }
             }
         }
 
-        // Hauptfenster Auto-Scroll am oberen/unteren Bildschirmrand
+        // 2. Hauptfenster / Dashboard am oberen oder unteren Bildrand scrollen
         if (!scrolled) {
             const scrollTarget = getScrollableMainContainer();
             if (currentMouseY < EDGE_THRESHOLD) {
-                const delta = -MAX_SCROLL_SPEED;
+                // Nähe oberer Bildrand -> nach oben scrollen
+                const intensity = Math.max(0.1, 1 - (currentMouseY / EDGE_THRESHOLD));
+                const delta = -Math.ceil(MAX_SCROLL_SPEED * intensity);
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
                     window.scrollBy(0, delta);
                 } else {
                     scrollTarget.scrollTop += delta;
                 }
             } else if (currentMouseY > viewportHeight - EDGE_THRESHOLD) {
-                const delta = MAX_SCROLL_SPEED;
+                // Nähe unterer Bildrand -> nach unten scrollen
+                const distFromBottom = viewportHeight - currentMouseY;
+                const intensity = Math.max(0.1, 1 - (distFromBottom / EDGE_THRESHOLD));
+                const delta = Math.ceil(MAX_SCROLL_SPEED * intensity);
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
                     window.scrollBy(0, delta);
                 } else {
@@ -2838,23 +2856,20 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollFrameId = requestAnimationFrame(performAutoScroll);
     }
 
-    // Nur aktiv wenn gezielt Ordner oder Fallkarten gezogen werden (.category-folder oder .case-card / .folder-case-item)
     document.addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('category-folder') || e.target.classList.contains('case-card') || e.target.classList.contains('folder-case-item') || e.target.closest('.folder-group')) {
-            isDraggingActive = true;
-            if (!scrollFrameId) {
-                scrollFrameId = requestAnimationFrame(performAutoScroll);
-            }
+        isDraggingActive = true;
+        currentMouseY = e.clientY;
+        currentMouseX = e.clientX;
+        if (!scrollFrameId) {
+            scrollFrameId = requestAnimationFrame(performAutoScroll);
         }
-    });
+    }, true);
 
-    document.addEventListener('drag', (e) => {
+    document.addEventListener('dragover', (e) => {
         if (!isDraggingActive) return;
-        if (e.clientY > 0) {
-            currentMouseY = e.clientY;
-            currentMouseX = e.clientX;
-        }
-    }, { passive: true });
+        currentMouseY = e.clientY;
+        currentMouseX = e.clientX;
+    }, { passive: true, capture: true });
 
     const stopAutoScroll = () => {
         isDraggingActive = false;
@@ -2864,6 +2879,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    document.addEventListener('dragend', stopAutoScroll);
-    document.addEventListener('drop', stopAutoScroll);
+    document.addEventListener('dragend', stopAutoScroll, true);
+    document.addEventListener('drop', stopAutoScroll, true);
 })();
