@@ -82,33 +82,33 @@ const BUILTIN_DEMO_CASE = {
             ]
         }
     ],
-   "extra_tasks": {
-        "flashcards": [
-            {
-                "id": "fc_myelon_1",
-                "category": "Neuroanatomie",
-                "difficulty": "basic",
-                "front": "Welche Rückenmarksbahnen bleiben beim Arteria-spinalis-anterior-Syndrom typischerweise intakt und warum?",
-                "back": "Die Hinterstränge (Funiculus posterior für Epikritik/Lagesinn), da sie separat über die Aa. spinales posteriores versorgt werden.",
-                "mnemonic_or_context": "Vordere 2/3 (Motorik + Schmerz/Temperatur) fallen aus -> dissoziierte Empfindungsstörung."
-            },
-            {
-                "id": "fc_myelon_2",
-                "category": "Neuroimmunologie",
-                "difficulty": "intermediate",
-                "front": "Ab welcher kraniokaudalen Ausdehnung im sagittalen MRT spricht man von einer LETM (Longitudinale extensive transversale Myelitis)?",
-                "back": "Ab einer durchgängigen Läsionsausdehnung über ≥ 3 Wirbelkörpersegmente.",
-                "mnemonic_or_context": "Leitbefund bei NMOSD (Anti-AQP4-IgG)."
-            },
-            {
-                "id": "fc_myelon_3",
-                "category": "Pathobiochemie",
-                "difficulty": "advanced",
-                "front": "Durch welchen molekularen Mechanismus verursacht Lachgas (N2O) eine funikuläre Myelose?",
-                "back": "Irreversible Oxidation des Cobalt-Ions im Vitamin B12 (Cobalamin), wodurch die Methionin-Synthase inaktiviert wird.",
-                "mnemonic_or_context": "Labor: Methylmalonsäure (MMA) und Homocystein steigen stark an."
-            }
-        ],
+ "extra_tasks": {
+  "flashcards": [
+    {
+      "id": "fc_01",
+      "category": "Diagnostische Triade",
+      "difficulty": "basic",
+      "front": "Aus welchen drei Kardinalsymptomen besteht die klassische Menière-Triade?",
+      "back": "Drehschwindel (anfallsartig, 20 min bis 12 h), fluktuierende Schallempfindungsschwerhörigkeit (v. a. Tieftonbereich) und Tinnitus bzw. Ohrdruckgefühl.",
+      "mnemonic_or_context": "Triade: Schwindel + Tiefton-Hypakusis + Tinnitus/Völlegefühl."
+    },
+    {
+      "id": "fc_02",
+      "category": "Pathophysiologie",
+      "difficulty": "intermediate",
+      "front": "Welches pathomorphologische Korrelat liegt dem Morbus Menière zugrunde?",
+      "back": "Ein Endolymphhydrops (Überdruck und Volumenzunahme der kaliumreichen Endolymphe im Ductus cochlearis und Vestibularorgan).",
+      "mnemonic_or_context": "Ruptur der Reissner-Membran führt zur toxischen Kaliumüberflutung der Perilymphe."
+    },
+    {
+      "id": "fc_03",
+      "category": "Pharmakotherapie",
+      "difficulty": "advanced",
+      "front": "Welcher Wirkstoff wird zur Anfallsprophylaxe des Morbus Menière als H1-Agonist und H3-Antagonist eingesetzt?",
+      "back": "Betahistin (hochdosiert, z. B. 3x 48 mg/Tag über mindestens 6 bis 12 Monate).",
+      "mnemonic_or_context": "Fördert die Mikrozirkulation der Stria vascularis im Innenohr."
+    }
+  ],
         "doctordle": [
             {
                 "puzzle_id": 1,
