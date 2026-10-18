@@ -383,69 +383,79 @@ function escapeHtml(str) {
     );
 }
 
+// ====================================================
+// ROBUSTE TAB-SWITCHING ENGINE (FÜR ALLE ANSICHTEN)
+// ====================================================
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
-    const updateDOM = () => {
-        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-        if (el) el.classList.add('active');
-        
-        const allViews = [
-            'dashboard-view', 
-            'player-view', 
-            'forge-view', 
-            'settings-view', 
-            'depot-view', 
-            'pharmacology-view'
-        ];
 
-        allViews.forEach(viewId => {
-            const element = document.getElementById(viewId);
-            if (element) element.style.display = 'none';
-        });
-
-        const targetViewMap = {
-            'dashboard': 'dashboard-view',
-            'player': 'player-view',
-            'forge': 'forge-view',
-            'settings': 'settings-view',
-            'depot': 'depot-view',
-            'pharmacology': 'pharmacology-view'
-        };
-
-        const activeViewId = targetViewMap[tab];
-        if (activeViewId) {
-            const targetElement = document.getElementById(activeViewId);
-            if (targetElement) targetElement.style.display = 'block';
-        }
-
-        const navPlayer = document.getElementById('nav-player');
-        if (navPlayer) {
-            navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
-        }
-        
-        const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
-        const overlay = document.querySelector('.sidebar-overlay');
-        if (sidebar) sidebar.classList.remove('open');
-        if (overlay) overlay.classList.remove('active');
-
-        if (tab === 'dashboard') {
-            window.isSpecialtyBlindMode = false;
-            if (typeof renderDashboardCases === 'function') renderDashboardCases();
-            if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
-        } else if (tab === 'depot') {
-            if (typeof renderDepotView === 'function') renderDepotView();
-        } else if (tab === 'pharmacology') {
-            window.isSpecialtyBlindMode = false;
-            if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
-                PharmacologyModule.init('pharmacology-container');
+    // 1. Navigation Active-State aktualisieren
+    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+    if (el) {
+        el.classList.add('active');
+    } else {
+        // Fallback: passendes Nav-Item anhand des Tabs finden
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.getAttribute('onclick')?.includes(`'${tab}'`)) {
+                item.classList.add('active');
             }
-        }
+        });
+    }
+
+    // 2. Alle Haupt-Views definieren und ausblenden
+    const allViews = {
+        'dashboard': 'dashboard-view',
+        'player': 'player-view',
+        'forge': 'forge-view',
+        'settings': 'settings-view',
+        'depot': 'depot-view',
+        'pharmacology': 'pharmacology-view'
     };
 
-    if (document.startViewTransition) {
-        document.startViewTransition(updateDOM);
-    } else {
-        updateDOM();
+    Object.values(allViews).forEach(viewId => {
+        const element = document.getElementById(viewId);
+        if (element) {
+            element.style.display = 'none';
+        }
+    });
+
+    // Auch das Auth-Panel sicherheitshalber ausblenden
+    const authPanel = document.getElementById('auth-panel');
+    if (authPanel) authPanel.style.display = 'none';
+
+    // 3. Ziel-View gezielt einblenden
+    const targetViewId = allViews[tab];
+    if (targetViewId) {
+        const targetElement = document.getElementById(targetViewId);
+        if (targetElement) {
+            targetElement.style.display = 'block';
+        }
+    }
+
+    // 4. Challenge-Hub / Player Tab Sichtbarkeit in der Sidebar
+    const navPlayer = document.getElementById('nav-player');
+    if (navPlayer) {
+        navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
+    }
+
+    // 5. Mobile Sidebar schließen (falls offen)
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+
+    // 6. Modulspezifische Initialisierungen ausführen
+    if (tab === 'dashboard') {
+        window.isSpecialtyBlindMode = false;
+        if (typeof renderDashboardCases === 'function') renderDashboardCases();
+        if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+    } else if (tab === 'depot') {
+        if (typeof renderDepotView === 'function') renderDepotView();
+    } else if (tab === 'pharmacology') {
+        window.isSpecialtyBlindMode = false;
+        if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
+            PharmacologyModule.init('pharmacology-container');
+        }
     }
 };
 
@@ -2451,27 +2461,7 @@ function renderDepotView() {
     `).join('');
 }
 
-function hookDepotIntoSwitchTab() {
-    const originalSwitchTab = window.switchTab;
-    window.switchTab = function(tabName, navEl) {
-        const depotView = document.getElementById('depot-view');
-        if (tabName === 'depot') {
-            ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'pharmacology-view'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = 'none';
-            });
-            if (depotView) depotView.style.display = 'block';
-            document.querySelectorAll('.nav-item').forEach(li => li.classList.remove('active'));
-            if (navEl) navEl.classList.add('active');
-            renderDepotView();
-        } else {
-            if (depotView) depotView.style.display = 'none';
-            if (typeof originalSwitchTab === 'function') {
-                originalSwitchTab(tabName, navEl);
-            }
-        }
-    };
-}
+
 
 document.addEventListener('DOMContentLoaded', () => {
     hookDepotIntoSwitchTab();
