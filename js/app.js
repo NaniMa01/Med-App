@@ -12,7 +12,6 @@ let quizSolved = false, userQuizAnswers = {};
 let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles = 0;
 let flashcardsSolved = true, totalFlashcardsCount = 0, solvedFlashcardsCount = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
-
 // Dashboard & UI States
 let openFolders = {};
 let superFolderStates = {
@@ -20,6 +19,14 @@ let superFolderStates = {
     'Psyche / Ethik / Recht': true,
     'Reproduktion': true
 };
+
+// NEU: Klapp-Status für die Überordner im Bookshelf
+let bookshelfSuperFolderState = {
+    'Nervensystem und Sinnesorgane': false,
+    'Psyche / Ethik / Recht': false,
+    'Reproduktion': false
+};
+
 let bookshelfFolderState = {};
 let draggedItemState = null;
 let dragHoverTimer = null;
@@ -987,6 +994,7 @@ function renderBookshelf(casesArray) {
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
 
+    // 1. Fälle nach Unterordner gruppieren
     const folders = {};
     savedOrder.forEach(name => { folders[name] = []; });
 
@@ -1001,142 +1009,207 @@ function renderBookshelf(casesArray) {
 
     localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
 
+    // 2. Unterordner den passenden Überordnern zuweisen
+    const superFolders = {
+        'Nervensystem und Sinnesorgane': [],
+        'Psyche / Ethik / Recht': [],
+        'Reproduktion': []
+    };
+
     savedOrder.forEach(folderName => {
-        const casesInFolder = folders[folderName] || [];
-        const isOpen = !!bookshelfFolderState[folderName];
-        const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
+        const targetSuper = getSuperFolderForCategory(folderName);
+        if (!superFolders[targetSuper]) {
+            superFolders[targetSuper] = [];
+        }
+        superFolders[targetSuper].push(folderName);
+    });
 
-        const folderDiv = document.createElement('div');
-        folderDiv.className = 'folder-group';
-        folderDiv.dataset.folderName = folderName;
-        folderDiv.draggable = true;
+    // 3. Überordner und verschachtelte Unterordner im Bookshelf rendern
+    Object.entries(superFolders).forEach(([superTitle, subfolderNames]) => {
+        const isSuperOpen = bookshelfSuperFolderState[superTitle] !== false;
 
-        const header = document.createElement('div');
-        header.className = 'folder-header';
-        header.innerHTML = `
-            <div class="folder-header-left" style="display:flex; align-items:center; overflow:hidden; gap:6px; flex:1; min-width:0;">
-                <span class="folder-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
-                <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
-                <span class="folder-title-text" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
-                <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan, #38bdf8); margin-left:auto; margin-right:4px; flex-shrink:0;">${solvedCount}/${casesInFolder.length}</span>
+        // Gesamtfortschritt für diesen Überordner im Bookshelf berechnen
+        let totalCasesInSuper = 0;
+        let solvedCasesInSuper = 0;
+        subfolderNames.forEach(fName => {
+            const list = folders[fName] || [];
+            totalCasesInSuper += list.length;
+            solvedCasesInSuper += list.filter(c => solved.includes(c.case_id)).length;
+        });
+
+        // Wrapper für den Bookshelf-Überordner
+        const superDiv = document.createElement('div');
+        superDiv.className = 'bookshelf-super-group';
+
+        // Header des Überordners
+        const superHeader = document.createElement('div');
+        superHeader.className = 'bookshelf-super-header';
+        superHeader.innerHTML = `
+            <div class="bookshelf-super-title-wrap">
+                <span class="bookshelf-super-arrow ${isSuperOpen ? 'open' : ''}">▶</span>
+                <span class="bookshelf-super-icon">📂</span>
+                <span class="bookshelf-super-title" title="${escapeHtml(superTitle)}">${escapeHtml(superTitle)}</span>
             </div>
-            <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
-                <button type="button" class="folder-action-btn edit-btn" title="Ordner umbenennen">✏️</button>
-                <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
-            </div>
+            <span class="bookshelf-super-badge">${solvedCasesInSuper}/${totalCasesInSuper}</span>
         `;
 
-        const list = document.createElement('ul');
-        list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
-
-        if (casesInFolder.length === 0) {
-            const emptyLi = document.createElement('li');
-            emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim, #64748b); padding:4px 6px; font-style:italic;';
-            emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
-            list.appendChild(emptyLi);
-        } else {
-            casesInFolder.forEach(caseItem => {
-                const li = document.createElement('li');
-                const isSolved = solved.includes(caseItem.case_id);
-                li.className = `folder-case-item ${isSolved ? 'case-solved' : ''}`;
-                li.textContent = caseItem.metadata?.title || caseItem.case_id;
-                li.dataset.caseId = caseItem.case_id;
-                li.draggable = true;
-
-                li.addEventListener('dragstart', (e) => {
-                    e.stopPropagation();
-                    draggedItemState = { type: 'case', id: caseItem.case_id };
-                    e.dataTransfer.setData('text/plain', caseItem.case_id);
-                    e.dataTransfer.effectAllowed = 'move';
-                });
-
-                li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
-                list.appendChild(li);
-            });
-        }
-
-        header.addEventListener('click', (e) => {
-            if (e.target.closest('.folder-action-btn') || e.target.closest('.folder-drag-handle')) return;
-            bookshelfFolderState[folderName] = !isOpen;
+        superHeader.addEventListener('click', () => {
+            bookshelfSuperFolderState[superTitle] = !isSuperOpen;
             renderBookshelf(casesArray);
         });
 
-        const editBtn = header.querySelector('.edit-btn');
-        if (editBtn) {
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const newName = window.prompt("Neuer Name für den Ordner:", folderName);
-                if (newName && newName.trim() && newName.trim() !== folderName) {
-                    renameFolder(folderName, newName.trim());
+        // Body für die Unterordner
+        const superBody = document.createElement('div');
+        superBody.className = `bookshelf-super-body ${isSuperOpen ? '' : 'collapsed'}`;
+
+        if (subfolderNames.length === 0) {
+            const emptyNotice = document.createElement('div');
+            emptyNotice.style.cssText = 'font-size:0.68rem; color:var(--text-dim, #64748b); padding:4px 8px; font-style:italic;';
+            emptyNotice.textContent = 'Keine Ordner';
+            superBody.appendChild(emptyNotice);
+        } else {
+            subfolderNames.forEach(folderName => {
+                const casesInFolder = folders[folderName] || [];
+                const isOpen = !!bookshelfFolderState[folderName];
+                const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
+
+                const folderDiv = document.createElement('div');
+                folderDiv.className = 'folder-group';
+                folderDiv.dataset.folderName = folderName;
+                folderDiv.draggable = true;
+
+                const header = document.createElement('div');
+                header.className = 'folder-header';
+                header.innerHTML = `
+                    <div class="folder-header-left" style="display:flex; align-items:center; overflow:hidden; gap:5px; flex:1; min-width:0;">
+                        <span class="folder-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
+                        <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
+                        <span class="folder-title-text" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
+                        <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan, #38bdf8); margin-left:auto; margin-right:4px; flex-shrink:0;">${solvedCount}/${casesInFolder.length}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
+                        <button type="button" class="folder-action-btn edit-btn" title="Ordner umbenennen">✏️</button>
+                        <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
+                    </div>
+                `;
+
+                const list = document.createElement('ul');
+                list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
+
+                if (casesInFolder.length === 0) {
+                    const emptyLi = document.createElement('li');
+                    emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim, #64748b); padding:4px 6px; font-style:italic;';
+                    emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
+                    list.appendChild(emptyLi);
+                } else {
+                    casesInFolder.forEach(caseItem => {
+                        const li = document.createElement('li');
+                        const isSolved = solved.includes(caseItem.case_id);
+                        li.className = `folder-case-item ${isSolved ? 'case-solved' : ''}`;
+                        li.textContent = caseItem.metadata?.title || caseItem.case_id;
+                        li.dataset.caseId = caseItem.case_id;
+                        li.draggable = true;
+
+                        li.addEventListener('dragstart', (e) => {
+                            e.stopPropagation();
+                            draggedItemState = { type: 'case', id: caseItem.case_id };
+                            e.dataTransfer.setData('text/plain', caseItem.case_id);
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+
+                        li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
+                        list.appendChild(li);
+                    });
                 }
-            });
-        }
 
-        const deleteFolderBtn = header.querySelector('.delete-folder-btn');
-        if (deleteFolderBtn) {
-            deleteFolderBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteFolder(folderName, casesInFolder.length);
-            });
-        }
-
-        folderDiv.addEventListener('dragstart', (e) => {
-            draggedItemState = { type: 'folder', name: folderName };
-            folderDiv.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        });
-
-        folderDiv.addEventListener('dragend', () => {
-            folderDiv.classList.remove('dragging');
-            draggedItemState = null;
-            if (dragHoverTimer) clearTimeout(dragHoverTimer);
-            document.querySelectorAll('.folder-group').forEach(f => f.classList.remove('drag-over-folder'));
-        });
-
-        folderDiv.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            folderDiv.classList.add('drag-over-folder');
-
-            if (draggedItemState && draggedItemState.type === 'case' && !isOpen && !dragHoverTimer) {
-                dragHoverTimer = setTimeout(() => {
-                    bookshelfFolderState[folderName] = true;
+                header.addEventListener('click', (e) => {
+                    if (e.target.closest('.folder-action-btn') || e.target.closest('.folder-drag-handle')) return;
+                    bookshelfFolderState[folderName] = !isOpen;
                     renderBookshelf(casesArray);
-                }, 400);
-            }
-        });
+                });
 
-        folderDiv.addEventListener('dragleave', () => {
-            folderDiv.classList.remove('drag-over-folder');
-            if (dragHoverTimer) {
-                clearTimeout(dragHoverTimer);
-                dragHoverTimer = null;
-            }
-        });
-
-        folderDiv.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            folderDiv.classList.remove('drag-over-folder');
-            if (dragHoverTimer) {
-                clearTimeout(dragHoverTimer);
-                dragHoverTimer = null;
-            }
-
-            if (!draggedItemState) return;
-            if (draggedItemState.type === 'case') {
-                const caseId = draggedItemState.id;
-                if (caseId) await moveCaseToFolder(caseId, folderName);
-            } else if (draggedItemState.type === 'folder') {
-                const draggedFolder = draggedItemState.name;
-                if (draggedFolder && draggedFolder !== folderName) {
-                    reorderFolders(draggedFolder, folderName);
+                const editBtn = header.querySelector('.edit-btn');
+                if (editBtn) {
+                    editBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const newName = window.prompt("Neuer Name für den Ordner:", folderName);
+                        if (newName && newName.trim() && newName.trim() !== folderName) {
+                            renameFolder(folderName, newName.trim());
+                        }
+                    });
                 }
-            }
-        });
 
-        folderDiv.appendChild(header);
-        folderDiv.appendChild(list);
-        bookshelfContainer.appendChild(folderDiv);
+                const deleteFolderBtn = header.querySelector('.delete-folder-btn');
+                if (deleteFolderBtn) {
+                    deleteFolderBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteFolder(folderName, casesInFolder.length);
+                    });
+                }
+
+                folderDiv.addEventListener('dragstart', (e) => {
+                    draggedItemState = { type: 'folder', name: folderName };
+                    folderDiv.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                folderDiv.addEventListener('dragend', () => {
+                    folderDiv.classList.remove('dragging');
+                    draggedItemState = null;
+                    if (dragHoverTimer) clearTimeout(dragHoverTimer);
+                    document.querySelectorAll('.folder-group').forEach(f => f.classList.remove('drag-over-folder'));
+                });
+
+                folderDiv.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    folderDiv.classList.add('drag-over-folder');
+
+                    if (draggedItemState && draggedItemState.type === 'case' && !isOpen && !dragHoverTimer) {
+                        dragHoverTimer = setTimeout(() => {
+                            bookshelfFolderState[folderName] = true;
+                            renderBookshelf(casesArray);
+                        }, 400);
+                    }
+                });
+
+                folderDiv.addEventListener('dragleave', () => {
+                    folderDiv.classList.remove('drag-over-folder');
+                    if (dragHoverTimer) {
+                        clearTimeout(dragHoverTimer);
+                        dragHoverTimer = null;
+                    }
+                });
+
+                folderDiv.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    folderDiv.classList.remove('drag-over-folder');
+                    if (dragHoverTimer) {
+                        clearTimeout(dragHoverTimer);
+                        dragHoverTimer = null;
+                    }
+
+                    if (!draggedItemState) return;
+                    if (draggedItemState.type === 'case') {
+                        const caseId = draggedItemState.id;
+                        if (caseId) await moveCaseToFolder(caseId, folderName);
+                    } else if (draggedItemState.type === 'folder') {
+                        const draggedFolder = draggedItemState.name;
+                        if (draggedFolder && draggedFolder !== folderName) {
+                            reorderFolders(draggedFolder, folderName);
+                        }
+                    }
+                });
+
+                folderDiv.appendChild(header);
+                folderDiv.appendChild(list);
+                superBody.appendChild(folderDiv);
+            });
+        }
+
+        superDiv.appendChild(superHeader);
+        superDiv.appendChild(superBody);
+        bookshelfContainer.appendChild(superDiv);
     });
 }
 
