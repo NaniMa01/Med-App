@@ -17,7 +17,7 @@ let clearedStepsCount = 0, totalStepsCount = 0;
 let openFolders = {};
 let superFolderStates = {
     'Nervensystem und Sinnesorgane': true,
-    'Psyche / Ethik / Recht': true
+    'Psyche / Ethik / Recht': true,
     'Reproduktion': true
 };
 let bookshelfFolderState = {};
@@ -796,7 +796,7 @@ function renderDashboardCases() {
 
     const superFolders = {
         'Nervensystem und Sinnesorgane': [],
-        'Psyche / Ethik / Recht': []
+        'Psyche / Ethik / Recht': [],
         'Reproduktion': []
     };
 
