@@ -17,14 +17,17 @@ let openFolders = {};
 let superFolderStates = {
     'Nervensystem und Sinnesorgane': true,
     'Psyche / Ethik / Recht': true,
-    'Reproduktion': true
+    'Reproduktion': true,
+    'Allgemein': true
 };
 
 // NEU: Klapp-Status für die Überordner im Bookshelf
 let bookshelfSuperFolderState = {
     'Nervensystem und Sinnesorgane': false,
     'Psyche / Ethik / Recht': false,
-    'Reproduktion': false
+    'Reproduktion': false,
+    'Allgemein': true
+    
 };
 
 let bookshelfFolderState = {};
@@ -468,14 +471,37 @@ window.toggleSuperFolder = function(superFolderTitle) {
 };
 
 function getSuperFolderForCategory(categoryName) {
-    const lower = categoryName.toLowerCase();
+    const lower = (categoryName || '').toLowerCase().trim();
+    
+    // 1. Explizit Allgemein / Unkategorisiert
+    if (lower === 'allgemein' || lower.startsWith('allgemein') || lower === 'sonstiges' || lower === 'uncategorized') {
+        return 'Allgemein';
+    }
+
+    // 2. Psyche / Ethik / Recht
     if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
         return 'Psyche / Ethik / Recht';
     }
+    
+    // 3. Reproduktion
     if (lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') || lower.includes('fertilit') || lower.includes('schwanger') || lower.includes('zyklus') || lower.includes('ovard')) {
         return 'Reproduktion';
     }
-    return 'Nervensystem und Sinnesorgane';
+    
+    // 4. Nervensystem und Sinnesorgane (gezielte Erkennung)
+    if (
+        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') || 
+        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') || 
+        lower.includes('hals-nase') || lower.includes('ohr') || lower.includes('29.2') || 
+        lower.includes('myelon') || lower.includes('hirn') || lower.includes('gehirn') || 
+        lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') || 
+        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz')
+    ) {
+        return 'Nervensystem und Sinnesorgane';
+    }
+    
+    // 5. Echtes Auffangbecken: Alles Unbekannte landet im Überordner Allgemein
+    return 'Allgemein';
 }
 
 // ==========================================
@@ -804,7 +830,8 @@ function renderDashboardCases() {
     const superFolders = {
         'Nervensystem und Sinnesorgane': [],
         'Psyche / Ethik / Recht': [],
-        'Reproduktion': []
+        'Reproduktion': [],
+        'Allgemein': []
     };
 
     Object.keys(grouped).forEach(cat => {
