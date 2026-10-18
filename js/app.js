@@ -452,7 +452,7 @@ window.switchTab = function(tab, el) {
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('active');
 
-    // 7. Modulspezifische Initialisierungen ausführen
+   // 7. Modulspezifische Initialisierungen ausführen
     if (tab === 'dashboard') {
         window.isSpecialtyBlindMode = false;
         if (typeof renderDashboardCases === 'function') renderDashboardCases();
@@ -465,7 +465,7 @@ window.switchTab = function(tab, el) {
             PharmacologyModule.init('pharmacology-container');
         }
     }
-};
+}; // <-- Hier endet switchTab. ALLES direkt danach (startViewTransition) löschen!
 
 window.switchPlayerMode = function(mode) {
     currentActiveChallenge = mode;
