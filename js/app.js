@@ -872,7 +872,7 @@ function renderDashboardCases() {
     container.innerHTML = savedOrder.map((category, catIdx) => {
         const cases = grouped[category] || [];
         const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
-        const isExpanded = openFolders[category] !== undefined ? openFolders[category] : true;
+        const isExpanded = !!openFolders[category];
         
         const cardsHtml = cases.map(c => {
             const isSolved = solved.includes(c.case_id);
@@ -1016,9 +1016,9 @@ function renderBookshelf(casesArray) {
 
     localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
 
-    savedOrder.forEach(folderName => {
+   savedOrder.forEach(folderName => {
         const casesInFolder = folders[folderName] || [];
-        const isOpen = bookshelfFolderState[folderName] !== undefined ? bookshelfFolderState[folderName] : true;
+        const isOpen = !!bookshelfFolderState[folderName];
         const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
 
         const folderDiv = document.createElement('div');
@@ -1335,9 +1335,8 @@ window.deleteCaseById = function(caseId) {
         renderDashboardCases();
     }
 };
-
 window.toggleFolder = function(category) {
-    openFolders[category] = openFolders[category] !== undefined ? !openFolders[category] : false;
+    openFolders[category] = !openFolders[category];
     renderDashboardCases();
 };
 
@@ -2778,3 +2777,108 @@ window.syncPharmaSetsFromCloud = async function() {
 document.addEventListener('DOMContentLoaded', () => {
     window.syncPharmaSetsFromCloud();
 });
+
+// ==========================================================================
+// DRAG & DROP AUTO-SCROLL ENGINE (60 FPS EDGE SCROLLING)
+// ==========================================================================
+(function initDragAutoScroll() {
+    const EDGE_THRESHOLD = 90; // Abstand zum Rand in Pixeln, ab dem gescrollt wird
+    const MAX_SCROLL_SPEED = 18; // Maximale Pixel pro Frame (bei 60 FPS)
+
+    let isDraggingActive = false;
+    let currentMouseY = 0;
+    let currentMouseX = 0;
+    let scrollFrameId = null;
+
+    function getScrollableMainContainer() {
+        const mainWrapper = document.querySelector('.main-wrapper');
+        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) {
+            return mainWrapper;
+        }
+        return document.scrollingElement || document.documentElement;
+    }
+
+    function performAutoScroll() {
+        if (!isDraggingActive) {
+            scrollFrameId = null;
+            return;
+        }
+
+        let scrolled = false;
+        const viewportHeight = window.innerHeight;
+
+        // 1. Prüfen, ob wir uns über dem linken Bookshelf-Container befinden
+        const bookshelf = document.getElementById('bookshelf-container');
+        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight) {
+            const rect = bookshelf.getBoundingClientRect();
+            const isInsideBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
+            const isInsideBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
+
+            if (isInsideBookshelfX && isInsideBookshelfY) {
+                const booksEdge = Math.min(60, rect.height * 0.25);
+                if (currentMouseY < rect.top + booksEdge) {
+                    const intensity = 1 - ((currentMouseY - rect.top) / booksEdge);
+                    bookshelf.scrollTop -= Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
+                    scrolled = true;
+                } else if (currentMouseY > rect.bottom - booksEdge) {
+                    const intensity = 1 - ((rect.bottom - currentMouseY) / booksEdge);
+                    bookshelf.scrollTop += Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
+                    scrolled = true;
+                }
+            }
+        }
+
+        // 2. Hauptfenster / Dashboard am oberen oder unteren Bildrand scrollen
+        if (!scrolled) {
+            const scrollTarget = getScrollableMainContainer();
+            if (currentMouseY < EDGE_THRESHOLD) {
+                // Nähe oberer Bildrand -> nach oben scrollen
+                const intensity = Math.max(0.1, 1 - (currentMouseY / EDGE_THRESHOLD));
+                const delta = -Math.ceil(MAX_SCROLL_SPEED * intensity);
+                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
+                    window.scrollBy(0, delta);
+                } else {
+                    scrollTarget.scrollTop += delta;
+                }
+            } else if (currentMouseY > viewportHeight - EDGE_THRESHOLD) {
+                // Nähe unterer Bildrand -> nach unten scrollen
+                const distFromBottom = viewportHeight - currentMouseY;
+                const intensity = Math.max(0.1, 1 - (distFromBottom / EDGE_THRESHOLD));
+                const delta = Math.ceil(MAX_SCROLL_SPEED * intensity);
+                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
+                    window.scrollBy(0, delta);
+                } else {
+                    scrollTarget.scrollTop += delta;
+                }
+            }
+        }
+
+        scrollFrameId = requestAnimationFrame(performAutoScroll);
+    }
+
+    document.addEventListener('dragstart', (e) => {
+        isDraggingActive = true;
+        currentMouseY = e.clientY;
+        currentMouseX = e.clientX;
+        if (!scrollFrameId) {
+            scrollFrameId = requestAnimationFrame(performAutoScroll);
+        }
+    }, true);
+
+    document.addEventListener('dragover', (e) => {
+        if (!isDraggingActive) return;
+        currentMouseY = e.clientY;
+        currentMouseX = e.clientX;
+    }, { passive: true, capture: true });
+
+    const stopAutoScroll = () => {
+        isDraggingActive = false;
+        if (scrollFrameId) {
+            cancelAnimationFrame(scrollFrameId);
+            scrollFrameId = null;
+        }
+    };
+
+    document.addEventListener('dragend', stopAutoScroll, true);
+    document.addEventListener('drop', stopAutoScroll, true);
+})();
