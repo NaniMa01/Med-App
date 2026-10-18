@@ -465,12 +465,6 @@ window.switchTab = function(tab, el) {
     }
 };
 
-    if (document.startViewTransition) {
-        document.startViewTransition(updateDOM);
-    } else {
-        updateDOM();
-    }
-};
 
 window.switchPlayerMode = function(mode) {
     currentActiveChallenge = mode;
