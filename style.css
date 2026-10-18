@@ -1849,6 +1849,31 @@ body.is-resizing .resizer-handle-pill {
 .bookshelf-super-body.collapsed {
     display: none;
 }
+/* Drag & Drop Feedback für Überordner */
+.super-folder.super-folder-drag-over {
+    border-color: var(--accent-blue, #38bdf8) !important;
+    background: rgba(56, 189, 248, 0.08) !important;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.25) !important;
+}
+
+.bookshelf-super-group.bookshelf-super-drag-over {
+    border-color: var(--accent-blue, #38bdf8) !important;
+    background: rgba(56, 189, 248, 0.15) !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.2) !important;
+}
+
+.folder-action-btn.move-btn {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent-cyan, #38bdf8);
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.folder-action-btn.move-btn:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
 /* ==========================================================================
    12. LERNEN NACH FACHRICHTUNG & MODALS
    ========================================================================== */
