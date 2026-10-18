@@ -2491,7 +2491,7 @@ function hookDepotIntoSwitchTab() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  
+    hookDepotIntoSwitchTab();
     initOverviewSelectionListener();
     syncDepotWithSupabase();
 });
