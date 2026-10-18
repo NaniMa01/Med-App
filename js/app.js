@@ -18,6 +18,7 @@ let openFolders = {};
 let superFolderStates = {
     'Nervensystem und Sinnesorgane': true,
     'Psyche / Ethik / Recht': true
+    'Reproduktion': true
 };
 let bookshelfFolderState = {};
 let draggedItemState = null;
@@ -464,6 +465,9 @@ function getSuperFolderForCategory(categoryName) {
     if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
         return 'Psyche / Ethik / Recht';
     }
+    if (lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') || lower.includes('fertilit') || lower.includes('schwanger') || lower.includes('zyklus') || lower.includes('ovard')) {
+        return 'Reproduktion';
+    }
     return 'Nervensystem und Sinnesorgane';
 }
 
@@ -793,6 +797,7 @@ function renderDashboardCases() {
     const superFolders = {
         'Nervensystem und Sinnesorgane': [],
         'Psyche / Ethik / Recht': []
+        'Reproduktion': []
     };
 
     Object.keys(grouped).forEach(cat => {
