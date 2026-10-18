@@ -49,6 +49,8 @@
             <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span>Challenge Hub</span></li>
             <li class="nav-item" onclick="switchTab('forge', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg><span>Fall-Generator (Dev)</span></li>
             <li class="nav-item" onclick="switchTab('depot', this)" id="nav-depot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path> </svg>   <span>Lern-Depot</span>  <span class="depot-nav-badge" id="nav-depot-badge">0</span></li>      
+            <li class="nav-item" onclick="switchTab('auth', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>  <span>Anmeldung</span></li>
+    
 
             
             <!-- Pharmakologie Menüpunkt -->
@@ -121,11 +123,11 @@
 <div class="content-body">
     <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
         
-        <!-- 1. AUTH PANEL -->
-        <div class="panel" id="auth-panel" style="display: none;">
+        <!-- 1. AUTH view -->
+        <div class="panel" id="auth-view" style="display: none;">
             <div class="panel-title">Anmelden</div>
             <div class="panel-subtitle">Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).</div>
-            <form class="auth-panel" onsubmit="return false;">
+            <form class="auth-view" onsubmit="return false;">
                 <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email">
                 <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password">
                 <div class="auth-actions">
