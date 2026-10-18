@@ -382,7 +382,6 @@ function escapeHtml(str) {
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
-
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
 
@@ -415,10 +414,6 @@ window.switchTab = function(tab, el) {
         }
     });
 
-    // Auth-Panel ebenfalls verbergen
-    const authPanel = document.getElementById('auth-panel');
-    if (authPanel) authPanel.style.display = 'none';
-
     // 3. Mapping der Tabs auf die View-IDs
     const targetViewMap = {
         'dashboard': 'dashboard-view',
@@ -444,7 +439,7 @@ window.switchTab = function(tab, el) {
         navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
     }
     
-    // 6. Mobile Sidebar schliessen falls offen
+    // 6. Mobile Sidebar schließen falls offen
     const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.remove('open');
