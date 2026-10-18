@@ -385,62 +385,85 @@ function escapeHtml(str) {
 
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
-    const updateDOM = () => {
-        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
-        if (el) el.classList.add('active');
-        
-        const allViews = [
-            'dashboard-view', 
-            'player-view', 
-            'forge-view', 
-            'settings-view', 
-            'depot-view', 
-            'pharmacology-view'
-        ];
 
-        allViews.forEach(viewId => {
-            const element = document.getElementById(viewId);
-            if (element) element.style.display = 'none';
-        });
-
-        const targetViewMap = {
-            'dashboard': 'dashboard-view',
-            'player': 'player-view',
-            'forge': 'forge-view',
-            'settings': 'settings-view',
-            'depot': 'depot-view',
-            'pharmacology': 'pharmacology-view'
-        };
-
-        const activeViewId = targetViewMap[tab];
-        if (activeViewId) {
-            const targetElement = document.getElementById(activeViewId);
-            if (targetElement) targetElement.style.display = 'block';
-        }
-
-        const navPlayer = document.getElementById('nav-player');
-        if (navPlayer) {
-            navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
-        }
-        
-        const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
-        const overlay = document.querySelector('.sidebar-overlay');
-        if (sidebar) sidebar.classList.remove('open');
-        if (overlay) overlay.classList.remove('active');
-
-        if (tab === 'dashboard') {
-            window.isSpecialtyBlindMode = false;
-            if (typeof renderDashboardCases === 'function') renderDashboardCases();
-            if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
-        } else if (tab === 'depot') {
-            if (typeof renderDepotView === 'function') renderDepotView();
-        } else if (tab === 'pharmacology') {
-            window.isSpecialtyBlindMode = false;
-            if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
-                PharmacologyModule.init('pharmacology-container');
+    // 1. Navigation Active-State aktualisieren
+    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+    if (el) {
+        el.classList.add('active');
+    } else {
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.getAttribute('onclick')?.includes(`'${tab}'`)) {
+                item.classList.add('active');
             }
+        });
+    }
+
+    // 2. Alle Views definieren und hart auf 'none' setzen
+    const allViews = [
+        'dashboard-view', 
+        'player-view', 
+        'forge-view', 
+        'settings-view', 
+        'depot-view', 
+        'pharmacology-view'
+    ];
+
+    allViews.forEach(viewId => {
+        const element = document.getElementById(viewId);
+        if (element) {
+            element.style.display = 'none';
         }
+    });
+
+    // Auth-Panel ebenfalls verbergen
+    const authPanel = document.getElementById('auth-panel');
+    if (authPanel) authPanel.style.display = 'none';
+
+    // 3. Mapping der Tabs auf die View-IDs
+    const targetViewMap = {
+        'dashboard': 'dashboard-view',
+        'player': 'player-view',
+        'forge': 'forge-view',
+        'settings': 'settings-view',
+        'depot': 'depot-view',
+        'pharmacology': 'pharmacology-view'
     };
+
+    // 4. Ziel-View gezielt einblenden
+    const activeViewId = targetViewMap[tab];
+    if (activeViewId) {
+        const targetElement = document.getElementById(activeViewId);
+        if (targetElement) {
+            targetElement.style.display = 'block';
+        }
+    }
+
+    // 5. Player-Navigation in der Sidebar steuern
+    const navPlayer = document.getElementById('nav-player');
+    if (navPlayer) {
+        navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
+    }
+    
+    // 6. Mobile Sidebar schliessen falls offen
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+
+    // 7. Modulspezifische Initialisierungen ausführen
+    if (tab === 'dashboard') {
+        window.isSpecialtyBlindMode = false;
+        if (typeof renderDashboardCases === 'function') renderDashboardCases();
+        if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+    } else if (tab === 'depot') {
+        if (typeof renderDepotView === 'function') renderDepotView();
+    } else if (tab === 'pharmacology') {
+        window.isSpecialtyBlindMode = false;
+        if (typeof PharmacologyModule !== 'undefined' && typeof PharmacologyModule.init === 'function') {
+            PharmacologyModule.init('pharmacology-container');
+        }
+    }
+};
 
     if (document.startViewTransition) {
         document.startViewTransition(updateDOM);
