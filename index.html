@@ -122,11 +122,12 @@
     <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
        
 
-    <!-- 2. DASHBOARD VIEW -->
+        <!-- 2. DASHBOARD VIEW -->
         <div class="panel" id="dashboard-view" style="display: block;">
             <div class="panel-title">Klinische Module & Themen-Ordner</div>
             <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-           
+         
+            
             <section id="sr-dashboard-widget"></section>
             
             <div class="segmented-control" role="tablist">
@@ -134,9 +135,13 @@
                 <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
             </div>
             <div id="specialty-hub" class="specialty-hub" style="display: none;"></div>
-            
-            <!-- Dynamischer Wrapper für alle Überordner -->
-            <div id="super-folders-wrapper" style="display: flex; flex-direction: column; gap: 16px; margin-top: 15px;"></div>
+            <div class="super-folder" id="topic-grid">
+                <div class="super-folder-header" onclick="toggleSuperFolder()">
+                    <div class="super-folder-title"><svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
+                </div>
+                <div class="super-folder-body" id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
+            </div>
         </div>
 
         <!-- 3. PLAYER VIEW -->
