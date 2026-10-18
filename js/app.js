@@ -15,7 +15,10 @@ let clearedStepsCount = 0, totalStepsCount = 0;
 
 // Dashboard & UI States
 let openFolders = {};
-let superFolderOpen = true;
+let superFolderStates = {
+    'Nervensystem und Sinnesorgane': true,
+    'Psyche / Ethik / Recht': true
+};
 let bookshelfFolderState = {};
 let draggedItemState = null;
 let dragHoverTimer = null;
@@ -506,14 +509,19 @@ window.showTutorHint = function(taskKey) {
     if (tutorModal) tutorModal.style.display = 'flex';
 };
 
-window.toggleSuperFolder = function() {
-    superFolderOpen = !superFolderOpen;
-    const container = document.getElementById('dashboard-folders-container');
-    const arrow = document.getElementById('super-folder-arrow');
-    if (container) container.style.display = superFolderOpen ? 'flex' : 'none';
-    if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
+window.toggleSuperFolder = function(superFolderTitle) {
+    superFolderStates[superFolderTitle] = superFolderStates[superFolderTitle] !== undefined ? !superFolderStates[superFolderTitle] : false;
+    renderDashboardCases();
 };
 
+// Intelligente Zuordnung von Kategorien zu den Überordnern
+function getSuperFolderForCategory(categoryName) {
+    const lower = categoryName.toLowerCase();
+    if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
+        return 'Psyche / Ethik / Recht';
+    }
+    return 'Nervensystem und Sinnesorgane';
+}
 // ==========================================
 // DYNAMISCHES RESIZING DER SIDEBAR
 // ==========================================
@@ -856,8 +864,8 @@ function reorderDashboardFolders(draggedCat, targetCat) {
 function renderDashboardCases() {
     const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const container = document.getElementById('dashboard-folders-container');
-    if (!container) return;
+    const wrapper = document.getElementById('super-folders-wrapper');
+    if (!wrapper) return;
 
     const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
     
@@ -869,117 +877,110 @@ function renderDashboardCases() {
         grouped[cat].push(c);
     });
 
-    // 2. Gespeicherte Reihenfolge synchronisieren
-    let savedOrder = getDashboardFolderOrder();
-    const existingCats = Object.keys(grouped);
+    // 2. Kategorien auf die Überordner verteilen
+    const superFolders = {
+        'Nervensystem und Sinnesorgane': [],
+        'Psyche / Ethik / Recht': []
+    };
 
-    // Neue Ordner anhängen, gelöschte aussortieren
-    savedOrder = savedOrder.filter(cat => existingCats.includes(cat));
-    existingCats.forEach(cat => {
-        if (!savedOrder.includes(cat)) savedOrder.push(cat);
+    Object.keys(grouped).forEach(cat => {
+        const targetSuper = getSuperFolderForCategory(cat);
+        if (!superFolders[targetSuper]) {
+            superFolders[targetSuper] = [];
+        }
+        superFolders[targetSuper].push(cat);
     });
-    saveDashboardFolderOrder(savedOrder);
 
-    // 3. HTML rendern
-    container.innerHTML = savedOrder.map((category, catIdx) => {
-        const cases = grouped[category] || [];
-        const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
-        const isExpanded = !!openFolders[category];
-        
-        const cardsHtml = cases.map(c => {
-            const isSolved = solved.includes(c.case_id);
-            const savedState = ProgressManager.getCaseProgress(c.case_id);
-            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-            
-            const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-                ? ''
-                : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
-            return `
-            <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
-                ${deleteBtn}
-                <div>
-                    <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
-                    <h3>${c.metadata?.title || c.case_id}</h3>
-                </div>
-                <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-                    <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
-                        ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
-                    </span>
-                    <span>+${c.metadata?.xp_reward || 900} XP</span>
-                </div>
-            </div>`;
-        }).join('');
+    // 3. HTML für alle Überordner dynamisch generieren
+    let superFoldersHtml = '';
+    
+    Object.entries(superFolders).forEach(([superTitle, categories], superIdx) => {
+        const isOpen = superFolderStates[superTitle] !== undefined ? superFolderStates[superTitle] : true;
+        const arrowSymbol = isOpen ? '▼' : '▶';
 
-        return `
-            <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" id="dashboard-folder-${catIdx}">
-                <div class="category-header">
-                    <div class="category-title-wrap">
-                        <span class="category-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
-                        <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span>
-                        <span>📁 ${escapeHtml(category)}</span>
+        let categoriesHtml = '';
+        if (categories.length === 0) {
+            categoriesHtml = `<div style="padding: 16px; color: var(--text-dim); font-size: 0.85rem; font-style: italic;">Noch keine Ordner in diesem Themenblock.</div>`;
+        } else {
+            categories.sort((a, b) => a.localeCompare(b));
+
+            categoriesHtml = categories.map((category, catIdx) => {
+                const cases = grouped[category] || [];
+                const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
+                const isExpanded = !!openFolders[category];
+
+                const cardsHtml = cases.map(c => {
+                    const isSolved = solved.includes(c.case_id);
+                    const savedState = ProgressManager.getCaseProgress(c.case_id);
+                    const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+                    
+                    const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+                        ? ''
+                        : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
+                    return `
+                    <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+                        ${deleteBtn}
+                        <div>
+                            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
+                            <h3>${c.metadata?.title || c.case_id}</h3>
+                        </div>
+                        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                            <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
+                                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
+                            </span>
+                            <span>+${c.metadata?.xp_reward || 900} XP</span>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                return `
+                    <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" id="dashboard-folder-${superIdx}-${catIdx}">
+                        <div class="category-header">
+                            <div class="category-title-wrap">
+                                <span class="category-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
+                                <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
+                                <span>📁 ${escapeHtml(category)}</span>
+                            </div>
+                            <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
+                        </div>
+                        <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
+                    </div>`;
+            }).join('');
+        }
+
+        superFoldersHtml += `
+            <div class="super-folder">
+                <div class="super-folder-header" onclick="toggleSuperFolder('${superTitle}')">
+                    <div class="super-folder-title">
+                        <svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        <span>${escapeHtml(superTitle)}</span>
                     </div>
-                    <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">${arrowSymbol}</span>
                 </div>
-                <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
-            </div>`;
-    }).join('');
+                <div class="super-folder-body" style="display:${isOpen ? 'flex' : 'none'}; flex-direction:column; gap:12px;">
+                    ${categoriesHtml}
+                </div>
+            </div>
+        `;
+    });
 
-    // 4. Klick-Handler für Folder Header (Auf/Zuklappen ohne Drag-Interferenz)
-    container.querySelectorAll('.category-folder').forEach(folderEl => {
+    wrapper.innerHTML = superFoldersHtml;
+
+    // 4. Klick-Handler für Ordner
+    wrapper.querySelectorAll('.category-folder').forEach(folderEl => {
         const catName = decodeURIComponent(folderEl.dataset.category);
         const header = folderEl.querySelector('.category-header');
 
         if (header) {
             header.addEventListener('click', (e) => {
-                // Klick auf Drag-Handle ignoriert das Toggle
                 if (e.target.closest('.category-drag-handle')) return;
                 toggleFolder(catName);
             });
         }
-
-        // 5. Drag-and-Drop Event Listener für die Ordner
-        folderEl.addEventListener('dragstart', (e) => {
-            // Drag nur starten, wenn nicht eine Fall-Karte innerhalb des Ordners gezogen wird
-            if (e.target !== folderEl && !e.target.closest('.category-header')) return;
-            draggedDashboardFolder = catName;
-            folderEl.classList.add('folder-dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', catName);
-            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
-        });
-
-        folderEl.addEventListener('dragend', () => {
-            folderEl.classList.remove('folder-dragging');
-            draggedDashboardFolder = null;
-            container.querySelectorAll('.category-folder').forEach(f => f.classList.remove('folder-drag-over'));
-        });
-
-        folderEl.addEventListener('dragover', (e) => {
-            if (!draggedDashboardFolder || draggedDashboardFolder === catName) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            folderEl.classList.add('folder-drag-over');
-        });
-
-        folderEl.addEventListener('dragleave', (e) => {
-            // Verhindern von Flackern beim Überfahren von Kindelementen
-            if (!folderEl.contains(e.relatedTarget)) {
-                folderEl.classList.remove('folder-drag-over');
-            }
-        });
-
-        folderEl.addEventListener('drop', (e) => {
-            e.preventDefault();
-            folderEl.classList.remove('folder-drag-over');
-            if (!draggedDashboardFolder || draggedDashboardFolder === catName) return;
-
-            reorderDashboardFolders(draggedDashboardFolder, catName);
-            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
-        });
     });
 
-    // 6. Klick- und Lösch-Handler für Fall-Karten
-    container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
+    // 5. Klick-Handler für Fall-Karten
+    wrapper.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
         card.addEventListener('click', () => window.loadCaseById(caseId));
         card.addEventListener('keydown', event => {
@@ -998,13 +999,6 @@ function renderDashboardCases() {
             });
         }
     });
-
-    try {
-        renderBookshelf(allCases);
-    } catch (bsErr) {
-        console.error("Bookshelf Fehler:", bsErr);
-    }
-}
 
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
