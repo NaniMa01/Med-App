@@ -10,6 +10,7 @@ let cascadesSolvedCount = 0, totalCascades = 0;
 let categorizationSolved = false;
 let quizSolved = false, userQuizAnswers = {};
 let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles = 0;
+let flashcardsSolved = true, totalFlashcardsCount = 0, solvedFlashcardsCount = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
 
 // Dashboard & UI States
@@ -111,6 +112,32 @@ const BUILTIN_DEMO_CASE = {
             }
         ]
     }
+    "flashcards": [
+            {
+                "id": "fc_myelon_1",
+                "category": "Neuroanatomie",
+                "difficulty": "basic",
+                "front": "Welche Rückenmarksbahnen bleiben beim Arteria-spinalis-anterior-Syndrom typischerweise intakt und warum?",
+                "back": "Die Hinterstränge (Funiculus posterior für Epikritik/Lagesinn), da sie separat über die Aa. spinales posteriores versorgt werden.",
+                "mnemonic_or_context": "Vordere 2/3 (Motorik + Schmerz/Temperatur) fallen aus -> dissoziierte Empfindungsstörung."
+            },
+            {
+                "id": "fc_myelon_2",
+                "category": "Neuroimmunologie",
+                "difficulty": "intermediate",
+                "front": "Ab welcher kraniokaudalen Ausdehnung im sagittalen MRT spricht man von einer LETM (Longitudinale extensive transversale Myelitis)?",
+                "back": "Ab einer durchgängigen Läsionsausdehnung über ≥ 3 Wirbelkörpersegmente.",
+                "mnemonic_or_context": "Leitbefund bei NMOSD (Anti-AQP4-IgG)."
+            },
+            {
+                "id": "fc_myelon_3",
+                "category": "Pathobiochemie",
+                "difficulty": "advanced",
+                "front": "Durch welchen molekularen Mechanismus verursacht Lachgas (N2O) eine funikuläre Myelose?",
+                "back": "Irreversible Oxidation des Cobalt-Ions im Vitamin B12 (Cobalamin), wodurch die Methionin-Synthase inaktiviert wird.",
+                "mnemonic_or_context": "Labor: Methylmalonsäure (MMA) und Homocystein steigen stark an."
+            }
+        ]
 };
 
 // ====================================================
@@ -1389,6 +1416,7 @@ window.loadCaseById = function(caseId, opts = {}) {
     show('tab-btn-cat', hasCat);
     show('tab-btn-quiz', hasQuiz);
     show('tab-btn-doctordle', hasDoctordle);
+    show('tab-btn-flashcards', true);
 
     totalSynapseDiseases = hasSyn ? tasks.synapses_matrix.diseases.length : 0;
     solvedSynapseDiseases = saved.synapses?.solvedCount || 0;
@@ -1422,7 +1450,8 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (hasCat) safely('Taxonomie', window.renderCategorization);
     if (hasQuiz) safely('Quiz', window.renderQuiz);
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
-
+    safely('Flashcards', window.renderFlashcards); // NEU
+    
     if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
     window.switchTab('player', document.getElementById('nav-player'));
     window.switchPlayerMode(specialtyMode ? 'audit' : 'overview');
@@ -1695,8 +1724,11 @@ window.checkFinalCompletion = function() {
     const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
     const casDone = (cascadesSolvedCount === totalCascades);
     const docDone = doctordleSolved;
+    const fcDone = window.flashcardsSolved !== undefined ? window.flashcardsSolved : true;
     
-    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone;
+    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone && fcDone;
+    
+   
     
     const finishBtn = document.getElementById('finish-case-btn');
     if (finishBtn) {
@@ -1790,6 +1822,10 @@ window.resetCurrentChallenge = function() {
                 window.doctordleGame.resetGame();
             }
             break;
+            case 'flashcards':
+    ProgressManager.resetChallenge(caseId, 'flashcards');
+    if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
+    break;
     }
 
     window.checkFinalCompletion();
