@@ -465,6 +465,11 @@ window.switchPlayerMode = function(mode) {
         if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
             window.initDoctordle(activeCaseData);
         }
+
+       
+        if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
+            window.renderFlashcards();
+        }
     };
 
     if (document.startViewTransition) {
@@ -473,7 +478,6 @@ window.switchPlayerMode = function(mode) {
         updateModeDOM();
     }
 };
-
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
     let hint = "Kein spezifischer Hinweis hinterlegt.";
