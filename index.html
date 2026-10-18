@@ -122,21 +122,7 @@
         
 <div class="content-body">
     <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
-        
-        <!-- 1. AUTH view -->
-        <div class="panel" id="auth-view" style="display: none;">
-            <div class="panel-title">Anmelden</div>
-            <div class="panel-subtitle">Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).</div>
-            <form class="auth-view" onsubmit="return false;">
-                <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email">
-                <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password">
-                <div class="auth-actions">
-                    <button type="submit" class="action-btn" onclick="authSignIn()">Anmelden</button>
-                    <button type="button" class="action-btn secondary" onclick="authSignUp()">Registrieren</button>
-                </div>
-            </form>
-            <div class="feedback-box" id="auth-fb"></div>
-        </div>
+       
 
         <!-- 2. DASHBOARD VIEW -->
         <div class="panel" id="dashboard-view" style="display: block;">
@@ -265,12 +251,34 @@
 
             <div id="depot-items-container" class="depot-items-grid"></div>
         </div>
-
-        <!-- 6. SETTINGS VIEW -->
+<!-- 6. SETTINGS VIEW (INKL. ANMELDUNG & ACCOUNT) -->
         <div class="panel" id="settings-view" style="display: none;">
             <div class="panel-title">Einstellungen & Erscheinungsbild</div>
             <div class="panel-subtitle">Passe das visuelle Interface optimal an deine Lernumgebung und Tageszeit an.</div>
 
+            <!-- Sektion 1: Cloud-Account & Anmeldung -->
+            <div class="settings-section" style="margin-bottom: 24px;">
+                <div class="forge-label" style="margin-bottom: 8px; color: var(--accent-blue);">Cloud-Account & Synchronisation</div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
+                    Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).
+                </div>
+                
+                <div style="background: rgba(11, 17, 33, 0.4); border: 1px solid var(--card-border); padding: 18px; border-radius: 12px;">
+                    <form class="auth-panel" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="email" id="auth-email" placeholder="E-Mail" autocomplete="email" class="forge-topic-input" style="min-height: auto; padding: 10px 14px;">
+                        <input type="password" id="auth-password" placeholder="Passwort" autocomplete="current-password" class="forge-topic-input" style="min-height: auto; padding: 10px 14px;">
+                        <div class="auth-actions" style="display: flex; gap: 10px; margin-top: 4px;">
+                            <button type="submit" class="action-btn" onclick="authSignIn()">Anmelden</button>
+                            <button type="button" class="action-btn secondary" onclick="authSignUp()">Registrieren</button>
+                        </div>
+                    </form>
+                    <div class="feedback-box" id="auth-fb" style="margin-top: 10px; display: none;"></div>
+                </div>
+            </div>
+
+            <div class="forge-divider" style="margin: 24px 0;"></div>
+
+            <!-- Sektion 2: Farbschema (UI-Theme) -->
             <div class="settings-section">
                 <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
                 <div class="theme-selector-grid" id="theme-selector-grid">
@@ -319,6 +327,7 @@
 
             <div class="forge-divider" style="margin: 24px 0;"></div>
 
+            <!-- Sektion 3: Daten & Speicherverwaltung -->
             <div class="settings-section">
                 <div class="forge-label" style="margin-bottom: 12px; color: var(--warning);">Daten & Speicherverwaltung</div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -327,7 +336,6 @@
                 </div>
             </div>
         </div>
-
 
 <!-- 7. PHARMAKOLOGIE VIEW (Wird dynamisch von js/pharmacology.js gerendert) -->
         <div class="panel" id="pharmacology-view" style="display: none;">
