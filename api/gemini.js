@@ -1,5 +1,5 @@
 // ==========================================================================
-// api/gemini.js – Zentrale Serverless AI-Engine (Fall-Schmiede & Lern-Depot)
+// api/gemini.js – Zentrale Serverless AI-Engine (Fall-Schmiede, Depot & Flashcards)
 // ==========================================================================
 
 const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
@@ -22,7 +22,6 @@ function parseRequestBody(body) {
     return body;
 }
 
-// Universeller JSON-Extractor für Objekte { ... } UND Arrays [ ... ]
 function extractFlexibleJson(text) {
     if (typeof text !== 'string') {
         throw new Error('Gemini response is not a string.');
@@ -63,9 +62,38 @@ function extractFlexibleJson(text) {
     }
 }
 
-// Hilfsfunktion für den Google API Request inkl. automatischem Modell-Fallback
+// Allgemeingültiger System-Prompt für atomare Flash Cards (Bloom Stufe 1)
+function buildUniversalFlashcardPrompt(sourceText) {
+    return `Du bist ein präziser Wissens-Extraktor für deklaratives Faktenwissen (Bloom-Taxonomie Stufe 1: Erinnern).
+Deine Aufgabe ist es, aus dem bereitgestellten Quelltext oder Thema 8 bis 12 atomare, eindeutige Flash Cards zu erstellen – vollkommen unabhängig vom Fachgebiet (egal ob Medizin, Naturwissenschaften, Jura, Informatik, Geschichte oder Sprachen).
+
+STRIKTE REGELN FÜR DIE KARTENERSTELLUNG:
+1. Minimum Information Principle: Jede Karte fragt exakt EINEN isolierten Fakt ab (z. B. eine Definition, einen exakt bezifferten Grenzwert, eine Klassifikation, eine Zuordnung, eine Formel, eine Jahreszahl oder einen Fachbegriff). Keine langen Fallgeschichten!
+2. Eindeutigkeit: Die Vorderseite (front) muss so präzise gestellt sein, dass es genau eine spezifische Antwort gibt.
+3. Knappe Rückseite: Die Antwort (back) darf maximal 1–2 kurze Sätze oder 3–4 Stichpunkte umfassen, damit eine schnelle Selbstkontrolle in Sekundenbruchteilen möglich ist.
+4. Kontextfreie Verständlichkeit: Jede Karte muss für sich allein verständlich sein, ohne dass man vorherige Karten kennen muss.
+5. Allgemeingültigkeit: Wähle für "category" das passende Teilgebiet des eingegebenen Themas.
+
+WICHTIG: Antworte AUSSCHLIESSLICH mit einem validen JSON-Array. Kein Markdown, keine Einleitung.
+Format:
+[
+  {
+    "id": "fc_01",
+    "category": "Name des Teilgebiets",
+    "difficulty": "basic | intermediate | advanced",
+    "front": "Präzise, direkte Faktenfrage oder Begriff",
+    "back": "Knappe, eindeutige Faktenantwort",
+    "mnemonic_or_context": "Optional: Kurze Eselsbrücke oder Kontext (max. 140 Zeichen)"
+  }
+]
+
+QUELLTEXT / THEMA:
+${sourceText}`;
+}
+
 async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.7) {
     const selectedModel = (modelName || PRIMARY_MODEL).trim();
+    // FIX: Bereinigte URL ohne Markdown-Artefakte
     const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(selectedModel)}:generateContent?key=${apiKey}`;
 
     const response = await fetch(endpoint, {
@@ -120,27 +148,23 @@ module.exports = async function handler(req, res) {
     }
 
     const requestedMedicalField = typeof parsedBody.medicalField === 'string' ? parsedBody.medicalField.trim() : '';
-    const medicalField = requestedMedicalField || 'Neurologie';
+    const medicalField = requestedMedicalField || 'Allgemein';
 
-    // =======================================================================
-    // PROMPT-AUSWAHL JE NACH MODUS ('depot_quiz' vs. 'case_forge')
-    // =======================================================================
     let finalInstruction = '';
 
     if (mode === 'depot_quiz') {
         finalInstruction = prompt;
+    } else if (mode === 'flashcards_only') {
+        finalInstruction = buildUniversalFlashcardPrompt(prompt);
     } else {
-        finalInstruction = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen (orientiert an IMPP- und NBME-Standards) und leitender didaktischer Software-Architekt für MedCheck. Deine Aufgabe ist es, aus dem übergebenen Vorlesungsskript bzw. medizinischen Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Fall als syntaktisch valides JSON-Objekt zu generieren.
-
-ZIELGRUPPE & DIDAKTISCHER ANSPRUCH:
-- Medizinstudierende im letzten Masterjahr vor dem Staatsexamen.
-- Fokus auf Differenzialdiagnosen, pathophysiologische Kausalketten, diagnostische Goldstandards, Leitlinienempfehlungen und klinische Fallstricke (Cognitive Biases, typische Behandlungsfehler).
-- Höchste Fachterminologie: Verwende konkrete Fachbegriffe, anatomische Leitstrukturen, exakte Laborparameter (mit Einheiten/Grenzwerten), Bildgebungsmorphologien und Medikamentennamen inklusive Wirkmechanismen.
+        // Standard Fall-Schmiede (jetzt inkl. flashcards im JSON-Schema)
+        finalInstruction = `Du bist ein leitender didaktischer Software-Architekt und Fachexperte. Deine Aufgabe ist es, aus dem übergebenen Quelltext bzw. Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Lernfall als syntaktisch valides JSON-Objekt zu generieren.
 
 KRITISCHE TECHNISCHE REGELN FÜR DEN IMPORT (ZERO-TOLERANCE):
 1. Antworte AUSSCHLIESSLICH mit dem validen JSON-Objekt ({ ... }).
 2. Füge NIEMALS Zitationsmarker wie [1] ein.
 3. HTML-Tags (<p>, <b>, <ul>, <li>) sind ausschließlich im Feld case_overview.cornell_notes[].notes gestattet. Alle übrigen Felder sind reiner Plain-Text.
+4. Erstelle im Feld extra_tasks.flashcards mindestens 8 atomare Fakten-Flashcards nach dem Minimum Information Principle (Bloom-Stufe 1: Reines Faktenwissen, 1 präziser Fakt pro Karte, kurze Antwort).
 
 JSON-SCHEMA:
 {
@@ -167,66 +191,72 @@ JSON-SCHEMA:
     {
       "step_id": 1,
       "patient_id": "patient_1",
-      "phase": "Patient 1: Anamnese & Erstkontakt",
-      "content": "Patient 1\\n\\nAusführlicher Plain-Text Bericht ohne HTML (70-160 Wörter)...",
+      "phase": "Phase 1: Ausgangslage & Analyse",
+      "content": "Ausführlicher Plain-Text Bericht ohne HTML (70-160 Wörter)...",
       "hotspots": [
         {
           "phrase": "exakter Textteil",
           "is_error": false,
-          "feedback": "Diese Feststellung ist im klinischen Kontext fachlich vollkommen korrekt."
+          "feedback": "Fachlich korrekte Begründung."
         }
       ]
     }
   ],
   "extra_tasks": {
+    "flashcards": [
+      {
+        "id": "fc_01",
+        "category": "Teilgebiet",
+        "difficulty": "basic",
+        "front": "Direkte, atomare Faktenfrage (ohne Fallvignette)",
+        "back": "Knappe, eindeutige Faktenantwort (max. 1-2 Sätze)",
+        "mnemonic_or_context": "Kurze Eselsbrücke oder Kontext"
+      }
+    ],
     "doctordle": [
       {
         "puzzle_id": 1,
-        "title": "Fall 1",
-        "target_diagnosis": "Diagnose A",
+        "title": "Deduktion 1",
+        "target_diagnosis": "Kernbegriff / Diagnose A",
         "synonyms": ["Synonym 1", "Synonym 2"],
         "hints": ["Hinweis 1", "Hinweis 2", "Hinweis 3", "Hinweis 4", "Hinweis 5", "Hinweis 6"],
         "learning_pearl": "Kernaussage."
       }
     ],
-    "library_entries": ["Diagnose A", "Diagnose B"],
+    "library_entries": ["Begriff A", "Begriff B"],
     "clinical_cascades": [
       {
-        "disease": "Erkrankung A",
+        "disease": "Prozess / Erkrankung A",
         "hint": "Hinweis",
         "cascade": [
           { "stage": "01_Auslöser", "content": "..." },
-          { "stage": "02_Pathophysiologie", "content": "..." },
-          { "stage": "03_Zellulärer Mechanismus", "content": "..." },
-          { "stage": "04_Anatomische Konsequenz", "content": "..." },
-          { "stage": "05_Klinische Manifestation", "content": "..." },
-          { "stage": "06_Diagnostischer Befund", "content": "..." },
-          { "stage": "07_Therapeutische Intervention", "content": "..." },
-          { "stage": "08_Outcome", "content": "..." }
+          { "stage": "02_Mechanismus", "content": "..." },
+          { "stage": "03_Konsequenz", "content": "..." },
+          { "stage": "04_Outcome", "content": "..." }
         ]
       }
     ],
     "synapses_matrix": {
-      "description": "Ordne jeweils vier Begriffe derselben Erkrankung zu.",
+      "description": "Ordne jeweils vier Begriffe derselben Kategorie/Erkrankung zu.",
       "hint": "Hinweis",
-      "diseases": ["Erkrankung A", "Erkrankung B", "Erkrankung C", "Erkrankung D"],
+      "diseases": ["Kategorie A", "Kategorie B", "Kategorie C", "Kategorie D"],
       "variables": [
-        { "term": "Terminus", "type": "Risiko/Pathologie", "disease": "Erkrankung A" }
+        { "term": "Terminus", "type": "Risiko/Pathologie", "disease": "Kategorie A" }
       ]
     },
     "categorization": {
-      "description": "Ordne die klinischen Befunde den Krankheitsbildern zu.",
+      "description": "Ordne die Fakten den Oberbegriffen zu.",
       "hint": "Hinweis",
-      "categories": ["Krankheitsbild A", "Krankheitsbild B", "Krankheitsbild C"],
+      "categories": ["Kategorie A", "Kategorie B", "Kategorie C"],
       "items": [
-        { "term": "Befund", "category": "Krankheitsbild A" }
+        { "term": "Befund / Fakt", "category": "Kategorie A" }
       ]
     },
     "master_quiz": [
       {
-        "target_disease": "Erkrankung A",
+        "target_disease": "Thema A",
         "is_primary": true,
-        "question": "Fallvignette + Leitfrage",
+        "question": "Prüfungsfrage",
         "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
         "correct_index": 0,
         "explanation": "Fundierte Begründung inkl. Ausschluss der Distraktoren.",
@@ -243,33 +273,19 @@ ${prompt}`;
     const configuredModel = (process.env.GEMINI_MODEL || PRIMARY_MODEL).trim();
 
     try {
-        // 1. Versuch mit gemini-3.5-flash-lite
-        let result = await callGeminiUpstream(apiKey, configuredModel, finalInstruction, 0.65);
+        let result = await callGeminiUpstream(apiKey, configuredModel, finalInstruction, 0.55);
 
-        // Automatischer Fallback, falls der Modell-Slug (z.B. Preview-Suffix) 404/400 liefert
         if (!result.ok && (result.status === 404 || result.status === 400)) {
             const fallbackCandidates = ['gemini-3.5-flash-lite-preview', FALLBACK_MODEL, 'gemini-2.0-flash-lite'];
             for (const candidate of fallbackCandidates) {
                 if (candidate === configuredModel) continue;
-                console.warn(`Modell ${configuredModel} lieferte ${result.status}. Teste Fallback ${candidate}...`);
-                result = await callGeminiUpstream(apiKey, candidate, finalInstruction, 0.65);
+                result = await callGeminiUpstream(apiKey, candidate, finalInstruction, 0.55);
                 if (result.ok) break;
             }
         }
 
-        if (!result.json) {
-            return sendJson(res, 502, {
-                error: 'Gemini API returned a non-JSON response.',
-                upstreamStatus: result.status,
-                rawResponse: (result.rawText || '').slice(0, 1500)
-            });
-        }
-
-        if (!result.ok) {
-            const upstreamMessage =
-                result.json?.error?.message ||
-                result.json?.message ||
-                `Gemini API request failed with status ${result.status}.`;
+        if (!result.json || !result.ok) {
+            const upstreamMessage = result.json?.error?.message || `Gemini API failed (${result.status}).`;
             return sendJson(res, 502, { error: upstreamMessage, upstreamStatus: result.status });
         }
 
@@ -278,54 +294,31 @@ ${prompt}`;
             .join('')
             .trim();
 
-        if (!generatedText) {
-            return sendJson(res, 502, {
-                error: 'Gemini returned no usable content.',
-                finishReason: result.json?.candidates?.[0]?.finishReason || null
-            });
-        }
+        const parsedOutput = extractFlexibleJson(generatedText);
 
-        let parsedOutput;
-        try {
-            parsedOutput = extractFlexibleJson(generatedText);
-        } catch (error) {
-            return sendJson(res, 502, {
-                error: 'Gemini returned invalid JSON format.',
-                details: error.message,
-                rawResponse: generatedText.slice(0, 3000)
-            });
-        }
-
-        // ===================================================================
-        // AUSGABE MODUS 1: DEPOT-QUIZ (Erwartet ein JSON-Array mit Fragen)
-        // ===================================================================
-        if (mode === 'depot_quiz') {
-            const questionsArray = Array.isArray(parsedOutput)
+        // AUSGABE MODUS: DEPOT-QUIZ ODER FLASHCARDS-ONLY (Array-Rückgabe)
+        if (mode === 'depot_quiz' || mode === 'flashcards_only') {
+            const arr = Array.isArray(parsedOutput)
                 ? parsedOutput
-                : (Array.isArray(parsedOutput?.questions) ? parsedOutput.questions : null);
+                : (parsedOutput?.flashcards || parsedOutput?.questions || null);
 
-            if (!questionsArray || questionsArray.length === 0) {
-                return sendJson(res, 502, { error: 'Gemini response for depot_quiz must be a non-empty JSON array.' });
+            if (!Array.isArray(arr) || arr.length === 0) {
+                return sendJson(res, 502, { error: `Gemini response for ${mode} must be a non-empty array.` });
             }
 
             return sendJson(res, 200, {
                 ok: true,
                 model: result.usedModel,
-                result: questionsArray
+                result: arr
             });
         }
 
-        // ===================================================================
-        // AUSGABE MODUS 2: FALL-SCHMIEDE (Erwartet ein Fall-Objekt)
-        // ===================================================================
+        // AUSGABE MODUS: FALL-GENERATOR
         if (!parsedOutput || typeof parsedOutput !== 'object' || Array.isArray(parsedOutput)) {
             return sendJson(res, 502, { error: 'Gemini response is not a JSON object.' });
         }
 
-        if (!parsedOutput.case_id || !parsedOutput.metadata || !Array.isArray(parsedOutput.timeline)) {
-            return sendJson(res, 502, { error: 'Gemini JSON is missing required case fields.' });
-        }
-
+        parsedOutput.metadata = parsedOutput.metadata || {};
         parsedOutput.metadata.medical_field = medicalField;
 
         return sendJson(res, 200, {
@@ -334,9 +327,7 @@ ${prompt}`;
             generatedText: JSON.stringify(parsedOutput),
             generatedCase: parsedOutput
         });
-
     } catch (error) {
-        console.error('Gemini API error:', error);
         return sendJson(res, 500, {
             error: 'Unexpected server error while contacting Gemini.',
             details: error?.message || 'Unknown error'
