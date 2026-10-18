@@ -15,10 +15,7 @@ let clearedStepsCount = 0, totalStepsCount = 0;
 
 // Dashboard & UI States
 let openFolders = {};
-let superFolderStates = {
-    'Nervensystem und Sinnesorgane': true,
-    'Psyche / Ethik / Recht': true
-};
+let superFolderOpen = true;
 let bookshelfFolderState = {};
 let draggedItemState = null;
 let dragHoverTimer = null;
@@ -85,33 +82,33 @@ const BUILTIN_DEMO_CASE = {
             ]
         }
     ],
-    "extra_tasks": {
-        "flashcards": [
-            {
-                "id": "fc_01",
-                "category": "Diagnostische Triade",
-                "difficulty": "basic",
-                "front": "Aus welchen drei Kardinalsymptomen besteht die klassische Menière-Triade?",
-                "back": "Drehschwindel (anfallsartig, 20 min bis 12 h), fluktuierende Schallempfindungsschwerhörigkeit (v. a. Tieftonbereich) und Tinnitus bzw. Ohrdruckgefühl.",
-                "mnemonic_or_context": "Triade: Schwindel + Tiefton-Hypakusis + Tinnitus/Völlegefühl."
-            },
-            {
-                "id": "fc_02",
-                "category": "Pathophysiologie",
-                "difficulty": "intermediate",
-                "front": "Welches pathomorphologische Korrelat liegt dem Morbus Menière zugrunde?",
-                "back": "Ein Endolymphhydrops (Überdruck und Volumenzunahme der kaliumreichen Endolymphe im Ductus cochlearis und Vestibularorgan).",
-                "mnemonic_or_context": "Ruptur der Reissner-Membran führt zur toxischen Kaliumüberflutung der Perilymphe."
-            },
-            {
-                "id": "fc_03",
-                "category": "Pharmakotherapie",
-                "difficulty": "advanced",
-                "front": "Welcher Wirkstoff wird zur Anfallsprophylaxe des Morbus Menière als H1-Agonist und H3-Antagonist eingesetzt?",
-                "back": "Betahistin (hochdosiert, z. B. 3x 48 mg/Tag über mindestens 6 bis 12 Monate).",
-                "mnemonic_or_context": "Fördert die Mikrozirkulation der Stria vascularis im Innenohr."
-            }
-        ],
+ "extra_tasks": {
+  "flashcards": [
+    {
+      "id": "fc_01",
+      "category": "Diagnostische Triade",
+      "difficulty": "basic",
+      "front": "Aus welchen drei Kardinalsymptomen besteht die klassische Menière-Triade?",
+      "back": "Drehschwindel (anfallsartig, 20 min bis 12 h), fluktuierende Schallempfindungsschwerhörigkeit (v. a. Tieftonbereich) und Tinnitus bzw. Ohrdruckgefühl.",
+      "mnemonic_or_context": "Triade: Schwindel + Tiefton-Hypakusis + Tinnitus/Völlegefühl."
+    },
+    {
+      "id": "fc_02",
+      "category": "Pathophysiologie",
+      "difficulty": "intermediate",
+      "front": "Welches pathomorphologische Korrelat liegt dem Morbus Menière zugrunde?",
+      "back": "Ein Endolymphhydrops (Überdruck und Volumenzunahme der kaliumreichen Endolymphe im Ductus cochlearis und Vestibularorgan).",
+      "mnemonic_or_context": "Ruptur der Reissner-Membran führt zur toxischen Kaliumüberflutung der Perilymphe."
+    },
+    {
+      "id": "fc_03",
+      "category": "Pharmakotherapie",
+      "difficulty": "advanced",
+      "front": "Welcher Wirkstoff wird zur Anfallsprophylaxe des Morbus Menière als H1-Agonist und H3-Antagonist eingesetzt?",
+      "back": "Betahistin (hochdosiert, z. B. 3x 48 mg/Tag über mindestens 6 bis 12 Monate).",
+      "mnemonic_or_context": "Fördert die Mikrozirkulation der Stria vascularis im Innenohr."
+    }
+  ],
         "doctordle": [
             {
                 "puzzle_id": 1,
@@ -301,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (skipBtn) {
                 skipBtn.addEventListener("click", dismissIntro);
             }
+            // Sicherheits-Fallback nach 5 Sekunden
             setTimeout(() => {
                 dismissIntro();
             }, 5000);
@@ -315,12 +313,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.renderSpecialtyHub();
     }
 
+    // SAUBERER AUFRUF OHNE `this`-Konflikt
     if (window.SpacedRepetitionEngine) {
         window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', (itemId, moduleType) => {
-            if (window.loadCaseById) {
+            if(window.loadCaseById) {
                 window.loadCaseById(itemId);
             }
-            if (moduleType && window.switchPlayerMode) {
+            if(moduleType && window.switchPlayerMode) {
                 window.switchPlayerMode(moduleType);
             }
         });
@@ -361,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ====================================================
-// ALLGEMEINE UI & UTILS
+// ALLGEMEINE UI & UTILS (INKL. VIEW TRANSITIONS & HAPTICS)
 // ====================================================
 window.triggerHaptic = function(ms = 8) {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -383,14 +382,8 @@ function escapeHtml(str) {
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
-
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
-
-    // Fallback: Wenn 'auth' geklickt wird, leite zu den Einstellungen um
-    if (tab === 'auth') {
-        tab = 'settings';
-    }
 
     // 1. Navigation Active-State aktualisieren
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
@@ -452,7 +445,7 @@ window.switchTab = function(tab, el) {
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('active');
 
-   // 7. Modulspezifische Initialisierungen ausführen
+    // 7. Modulspezifische Initialisierungen ausführen
     if (tab === 'dashboard') {
         window.isSpecialtyBlindMode = false;
         if (typeof renderDashboardCases === 'function') renderDashboardCases();
@@ -465,29 +458,38 @@ window.switchTab = function(tab, el) {
             PharmacologyModule.init('pharmacology-container');
         }
     }
-}; // <-- Hier endet switchTab. ALLES direkt danach (startViewTransition) löschen!
+};
+
 
 window.switchPlayerMode = function(mode) {
     currentActiveChallenge = mode;
     window.triggerHaptic(6);
 
-    document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
-    
-    const targetPane = document.getElementById('mode-container-' + mode);
-    const targetTab = document.getElementById('tab-btn-' + mode);
-    if (targetPane) targetPane.style.display = 'block';
-    if (targetTab) targetTab.classList.add('active');
+    const updateModeDOM = () => {
+        document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        const targetPane = document.getElementById('mode-container-' + mode);
+        const targetTab = document.getElementById('tab-btn-' + mode);
+        if (targetPane) targetPane.style.display = 'block';
+        if (targetTab) targetTab.classList.add('active');
 
-    if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
-        window.initDoctordle(activeCaseData);
-    }
+        if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
+            window.initDoctordle(activeCaseData);
+        }
 
-    if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
-        window.renderFlashcards();
+       
+        if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
+            window.renderFlashcards();
+        }
+    };
+
+    if (document.startViewTransition) {
+        document.startViewTransition(updateModeDOM);
+    } else {
+        updateModeDOM();
     }
 };
-
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
     let hint = "Kein spezifischer Hinweis hinterlegt.";
@@ -504,18 +506,13 @@ window.showTutorHint = function(taskKey) {
     if (tutorModal) tutorModal.style.display = 'flex';
 };
 
-window.toggleSuperFolder = function(superFolderTitle) {
-    superFolderStates[superFolderTitle] = superFolderStates[superFolderTitle] !== undefined ? !superFolderStates[superFolderTitle] : false;
-    renderDashboardCases();
+window.toggleSuperFolder = function() {
+    superFolderOpen = !superFolderOpen;
+    const container = document.getElementById('dashboard-folders-container');
+    const arrow = document.getElementById('super-folder-arrow');
+    if (container) container.style.display = superFolderOpen ? 'flex' : 'none';
+    if (arrow) arrow.innerText = superFolderOpen ? '▼' : '▶';
 };
-
-function getSuperFolderForCategory(categoryName) {
-    const lower = categoryName.toLowerCase();
-    if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
-        return 'Psyche / Ethik / Recht';
-    }
-    return 'Nervensystem und Sinnesorgane';
-}
 
 // ==========================================
 // DYNAMISCHES RESIZING DER SIDEBAR
@@ -669,7 +666,7 @@ window.setLearningMode = function(mode) {
     
     const btnTopic = document.getElementById('seg-topic');
     const btnSpecialty = document.getElementById('seg-specialty');
-    const topicGrid = document.getElementById('super-folders-wrapper') || document.getElementById('topic-grid');
+    const topicGrid = document.getElementById('topic-grid');
     const specialtyHub = document.getElementById('specialty-hub');
 
     if (mode === 'specialty') {
@@ -684,7 +681,7 @@ window.setLearningMode = function(mode) {
         btnSpecialty?.classList.remove('active');
         btnTopic?.classList.add('active');
         if (specialtyHub) specialtyHub.style.display = 'none';
-        if (topicGrid) topicGrid.style.display = 'flex';
+        if (topicGrid) topicGrid.style.display = 'block';
     }
 };
 
@@ -820,24 +817,47 @@ window.SpecialtyEngine = {
 };
 
 // ====================================================
-// DASHBOARD DYNAMISCHES RENDERING (SUPER-FOLDER ENGINE)
+// DASHBOARD DRAG & DROP FOLDER SORTING
 // ====================================================
+const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
+let draggedDashboardFolder = null;
+
+function getDashboardFolderOrder() {
+    try {
+        return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]');
+    } catch (_e) {
+        return [];
+    }
+}
+
+function saveDashboardFolderOrder(orderArray) {
+    try {
+        localStorage.setItem(DASHBOARD_FOLDER_ORDER_KEY, JSON.stringify(orderArray));
+    } catch (e) {
+        console.error('Fehler beim Speichern der Ordner-Reihenfolge:', e);
+    }
+}
+
+function reorderDashboardFolders(draggedCat, targetCat) {
+    if (!draggedCat || !targetCat || draggedCat === targetCat) return;
+
+    let order = getDashboardFolderOrder();
+    const fromIdx = order.indexOf(draggedCat);
+    const toIdx = order.indexOf(targetCat);
+
+    if (fromIdx !== -1 && toIdx !== -1) {
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedCat);
+        saveDashboardFolderOrder(order);
+        renderDashboardCases();
+    }
+}
+
 function renderDashboardCases() {
     const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    
-    // Automatische Abwärtskompatibilität: Falls super-folders-wrapper fehlt, wandeln wir topic-grid um
-    let wrapper = document.getElementById('super-folders-wrapper');
-    if (!wrapper) {
-        const topicGrid = document.getElementById('topic-grid');
-        if (topicGrid) {
-            wrapper = document.createElement('div');
-            wrapper.id = 'super-folders-wrapper';
-            wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 16px; margin-top: 15px;';
-            topicGrid.parentNode.replaceChild(wrapper, topicGrid);
-        }
-    }
-    if (!wrapper) return;
+    const container = document.getElementById('dashboard-folders-container');
+    if (!container) return;
 
     const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
     
@@ -849,110 +869,117 @@ function renderDashboardCases() {
         grouped[cat].push(c);
     });
 
-    // 2. Kategorien auf die Überordner verteilen
-    const superFolders = {
-        'Nervensystem und Sinnesorgane': [],
-        'Psyche / Ethik / Recht': []
-    };
+    // 2. Gespeicherte Reihenfolge synchronisieren
+    let savedOrder = getDashboardFolderOrder();
+    const existingCats = Object.keys(grouped);
 
-    Object.keys(grouped).forEach(cat => {
-        const targetSuper = getSuperFolderForCategory(cat);
-        if (!superFolders[targetSuper]) {
-            superFolders[targetSuper] = [];
-        }
-        superFolders[targetSuper].push(cat);
+    // Neue Ordner anhängen, gelöschte aussortieren
+    savedOrder = savedOrder.filter(cat => existingCats.includes(cat));
+    existingCats.forEach(cat => {
+        if (!savedOrder.includes(cat)) savedOrder.push(cat);
     });
+    saveDashboardFolderOrder(savedOrder);
 
-    // 3. HTML für alle Überordner dynamisch generieren
-    let superFoldersHtml = '';
-    
-    Object.entries(superFolders).forEach(([superTitle, categories], superIdx) => {
-        const isOpen = superFolderStates[superTitle] !== undefined ? superFolderStates[superTitle] : true;
-        const arrowSymbol = isOpen ? '▼' : '▶';
+    // 3. HTML rendern
+    container.innerHTML = savedOrder.map((category, catIdx) => {
+        const cases = grouped[category] || [];
+        const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
+        const isExpanded = !!openFolders[category];
+        
+        const cardsHtml = cases.map(c => {
+            const isSolved = solved.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            
+            const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+                ? ''
+                : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
+            return `
+            <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
+                ${deleteBtn}
+                <div>
+                    <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
+                    <h3>${c.metadata?.title || c.case_id}</h3>
+                </div>
+                <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                    <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
+                        ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
+                    </span>
+                    <span>+${c.metadata?.xp_reward || 900} XP</span>
+                </div>
+            </div>`;
+        }).join('');
 
-        let categoriesHtml = '';
-        if (categories.length === 0) {
-            categoriesHtml = `<div style="padding: 16px; color: var(--text-dim); font-size: 0.85rem; font-style: italic;">Noch keine Ordner in diesem Themenblock.</div>`;
-        } else {
-            categories.sort((a, b) => a.localeCompare(b));
-
-            categoriesHtml = categories.map((category, catIdx) => {
-                const cases = grouped[category] || [];
-                const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
-                const isExpanded = !!openFolders[category];
-
-                const cardsHtml = cases.map(c => {
-                    const isSolved = solved.includes(c.case_id);
-                    const savedState = ProgressManager.getCaseProgress(c.case_id);
-                    const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-                    
-                    const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-                        ? ''
-                        : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
-                    return `
-                    <div class="case-card ${inProgress ? 'in-progress' : ''}" data-case-id="${encodeURIComponent(c.case_id)}" role="button" tabindex="0">
-                        ${deleteBtn}
-                        <div>
-                            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
-                            <h3>${c.metadata?.title || c.case_id}</h3>
-                        </div>
-                        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-                            <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
-                                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
-                            </span>
-                            <span>+${c.metadata?.xp_reward || 900} XP</span>
-                        </div>
-                    </div>`;
-                }).join('');
-
-                return `
-                    <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" id="dashboard-folder-${superIdx}-${catIdx}">
-                        <div class="category-header">
-                            <div class="category-title-wrap">
-                                <span class="category-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
-                                <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
-                                <span>📁 ${escapeHtml(category)}</span>
-                            </div>
-                            <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
-                        </div>
-                        <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
-                    </div>`;
-            }).join('');
-        }
-
-        superFoldersHtml += `
-            <div class="super-folder">
-                <div class="super-folder-header" onclick="toggleSuperFolder('${superTitle}')">
-                    <div class="super-folder-title">
-                        <svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                        <span>${escapeHtml(superTitle)}</span>
+        return `
+            <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" id="dashboard-folder-${catIdx}">
+                <div class="category-header">
+                    <div class="category-title-wrap">
+                        <span class="category-drag-handle" title="Ordner ziehen zum Sortieren">⠿</span>
+                        <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${catIdx}">▶</span>
+                        <span>📁 ${escapeHtml(category)}</span>
                     </div>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">${arrowSymbol}</span>
+                    <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
                 </div>
-                <div class="super-folder-body" style="display:${isOpen ? 'flex' : 'none'}; flex-direction:column; gap:12px;">
-                    ${categoriesHtml}
-                </div>
-            </div>
-        `;
-    });
+                <div class="category-cases-body" id="folder-body-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
+            </div>`;
+    }).join('');
 
-    wrapper.innerHTML = superFoldersHtml;
-
-    // 4. Klick-Handler für Ordner
-    wrapper.querySelectorAll('.category-folder').forEach(folderEl => {
+    // 4. Klick-Handler für Folder Header (Auf/Zuklappen ohne Drag-Interferenz)
+    container.querySelectorAll('.category-folder').forEach(folderEl => {
         const catName = decodeURIComponent(folderEl.dataset.category);
         const header = folderEl.querySelector('.category-header');
 
         if (header) {
             header.addEventListener('click', (e) => {
+                // Klick auf Drag-Handle ignoriert das Toggle
                 if (e.target.closest('.category-drag-handle')) return;
                 toggleFolder(catName);
             });
         }
+
+        // 5. Drag-and-Drop Event Listener für die Ordner
+        folderEl.addEventListener('dragstart', (e) => {
+            // Drag nur starten, wenn nicht eine Fall-Karte innerhalb des Ordners gezogen wird
+            if (e.target !== folderEl && !e.target.closest('.category-header')) return;
+            draggedDashboardFolder = catName;
+            folderEl.classList.add('folder-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', catName);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+        });
+
+        folderEl.addEventListener('dragend', () => {
+            folderEl.classList.remove('folder-dragging');
+            draggedDashboardFolder = null;
+            container.querySelectorAll('.category-folder').forEach(f => f.classList.remove('folder-drag-over'));
+        });
+
+        folderEl.addEventListener('dragover', (e) => {
+            if (!draggedDashboardFolder || draggedDashboardFolder === catName) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            folderEl.classList.add('folder-drag-over');
+        });
+
+        folderEl.addEventListener('dragleave', (e) => {
+            // Verhindern von Flackern beim Überfahren von Kindelementen
+            if (!folderEl.contains(e.relatedTarget)) {
+                folderEl.classList.remove('folder-drag-over');
+            }
+        });
+
+        folderEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            folderEl.classList.remove('folder-drag-over');
+            if (!draggedDashboardFolder || draggedDashboardFolder === catName) return;
+
+            reorderDashboardFolders(draggedDashboardFolder, catName);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+        });
     });
 
-    // 5. Klick-Handler für Fall-Karten
-    wrapper.querySelectorAll('.case-card[data-case-id]').forEach(card => {
+    // 6. Klick- und Lösch-Handler für Fall-Karten
+    container.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
         card.addEventListener('click', () => window.loadCaseById(caseId));
         card.addEventListener('keydown', event => {
@@ -979,9 +1006,6 @@ function renderDashboardCases() {
     }
 }
 
-// ====================================================
-// BOOKSHELF & ORDNER-VERWALTUNG
-// ====================================================
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
@@ -1004,7 +1028,7 @@ function renderBookshelf(casesArray) {
 
     localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
 
-    savedOrder.forEach(folderName => {
+   savedOrder.forEach(folderName => {
         const casesInFolder = folders[folderName] || [];
         const isOpen = !!bookshelfFolderState[folderName];
         const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
@@ -1323,7 +1347,6 @@ window.deleteCaseById = function(caseId) {
         renderDashboardCases();
     }
 };
-
 window.toggleFolder = function(category) {
     openFolders[category] = !openFolders[category];
     renderDashboardCases();
@@ -1442,7 +1465,7 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (hasCat) safely('Taxonomie', window.renderCategorization);
     if (hasQuiz) safely('Quiz', window.renderQuiz);
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
-    safely('Flashcards', window.renderFlashcards);
+    safely('Flashcards', window.renderFlashcards); // NEU
     
     if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
     window.switchTab('player', document.getElementById('nav-player'));
@@ -1466,6 +1489,7 @@ window.renderOverview = function() {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             const rawNotes = note.notes || '';
             
+            // Trennt Textblöcke verlässlich an <br><br> oder <p>-Tags
             const paragraphs = rawNotes.split(/<br\s*\/?>\s*<br\s*\/?>|<\/p>/i)
                 .map(p => p.trim())
                 .filter(p => p.length > 0);
@@ -1510,6 +1534,7 @@ window.renderOverview = function() {
     `;
     container.innerHTML = html;
 
+    // Hover-Effekt: Verknüpfung von Cue und Textabschnitt
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const targetId = cueEl.getAttribute('data-target');
         const targetFragment = document.getElementById(targetId);
@@ -1528,7 +1553,6 @@ window.renderOverview = function() {
         }
     });
 };
-
 // ====================================================
 // FORGE / GEMINI API
 // ====================================================
@@ -1719,6 +1743,8 @@ window.checkFinalCompletion = function() {
     
     const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone && fcDone;
     
+   
+    
     const finishBtn = document.getElementById('finish-case-btn');
     if (finishBtn) {
         finishBtn.style.display = allCompleted ? 'block' : 'none';
@@ -1798,7 +1824,7 @@ window.resetCurrentChallenge = function() {
             if (window.renderCategorization) window.renderCategorization();
             break;
 
-        case 'doctordle':
+case 'doctordle':
             ProgressManager.resetChallenge(caseId, 'doctordle');
             solvedDoctordlePuzzles = 0;
             doctordleSolved = false;
@@ -1816,10 +1842,10 @@ window.resetCurrentChallenge = function() {
             ProgressManager.resetChallenge(caseId, 'flashcards');
             if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
             break;
-    }
+    } // Schließt nur den switch-Block
 
     window.checkFinalCompletion();
-};
+}; // Schließt window.resetCurrentChallenge
 
 window.resetCurrentCaseEntirely = function() {
     if (!activeCaseData) return;
@@ -1842,7 +1868,7 @@ window.addEventListener("cloudCasesSynced", () => {
 });
 
 // ====================================================
-// SMARTPHONE CHALLENGE-MENÜ
+// SMARTPHONE CHALLENGE-MENÜ (Hochformat-Dropdown & Querformat-FAB)
 // ====================================================
 (function initMobileChallengePicker() {
     function syncMobileChallengePicker() {
@@ -1914,28 +1940,26 @@ window.addEventListener("cloudCasesSynced", () => {
             fabContainer.classList.add('visible');
         } else {
             fabContainer.classList.remove('visible');
-            document.getElementById('landscape-fab-menu')?.classList.remove('open');
-            document.getElementById('landscape-fab-btn')?.classList.remove('active');
+            document.getElementById('landscape-fab-menu').classList.remove('open');
+            document.getElementById('landscape-fab-btn').classList.remove('active');
         }
 
         const fabMenu = document.getElementById('landscape-fab-menu');
-        if (fabMenu) {
-            fabMenu.innerHTML = buttons.map(btn => {
-                const mode = btn.id.replace('tab-btn-', '');
-                const clone = btn.cloneNode(true);
-                const b = clone.querySelector('.tab-badge');
-                if (b) b.remove();
-                const label = clone.innerText.trim();
-                const isActive = (mode === currentActiveChallenge) ? 'active' : '';
-                
-                return `<button class="${isActive}" onclick="
-                    window.triggerHaptic(5);
-                    window.switchPlayerMode('${mode}'); 
-                    document.getElementById('landscape-fab-menu').classList.remove('open'); 
-                    document.getElementById('landscape-fab-btn').classList.remove('active');
-                ">${label}</button>`;
-            }).join('');
-        }
+        fabMenu.innerHTML = buttons.map(btn => {
+            const mode = btn.id.replace('tab-btn-', '');
+            const clone = btn.cloneNode(true);
+            const b = clone.querySelector('.tab-badge');
+            if (b) b.remove();
+            const label = clone.innerText.trim();
+            const isActive = (mode === currentActiveChallenge) ? 'active' : '';
+            
+            return `<button class="${isActive}" onclick="
+                window.triggerHaptic(5);
+                window.switchPlayerMode('${mode}'); 
+                document.getElementById('landscape-fab-menu').classList.remove('open'); 
+                document.getElementById('landscape-fab-btn').classList.remove('active');
+            ">${label}</button>`;
+        }).join('');
     }
 
     const origSwitchPlayerMode = window.switchPlayerMode;
@@ -2360,6 +2384,14 @@ function updateDepotBadges(items = getLocalDepot()) {
     if (masteredEl) masteredEl.textContent = masteredCount;
 }
 
+function escapeDepotHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 function renderDepotView() {
     const container = document.getElementById('depot-items-container');
     const categorySelect = document.getElementById('depot-category-select');
@@ -2373,7 +2405,7 @@ function renderDepotView() {
         const currentVal = categorySelect.value || 'ALL';
         const categories = [...new Set(allItems.map(i => i.category || 'Allgemein'))];
         categorySelect.innerHTML = `<option value="ALL">Alle Kategorien (${allItems.length})</option>` +
-            categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            categories.map(c => `<option value="${escapeDepotHtml(c)}">${escapeDepotHtml(c)}</option>`).join('');
         if (categories.includes(currentVal)) categorySelect.value = currentVal;
     }
 
@@ -2406,19 +2438,19 @@ function renderDepotView() {
         <div class="depot-card ${item.is_mastered ? 'is-mastered' : ''}">
             <div>
                 <div class="depot-card-meta">
-                    <span class="depot-case-Origin" title="${escapeHtml(item.case_title)}">
-                        📁 ${escapeHtml(item.case_title)}
+                    <span class="depot-case-Origin" title="${escapeDepotHtml(item.case_title)}">
+                        📁 ${escapeDepotHtml(item.case_title)}
                     </span>
-                    <span class="tag">${escapeHtml(item.category)}</span>
+                    <span class="tag">${escapeDepotHtml(item.category)}</span>
                 </div>
-                ${item.cue_context ? `<div class="depot-cue-tag">💡 ${escapeHtml(item.cue_context)}</div>` : ''}
-                <div class="depot-quote-text">„${escapeHtml(item.highlighted_text)}“</div>
+                ${item.cue_context ? `<div class="depot-cue-tag">💡 ${escapeDepotHtml(item.cue_context)}</div>` : ''}
+                <div class="depot-quote-text">„${escapeDepotHtml(item.highlighted_text)}“</div>
             </div>
 
             <div>
                 <input type="text" class="depot-note-input" 
                        placeholder="Eigene Notiz / Eselsbrücke ergänzen..." 
-                       value="${escapeHtml(item.user_note)}"
+                       value="${escapeDepotHtml(item.user_note)}"
                        onchange="updateDepotItemNote('${item.id}', this.value)">
                 <div class="depot-card-actions" style="margin-top: 8px;">
                     <button type="button" class="depot-toggle-btn" onclick="toggleDepotItemMastered('${item.id}')">
@@ -2431,13 +2463,35 @@ function renderDepotView() {
     `).join('');
 }
 
+function hookDepotIntoSwitchTab() {
+    const originalSwitchTab = window.switchTab;
+    window.switchTab = function(tabName, navEl) {
+        const depotView = document.getElementById('depot-view');
+        if (tabName === 'depot') {
+            ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'pharmacology-view'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            if (depotView) depotView.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(li => li.classList.remove('active'));
+            if (navEl) navEl.classList.add('active');
+            renderDepotView();
+        } else {
+            if (depotView) depotView.style.display = 'none';
+            if (typeof originalSwitchTab === 'function') {
+                originalSwitchTab(tabName, navEl);
+            }
+        }
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    hookDepotIntoSwitchTab();
     initOverviewSelectionListener();
     syncDepotWithSupabase();
 });
-
 // ==========================================================================
-// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT
+// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
 // ==========================================================================
 let currentDepotQuizQuestions = [];
 
@@ -2632,211 +2686,6 @@ function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
         showScorePopup('+50 XP (Lernlücke gelöst!)', 'positive');
     }
 
-    const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
-    if (fbEl) {
-        fbEl.style.display = 'block';
-        fbEl.innerHTML = `
-            <div style="font-weight: 700; color: ${isCorrect ? 'var(--color-symptom)' : 'var(--color-risk)'}; margin-bottom: 4px;">
-                ${isCorrect ? '✓ Exakt richtig deduziert!' : '✕ Nicht ganz – hier ist der klinische Hintergrund:'}
-            </div>
-            <div>${escapeHtml(q.explanation || '')}</div>
-            ${q.source_depot_id ? `
-                <div class="depot-mastery-prompt">
-                    <span style="font-size: 0.76rem; color: var(--text-dim);">Sitzt dieses Konzept jetzt sicher?</span>
-                    <button type="button" class="depot-toggle-btn" onclick="markDepotMasteredFromQuiz('${q.source_depot_id}', this)">
-                        ✓ Im Depot als gelernt abhaken
-                    </button>
-                </div>
-            ` : ''}
-        `;
-    }
-}
-
-async function markDepotMasteredFromQuiz(depotId, btnEl) {
-    await toggleDepotItemMastered(depotId);
-    if (btnEl) {
-        btnEl.textContent = '✓ Als gelernt gespeichert!';
-        btnEl.disabled = true;
-        btnEl.style.opacity = '0.6';
-    }
-}
-
-// ====================================================
-// PHARMA-COMPASS & MATRIX CLOUD-SPEICHER-MODULE
-// ====================================================
-const PHARMA_STORAGE_KEY = 'medcheck_pharma_sets';
-
-window.savePharmaSet = async function(setObj) {
-    if (!setObj || !setObj.set_id) {
-        console.error('Ungültiges Pharma-Set übergeben.');
-        return;
-    }
-
-    try {
-        let savedSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
-        savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
-        savedSets.push(setObj);
-        localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(savedSets));
-    } catch (e) {
-        console.error('Fehler beim Speichern im LocalStorage:', e);
-    }
-
-    const sb = window.supabaseClient || window.sb || null;
-    if (sb && sb.auth) {
-        try {
-            const { data: sessionData } = await sb.auth.getSession();
-            const user = sessionData?.session?.user;
-            if (user) {
-                const { error } = await sb.from('pharma_sets').upsert([{
-                    set_id: setObj.set_id,
-                    user_id: user.id,
-                    title: setObj.title,
-                    medical_field: setObj.medical_field || 'Pharmakologie',
-                    game_type: setObj.game_type || 'arrow_compass',
-                    content: setObj,
-                    updated_at: new Date().toISOString()
-                }]);
-                if (error) console.warn('Supabase Pharma-Sync Hinweis:', error.message);
-            }
-        } catch (err) {
-            console.warn('Cloud-Sync im Hintergrund fehlgeschlagen (lokal gesichert):', err);
-        }
-    }
-};
-
-window.syncPharmaSetsFromCloud = async function() {
-    const sb = window.supabaseClient || window.sb || null;
-    if (!sb || !sb.auth) return;
-    try {
-        const { data: sessionData } = await sb.auth.getSession();
-        const user = sessionData?.session?.user;
-        if (!user) return;
-
-        const { data, error } = await sb
-            .from('pharma_sets')
-            .select('content')
-            .eq('user_id', user.id);
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-            const localSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
-            const mergedMap = new Map();
-            localSets.forEach(s => { if (s?.set_id) mergedMap.set(s.set_id, s); });
-            data.forEach(row => {
-                if (row?.content?.set_id) mergedMap.set(row.content.set_id, row.content);
-            });
-            localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(Array.from(mergedMap.values())));
-        }
-    } catch (e) {
-        console.warn('Pharma Cloud-Abruf übersprungen:', e);
-    }
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.syncPharmaSetsFromCloud();
-});
-
-// ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE (60 FPS EDGE SCROLLING - SICHER)
-// ==========================================================================
-(function initDragAutoScroll() {
-    const EDGE_THRESHOLD = 90; 
-    const MAX_SCROLL_SPEED = 18; 
-
-    let isDraggingActive = false;
-    let currentMouseY = 0;
-    let currentMouseX = 0;
-    let scrollFrameId = null;
-
-    function getScrollableMainContainer() {
-        const mainWrapper = document.querySelector('.main-wrapper');
-        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) {
-            return mainWrapper;
-        }
-        return document.scrollingElement || document.documentElement;
-    }
-
-    function performAutoScroll() {
-        if (!isDraggingActive) {
-            scrollFrameId = null;
-            return;
-        }
-
-        let scrolled = false;
-        const viewportHeight = window.innerHeight;
-
-        const bookshelf = document.getElementById('bookshelf-container');
-        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight) {
-            const rect = bookshelf.getBoundingClientRect();
-            const isInsideBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
-            const isInsideBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
-
-            if (isInsideBookshelfX && isInsideBookshelfY) {
-                const booksEdge = Math.min(60, rect.height * 0.25);
-                if (currentMouseY < rect.top + booksEdge) {
-                    const intensity = 1 - ((currentMouseY - rect.top) / booksEdge);
-                    bookshelf.scrollTop -= Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
-                    scrolled = true;
-                } else if (currentMouseY > rect.bottom - booksEdge) {
-                    const intensity = 1 - ((rect.bottom - currentMouseY) / booksEdge);
-                    bookshelf.scrollTop += Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
-                    scrolled = true;
-                }
-            }
-        }
-
-        if (!scrolled) {
-            const scrollTarget = getScrollableMainContainer();
-            if (currentMouseY < EDGE_THRESHOLD) {
-                const intensity = Math.max(0.1, 1 - (currentMouseY / EDGE_THRESHOLD));
-                const delta = -Math.ceil(MAX_SCROLL_SPEED * intensity);
-                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, delta);
-                } else {
-                    scrollTarget.scrollTop += delta;
-                }
-            } else if (currentMouseY > viewportHeight - EDGE_THRESHOLD) {
-                const distFromBottom = viewportHeight - currentMouseY;
-                const intensity = Math.max(0.1, 1 - (distFromBottom / EDGE_THRESHOLD));
-                const delta = Math.ceil(MAX_SCROLL_SPEED * intensity);
-                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, delta);
-                } else {
-                    scrollTarget.scrollTop += delta;
-                }
-            }
-        }
-
-        scrollFrameId = requestAnimationFrame(performAutoScroll);
-    }
-
-    document.addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('category-folder') || e.target.classList.contains('case-card') || e.target.classList.contains('folder-case-item') || e.target.closest('.folder-group')) {
-            isDraggingActive = true;
-            if (!scrollFrameId) {
-                scrollFrameId = requestAnimationFrame(performAutoScroll);
-            }
-        }
-    });
-
-    document.addEventListener('drag', (e) => {
-        if (!isDraggingActive) return;
-        if (e.clientY > 0) {
-            currentMouseY = e.clientY;
-            currentMouseX = e.clientX;
-        }
-    }, { passive: true });
-
-    const stopAutoScroll = () => {
-        isDraggingActive = false;
-        if (scrollFrameId) {
-            cancelAnimationFrame(scrollFrameId);
-            scrollFrameId = null;
-        }
-    };
-
-    document.addEventListener('dragend', stopAutoScroll);
-    document.addEventListener('drop', stopAutoScroll);
-})();
     const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
     if (fbEl) {
         fbEl.style.display = 'block';
