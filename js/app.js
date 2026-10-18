@@ -1827,6 +1827,7 @@ window.resetCurrentChallenge = function() {
     if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
     break;
     }
+    }
 
     window.checkFinalCompletion();
 };
