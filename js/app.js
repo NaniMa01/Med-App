@@ -82,7 +82,33 @@ const BUILTIN_DEMO_CASE = {
             ]
         }
     ],
-    "extra_tasks": {
+   "extra_tasks": {
+        "flashcards": [
+            {
+                "id": "fc_myelon_1",
+                "category": "Neuroanatomie",
+                "difficulty": "basic",
+                "front": "Welche Rückenmarksbahnen bleiben beim Arteria-spinalis-anterior-Syndrom typischerweise intakt und warum?",
+                "back": "Die Hinterstränge (Funiculus posterior für Epikritik/Lagesinn), da sie separat über die Aa. spinales posteriores versorgt werden.",
+                "mnemonic_or_context": "Vordere 2/3 (Motorik + Schmerz/Temperatur) fallen aus -> dissoziierte Empfindungsstörung."
+            },
+            {
+                "id": "fc_myelon_2",
+                "category": "Neuroimmunologie",
+                "difficulty": "intermediate",
+                "front": "Ab welcher kraniokaudalen Ausdehnung im sagittalen MRT spricht man von einer LETM (Longitudinale extensive transversale Myelitis)?",
+                "back": "Ab einer durchgängigen Läsionsausdehnung über ≥ 3 Wirbelkörpersegmente.",
+                "mnemonic_or_context": "Leitbefund bei NMOSD (Anti-AQP4-IgG)."
+            },
+            {
+                "id": "fc_myelon_3",
+                "category": "Pathobiochemie",
+                "difficulty": "advanced",
+                "front": "Durch welchen molekularen Mechanismus verursacht Lachgas (N2O) eine funikuläre Myelose?",
+                "back": "Irreversible Oxidation des Cobalt-Ions im Vitamin B12 (Cobalamin), wodurch die Methionin-Synthase inaktiviert wird.",
+                "mnemonic_or_context": "Labor: Methylmalonsäure (MMA) und Homocystein steigen stark an."
+            }
+        ],
         "doctordle": [
             {
                 "puzzle_id": 1,
@@ -111,33 +137,7 @@ const BUILTIN_DEMO_CASE = {
                 "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD. Typische MS-Plaques sind meist kurzstreckig."
             }
         ]
-    },
-    "flashcards": [
-            {
-                "id": "fc_myelon_1",
-                "category": "Neuroanatomie",
-                "difficulty": "basic",
-                "front": "Welche Rückenmarksbahnen bleiben beim Arteria-spinalis-anterior-Syndrom typischerweise intakt und warum?",
-                "back": "Die Hinterstränge (Funiculus posterior für Epikritik/Lagesinn), da sie separat über die Aa. spinales posteriores versorgt werden.",
-                "mnemonic_or_context": "Vordere 2/3 (Motorik + Schmerz/Temperatur) fallen aus -> dissoziierte Empfindungsstörung."
-            },
-            {
-                "id": "fc_myelon_2",
-                "category": "Neuroimmunologie",
-                "difficulty": "intermediate",
-                "front": "Ab welcher kraniokaudalen Ausdehnung im sagittalen MRT spricht man von einer LETM (Longitudinale extensive transversale Myelitis)?",
-                "back": "Ab einer durchgängigen Läsionsausdehnung über ≥ 3 Wirbelkörpersegmente.",
-                "mnemonic_or_context": "Leitbefund bei NMOSD (Anti-AQP4-IgG)."
-            },
-            {
-                "id": "fc_myelon_3",
-                "category": "Pathobiochemie",
-                "difficulty": "advanced",
-                "front": "Durch welchen molekularen Mechanismus verursacht Lachgas (N2O) eine funikuläre Myelose?",
-                "back": "Irreversible Oxidation des Cobalt-Ions im Vitamin B12 (Cobalamin), wodurch die Methionin-Synthase inaktiviert wird.",
-                "mnemonic_or_context": "Labor: Methylmalonsäure (MMA) und Homocystein steigen stark an."
-            }
-        ]
+    }
 };
 
 // ====================================================
@@ -1809,7 +1809,7 @@ window.resetCurrentChallenge = function() {
             if (window.renderCategorization) window.renderCategorization();
             break;
 
-        case 'doctordle':
+case 'doctordle':
             ProgressManager.resetChallenge(caseId, 'doctordle');
             solvedDoctordlePuzzles = 0;
             doctordleSolved = false;
@@ -1822,15 +1822,15 @@ window.resetCurrentChallenge = function() {
                 window.doctordleGame.resetGame();
             }
             break;
-            case 'flashcards':
-    ProgressManager.resetChallenge(caseId, 'flashcards');
-    if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
-    break;
-    }
-    }
+
+        case 'flashcards':
+            ProgressManager.resetChallenge(caseId, 'flashcards');
+            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
+            break;
+    } // Schließt nur den switch-Block
 
     window.checkFinalCompletion();
-};
+}; // Schließt window.resetCurrentChallenge
 
 window.resetCurrentCaseEntirely = function() {
     if (!activeCaseData) return;
