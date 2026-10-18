@@ -111,7 +111,7 @@ const BUILTIN_DEMO_CASE = {
                 "explanation": "Eine Läsionsausdehnung über 3 oder mehr Wirbelkörpersegmente (LETM) ist das radiologische Hauptkriterium der NMOSD. Typische MS-Plaques sind meist kurzstreckig."
             }
         ]
-    }
+    },
     "flashcards": [
             {
                 "id": "fc_myelon_1",
