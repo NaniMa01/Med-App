@@ -4199,3 +4199,94 @@ kbd {
         grid-template-columns: 1fr;
     }
 }
+
+/* ====================================================
+   CREATOR HUB & CLOUD STATUS BADGES
+   ==================================================== */
+
+/* Zieh-Feedback für Fallkarten */
+.case-card[draggable="true"] {
+    cursor: grab;
+}
+
+.case-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.case-card-dragging {
+    opacity: 0.45;
+    transform: scale(0.97);
+    border: 1px dashed var(--accent-blue, #38bdf8) !important;
+}
+
+/* Zielzone optisch hervorheben */
+.drop-zone * {
+    pointer-events: none;
+}
+
+.drop-zone.dragover {
+    border-color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.15) !important;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+}
+
+/* Header & Badges auf den Karten */
+.case-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.case-card-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.cloud-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cloud-badge.is-cloud {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.cloud-badge.is-local {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.case-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.unpublish-case-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.unpublish-case-btn:hover {
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.15);
+}
