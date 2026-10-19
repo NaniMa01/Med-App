@@ -31,8 +31,8 @@ let bookshelfSuperFolderState = {
 };
 
 let bookshelfFolderState = {};
-let draggedItemState = null;
-let dragHoverTimer = null;
+let gedItemState = null;
+let HoverTimer = null;
 let currentLearningMode = 'topic';
 
 // Fachrichtungs-Modus Queue
@@ -598,23 +598,23 @@ function initSidebarResizer() {
     const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (savedWidth) setSidebarWidth(parseInt(savedWidth, 10));
 
-    let isDragging = false;
+    let isging = false;
 
     resizer.addEventListener('mousedown', (e) => {
         if (e.target.tagName === 'BUTTON') return;
-        isDragging = true;
+        isging = true;
         document.body.classList.add('is-resizing');
         e.preventDefault();
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+        if (!isging) return;
         setSidebarWidth(e.clientX);
     });
 
     window.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
+        if (isging) {
+            isging = false;
             document.body.classList.remove('is-resizing');
         }
     });
@@ -3036,3 +3036,148 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('dragend', stopAutoScroll);
     document.addEventListener('drop', stopAutoScroll);
 })();
+
+// ==========================================
+// CREATOR HUB / CASE UPLOAD LOGIK
+// ==========================================
+
+// 1. Deine Creator-E-Mail (entsprechend deiner Supabase RLS-Policy)
+const CREATOR_EMAIL = 'marco.claudio.nani@gmail.com';
+
+// 2. Creator Hub UI aktivieren / deaktivieren
+function setupCreatorHub(currentUser) {
+    const uploadSection = document.getElementById('creatorUploadSection');
+    if (!uploadSection) return;
+
+    if (currentUser && currentUser.email === CREATOR_EMAIL) {
+        uploadSection.style.display = 'block';
+        initDropZone();
+    } else {
+        uploadSection.style.display = 'none';
+    }
+}
+
+// 3. Drag & Drop Event-Handling
+function initDropZone() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('caseFileInput');
+    if (!dropZone || !fileInput) return;
+
+    // Klick öffnet den Dateidialog
+    dropZone.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => {
+        handleCaseFiles(e.target.files);
+        fileInput.value = '';
+    };
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        handleCaseFiles(e.dataTransfer.files);
+    });
+}
+
+// 4. JSON-Validierung und Upload nach Supabase
+async function handleCaseFiles(files) {
+    for (const file of files) {
+        if (!file.name.endsWith('.json')) {
+            renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
+            continue;
+        }
+
+        renderStatus(file.name, 'loading', 'Wird geprüft und hochgeladen...');
+
+        try {
+            const rawContent = await file.text();
+            const caseData = JSON.parse(rawContent);
+
+            // Validierung essenzieller Pflichtfelder
+            if (!caseData.case_id || !caseData.medical_field) {
+                throw new Error("Fehlendes Feld: 'case_id' oder 'medical_field'");
+            }
+
+            // Upload/Upsert in Supabase
+            const { error } = await supabase
+                .from('cases')
+                .upsert({
+                    case_id: caseData.case_id,
+                    title: caseData.title || caseData.primary_disease || caseData.case_id,
+                    medical_field: caseData.medical_field,
+                    is_public: true, // Für alle sichtbar
+                    content: caseData
+                }, { onConflict: 'case_id' });
+
+            if (error) throw error;
+
+            renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseData.case_id})`);
+            
+            // Ansicht sofort mit den neuen Fällen aus der DB synchronisieren
+            await loadCasesFromDatabase();
+
+        } catch (err) {
+            renderStatus(file.name, 'error', `Fehler: ${err.message}`);
+        }
+    }
+}
+
+// 5. Status-Meldungen in der Dropzone anzeigen
+function renderStatus(fileName, state, message) {
+    const statusContainer = document.getElementById('uploadStatusList');
+    if (!statusContainer) return;
+
+    let item = document.getElementById(`status-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`);
+    if (!item) {
+        item = document.createElement('div');
+        item.id = `status-${fileName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        statusContainer.prepend(item);
+    }
+
+    item.className = `upload-status-item ${state}`;
+    item.innerHTML = `<span><strong>${fileName}</strong>: ${message}</span>`;
+}
+
+// 6. Fälle aus Supabase abrufen und in die App integrieren
+async function loadCasesFromDatabase() {
+    try {
+        if (typeof supabase === 'undefined') return;
+
+        const { data, error } = await supabase
+            .from('cases')
+            .select('case_id, title, medical_field, is_public, content')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            if (!window.availableCases) window.availableCases = {};
+            
+            data.forEach(dbCase => {
+                window.availableCases[dbCase.case_id] = dbCase.content;
+            });
+
+            // UI-Aktualisierung (falls deine Render-Funktion für Fallkarten existiert)
+            if (typeof renderCaseSelection === 'function') {
+                renderCaseSelection();
+            } else if (typeof updateCaseListUI === 'function') {
+                updateCaseListUI();
+            }
+        }
+    } catch (err) {
+        console.error("Fehler beim Abrufen der Fälle aus Supabase:", err);
+    }
+}
