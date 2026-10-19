@@ -929,35 +929,56 @@ function renderDashboardCases() {
                 const isExpanded = !!openFolders[category];
 
                // In renderDashboardCases() beim Erstellen von cardsHtml:
-const cardsHtml = cases.map(c => {
-    const isSolved = solved.includes(c.case_id);
-    const savedState = ProgressManager.getCaseProgress(c.case_id);
-    const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-    
-    const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-        ? ''
-        : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall löschen">×</button>';
-        
-    return `
-    <div class="case-card ${inProgress ? 'in-progress' : ''}" 
-         draggable="true" 
-         data-case-id="${encodeURIComponent(c.case_id)}" 
-         role="button" 
-         tabindex="0">
-        ${deleteBtn}
-        <div>
-            <span class="tag">${c.metadata?.bloom_level || 'Evaluation'}</span>
-            <h3>${c.metadata?.title || c.case_id}</h3>
-        </div>
-        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-            <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
-                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
-            </span>
-            <span>+${c.metadata?.xp_reward || 900} XP</span>
-        </div>
-    </div>`;
-}).join('');
+// In renderDashboardCases():
+    const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
 
+    const cardsHtml = cases.map(c => {
+        const isSolved = solved.includes(c.case_id);
+        const savedState = ProgressManager.getCaseProgress(c.case_id);
+        const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+        
+        // Prüfung, ob der Fall in Supabase als Cloud-Fall hinterlegt ist
+        const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
+
+        const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+            ? ''
+            : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
+            
+        // Creator-Button zum Entfernen aus der Cloud
+        const unpublishBtn = (isCurrentUserCreator && isCloudCase)
+            ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
+            : '';
+
+        return `
+        <div class="case-card ${inProgress ? 'in-progress' : ''}" 
+             draggable="true" 
+             data-case-id="${encodeURIComponent(c.case_id)}" 
+             role="button" 
+             tabindex="0">
+            
+            <div class="case-card-header">
+                <div class="case-card-badges">
+                    <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
+                    <span class="cloud-badge ${isCloudCase ? 'is-cloud' : 'is-local'}">
+                        ${isCloudCase ? '☁️ Cloud' : '💾 Lokal'}
+                    </span>
+                </div>
+                <div class="case-card-actions">
+                    ${unpublishBtn}
+                    ${deleteBtn}
+                </div>
+            </div>
+
+            <h3>${escapeHtml(c.metadata?.title || c.case_id)}</h3>
+
+            <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
+                    ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
+                </span>
+                <span>+${c.metadata?.xp_reward || 900} XP</span>
+            </div>
+        </div>`;
+    }).join('');
                 return `
                     <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
                         <div class="category-header">
@@ -1047,44 +1068,51 @@ const cardsHtml = cases.map(c => {
         });
     });
 
-    // Fall-Karten Handler
+// Fall-Karten Handler
     wrapper.querySelectorAll('.case-card[data-case-id]').forEach(card => {
-    const caseId = decodeURIComponent(card.dataset.caseId);
-    
-    // Klick & Tastatur
-    card.addEventListener('click', () => window.loadCaseById(caseId));
-    card.addEventListener('keydown', event => {
-        if (event.target !== card) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            window.loadCaseById(caseId);
+        const caseId = decodeURIComponent(card.dataset.caseId);
+        
+        card.addEventListener('click', () => window.loadCaseById(caseId));
+        card.addEventListener('keydown', event => {
+            if (event.target !== card) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                window.loadCaseById(caseId);
+            }
+        });
+
+        // Drag & Drop für Creator Hub & Bookshelf
+        card.addEventListener('dragstart', (e) => {
+            e.stopPropagation();
+            e.dataTransfer.effectAllowed = 'copyMove';
+            e.dataTransfer.setData('text/plain', caseId);
+            e.dataTransfer.setData('application/medcheck-case-id', caseId);
+            card.classList.add('case-card-dragging');
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('case-card-dragging');
+        });
+
+        // Lokaler Lösch-Button
+        const deleteBtn = card.querySelector('.delete-case-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                window.deleteCaseById(caseId);
+            });
+        }
+
+        // Unpublish-Button
+        const unpublishBtn = card.querySelector('.unpublish-case-btn');
+        if (unpublishBtn) {
+            unpublishBtn.addEventListener('click', async (event) => {
+                event.stopPropagation();
+                await unpublishCaseFromCloud(caseId);
+            });
         }
     });
-
-    // NEU: Karte ziehbar machen für Creator Hub & Bookshelf
-    card.addEventListener('dragstart', (e) => {
-        e.stopPropagation();
-        e.dataTransfer.effectAllowed = 'copyMove';
-        // Wir setzen das Format 'text/plain' und einen Custom-MIME-Type
-        e.dataTransfer.setData('text/plain', caseId);
-        e.dataTransfer.setData('application/medcheck-case-id', caseId);
-        card.classList.add('case-card-dragging');
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    });
-
-    card.addEventListener('dragend', () => {
-        card.classList.remove('case-card-dragging');
-    });
-
-    const deleteBtn = card.querySelector('.delete-case-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', event => {
-            event.stopPropagation();
-            window.deleteCaseById(caseId);
-        });
-    }
-});
-
     try {
         renderBookshelf(allCases);
     } catch (bsErr) {
@@ -3064,16 +3092,18 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 // ==========================================
-// CREATOR HUB / CASE UPLOAD LOGIK
+// CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
 // ==========================================
 
 const CREATOR_EMAIL = 'marco.claudio.nani@gmail.com';
+window.cloudCaseIds = new Set();
+window.currentSessionUser = null;
 
 function getActiveSupabaseClient() {
     return window.supabaseClient || window.supabase || window.sb || null;
 }
 
-// Globales Verhindern, dass der Browser die Datei einfach im Tab öffnet
+// Globales Verhindern von versehentlichem Öffnen der JSON-Dateien im Tab
 window.addEventListener('dragover', (e) => {
     if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
         e.preventDefault();
@@ -3086,27 +3116,29 @@ window.addEventListener('drop', (e) => {
     }
 }, false);
 
+// 1. Initialisierung
 async function initCreatorHubAndCloudCases() {
     const sb = getActiveSupabaseClient();
-    
-    // 1. Cloud-Fälle für alle abrufen
     await loadCasesFromDatabase();
 
     if (!sb || !sb.auth) return;
 
     try {
         const { data: { session } } = await sb.auth.getSession();
-        setupCreatorHub(session?.user || null);
+        window.currentSessionUser = session?.user || null;
+        setupCreatorHub(window.currentSessionUser);
 
         sb.auth.onAuthStateChange((_event, session) => {
-            setupCreatorHub(session?.user || null);
+            window.currentSessionUser = session?.user || null;
+            setupCreatorHub(window.currentSessionUser);
             loadCasesFromDatabase();
         });
     } catch (e) {
-        console.warn("Auth-Prüfung für Creator Hub fehlgeschlagen:", e);
+        console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
     }
 }
 
+// 2. UI aktivieren/deaktivieren
 function setupCreatorHub(currentUser) {
     const uploadSection = document.getElementById('creatorUploadSection');
     if (!uploadSection) return;
@@ -3118,24 +3150,23 @@ function setupCreatorHub(currentUser) {
         uploadSection.style.display = 'none';
     }
 }
+
+// 3. DropZone für Desktop-Dateien & Dashboard-Karten
 function initDropZone() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('caseFileInput');
-    if (!dropZone) return;
+    if (!dropZone || !fileInput) return;
 
-    // Klick öffnet weiter den Dateidialog
-    if (fileInput) {
-        dropZone.onclick = (e) => {
-            if (e.target !== fileInput) fileInput.click();
-        };
+    dropZone.onclick = (e) => {
+        if (e.target !== fileInput) fileInput.click();
+    };
 
-        fileInput.onchange = (e) => {
-            if (e.target.files && e.target.files.length > 0) {
-                handleCaseFiles(e.target.files);
-                fileInput.value = '';
-            }
-        };
-    }
+    fileInput.onchange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            handleCaseFiles(e.target.files);
+            fileInput.value = '';
+        }
+    };
 
     const highlight = (e) => {
         e.preventDefault();
@@ -3160,41 +3191,40 @@ function initDropZone() {
         const dt = e.dataTransfer;
         if (!dt) return;
 
-        // 1. Fall A: Fall wurde innerhalb der App aus dem Dashboard hineingezogen
+        // A) Fall-Karte aus dem Dashboard hineingezogen
         const internalCaseId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
         if (internalCaseId && (!dt.files || dt.files.length === 0)) {
             await handleInternalCaseUpload(internalCaseId);
             return;
         }
 
-        // 2. Fall B: Externe JSON-Dateien vom Desktop/Explorer
+        // B) Externe .json-Dateien vom Desktop/Explorer
         if (dt.files && dt.files.length > 0) {
             handleCaseFiles(dt.files);
         }
     }, false);
 }
 
-// Hochladen eines bestehenden Falls direkt aus dem App-Speicher nach Supabase
+// 4. Upload von In-App Fallkarten
 async function handleInternalCaseUpload(caseId) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
-        alert("Keine Verbindung zu Supabase vorhanden.");
+        alert("Fehler: Verbindung zu Supabase nicht gefunden.");
         return;
     }
 
-    // Fall im lokalen Speicher oder Built-in-Case suchen
     const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
 
     if (!targetCase) {
-        renderStatus(caseId, 'error', 'Fall-Objekt konnte im lokalen Speicher nicht gefunden werden.');
+        renderStatus(caseId, 'error', 'Fall nicht im Speicher gefunden.');
         return;
     }
 
     const title = targetCase.metadata?.title || targetCase.title || caseId;
     const field = targetCase.folder_name || targetCase.metadata?.medical_field || targetCase.medical_field || 'Allgemein';
 
-    renderStatus(title, 'loading', 'Synchronisiere mit Supabase Cloud...');
+    renderStatus(title, 'loading', 'Wird mit Supabase Cloud synchronisiert...');
 
     try {
         const { error } = await sb
@@ -3209,21 +3239,20 @@ async function handleInternalCaseUpload(caseId) {
 
         if (error) throw error;
 
-        renderStatus(title, 'success', `Erfolgreich in Cloud veröffentlicht (${caseId})`);
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 50, 10]);
+        renderStatus(title, 'success', `In Cloud veröffentlicht (${caseId})`);
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
 
-        // Cloud-Datenbestand neu laden
         await loadCasesFromDatabase();
-
     } catch (err) {
-        renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
+        renderStatus(title, 'error', `Upload-Fehler: ${err.message}`);
     }
 }
 
+// 5. Externe JSON-Dateien verarbeiten
 async function handleCaseFiles(files) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
-        alert("Fehler: Verbindung zu Supabase nicht gefunden.");
+        alert("Fehler: Keine Supabase-Verbindung vorhanden.");
         return;
     }
 
@@ -3233,28 +3262,20 @@ async function handleCaseFiles(files) {
             continue;
         }
 
-        renderStatus(file.name, 'loading', 'Wird validiert und gespeichert...');
+        renderStatus(file.name, 'loading', 'Validierung und Speicherung...');
 
         try {
             const rawContent = await file.text();
-            let caseData;
-            try {
-                caseData = JSON.parse(rawContent);
-            } catch (pErr) {
-                throw new Error("JSON-Syntaxfehler: Datei ist beschädigt.");
-            }
+            const caseData = JSON.parse(rawContent);
 
             const caseId = caseData.case_id || caseData.id;
             const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
             const title = caseData.metadata?.title || caseData.title || caseId;
 
-            if (!caseId) {
-                throw new Error("Pflichtfeld 'case_id' fehlt im JSON.");
-            }
+            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
 
             caseData.case_id = caseId;
 
-            // In Supabase 'cases'-Tabelle speichern
             const { error } = await sb
                 .from('cases')
                 .upsert({
@@ -3268,13 +3289,34 @@ async function handleCaseFiles(files) {
             if (error) throw error;
 
             renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
-
-            // UI & LocalStorage synchronisieren
             await loadCasesFromDatabase();
-
         } catch (err) {
             renderStatus(file.name, 'error', `Fehler: ${err.message}`);
         }
+    }
+}
+
+// 6. Unpublish-Funktion: Fall aus der Cloud entfernen
+async function unpublishCaseFromCloud(caseId) {
+    if (!window.confirm(`Möchtest du den Fall "${caseId}" wirklich aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
+        return;
+    }
+
+    const sb = getActiveSupabaseClient();
+    if (!sb) return;
+
+    try {
+        const { error } = await sb
+            .from('cases')
+            .delete()
+            .eq('case_id', caseId);
+
+        if (error) throw error;
+
+        renderStatus(caseId, 'success', 'Aus der Cloud entfernt (nur noch lokal verfügbar)');
+        await loadCasesFromDatabase();
+    } catch (err) {
+        alert(`Fehler beim Entfernen aus der Cloud: ${err.message}`);
     }
 }
 
@@ -3294,6 +3336,7 @@ function renderStatus(fileName, state, message) {
     item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
 }
 
+// 7. Datenbank synchronisieren & Cloud-Badges verwalten
 async function loadCasesFromDatabase() {
     const sb = getActiveSupabaseClient();
     if (!sb) return;
@@ -3305,9 +3348,11 @@ async function loadCasesFromDatabase() {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.warn("Konnte Fälle nicht aus Supabase laden:", error.message);
+            console.warn("Supabase-Fälle konnten nicht abgerufen werden:", error.message);
             return;
         }
+
+        window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
 
         if (data && data.length > 0) {
             let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
@@ -3322,19 +3367,17 @@ async function loadCasesFromDatabase() {
                     customCases.push(cloudCase);
                     modified = true;
                 }
-
-                // Globales Register aktualisieren
                 window.registerCaseDDs(cloudCase);
             });
 
             if (modified) {
                 localStorage.setItem('custom_cases', JSON.stringify(customCases));
             }
+        }
 
-            renderDashboardCases();
-            if (typeof renderSubjectProgressDrawer === 'function') {
-                renderSubjectProgressDrawer();
-            }
+        renderDashboardCases();
+        if (typeof renderSubjectProgressDrawer === 'function') {
+            renderSubjectProgressDrawer();
         }
     } catch (err) {
         console.error("Fehler bei loadCasesFromDatabase:", err);
