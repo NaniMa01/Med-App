@@ -124,6 +124,24 @@
 
         <!-- 2. DASHBOARD VIEW -->
         <div class="panel" id="dashboard-view" style="display: block;">
+
+            <!-- Admin Case Upload Dropzone (standardmäßig ausgeblendet, wird per JS für Creator aktiviert) -->
+<section id="creatorUploadSection" class="creator-upload-section" style="display: none;">
+    <div class="creator-upload-card">
+        <div class="upload-header">
+            <h3>⚡ Creator Hub: Fälle hochladen</h3>
+            <p>Ziehe deine fertigen <code>.json</code>-Falldateien per Drag & Drop hier hinein.</p>
+        </div>
+        
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-zone-icon">📁</div>
+            <p class="drop-zone-text">JSON-Dateien hier ablegen oder <span class="browse-link">durchsuchen</span></p>
+            <input type="file" id="caseFileInput" accept=".json" multiple style="display: none;">
+        </div>
+
+        <div id="uploadStatusList" class="upload-status-list"></div>
+    </div>
+</section>
             <div class="panel-title">Klinische Module & Themen-Ordner</div>
             <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
          
