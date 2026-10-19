@@ -3206,6 +3206,8 @@ function initDropZone() {
 }
 
 // 4. Upload von In-App Fallkarten
+// In js/app.js:
+
 async function handleInternalCaseUpload(caseId) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
@@ -3213,11 +3215,20 @@ async function handleInternalCaseUpload(caseId) {
         return;
     }
 
+    // Aktuelle Session & User-ID abfragen
+    const { data: { session } } = await sb.auth.getSession();
+    const currentUser = session?.user;
+
+    if (!currentUser) {
+        renderStatus(caseId, 'error', 'Nicht eingeloggt. Bitte melde dich zuerst an.');
+        return;
+    }
+
     const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
 
     if (!targetCase) {
-        renderStatus(caseId, 'error', 'Fall nicht im Speicher gefunden.');
+        renderStatus(caseId, 'error', 'Fall nicht im lokalen Speicher gefunden.');
         return;
     }
 
@@ -3234,6 +3245,8 @@ async function handleInternalCaseUpload(caseId) {
                 title: title,
                 medical_field: field,
                 is_public: true,
+                user_id: currentUser.id,
+                created_by: currentUser.id,
                 content: targetCase
             }, { onConflict: 'case_id' });
 
@@ -3244,15 +3257,23 @@ async function handleInternalCaseUpload(caseId) {
 
         await loadCasesFromDatabase();
     } catch (err) {
-        renderStatus(title, 'error', `Upload-Fehler: ${err.message}`);
+        console.error("Upload Error:", err);
+        renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
     }
 }
 
-// 5. Externe JSON-Dateien verarbeiten
 async function handleCaseFiles(files) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
         alert("Fehler: Keine Supabase-Verbindung vorhanden.");
+        return;
+    }
+
+    const { data: { session } } = await sb.auth.getSession();
+    const currentUser = session?.user;
+
+    if (!currentUser) {
+        alert("Bitte melde dich zuerst als Creator an.");
         return;
     }
 
@@ -3283,6 +3304,8 @@ async function handleCaseFiles(files) {
                     title: title,
                     medical_field: field,
                     is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
                     content: caseData
                 }, { onConflict: 'case_id' });
 
@@ -3291,6 +3314,7 @@ async function handleCaseFiles(files) {
             renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
             await loadCasesFromDatabase();
         } catch (err) {
+            console.error("Upload Error:", err);
             renderStatus(file.name, 'error', `Fehler: ${err.message}`);
         }
     }
