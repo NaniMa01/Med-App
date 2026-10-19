@@ -743,6 +743,16 @@ body.is-resizing .resizer-handle-pill {
 .upload-status-item.success { border-color: #22c55e; color: #4ade80; }
 .upload-status-item.error { border-color: #ef4444; color: #f87171; }
 .upload-status-item.loading { border-color: #38bdf8; color: #38bdf8; }
+
+.drop-zone * {
+    pointer-events: none; /* Verhindert, dass Text/Icon das Drop-Event abfangen */
+}
+
+.drop-zone.dragover {
+    border-color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.12) !important;
+    transform: scale(1.01);
+}
 /* ==========================================================================
    6. BUTTONS, TABS & FEEDBACK BOXES (Inkl. fehlender .btn-Klassen!)
    ========================================================================== */
