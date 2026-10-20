@@ -2392,44 +2392,43 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   CLINICAL DAYLIGHT (Ergonomischer, augenschonender Light Mode)
-   Farbkonzept: Warm Paper White, Slate Gray & Soft Medical Blue
-   Erfüllt ISO 9241-303 und WCAG 2.1 AAA Kontraststandards
+   CLINICAL DAYLIGHT (Augenschonender Naturpapier-Modus / Muted Slate & Paper)
+   Optimiert für ermüdungsfreies Lesen am Bildschirm über mehrere Stunden
    ========================================================================== */
 [data-theme="daylight"] {
-    /* Basishintergrund: Mattes Schiefergrau, verhindert Blendeffekte */
-    --bg-color: #f1f5f9 !important;
-    --bg-gradient: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+    /* 1. Sanfte, matte Naturpapier-Basis (kein grelles Blendweiß!) */
+    --bg-color: #f2efe9 !important;
+    --bg-gradient: linear-gradient(180deg, #f7f5f0 0%, #ece8e1 100%) !important;
 
-    /* Karten & Panels: Klares Reinweiß mit dezenten, warmen Konturen */
-    --sidebar-bg: #ffffff !important;
-    --card-bg: #ffffff !important;
-    --card-bg-hover: #f8fafc !important;
-    --card-border: #cbd5e1 !important;
-    --card-border-hover: #0284c7 !important;
-    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+    /* 2. Container & Cards: Ruhiges, warmes Elfenbein/Off-White */
+    --sidebar-bg: #f9f8f5 !important;
+    --card-bg: #fbfaf7 !important;
+    --card-bg-hover: #f3efe6 !important;
+    --card-border: #dcd6cb !important;
+    --card-border-hover: #0369a1 !important;
+    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.7) !important;
 
-    /* Ergonomische Typografie: Entspannter Schieferton statt hartem Schwarz */
-    --text-main: #1e293b !important;
-    --text-muted: #64748b !important;
-    --text-dim: #94a3b8 !important;
+    /* 3. Textkontrast: Warmes Schiefer-Anthrazit statt hartem Schwarz */
+    --text-main: #24292f !important;
+    --text-muted: #57606a !important;
+    --text-dim: #8c959f !important;
 
-    /* Ruhiges, fokussiertes Klinik-Blau (Nordic Slate) */
-    --accent-blue: #0284c7 !important;
-    --accent-cyan: #0ea5e9 !important;
+    /* 4. Gedämpfte, augenfreundliche Akzente (Tiefsee-/Nordic-Blau) */
+    --accent-blue: #0369a1 !important;
+    --accent-cyan: #0284c7 !important;
     --accent-indigo: #4338ca !important;
 
-    /* Klare, unaufdringliche Statusfarben */
-    --color-risk: #dc2626 !important;
-    --color-lab: #7c3aed !important;
-    --color-symptom: #059669 !important;
-    --color-treatment: #0284c7 !important;
-    --warning: #d97706 !important;
-    --error: #dc2626 !important;
+    /* 5. Harmonische Statusfarben */
+    --color-risk: #b91c1c !important;
+    --color-lab: #6d28d9 !important;
+    --color-symptom: #047857 !important;
+    --color-treatment: #0369a1 !important;
+    --warning: #b45309 !important;
+    --error: #b91c1c !important;
 
-    /* Weiche, natürliche Schattierung für echte Tiefenwirkung */
-    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
-    --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+    /* Weiche, natürliche Schattierung */
+    --shadow-sm: 0 1px 3px rgba(36, 41, 47, 0.05);
+    --shadow-md: 0 4px 14px -3px rgba(36, 41, 47, 0.08);
 }
 
 /* 1. Haupt-Container & Panels */
@@ -2447,140 +2446,139 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .forge-textarea,
 [data-theme="daylight"] .forge-topic-input,
 [data-theme="daylight"] .auth-panel input {
-    background-color: #ffffff !important;
-    color: #1e293b !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+    background-color: #fbfaf7 !important;
+    color: #24292f !important;
+    border-color: #dcd6cb !important;
+    box-shadow: 0 2px 8px rgba(36, 41, 47, 0.04) !important;
 }
 
-/* 2. Lesebereiche (Audit-Timeline & Falltexte): Optimale Lesbarkeit */
+/* 2. Lesebereiche (Audit-Timeline, Cornell Notes & Falldokumente) */
 [data-theme="daylight"] .step-content {
-    background-color: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #0f172a !important;
-    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+    background-color: #f5f2eb !important;
+    border: 1px solid #dcd6cb !important;
+    color: #1f2328 !important;
+    box-shadow: inset 0 1px 3px rgba(36, 41, 47, 0.03) !important;
 }
 
 [data-theme="daylight"] .step-content p,
 [data-theme="daylight"] .step-content span,
 [data-theme="daylight"] .step-content div,
-[data-theme="daylight"] .audit-item,
 [data-theme="daylight"] .stealth-word {
-    color: #1e293b !important;
+    color: #1f2328 !important;
 }
 
 [data-theme="daylight"] .step-content:hover {
-    border-color: #94a3b8 !important;
+    border-color: #b0a99c !important;
 }
 
 /* 3. Navigation, Tabs & Segmented Controls */
 [data-theme="daylight"] .challenge-nav-bar,
 [data-theme="daylight"] .segmented-control {
-    background: #e2e8f0 !important;
-    border: 1px solid #cbd5e1 !important;
+    background: #e9e4db !important;
+    border: 1px solid #dcd6cb !important;
 }
 
 [data-theme="daylight"] .challenge-tab-btn,
 [data-theme="daylight"] .segmented-btn {
     background: transparent !important;
-    color: #475569 !important;
+    color: #57606a !important;
     border-color: transparent !important;
 }
 
 [data-theme="daylight"] .challenge-tab-btn:hover,
 [data-theme="daylight"] .segmented-btn:hover {
-    background: rgba(255, 255, 255, 0.6) !important;
-    color: #0f172a !important;
+    background: rgba(251, 250, 247, 0.6) !important;
+    color: #1f2328 !important;
 }
 
 [data-theme="daylight"] .challenge-tab-btn.active,
 [data-theme="daylight"] .segmented-btn.active {
-    background: #ffffff !important;
-    color: #0284c7 !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+    background: #fbfaf7 !important;
+    color: #0369a1 !important;
+    border-color: #dcd6cb !important;
+    box-shadow: 0 2px 6px rgba(36, 41, 47, 0.06) !important;
 }
 
-/* 4. Quiz-Buttons */
+/* 4. Quiz-Optionen */
 [data-theme="daylight"] .quiz-opt-btn {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #1e293b !important;
+    background: #fbfaf7 !important;
+    border: 1px solid #dcd6cb !important;
+    color: #24292f !important;
 }
 
 [data-theme="daylight"] .quiz-opt-btn:hover {
-    background: #f1f5f9 !important;
-    border-color: #0284c7 !important;
+    background: #f3efe6 !important;
+    border-color: #0369a1 !important;
 }
 
 [data-theme="daylight"] .quiz-opt-btn.selected {
     background: #e0f2fe !important;
-    border-color: #0284c7 !important;
-    color: #0369a1 !important;
+    border-color: #0369a1 !important;
+    color: #0c4a6e !important;
 }
 
-/* 5. Fallkarten & Ordner */
+/* 5. Fallkarten & Ordner-Hierarchie */
 [data-theme="daylight"] .case-card,
 [data-theme="daylight"] .specialty-card {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #1e293b !important;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+    background: #fbfaf7 !important;
+    border: 1px solid #dcd6cb !important;
+    color: #24292f !important;
+    box-shadow: 0 2px 6px rgba(36, 41, 47, 0.04) !important;
 }
 
 [data-theme="daylight"] .case-card:hover,
 [data-theme="daylight"] .specialty-card:hover {
     background: #ffffff !important;
-    border-color: #0284c7 !important;
-    box-shadow: 0 8px 16px -4px rgba(2, 132, 199, 0.12) !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 8px 18px -4px rgba(3, 105, 161, 0.12) !important;
 }
 
-/* Super-Folder & Kategorie-Ordner */
+/* Super-Folder & Kategorien */
 [data-theme="daylight"] .super-folder {
-    background: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
+    background: #f4f1ea !important;
+    border: 1px solid #dcd6cb !important;
 }
 
 [data-theme="daylight"] .super-folder-header {
-    background: #ffffff !important;
-    border-bottom: 1px solid #cbd5e1 !important;
+    background: #fbfaf7 !important;
+    border-bottom: 1px solid #dcd6cb !important;
 }
 
 [data-theme="daylight"] .category-folder {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
+    background: #fbfaf7 !important;
+    border: 1px solid #e5dfd5 !important;
 }
 
 [data-theme="daylight"] .category-header {
-    background: #f8fafc !important;
+    background: #f6f3ec !important;
 }
 
 /* Bookshelf (Sidebar) */
 [data-theme="daylight"] .folder-group {
-    background: #f8fafc !important;
-    border: 1px solid #e2e8f0 !important;
+    background: #f4f1ea !important;
+    border: 1px solid #e5dfd5 !important;
 }
 
 [data-theme="daylight"] .folder-header {
-    background: #ffffff !important;
+    background: #fbfaf7 !important;
 }
 
 [data-theme="daylight"] .folder-cases-list {
-    background: #f8fafc !important;
+    background: #f4f1ea !important;
 }
 
 [data-theme="daylight"] .folder-case-item {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
+    background: #fbfaf7 !important;
+    border: 1px solid #e5dfd5 !important;
     color: #334155 !important;
 }
 
 [data-theme="daylight"] .folder-case-item:hover {
-    background: #e0f2fe !important;
-    color: #0284c7 !important;
+    background: #e9e4db !important;
+    color: #0369a1 !important;
 }
 
-/* 6. Textfarben & Typografie */
+/* 6. Typografie & Überschriften */
 [data-theme="daylight"] h1, 
 [data-theme="daylight"] h2, 
 [data-theme="daylight"] h3, 
@@ -2593,94 +2591,93 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .folder-title-text,
 [data-theme="daylight"] .subject-item-name,
 [data-theme="daylight"] .panel-title,
-[data-theme="daylight"] .panel-subtitle,
 [data-theme="daylight"] .category-title-wrap,
 [data-theme="daylight"] p,
 [data-theme="daylight"] span,
 [data-theme="daylight"] label {
-    color: #1e293b !important;
+    color: #24292f !important;
 }
 
 [data-theme="daylight"] .panel-subtitle {
-    color: #64748b !important;
+    color: #57606a !important;
 }
 
-/* 7. Buttons: Harmonisches Primärblau */
+/* 7. Primäre Aktions-Buttons */
 [data-theme="daylight"] .action-btn,
 [data-theme="daylight"] .btn {
-    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+    background: linear-gradient(135deg, #0369a1, #075985) !important;
     color: #ffffff !important;
-    border: 1px solid #0284c7 !important;
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: 0 2px 6px rgba(3, 105, 161, 0.22) !important;
 }
 
 [data-theme="daylight"] .action-btn:hover,
 [data-theme="daylight"] .btn:hover {
-    background: linear-gradient(135deg, #0369a1, #075985) !important;
+    background: linear-gradient(135deg, #075985, #0c4a6e) !important;
 }
 
 [data-theme="daylight"] .action-btn.secondary,
 [data-theme="daylight"] .btn-secondary {
-    background: #ffffff !important;
+    background: #fbfaf7 !important;
     color: #334155 !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid #dcd6cb !important;
     box-shadow: none !important;
 }
 
 [data-theme="daylight"] .action-btn.secondary:hover,
 [data-theme="daylight"] .btn-secondary:hover {
-    background: #f1f5f9 !important;
-    color: #0f172a !important;
+    background: #f1ede4 !important;
+    color: #1f2328 !important;
 }
 
-/* 8. Spaced-Repetition-Card, Lern-Depot & Doctordle */
+/* 8. Spaced Repetition, Lern-Depot & Doctordle */
 [data-theme="daylight"] .sr-dashboard-card,
 [data-theme="daylight"] .depot-card,
 [data-theme="daylight"] .depot-quiz-arena {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+    background: #fbfaf7 !important;
+    border: 1px solid #dcd6cb !important;
+    box-shadow: 0 4px 14px rgba(36, 41, 47, 0.05) !important;
 }
 
 [data-theme="daylight"] .sr-title,
 [data-theme="daylight"] .sr-flash-info h4 {
-    color: #0f172a !important;
+    color: #1f2328 !important;
 }
 
 [data-theme="daylight"] .sr-flash-info p {
-    color: #475569 !important;
+    color: #57606a !important;
 }
 
 [data-theme="daylight"] .sr-organ-tile {
-    background: #f8fafc !important;
-    border-color: #e2e8f0 !important;
+    background: #f5f2eb !important;
+    border-color: #e5dfd5 !important;
 }
 
 [data-theme="daylight"] .depot-quote-text {
-    background: #f8fafc !important;
-    border-color: #e2e8f0 !important;
-    color: #1e293b !important;
+    background: #f5f2eb !important;
+    border-color: #e5dfd5 !important;
+    color: #24292f !important;
 }
 
 [data-theme="daylight"] #doctordle-input {
-    background: #ffffff !important;
-    color: #1e293b !important;
-    border-color: #cbd5e1 !important;
+    background: #fbfaf7 !important;
+    color: #24292f !important;
+    border-color: #dcd6cb !important;
 }
 
 [data-theme="daylight"] #doctordle-autocomplete-list {
-    background: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15) !important;
+    background: #fbfaf7 !important;
+    border-color: #dcd6cb !important;
+    box-shadow: 0 10px 25px -5px rgba(36, 41, 47, 0.12) !important;
 }
 
 [data-theme="daylight"] #doctordle-autocomplete-list li {
-    color: #1e293b !important;
+    color: #24292f !important;
 }
 
 [data-theme="daylight"] #doctordle-autocomplete-list li:hover {
-    background: #e0f2fe !important;
-    color: #0284c7 !important;
+    background: #e9e4db !important;
+    color: #0369a1 !important;
 }
 /* Theme: Surgical Scrubs (OP-Smaragdgrün) */
 [data-theme="scrubs"] {
