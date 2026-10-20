@@ -3078,13 +3078,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE (BUTTERY SMOOTH 60 FPS - VERBESSERT)
+// DRAG & DROP AUTO-SCROLL ENGINE (TURBO 60-120 FPS - ULTRA SCHNELL)
 // ==========================================================================
 (function initDragAutoScroll() {
-    // Schwellenwerte für reaktionsschnelles Scrollen
-    const TOP_THRESHOLD = 140;       // Vergrößerte Zone oben (berücksichtigt die 70px Topbar)
-    const BOTTOM_THRESHOLD = 110;    // Reaktionszone unten
-    const MAX_SCROLL_SPEED = 24;     // Dynamische Maximalgeschwindigkeit in px/frame
+    // ⚡ KONFIGURATION FÜR MAXIMALES TEMPO & REAKTIVITÄT
+    const TOP_THRESHOLD = 180;        // Große Erfassungszone oben (reagiert weit vor der Topbar)
+    const BOTTOM_THRESHOLD = 140;     // Erfassungszone unten
+    const BASE_SPEED = 8;             // Mindesttempo sofort bei Eintritt in die Zone (kein Lag)
+    const MAX_SCROLL_SPEED = 52;      // Turbo-Maximalgeschwindigkeit (vorher 18-24 px)
 
     let isDraggingActive = false;
     let currentMouseY = -1;
@@ -3100,14 +3101,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return document.scrollingElement || document.documentElement || document.body;
     }
 
-    // 60-FPS Animations-Schleife mit quadratischer Beschleunigungskurve
+    // High-Speed Animations-Loop mit progressiver Beschleunigung
     function performAutoScroll() {
         if (!isDraggingActive) {
             scrollFrameId = null;
             return;
         }
 
-        // 1. Priorität: Prüfen, ob der Cursor über dem Bookshelf in der Sidebar steht
+        // 1. Priorität: Schnelles Scrollen im Bookshelf (Sidebar)
         let bookshelfScrolled = false;
         const bookshelf = document.getElementById('bookshelf-container');
         if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
@@ -3116,35 +3117,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const inBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
 
             if (inBookshelfX && inBookshelfY) {
-                const edgeZone = Math.min(70, rect.height * 0.25);
+                const edgeZone = Math.min(80, rect.height * 0.28);
                 if (currentMouseY < rect.top + edgeZone) {
-                    const ratio = Math.max(0.1, 1 - ((currentMouseY - rect.top) / edgeZone));
-                    bookshelf.scrollTop -= Math.ceil(MAX_SCROLL_SPEED * (ratio * ratio));
+                    const ratio = Math.max(0, (edgeZone - (currentMouseY - rect.top)) / edgeZone);
+                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
+                    bookshelf.scrollTop -= speed;
                     bookshelfScrolled = true;
                 } else if (currentMouseY > rect.bottom - edgeZone) {
-                    const ratio = Math.max(0.1, 1 - ((rect.bottom - currentMouseY) / edgeZone));
-                    bookshelf.scrollTop += Math.ceil(MAX_SCROLL_SPEED * (ratio * ratio));
+                    const ratio = Math.max(0, (currentMouseY - (rect.bottom - edgeZone)) / edgeZone);
+                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
+                    bookshelf.scrollTop += speed;
                     bookshelfScrolled = true;
                 }
             }
         }
 
-        // 2. Dashboard / Hauptbereich scrollen
+        // 2. Schnelles Scrollen im Haupt-Dashboard
         if (!bookshelfScrolled && currentMouseY >= 0) {
             const scrollTarget = getScrollContainer();
             const viewportHeight = window.innerHeight;
 
-            // TOPBAR-OFFSET: Berücksichtigt die 70px feste Höhe der Topbar
+            // Berücksichtigt die feste Höhe der Topbar dynamisch
             const topbar = document.querySelector('topbar');
-            const topbarOffset = topbar ? topbar.getBoundingClientRect().bottom : 70;
-            const topScrollZone = topbarOffset + TOP_THRESHOLD;
+            const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 70;
+            const topScrollZone = topbarBottom + TOP_THRESHOLD;
 
-            // NACH OBEN SCROLLEN
+            // ⚡ BLITZSCHNELLES HOCHSCROLLEN
             if (currentMouseY < topScrollZone) {
-                // Je näher an der Topbar oder am oberen Rand, desto schneller
-                const distanceRatio = Math.max(0, Math.min(1, (topScrollZone - currentMouseY) / TOP_THRESHOLD));
-                // Quadratische Kurve für samtweiches Anlaufen bis hin zu schnellem Durchgleiten
-                const speed = Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, distanceRatio * distanceRatio));
+                // Berechnet, wie tief die Maus in der Trigger-Zone ist (0 bis 1)
+                const distanceInside = Math.max(0, topScrollZone - currentMouseY);
+                const ratio = Math.min(1, distanceInside / TOP_THRESHOLD);
+                
+                // Kubische Beschleunigung: Je näher am Rand, desto brachialer das Tempo
+                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
                 
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
                     window.scrollBy(0, -speed);
@@ -3152,10 +3157,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     scrollTarget.scrollTop -= speed;
                 }
             } 
-            // NACH UNTEN SCROLLEN
+            // ⚡ SCHNELLES RUNTERSCROLLEN
             else if (currentMouseY > viewportHeight - BOTTOM_THRESHOLD) {
-                const distanceRatio = Math.max(0, Math.min(1, (currentMouseY - (viewportHeight - BOTTOM_THRESHOLD)) / BOTTOM_THRESHOLD));
-                const speed = Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, distanceRatio * distanceRatio));
+                const distanceInside = Math.max(0, currentMouseY - (viewportHeight - BOTTOM_THRESHOLD));
+                const ratio = Math.min(1, distanceInside / BOTTOM_THRESHOLD);
+                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
 
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
                     window.scrollBy(0, speed);
@@ -3168,14 +3174,14 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollFrameId = requestAnimationFrame(performAutoScroll);
     }
 
-    // Präzise Koordinaten-Erfassung über dragover (zuverlässiger als e.clientY bei 'drag')
+    // Aktualisiert die Mausposition kontinuierlich ohne Verzögerung
     function updateCoordinates(e) {
         if (!isDraggingActive) return;
         currentMouseY = e.clientY;
         currentMouseX = e.clientX;
     }
 
-    // Drag-Start mit .closest(), damit auch Klicks auf Kindelemente (Titel, Icons) greifen
+    // Zuverlässige Drag-Erkennung für alle verschiebbaren Dashboard-Elemente
     document.addEventListener('dragstart', (e) => {
         const isDraggableItem = e.target.closest('.case-card') || 
                                e.target.closest('.category-folder') || 
@@ -3193,11 +3199,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Beide Events hören, damit kein Frame verloren geht
     window.addEventListener('dragover', updateCoordinates, { passive: true });
     document.addEventListener('drag', updateCoordinates, { passive: true });
 
-    // Sicheres Beenden
+    // Sofortiges sauberes Stoppen bei Drop oder Drag-Ende
     const stopAutoScroll = () => {
         isDraggingActive = false;
         currentMouseY = -1;
