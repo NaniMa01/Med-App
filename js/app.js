@@ -266,27 +266,7 @@ window.saveChallengeProgress = function(challengeKey, data) {
 // INITIALISIERUNG
 // ====================================================
 document.addEventListener('DOMContentLoaded', () => {
-    const introScreen = document.getElementById("intro-screen");
-    const introVideo = document.getElementById("intro-video");
-    const skipBtn = document.getElementById("skip-intro-btn");
-    const hasSeenIntro = sessionStorage.getItem("medAppIntroShown");
-
-    if (hasSeenIntro) {
-        if (introScreen) introScreen.remove();
-    } else {
-        function dismissIntro() {
-            if (!introScreen) return;
-            sessionStorage.setItem("medAppIntroShown", "true");
-            introScreen.classList.add("fade-out");
-            setTimeout(() => { introScreen.remove(); }, 500);
-        }
-
-        if (introVideo && introScreen) {
-            introVideo.addEventListener("ended", dismissIntro);
-            if (skipBtn) skipBtn.addEventListener("click", dismissIntro);
-            setTimeout(() => { dismissIntro(); }, 5000);
-        }
-    }
+   
     
     initUserData();
     initCreatorHubAndCloudCases();
