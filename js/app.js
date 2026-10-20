@@ -224,6 +224,56 @@ function loadDDLibrary() {
         if (Array.isArray(stored)) stored.forEach(addToDDLibrary);
     } catch (e) {}
 }
+// --- DYNAMISCHE SUPER-FOLDER GENERIERUNG ---
+
+// Lädt benutzerdefinierte Super-Folder (oder gibt ein leeres Array zurück)
+function getCustomSuperFolders() {
+    return JSON.parse(localStorage.getItem('medcheck_custom_super_folders')) || [];
+}
+
+// Speichert die Super-Folder
+function saveCustomSuperFolders(folders) {
+    localStorage.setItem('medcheck_custom_super_folders', JSON.stringify(folders));
+}
+
+// Hauptfunktion: Erstellt einen neuen Super-Folder analog zu "Psyche, Ethik, Recht"
+function generateNewSuperFolder() {
+    const folderName = prompt('Gib den Namen für den neuen Überordner ein (z.B. "Notfallmedizin", "Interdisziplinär"):');
+    if (!folderName || !folderName.trim()) return;
+
+    const customFolders = getCustomSuperFolders();
+    
+    // Eindeutige ID und Basis-Struktur erzeugen
+    const newFolderId = 'super_custom_' + Date.now();
+    const newSuperFolder = {
+        id: newFolderId,
+        name: folderName.trim(),
+        icon: '📂',
+        subfolders: [] // Enthält später die Unterordner oder Fälle
+    };
+
+    customFolders.push(newSuperFolder);
+    saveCustomSuperFolders(customFolders);
+
+    // Bücherregal in der Sidebar sofort neu rendern
+    if (typeof renderBookshelf === 'function') {
+        renderBookshelf();
+    }
+}
+
+// Funktion zum Löschen eines benutzerdefinierten Super-Folders
+function removeCustomSuperFolder(folderId) {
+    if (!confirm('Möchtest du diesen Überordner wirklich löschen?')) return;
+
+    let customFolders = getCustomSuperFolders();
+    customFolders = customFolders.filter(f => f.id !== folderId);
+    saveCustomSuperFolders(customFolders);
+
+    if (typeof renderBookshelf === 'function') {
+        renderBookshelf();
+    }
+}
+
 // --- CUSTOM SUPER FOLDERS STATE & LOGIC ---
 let customSuperFolders = JSON.parse(localStorage.getItem('medcheck_custom_super_folders')) || [];
 
@@ -259,11 +309,12 @@ function deleteCustomSuperFolder(folderId) {
         renderBookshelf();
     }
 }
+// Im Header-Bereich deines Bücherregals in der Sidebar:
 function renderBookshelfHeader() {
     return `
         <div class="bookshelf-header-row">
             <span class="bookshelf-title">Bücherregal & Ordner</span>
-            <button class="bookshelf-add-btn" onclick="promptNewSuperFolder()" title="Neuen Überordner erstellen">+</button>
+            <button class="bookshelf-add-btn" onclick="generateNewSuperFolder()" title="Neuen Überordner erstellen">+</button>
         </div>
     `;
 }
@@ -2316,6 +2367,36 @@ function registerDynamicFolder(folderName, targetSuperFolder = null) {
         saveFolderSuperMapping(mapping);
     }
 }
+
+// Innerhalb deiner renderBookshelf()-Funktion:
+
+// 1. Standard-Super-Folder (Psyche, Ethik, Recht etc.) rendern...
+// 2. Danach die dynamischen, vom Nutzer erstellten Super-Folder anhängen:
+
+const customFolders = getCustomSuperFolders();
+customFolders.forEach(superFolder => {
+    // HTML-Struktur exakt im Stil der bestehenden Super-Folder (.bookshelf-super-group)
+    html += `
+        <div class="bookshelf-super-group" data-super-id="${superFolder.id}">
+            <div class="bookshelf-super-header" onclick="toggleBookshelfSuperGroup('${superFolder.id}')">
+                <div class="bookshelf-super-title-wrap">
+                    <span class="bookshelf-super-arrow open" id="arrow-${superFolder.id}">▶</span>
+                    <span class="bookshelf-super-icon">${superFolder.icon}</span>
+                    <span class="bookshelf-super-title">${superFolder.name}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span class="bookshelf-super-badge">0</span>
+                    <button class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); removeCustomSuperFolder('${superFolder.id}')" title="Überordner löschen">×</button>
+                </div>
+            </div>
+            <div class="bookshelf-super-body" id="body-${superFolder.id}">
+                <div style="font-size: 0.72rem; color: var(--text-dim); padding: 4px; font-style: italic;">
+                    Ziehe Ordner oder Fälle hierher
+                </div>
+            </div>
+        </div>
+    `;
+});
 window.validateAndSaveCustomCase = function() {
     const inputEl = document.getElementById('forge-input');
     if (!inputEl) return;
