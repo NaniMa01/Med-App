@@ -12,6 +12,7 @@ let quizSolved = false, userQuizAnswers = {};
 let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles = 0;
 let flashcardsSolved = true, totalFlashcardsCount = 0, solvedFlashcardsCount = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
+
 // Dashboard & UI States
 let openFolders = {};
 let superFolderStates = {
@@ -21,18 +22,17 @@ let superFolderStates = {
     'Allgemein': true
 };
 
-// NEU: Klapp-Status für die Überordner im Bookshelf
+// Klapp-Status für die Überordner im Bookshelf
 let bookshelfSuperFolderState = {
     'Nervensystem und Sinnesorgane': false,
     'Psyche / Ethik / Recht': false,
     'Reproduktion': false,
     'Allgemein': true
-    
 };
 
 let bookshelfFolderState = {};
-let gedItemState = null;
-let HoverTimer = null;
+let draggedItemState = null;      // Korrigiert: war 'gedItemState'
+let dragHoverTimer = null;        // Korrigiert: war 'HoverTimer'
 let currentLearningMode = 'topic';
 
 // Fachrichtungs-Modus Queue
@@ -289,7 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     initUserData();
-
     initCreatorHubAndCloudCases();
     
     [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
@@ -300,18 +299,20 @@ document.addEventListener('DOMContentLoaded', () => {
         window.renderSpecialtyHub();
     }
 
+    // =========================================================================
+    // INITIALISIERUNG: SPACED REPETITION WIDGET (Stabil & Fehlerfrei)
+    // =========================================================================
     if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', (itemId, moduleType) => {
-            if (window.loadCaseById) window.loadCaseById(itemId);
-            if (moduleType && window.switchPlayerMode) window.switchPlayerMode(moduleType);
-        });
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
     }
 
     window.addEventListener('sr:updated', () => {
         if (window.SpacedRepetitionEngine) {
-            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget');
+            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
         }
     });
+    // =========================================================================
     
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn) {
@@ -336,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setTimeout(renderSubjectProgressDrawer, 500);
 });
-
 // ====================================================
 // ALLGEMEINE UI & UTILS
 // ====================================================
