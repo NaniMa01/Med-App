@@ -903,77 +903,76 @@ let categoriesHtml = '';
         if (categories.length === 0) {
             categoriesHtml = `<div style="padding: 16px; color: var(--text-dim); font-size: 0.85rem; font-style: italic;">Ordner hierher ziehen, um sie diesem Themenblock zuzuweisen.</div>`;
         } else {
-            categories.sort((a, b) => a.localeCompare(b));
+           categories.sort((a, b) => a.localeCompare(b));
 
-            const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+        const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
 
-            categoriesHtml = categories.map((category, catIdx) => {
-                const cases = grouped[category] || [];
-                const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
-                const isExpanded = !!openFolders[category];
+        categoriesHtml = categories.map((category, catIdx) => {
+            const cases = grouped[category] || [];
+            const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
+            const isExpanded = !!openFolders[category];
 
-                const cardsHtml = cases.map(c => {
-                    const isSolved = solved.includes(c.case_id);
-                    const savedState = ProgressManager.getCaseProgress(c.case_id);
-                    const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-                    const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
+            const cardsHtml = cases.map(c => {
+                const isSolved = solved.includes(c.case_id);
+                const savedState = ProgressManager.getCaseProgress(c.case_id);
+                const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+                const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
 
-                    const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-                        ? ''
-                        : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
-                    
-                    const unpublishBtn = (isCurrentUserCreator && isCloudCase)
-                        ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
-                        : '';
-
-                    return `
-                    <div class="case-card ${inProgress ? 'in-progress' : ''}" 
-                         draggable="true" 
-                         data-case-id="${encodeURIComponent(c.case_id)}" 
-                         role="button" 
-                         tabindex="0">
-                        
-                        <div class="case-card-header">
-                            <div class="case-card-badges">
-                                <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
-                                <span class="cloud-badge ${isCloudCase ? 'is-cloud' : 'is-local'}">
-                                    ${isCloudCase ? '☁️ Cloud' : '💾 Lokal'}
-                                </span>
-                            </div>
-                            <div class="case-card-actions">
-                                ${unpublishBtn}
-                                ${deleteBtn}
-                            </div>
-                        </div>
-
-                        <h3>${escapeHtml(c.metadata?.title || c.case_id)}</h3>
-
-                        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-                            <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
-                                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
-                            </span>
-                            <span>+${c.metadata?.xp_reward || 900} XP</span>
-                        </div>
-                    </div>`;
-                }).join('');
+                const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+                    ? ''
+                    : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
+                
+                const unpublishBtn = (isCurrentUserCreator && isCloudCase)
+                    ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
+                    : '';
 
                 return `
-                    <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
-                        <div class="category-header">
-                            <div class="category-title-wrap">
-                                <span class="category-drag-handle" title="Ordner ziehen zum Verschieben">⠿</span>
-                                <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
-                                <span>📁 ${escapeHtml(category)}</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapeHtml(category)}')" title="Überordner wechseln">⇄</button>
-                                <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
-                            </div>
+                <div class="case-card ${inProgress ? 'in-progress' : ''}" 
+                     draggable="true" 
+                     data-case-id="${encodeURIComponent(c.case_id)}" 
+                     role="button" 
+                     tabindex="0">
+                    
+                    <div class="case-card-header">
+                        <div class="case-card-badges">
+                            <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
+                            <span class="cloud-badge ${isCloudCase ? 'is-cloud' : 'is-local'}">
+                                ${isCloudCase ? '☁️ Cloud' : '💾 Lokal'}
+                            </span>
                         </div>
-                        <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
-                    </div>`;
+                        <div class="case-card-actions">
+                            ${unpublishBtn}
+                            ${deleteBtn}
+                        </div>
+                    </div>
+
+                    <h3>${escapeHtml(c.metadata?.title || c.case_id)}</h3>
+
+                    <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                        <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
+                            ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
+                        </span>
+                        <span>+${c.metadata?.xp_reward || 900} XP</span>
+                    </div>
+                </div>`;
             }).join('');
-        }
+
+            return `
+                <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
+                    <div class="category-header">
+                        <div class="category-title-wrap">
+                            <span class="category-drag-handle" title="Ordner ziehen zum Verschieben">⠿</span>
+                            <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
+                            <span>📁 ${escapeHtml(category)}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapeHtml(category)}')" title="Überordner wechseln">⇄</button>
+                            <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
+                        </div>
+                    </div>
+                    <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
+                </div>`;
+        }).join('');
     return `
         <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
             <div class="category-header">
