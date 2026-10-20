@@ -2,8 +2,8 @@
 // api/gemini.js – Zentrale Serverless AI-Engine (Fall-Schmiede, Depot & Flashcards)
 // ==========================================================================
 
-const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
-const FALLBACK_MODEL = 'gemini-2.5-flash';
+const PRIMARY_MODEL = 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.0-flash';
 const MAX_PROMPT_LENGTH = 50000;
 
 function sendJson(res, status, payload) {
@@ -29,8 +29,7 @@ function extractFlexibleJson(text) {
 
     let value = text
         .replace(/^\uFEFF/, '')
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
+        .replace(/^```(?:json)?\s*/i, '')
         .replace(/\s*```$/i, '')
         .trim();
 
@@ -65,14 +64,13 @@ function extractFlexibleJson(text) {
 // Allgemeingültiger System-Prompt für atomare Flash Cards (Bloom Stufe 1)
 function buildUniversalFlashcardPrompt(sourceText) {
     return `Du bist ein präziser Wissens-Extraktor für deklaratives Faktenwissen (Bloom-Taxonomie Stufe 1: Erinnern).
-Deine Aufgabe ist es, aus dem bereitgestellten Quelltext oder Thema 8 bis 12 atomare, eindeutige Flash Cards zu erstellen – vollkommen unabhängig vom Fachgebiet (egal ob Medizin, Naturwissenschaften, Jura, Informatik, Geschichte oder Sprachen).
+Deine Aufgabe ist es, aus dem bereitgestellten Quelltext oder Thema 8 bis 12 atomare, eindeutige Flash Cards zu erstellen.
 
 STRIKTE REGELN FÜR DIE KARTENERSTELLUNG:
-1. Minimum Information Principle: Jede Karte fragt exakt EINEN isolierten Fakt ab (z. B. eine Definition, einen exakt bezifferten Grenzwert, eine Klassifikation, eine Zuordnung, eine Formel, eine Jahreszahl oder einen Fachbegriff). Keine langen Fallgeschichten!
+1. Minimum Information Principle: Jede Karte fragt exakt EINEN isolierten Fakt ab (z. B. eine Definition, einen Grenzwert, eine Klassifikation, eine Zuordnung oder einen Fachbegriff).
 2. Eindeutigkeit: Die Vorderseite (front) muss so präzise gestellt sein, dass es genau eine spezifische Antwort gibt.
-3. Knappe Rückseite: Die Antwort (back) darf maximal 1–2 kurze Sätze oder 3–4 Stichpunkte umfassen, damit eine schnelle Selbstkontrolle in Sekundenbruchteilen möglich ist.
-4. Kontextfreie Verständlichkeit: Jede Karte muss für sich allein verständlich sein, ohne dass man vorherige Karten kennen muss.
-5. Allgemeingültigkeit: Wähle für "category" das passende Teilgebiet des eingegebenen Themas.
+3. Knappe Rückseite: Die Antwort (back) darf maximal 1–2 kurze Sätze oder 3–4 Stichpunkte umfassen.
+4. Kontextfreie Verständlichkeit: Jede Karte muss für sich allein verständlich sein.
 
 WICHTIG: Antworte AUSSCHLIESSLICH mit einem validen JSON-Array. Kein Markdown, keine Einleitung.
 Format:
@@ -81,7 +79,7 @@ Format:
     "id": "fc_01",
     "category": "Name des Teilgebiets",
     "difficulty": "basic | intermediate | advanced",
-    "front": "Präzise, direkte Faktenfrage oder Begriff",
+    "front": "Präzise Faktenfrage oder Begriff",
     "back": "Knappe, eindeutige Faktenantwort",
     "mnemonic_or_context": "Optional: Kurze Eselsbrücke oder Kontext (max. 140 Zeichen)"
   }
@@ -91,10 +89,11 @@ QUELLTEXT / THEMA:
 ${sourceText}`;
 }
 
-async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.7) {
+async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.4) {
     const selectedModel = (modelName || PRIMARY_MODEL).trim();
-    // FIX: Bereinigte URL ohne Markdown-Artefakte
-    const endpoint = `[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){encodeURIComponent(selectedModel)}:generateContent?key=${apiKey}`;
+    
+    // ⚡ KORREKTE REST-URL OHNE MARKDOWN-ARTEFAKTE
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${apiKey}`;
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -124,7 +123,7 @@ module.exports = async function handler(req, res) {
         return sendJson(res, 405, { error: 'Method not allowed. Use POST.' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey) {
         return sendJson(res, 500, {
             error: 'Server misconfiguration: GEMINI_API_KEY fehlt in den Vercel Environment Variables.'
@@ -157,14 +156,14 @@ module.exports = async function handler(req, res) {
     } else if (mode === 'flashcards_only') {
         finalInstruction = buildUniversalFlashcardPrompt(prompt);
     } else {
-        // Standard Fall-Schmiede (jetzt inkl. flashcards im JSON-Schema)
-        finalInstruction = `Du bist ein leitender didaktischer Software-Architekt und Fachexperte. Deine Aufgabe ist es, aus dem übergebenen Quelltext bzw. Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Lernfall als syntaktisch valides JSON-Objekt zu generieren.
+        // Fall-Schmiede Modus
+        finalInstruction = `Du bist ein didaktischer Software-Architekt und medizinischer Fachexperte. Generiere aus dem Quelltext genau EINEN vollständigen Lernfall als syntaktisch valides JSON-Objekt.
 
-KRITISCHE TECHNISCHE REGELN FÜR DEN IMPORT (ZERO-TOLERANCE):
+KRITISCHE TECHNISCHE REGELN:
 1. Antworte AUSSCHLIESSLICH mit dem validen JSON-Objekt ({ ... }).
-2. Füge NIEMALS Zitationsmarker wie [1] ein.
-3. HTML-Tags (<p>, <b>, <ul>, <li>) sind ausschließlich im Feld case_overview.cornell_notes[].notes gestattet. Alle übrigen Felder sind reiner Plain-Text.
-4. Erstelle im Feld extra_tasks.flashcards mindestens 8 atomare Fakten-Flashcards nach dem Minimum Information Principle (Bloom-Stufe 1: Reines Faktenwissen, 1 präziser Fakt pro Karte, kurze Antwort).
+2. Füge keine Zitationsmarker wie [1] ein.
+3. HTML-Tags (<p>, <b>, <ul>, <li>) sind ausschließlich im Feld case_overview.cornell_notes[].notes gestattet.
+4. Erstelle im Feld extra_tasks.flashcards mindestens 8 atomare Fakten-Flashcards.
 
 JSON-SCHEMA:
 {
@@ -182,7 +181,7 @@ JSON-SCHEMA:
     "cornell_notes": [
       {
         "cues": ["Schlüsselbegriff 1", "Schlüsselbegriff 2"],
-        "notes": "<p>Fundierte Erklärung mit <b>wichtigen Inhalten immer fett</b>.</p><ul><li><b>Aspekt 1:</b> Details.</li></ul>"
+        "notes": "<p>Fundierte Erklärung mit <b>wichtigen Inhalten fett</b>.</p>"
       }
     ],
     "summary": "STRING"
@@ -197,7 +196,7 @@ JSON-SCHEMA:
         {
           "phrase": "exakter Textteil",
           "is_error": false,
-          "feedback": "Fachlich korrekte Begründung."
+          "feedback": "Begründung."
         }
       ]
     }
@@ -208,25 +207,25 @@ JSON-SCHEMA:
         "id": "fc_01",
         "category": "Teilgebiet",
         "difficulty": "basic",
-        "front": "Direkte, atomare Faktenfrage (ohne Fallvignette)",
-        "back": "Knappe, eindeutige Faktenantwort (max. 1-2 Sätze)",
-        "mnemonic_or_context": "Kurze Eselsbrücke oder Kontext"
+        "front": "Faktenfrage",
+        "back": "Faktenantwort",
+        "mnemonic_or_context": "Eselsbrücke"
       }
     ],
     "doctordle": [
       {
         "puzzle_id": 1,
         "title": "Deduktion 1",
-        "target_diagnosis": "Kernbegriff / Diagnose A",
-        "synonyms": ["Synonym 1", "Synonym 2"],
+        "target_diagnosis": "Diagnose",
+        "synonyms": ["Synonym 1"],
         "hints": ["Hinweis 1", "Hinweis 2", "Hinweis 3", "Hinweis 4", "Hinweis 5", "Hinweis 6"],
-        "learning_pearl": "Kernaussage."
+        "learning_pearl": "Kernaussage"
       }
     ],
-    "library_entries": ["Begriff A", "Begriff B"],
+    "library_entries": ["Begriff A"],
     "clinical_cascades": [
       {
-        "disease": "Prozess / Erkrankung A",
+        "disease": "Erkrankung",
         "hint": "Hinweis",
         "cascade": [
           { "stage": "01_Auslöser", "content": "..." },
@@ -237,7 +236,7 @@ JSON-SCHEMA:
       }
     ],
     "synapses_matrix": {
-      "description": "Ordne jeweils vier Begriffe derselben Kategorie/Erkrankung zu.",
+      "description": "Bilde 4er-Gruppen.",
       "hint": "Hinweis",
       "diseases": ["Kategorie A", "Kategorie B", "Kategorie C", "Kategorie D"],
       "variables": [
@@ -245,22 +244,21 @@ JSON-SCHEMA:
       ]
     },
     "categorization": {
-      "description": "Ordne die Fakten den Oberbegriffen zu.",
+      "description": "Zuordnung",
       "hint": "Hinweis",
       "categories": ["Kategorie A", "Kategorie B", "Kategorie C"],
       "items": [
-        { "term": "Befund / Fakt", "category": "Kategorie A" }
+        { "term": "Befund", "category": "Kategorie A" }
       ]
     },
     "master_quiz": [
       {
-        "target_disease": "Thema A",
+        "target_disease": "Thema",
         "is_primary": true,
         "question": "Prüfungsfrage",
         "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
         "correct_index": 0,
-        "explanation": "Fundierte Begründung inkl. Ausschluss der Distraktoren.",
-        "hint": "Hinweis"
+        "explanation": "Begründung."
       }
     ]
   }
@@ -273,13 +271,13 @@ ${prompt}`;
     const configuredModel = (process.env.GEMINI_MODEL || PRIMARY_MODEL).trim();
 
     try {
-        let result = await callGeminiUpstream(apiKey, configuredModel, finalInstruction, 0.55);
+        let result = await callGeminiUpstream(apiKey, configuredModel, finalInstruction, 0.4);
 
         if (!result.ok && (result.status === 404 || result.status === 400)) {
-            const fallbackCandidates = ['gemini-3.5-flash-lite-preview', FALLBACK_MODEL, 'gemini-2.0-flash-lite'];
+            const fallbackCandidates = [FALLBACK_MODEL, 'gemini-1.5-flash'];
             for (const candidate of fallbackCandidates) {
                 if (candidate === configuredModel) continue;
-                result = await callGeminiUpstream(apiKey, candidate, finalInstruction, 0.55);
+                result = await callGeminiUpstream(apiKey, candidate, finalInstruction, 0.4);
                 if (result.ok) break;
             }
         }
@@ -296,7 +294,7 @@ ${prompt}`;
 
         const parsedOutput = extractFlexibleJson(generatedText);
 
-        // AUSGABE MODUS: DEPOT-QUIZ ODER FLASHCARDS-ONLY (Array-Rückgabe)
+        // Modus: Depot-Quiz oder Flashcards-Only
         if (mode === 'depot_quiz' || mode === 'flashcards_only') {
             const arr = Array.isArray(parsedOutput)
                 ? parsedOutput
@@ -313,7 +311,7 @@ ${prompt}`;
             });
         }
 
-        // AUSGABE MODUS: FALL-GENERATOR
+        // Modus: Fall-Schmiede (Objekt)
         if (!parsedOutput || typeof parsedOutput !== 'object' || Array.isArray(parsedOutput)) {
             return sendJson(res, 502, { error: 'Gemini response is not a JSON object.' });
         }
