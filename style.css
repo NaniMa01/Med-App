@@ -2375,7 +2375,81 @@ body.is-resizing .resizer-handle-pill {
 /* ==========================================================================
    DAYLIGHT REFACTOR: BALKEN, AUDIT-TEXT & CHALLENGE-NAVIGATION
    ========================================================================== */
+/* ==========================================================================
+   CLINICAL DAYLIGHT: VOLLSTÄNDIGE BEHEBUNG DER DUNKELEN BOXEN & AUDIT-TEXTE
+   ========================================================================== */
 
+/* 1. Spaced-Repetition-Widget & Tagesfall-Banner im hellen Modus */
+[data-theme="daylight"] .sr-dashboard-card {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+
+[data-theme="daylight"] .sr-organ-tile {
+    background: #f4efe4 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+
+[data-theme="daylight"] .sr-organ-name,
+[data-theme="daylight"] .sr-title,
+[data-theme="daylight"] .sr-flash-info h4,
+[data-theme="daylight"] .sr-flash-info p {
+    color: #2b3037 !important;
+}
+
+/* 2. Segmented Controls (Themenbasiertes Lernen / Fachrichtung) */
+[data-theme="daylight"] .segmented-control {
+    background: #e9e4db !important;
+    border: 1px solid #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .segmented-btn {
+    background: transparent !important;
+    color: #57606a !important;
+}
+
+[data-theme="daylight"] .segmented-btn.active {
+    background: #faf8f3 !important;
+    color: #0369a1 !important;
+    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.08) !important;
+}
+
+/* 3. Taxonomie & Dropdown-Boxen (wie im zweiten Screenshot) */
+[data-theme="daylight"] .player-mode-pane select,
+[data-theme="daylight"] .player-mode-pane .drag-item,
+[data-theme="daylight"] [id^="mode-container-"] .drag-item,
+[data-theme="daylight"] .taxonomie-item,
+[data-theme="daylight"] .category-folder {
+    background-color: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+
+/* 4. Audit-Modus: Korrektur der Text- und Link-Farben (Schwarzer Text statt hellem Türkis) */
+[data-theme="daylight"] .audit-step-container,
+[data-theme="daylight"] .step-content,
+[data-theme="daylight"] .audit-editorial-body {
+    background-color: #f5f2eb !important;
+    border-color: #d8d0c2 !important;
+    color: #1f2328 !important;
+}
+
+[data-theme="daylight"] .step-content p,
+[data-theme="daylight"] .step-content span,
+[data-theme="daylight"] .step-content div,
+[data-theme="daylight"] .stealth-word,
+[data-theme="daylight"] .stealth-hotspot {
+    color: #1f2328 !important; /* Sauberes, lesefreundliches Dunkelgrau/Schwarz */
+}
+
+/* Hover-Effekte im Audit dezent halten */
+[data-theme="daylight"] .stealth-word:hover,
+[data-theme="daylight"] .stealth-hotspot:hover {
+    background-color: rgba(3, 105, 161, 0.08) !important;
+    color: #0369a1 !important;
+}
 /* 1. Obere Modus-Navigationsleiste (Die dunklen Balken) */
 [data-theme="daylight"] .challenge-nav-bar {
     background: #e9e4db !important;
