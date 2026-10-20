@@ -224,7 +224,56 @@ function loadDDLibrary() {
         if (Array.isArray(stored)) stored.forEach(addToDDLibrary);
     } catch (e) {}
 }
+// --- CUSTOM SUPER FOLDERS STATE & LOGIC ---
+let customSuperFolders = JSON.parse(localStorage.getItem('medcheck_custom_super_folders')) || [];
 
+function saveCustomSuperFolders() {
+    localStorage.setItem('medcheck_custom_super_folders', JSON.stringify(customSuperFolders));
+}
+
+function createCustomSuperFolder(folderName) {
+    if (!folderName || !folderName.trim()) return;
+    
+    const newFolder = {
+        id: 'custom_super_' + Date.now(),
+        name: folderName.trim(),
+        icon: '📁',
+        createdAt: new Date().toISOString()
+    };
+
+    customSuperFolders.push(newFolder);
+    saveCustomSuperFolders();
+    
+    if (typeof renderBookshelf === 'function') {
+        renderBookshelf();
+    }
+}
+
+function deleteCustomSuperFolder(folderId) {
+    if (!confirm('Möchtest du diesen Überordner wirklich löschen?')) return;
+
+    customSuperFolders = customSuperFolders.filter(f => f.id !== folderId);
+    saveCustomSuperFolders();
+
+    if (typeof renderBookshelf === 'function') {
+        renderBookshelf();
+    }
+}
+function renderBookshelfHeader() {
+    return `
+        <div class="bookshelf-header-row">
+            <span class="bookshelf-title">Bücherregal & Ordner</span>
+            <button class="bookshelf-add-btn" onclick="promptNewSuperFolder()" title="Neuen Überordner erstellen">+</button>
+        </div>
+    `;
+}
+
+function promptNewSuperFolder() {
+    const folderName = prompt('Name des neuen Überordners (z.B. "Staatsexamen Fokus"):');
+    if (folderName) {
+        createCustomSuperFolder(folderName);
+    }
+}
 window.registerCaseDDs = function(caseData) {
     const tasks = caseData?.extra_tasks;
     if (!tasks) return;
@@ -3545,6 +3594,34 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('dragend', stopAutoScroll);
     document.addEventListener('drop', stopAutoScroll);
 })();
+
+function setupSuperFolderDropZones() {
+    document.querySelectorAll('.bookshelf-super-group').forEach(superGroup => {
+        superGroup.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            superGroup.classList.add('bookshelf-super-drag-over');
+        });
+
+        superGroup.addEventListener('dragleave', () => {
+            superGroup.classList.remove('bookshelf-super-drag-over');
+        });
+
+        superGroup.addEventListener('drop', (e) => {
+            e.preventDefault();
+            superGroup.classList.remove('bookshelf-super-drag-over');
+            
+            const folderId = e.dataTransfer.getData('text/plain');
+            const targetSuperId = superGroup.dataset.superId;
+
+            if (folderId && targetSuperId) {
+                // Falls du eine Zuweisungsfunktion hast, hier aufrufen:
+                if (typeof assignFolderToSuperFolder === 'function') {
+                    assignFolderToSuperFolder(folderId, targetSuperId);
+                }
+            }
+        });
+    });
+}
 // ==========================================
 // CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
 // ==========================================
