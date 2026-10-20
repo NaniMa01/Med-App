@@ -2376,8 +2376,43 @@ body.is-resizing .resizer-handle-pill {
    DAYLIGHT REFACTOR: BALKEN, AUDIT-TEXT & CHALLENGE-NAVIGATION
    ========================================================================== */
 /* ==========================================================================
-   CLINICAL DAYLIGHT: VOLLSTÄNDIGE BEHEBUNG DER DUNKELEN BOXEN & AUDIT-TEXTE
+   CLINICAL DAYLIGHT: SCHRIFTFARBEN-FIX FÜR ÜBERSICHT & CORNELL NOTES
    ========================================================================== */
+
+[data-theme="daylight"] .cornell-wrapper,
+[data-theme="daylight"] .cornell-container-body,
+[data-theme="daylight"] .cornell-note-col,
+[data-theme="daylight"] .cornell-fragment,
+[data-theme="daylight"] #overview-container {
+    color: #1f2328 !important;
+}
+
+/* Erzwungenes klares Schwarz für alle Textabschnitte in der Übersicht */
+[data-theme="daylight"] .cornell-fragment p,
+[data-theme="daylight"] .cornell-fragment span,
+[data-theme="daylight"] .cornell-fragment div,
+[data-theme="daylight"] .cornell-fragment li,
+[data-theme="daylight"] .cornell-fragment {
+    color: #1f2328 !important;
+}
+
+/* Fettgedruckte Wörter (<b> / <strong>) in der Übersicht konsequent in Schwarz */
+[data-theme="daylight"] .cornell-fragment b,
+[data-theme="daylight"] .cornell-fragment strong,
+[data-theme="daylight"] .cornell-notes b,
+[data-theme="daylight"] .cornell-notes strong,
+[data-theme="daylight"] #overview-container b,
+[data-theme="daylight"] #overview-container strong {
+    color: #111111 !important;
+    font-weight: 700 !important;
+}
+
+/* Linke Spalte (Cues) behält ein ruhiges, gut lesbares Medical Blue */
+[data-theme="daylight"] .cornell-cue-item {
+    background: #e8e2d5 !important;
+    border-left: 3px solid #0369a1 !important;
+    color: #0369a1 !important;
+}
 
 /* 1. Spaced-Repetition-Widget & Tagesfall-Banner im hellen Modus */
 [data-theme="daylight"] .sr-dashboard-card {
