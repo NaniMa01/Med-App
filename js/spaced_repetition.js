@@ -1,56 +1,36 @@
 /**
  * @file js/spaced_repetition.js
- * @description SuperMemo SM-2 Spaced Repetition Engine, Clinical Organ Heatmap & Daily Flash-Case Manager
+ * @description SM-2 Spaced Repetition Engine mit Überordner-Fokussierung & bereinigtem Case-Launcher
  */
 
 export class SpacedRepetitionEngine {
-    /**
-     * Ermittelt dynamisch die aktive Supabase-Client-Instanz aus der bestehenden App-Architektur.
-     */
     static getSupabaseClient() {
         if (window.supabaseClient) return window.supabaseClient;
+        if (window.sb) return window.sb;
         if (window.supabase && typeof window.supabase.from === 'function') return window.supabase;
-        if (window.auth && window.auth.supabase) return window.auth.supabase;
-        if (window.app && window.app.supabase) return window.app.supabase;
-        console.error('[SpacedRepetition] Keine aktive Supabase-Client-Instanz gefunden.');
         return null;
     }
 
-    /**
-     * Holt die aktuell eingeloggte User-ID sicher über Supabase Auth.
-     */
     static async getCurrentUserId() {
         const supabase = this.getSupabaseClient();
         if (!supabase) return null;
-
         try {
             const { data: { session }, error } = await supabase.auth.getSession();
             if (error) throw error;
             return session?.user?.id || null;
         } catch (err) {
-            console.error('[SpacedRepetition] Fehler beim Abrufen der User-Session:', err.message);
+            console.error('[SpacedRepetition] Session-Fehler:', err.message);
             return null;
         }
     }
 
-    /**
-     * Mathematischer Kern: Berechnet die neuen SM-2 Parameter.
-     * @param {number} quality - Antwortqualität (0 bis 5, wobei < 3 als Fehler gilt)
-     * @param {number} prevRepetitions - Bisherige erfolgreiche Wiederholungen in Folge
-     * @param {number} prevEaseFactor - Bisheriger Ease Factor (Standard 2.50)
-     * @param {number} prevInterval - Bisheriges Intervall in Tagen
-     */
     static calculateSM2(quality, prevRepetitions = 0, prevEaseFactor = 2.50, prevInterval = 0) {
-        // Clamp quality auf [0, 5]
         const q = Math.max(0, Math.min(5, Math.round(quality)));
-        
         let repetition_number = Number(prevRepetitions) || 0;
         let ease_factor = Number(prevEaseFactor) || 2.50;
         let interval_days = Number(prevInterval) || 0;
 
-        // 1. Intervall- & Wiederholungslogik nach SuperMemo SM-2
         if (q < 3) {
-            // Bei Fehler: Zurücksetzen der Serie, Wiederholung am nächsten Tag
             repetition_number = 0;
             interval_days = 1;
         } else {
@@ -64,13 +44,10 @@ export class SpacedRepetitionEngine {
             repetition_number += 1;
         }
 
-        // 2. Anpassung des Ease Factors (EF)
-        // Formel: EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
         const qDiff = 5 - q;
         const rawEf = ease_factor + (0.1 - qDiff * (0.08 + qDiff * 0.02));
         ease_factor = Math.max(1.30, Number(rawEf.toFixed(2)));
 
-        // 3. Zeitstempel berechnen
         const now = new Date();
         const nextReview = new Date(now.getTime() + interval_days * 24 * 60 * 60 * 1000);
 
@@ -84,18 +61,12 @@ export class SpacedRepetitionEngine {
         };
     }
 
-    /**
-     * Hilfsfunktion: Rechnet Modul-Metriken (z.B. Prozentwerte oder Versuche) in SM-2 Quality (0-5) um.
-     * @param {string} moduleType - 'audit' | 'doctordle' | 'synapses' | 'quiz' | 'cascade'
-     * @param {object} metrics - { scorePercent, attempts, maxAttempts, mistakes }
-     */
     static deriveQualityFromMetrics(moduleType, metrics = {}) {
         if (typeof metrics.quality === 'number') return metrics.quality;
 
         if (moduleType === 'doctordle') {
             const attempts = metrics.attempts ?? 6;
-            const won = metrics.won ?? true;
-            if (!won) return 1;
+            if (!metrics.won) return 1;
             if (attempts === 1) return 5;
             if (attempts === 2) return 4;
             if (attempts <= 4) return 3;
@@ -110,7 +81,6 @@ export class SpacedRepetitionEngine {
             return 1;
         }
 
-        // Standard: Prozentbasierte Auswertung (Audit, Quiz, Cascade)
         const pct = metrics.scorePercent ?? 0;
         if (pct >= 90) return 5;
         if (pct >= 75) return 4;
@@ -121,33 +91,43 @@ export class SpacedRepetitionEngine {
     }
 
     /**
-     * Speichert oder aktualisiert (Upsert) ein absolviertes Lern-Item für den eingeloggten User.
-     * @param {object} params
-     * @param {string} params.itemId - Eindeutige Fall- oder Item-ID (z.B. 'neuro_cjk_001')
-     * @param {string} params.moduleType - 'audit' | 'doctordle' | 'synapses' | 'quiz'
-     * @param {number} params.quality - SM-2 Qualität (0-5)
-     * @param {string} [params.medicalField] - Fachbereich (z.B. 'Neurologie', 'Hämatologie')
+     * Ermittelt den exakten Überordner eines Falls aus den App-Daten
      */
+    static resolveFolderForCase(caseId) {
+        if (typeof window.getRegisteredCases === 'function') {
+            const c = window.getRegisteredCases().find(x => x.case_id === caseId);
+            if (c) {
+                return (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            }
+        }
+        return 'Allgemein';
+    }
+
+    /**
+     * Zerlegt zusammengesetzte IDs (z.B. MYELON_MASTER_001_USB_doctordle_0) wieder in die echte Case-ID
+     */
+    static extractPureCaseId(itemId) {
+        if (!itemId) return '';
+        return itemId
+            .replace(/_doctordle_\d+$/i, '')
+            .replace(/_doctordle$/i, '')
+            .replace(/_quiz$/i, '')
+            .replace(/_synapses$/i, '')
+            .replace(/_cascade$/i, '')
+            .replace(/_audit$/i, '');
+    }
+
     static async recordReview({ itemId, moduleType, quality, medicalField = null }) {
         const supabase = this.getSupabaseClient();
         const userId = await this.getCurrentUserId();
 
-        if (!supabase || !userId) {
-            console.warn('[SpacedRepetition] Kein eingeloggter Nutzer – Review wird übersprungen.');
-            return null;
-        }
+        if (!supabase || !userId || !itemId || !moduleType) return null;
 
-        if (!itemId || !moduleType) {
-            console.error('[SpacedRepetition] itemId und moduleType sind Pflichtfelder.');
-            return null;
-        }
-
-        // Automatische Fachbereichs-Erkennung aus der Fall-ID falls nicht übergeben
-        const resolvedField = medicalField || this.inferMedicalField(itemId);
+        const pureCaseId = this.extractPureCaseId(itemId);
+        const folder = medicalField || this.resolveFolderForCase(pureCaseId);
 
         try {
-            // 1. Bestehenden Datensatz für dieses Item laden (falls vorhanden)
-            const { data: existing, error: fetchError } = await supabase
+            const { data: existing } = await supabase
                 .from('user_spaced_repetition')
                 .select('repetition_number, ease_factor, interval_days')
                 .eq('user_id', userId)
@@ -155,72 +135,37 @@ export class SpacedRepetitionEngine {
                 .eq('module_type', moduleType)
                 .maybeSingle();
 
-            if (fetchError) throw fetchError;
-
-            // 2. SM-2 Berechnung durchführen
-            const sm2Result = this.calculateSM2(
+            const sm2 = this.calculateSM2(
                 quality,
                 existing?.repetition_number ?? 0,
                 existing?.ease_factor ?? 2.50,
                 existing?.interval_days ?? 0
             );
 
-            // 3. Atomarer Upsert in Supabase
             const payload = {
                 user_id: userId,
                 item_id: itemId,
                 module_type: moduleType,
-                medical_field: resolvedField,
-                ...sm2Result
+                medical_field: folder,
+                ...sm2
             };
 
-            const { data: savedData, error: upsertError } = await supabase
+            const { data, error } = await supabase
                 .from('user_spaced_repetition')
                 .upsert(payload, { onConflict: 'user_id,item_id,module_type' })
                 .select()
                 .single();
 
-            if (upsertError) throw upsertError;
+            if (error) throw error;
 
-            // Optionales Custom Event feuern, damit sich das Dashboard automatisch aktualisiert
-            window.dispatchEvent(new CustomEvent('sr:updated', { detail: savedData }));
-            return savedData;
-
+            window.dispatchEvent(new CustomEvent('sr:updated'));
+            return data;
         } catch (err) {
-            console.error('[SpacedRepetition] Fehler beim Speichern des Reviews:', err.message);
+            console.error('[SpacedRepetition] Fehler beim Speichern:', err.message);
             return null;
         }
     }
 
-    /**
-     * Lädt alle aktuell fälligen Wiederholungen (next_review_at <= NOW()) für den eingeloggten User.
-     */
-    static async getDueReviews() {
-        const supabase = this.getSupabaseClient();
-        const userId = await this.getCurrentUserId();
-        if (!supabase || !userId) return [];
-
-        try {
-            const nowIso = new Date().toISOString();
-            const { data, error } = await supabase
-                .from('user_spaced_repetition')
-                .select('*')
-                .eq('user_id', userId)
-                .lte('next_review_at', nowIso)
-                .order('ease_factor', { ascending: true }) // Schwierigste Items zuerst
-                .order('next_review_at', { ascending: true });
-
-            if (error) throw error;
-            return data || [];
-        } catch (err) {
-            console.error('[SpacedRepetition] Fehler beim Laden fälliger Wiederholungen:', err.message);
-            return [];
-        }
-    }
-
-    /**
-     * Lädt alle Spaced-Repetition-Einträge des aktuellen Nutzers für die Clinical Organ Heatmap.
-     */
     static async getAllUserItems() {
         const supabase = this.getSupabaseClient();
         const userId = await this.getCurrentUserId();
@@ -231,176 +176,172 @@ export class SpacedRepetitionEngine {
                 .from('user_spaced_repetition')
                 .select('*')
                 .eq('user_id', userId);
-
             if (error) throw error;
             return data || [];
         } catch (err) {
-            console.error('[SpacedRepetition] Fehler beim Laden der Heatmap-Daten:', err.message);
+            console.error('[SpacedRepetition] Fehler beim Laden:', err.message);
             return [];
         }
     }
 
     /**
-     *Leitet den Fachbereich aus bekannten Case-Präfixen ab, falls nicht explizit angegeben.
+     * Liest alle dynamischen Überordner aus der App aus
      */
-    static inferMedicalField(itemId = '') {
-        const lower = itemId.toLowerCase();
-        if (lower.startsWith('neuro')) return 'Neurologie';
-        if (lower.startsWith('haemato') || lower.startsWith('onko')) return 'Hämatologie & Onkologie';
-        if (lower.startsWith('kardio') || lower.startsWith('cardio')) return 'Kardiologie';
-        if (lower.startsWith('pneumo') || lower.startsWith('pulmo')) return 'Pneumologie';
-        if (lower.startsWith('gastro')) return 'Gastroenterologie';
-        if (lower.startsWith('nephro')) return 'Nephrologie';
-        if (lower.startsWith('endo')) return 'Endokrinologie';
-        if (lower.startsWith('infekt')) return 'Infektiologie';
-        return window.currentCase?.medical_field || 'Allgemeine Innere Medizin';
+    static getKnownFolders() {
+        const folders = new Set();
+        try {
+            const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+            savedOrder.forEach(f => folders.add(f.trim()));
+        } catch (e) {}
+
+        if (typeof window.getRegisteredCases === 'function') {
+            window.getRegisteredCases().forEach(c => {
+                const f = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+                folders.add(f);
+            });
+        }
+        if (folders.size === 0) folders.add('Allgemein');
+        return Array.from(folders);
     }
 
     /**
-     * Aggregiert die Nutzerdaten nach Fachbereich/Organsystem für die Clinical Organ Heatmap.
+     * Startet den Fall sicher und navigiert zum passenden Modul
      */
-    static computeOrganHeatmapData(items = []) {
-        const defaultOrgans = [
-            'Neurologie',
-            'Hämatologie & Onkologie',
-            'Kardiologie',
-            'Pneumologie',
-            'Gastroenterologie',
-            'Nephrologie'
-        ];
+    static launchReview(rawItemId, moduleType) {
+        const pureCaseId = this.extractPureCaseId(rawItemId);
 
-        const grouped = {};
-        defaultOrgans.forEach(org => {
-            grouped[org] = { field: org, total: 0, due: 0, avgEf: 2.5, masteryScore: null, status: 'untracked' };
-        });
+        if (typeof window.loadCaseById === 'function') {
+            window.loadCaseById(pureCaseId);
 
-        const now = new Date();
-
-        items.forEach(item => {
-            const field = item.medical_field || this.inferMedicalField(item.item_id);
-            if (!grouped[field]) {
-                grouped[field] = { field, total: 0, due: 0, sumEf: 0, sumMastery: 0 };
-            }
-            if (grouped[field].sumEf === undefined) {
-                grouped[field].sumEf = 0;
-                grouped[field].sumMastery = 0;
-            }
-
-            grouped[field].total += 1;
-            grouped[field].sumEf += Number(item.ease_factor || 2.5);
-
-            const isDue = new Date(item.next_review_at) <= now;
-            if (isDue) grouped[field].due += 1;
-
-            // Mastery-Score pro Item (0 bis 100) basierend auf Intervall, EF und Fälligkeit
-            const repFactor = Math.min(1, item.repetition_number / 4);
-            const efFactor = Math.min(1, Math.max(0, (Number(item.ease_factor) - 1.3) / 1.5));
-            const duePenalty = isDue ? 0.6 : 1.0;
-            const itemMastery = Math.round(((repFactor * 0.65) + (efFactor * 0.35)) * 100 * duePenalty);
-
-            grouped[field].sumMastery += itemMastery;
-        });
-
-        return Object.values(grouped).map(group => {
-            if (group.total === 0) return group;
-
-            const avgEf = Number((group.sumEf / group.total).toFixed(2));
-            const masteryScore = Math.round(group.sumMastery / group.total);
-
-            let status = 'critical'; // Rot: Hohe Fehlerquote / frisch / überfällig
-            if (masteryScore >= 75 && group.due === 0) {
-                status = 'mastered'; // Grün: Gefestigt
-            } else if (masteryScore >= 45) {
-                status = 'learning'; // Gelb/Amber: Im Aufbau
-            }
-
-            return {
-                field: group.field,
-                total: group.total,
-                due: group.due,
-                avgEf,
-                masteryScore,
-                status
-            };
-        });
+            // Nach dem Laden direkt in den passenden Challenge-Tab schalten
+            setTimeout(() => {
+                const modeMap = {
+                    'doctordle': 'doctordle',
+                    'quiz': 'quiz',
+                    'synapses': 'synapses',
+                    'audit': 'audit',
+                    'cascade': 'cascade'
+                };
+                const targetMode = modeMap[moduleType] || 'overview';
+                if (typeof window.switchPlayerMode === 'function') {
+                    window.switchPlayerMode(targetMode);
+                }
+            }, 80);
+        } else {
+            console.error('[SpacedRepetition] window.loadCaseById nicht gefunden.');
+        }
     }
 
     /**
-     * Rendert das komplette Spaced-Repetition-Dashboard (Daily Flash-Case + Clinical Organ Heatmap).
-     * @param {string|HTMLElement} containerTarget - DOM-ID oder Element
-     * @param {Function} [onLaunchCase] - Callback(itemId, moduleType), wenn der User den Flash-Case startet
+     * Rendert das Dashboard mit Filter nach Überordnern
      */
-    static async renderDashboardWidget(containerTarget = 'sr-dashboard-widget', onLaunchCase = null) {
+    static async renderDashboardWidget(containerTarget = 'sr-dashboard-widget', selectedFolder = 'ALL') {
         const container = typeof containerTarget === 'string'
             ? document.getElementById(containerTarget)
             : containerTarget;
-
         if (!container) return;
 
-        const [allItems, dueItems] = await Promise.all([
-            this.getAllUserItems(),
-            this.getDueReviews()
-        ]);
+        const allItems = await this.getAllUserItems();
+        const now = new Date();
+        const knownFolders = this.getKnownFolders();
 
-        const heatmapData = this.computeOrganHeatmapData(allItems);
-        const topDueItem = dueItems[0] || null;
+        // Items nach Überordner filtern falls gewählt
+        const filteredItems = selectedFolder === 'ALL'
+            ? allItems
+            : allItems.filter(i => (i.medical_field || '').toLowerCase() === selectedFolder.toLowerCase());
+
+        const dueItems = filteredItems
+            .filter(i => new Date(i.next_review_at) <= now)
+            .sort((a, b) => Number(a.ease_factor) - Number(b.ease_factor));
+
+        const topDue = dueItems[0] || null;
+
+        // Ordner-Fortschritt berechnen
+        const folderStats = knownFolders.map(folderName => {
+            const folderItems = allItems.filter(i => (i.medical_field || '').toLowerCase() === folderName.toLowerCase());
+            const dueCount = folderItems.filter(i => new Date(i.next_review_at) <= now).length;
+            const total = folderItems.length;
+
+            let score = 0;
+            if (total > 0) {
+                const sumEf = folderItems.reduce((acc, curr) => acc + Number(curr.ease_factor || 2.5), 0);
+                const avgEf = sumEf / total;
+                score = Math.min(100, Math.round(((avgEf - 1.3) / 1.5) * 100));
+            }
+
+            let status = 'untracked';
+            if (total > 0) {
+                status = dueCount > 0 ? 'critical' : (score >= 70 ? 'mastered' : 'learning');
+            }
+
+            return { folderName, total, dueCount, score, status };
+        });
 
         container.innerHTML = `
             <div class="sr-dashboard-card">
                 <div class="sr-header">
                     <div>
-                        <span class="sr-badge">SM-2 COGNITIVE ENGINE</span>
-                        <h3 class="sr-title">Spaced Repetition & Clinical Organ Heatmap</h3>
+                        <span class="sr-badge">SPACED REPETITION • ÜBERORDNER-FOKUS</span>
+                        <h3 class="sr-title">Klinische Wiederholungs-Zentrale</h3>
                     </div>
-                    <div class="sr-stats-pill">
-                        <span class="sr-due-count ${dueItems.length > 0 ? 'has-due' : ''}">
-                            ${dueItems.length} ${dueItems.length === 1 ? 'Wiederholung' : 'Wiederholungen'} fällig
-                        </span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <!-- Filter nach Überordner -->
+                        <select id="sr-folder-filter" class="depot-select" style="font-weight:700;">
+                            <option value="ALL" ${selectedFolder === 'ALL' ? 'selected' : ''}>Alle Überordner (${dueItems.length} fällig)</option>
+                            ${knownFolders.map(f => {
+                                const count = allItems.filter(i => (i.medical_field || '').toLowerCase() === f.toLowerCase() && new Date(i.next_review_at) <= now).length;
+                                return `<option value="${f}" ${selectedFolder === f ? 'selected' : ''}>📁 ${f} (${count} fällig)</option>`;
+                            }).join('')}
+                        </select>
                     </div>
                 </div>
 
-                <!-- DAILY FLASH-CASE BANNER -->
-                <div class="sr-flash-banner ${topDueItem ? 'is-active' : 'is-clear'}">
+                <!-- TAGESFALL / DAILY FLASH-CASE -->
+                <div class="sr-flash-banner ${topDue ? 'is-active' : 'is-clear'}">
                     <div class="sr-flash-info">
-                        <h4>⚡ Daily Flash-Case</h4>
-                        ${topDueItem ? `
+                        <h4>⚡ Fälliger Tagesfall ${selectedFolder !== 'ALL' ? `in „${selectedFolder}“` : ''}</h4>
+                        ${topDue ? `
                             <p>
-                                Höchste Priorität: <strong>${this.formatItemTitle(topDueItem.item_id)}</strong> 
-                                <span class="sr-module-tag">${topDueItem.module_type.toUpperCase()}</span>
-                                <span class="sr-ef-tag">EF: ${Number(topDueItem.ease_factor).toFixed(2)}</span>
+                                Priorität: <strong>${this.extractPureCaseId(topDue.item_id)}</strong>
+                                <span class="sr-module-tag">${topDue.module_type.toUpperCase()}</span>
+                                <span class="sr-ef-tag">EF: ${Number(topDue.ease_factor).toFixed(2)}</span>
+                                <span class="sr-ef-tag">📁 ${topDue.medical_field}</span>
                             </p>
                         ` : `
-                            <p>Alle fälligen Karten für heute abgeschlossen! Dein Langzeitgedächtnis ist auf Kurs.</p>
+                            <p>Alle Wiederholungen für diesen Bereich heute abgeschlossen!</p>
                         `}
                     </div>
-                    ${topDueItem ? `
+                    ${topDue ? `
                         <button type="button" class="sr-flash-btn" id="sr-trigger-flash-btn"
-                            data-item-id="${topDueItem.item_id}"
-                            data-module-type="${topDueItem.module_type}">
-                            Flash-Case starten →
+                            data-item-id="${topDue.item_id}"
+                            data-module-type="${topDue.module_type}">
+                            Fall wiederholen →
                         </button>
                     ` : ''}
                 </div>
 
-                <!-- CLINICAL ORGAN HEATMAP -->
+                <!-- ÜBERORDNER HEATMAP -->
                 <div class="sr-heatmap-grid">
-                    ${heatmapData.map(organ => `
-                        <div class="sr-organ-tile status-${organ.status}" title="Durchschnittlicher Ease-Factor: ${organ.avgEf}">
+                    ${folderStats.map(stat => `
+                        <div class="sr-organ-tile status-${stat.status}" 
+                             onclick="window.selectSrFolder('${stat.folderName.replace(/'/g, "\\'")}')" 
+                             style="cursor:pointer;" 
+                             title="Klicken, um Wiederholungen auf diesen Überordner einzugrenzen">
                             <div class="sr-organ-top">
-                                <span class="sr-organ-name">${organ.field}</span>
+                                <span class="sr-organ-name">📁 ${stat.folderName}</span>
                                 <span class="sr-organ-indicator"></span>
                             </div>
                             <div class="sr-organ-metrics">
-                                ${organ.total > 0 ? `
+                                ${stat.total > 0 ? `
                                     <div class="sr-mastery-bar">
-                                        <div class="sr-mastery-fill" style="width: ${organ.masteryScore}%"></div>
+                                        <div class="sr-mastery-fill" style="width: ${stat.score}%"></div>
                                     </div>
                                     <div class="sr-organ-meta">
-                                        <span>Festigung: <strong>${organ.masteryScore}%</strong></span>
-                                        <span>${organ.due > 0 ? `<strong class="text-danger">${organ.due} fällig</strong>` : `${organ.total} Karten`}</span>
+                                        <span>Festigung: <strong>${stat.score}%</strong></span>
+                                        <span>${stat.dueCount > 0 ? `<strong class="text-danger">${stat.dueCount} fällig</strong>` : `${stat.total} aktiv`}</span>
                                     </div>
                                 ` : `
-                                    <div class="sr-organ-empty">Noch keine Fälle absolviert</div>
+                                    <div class="sr-organ-empty">Noch keine Wiederholungen hinterlegt</div>
                                 `}
                             </div>
                         </div>
@@ -409,44 +350,31 @@ export class SpacedRepetitionEngine {
             </div>
         `;
 
-        // Event-Listener für den Daily Flash-Case Trigger
+        // 1. Klick auf den Tagesfall-Button
         const flashBtn = container.querySelector('#sr-trigger-flash-btn');
         if (flashBtn) {
-            flashBtn.addEventListener('click', () => {
+            flashBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 const { itemId, moduleType } = flashBtn.dataset;
-                if (typeof onLaunchCase === 'function') {
-                    onLaunchCase(itemId, moduleType);
-                } else {
-                    this.defaultLaunchFlashCase(itemId, moduleType);
-                }
+                this.launchReview(itemId, moduleType);
+            });
+        }
+
+        // 2. Dropdown-Wechsel für Überordner
+        const filterSelect = container.querySelector('#sr-folder-filter');
+        if (filterSelect) {
+            filterSelect.addEventListener('change', (e) => {
+                this.renderDashboardWidget(containerTarget, e.target.value);
             });
         }
     }
-
-    /**
-     * Standard-Launcher, der sich in die bestehende App-Navigation (`window.app` / Events) einklinkt.
-     */
-    static defaultLaunchFlashCase(itemId, moduleType) {
-        window.dispatchEvent(new CustomEvent('sr:launchFlashCase', {
-            detail: { itemId, moduleType }
-        }));
-
-        // Fallback auf typische App-Controller-Methoden
-        if (window.app && typeof window.app.loadCase === 'function') {
-            window.app.loadCase(itemId, moduleType);
-        } else if (typeof window.loadCase === 'function') {
-            window.loadCase(itemId, moduleType);
-        } else {
-            console.info(`[SpacedRepetition] Starte Flash-Case: ${itemId} im Modul ${moduleType}`);
-        }
-    }
-
-    static formatItemTitle(itemId = '') {
-        return itemId
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, char => char.toUpperCase());
-    }
 }
 
-// Global verfügbar machen für bestehenden Vanilla-JS Code ohne ES-Module-Imports
+// Global für Klicks auf die Ordnerkacheln verfügbar machen
+window.selectSrFolder = function(folderName) {
+    if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', folderName);
+    }
+};
+
 window.SpacedRepetitionEngine = SpacedRepetitionEngine;
