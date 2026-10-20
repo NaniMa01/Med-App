@@ -2,7 +2,7 @@
 // api/gemini.js – Zentrale Serverless AI-Engine (Fall-Schmiede, Depot & Flashcards)
 // ==========================================================================
 
-const PRIMARY_MODEL = 'gemini-2.5-flash';
+const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
 const FALLBACK_MODEL = 'gemini-2.0-flash';
 const MAX_PROMPT_LENGTH = 50000;
 
