@@ -224,101 +224,71 @@ function loadDDLibrary() {
         if (Array.isArray(stored)) stored.forEach(addToDDLibrary);
     } catch (e) {}
 }
-// --- DYNAMISCHE SUPER-FOLDER GENERIERUNG ---
+// ====================================================
+// ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG
+// ====================================================
 
-// Lädt benutzerdefinierte Super-Folder (oder gibt ein leeres Array zurück)
-function getCustomSuperFolders() {
-    return JSON.parse(localStorage.getItem('medcheck_custom_super_folders')) || [];
-}
+// 1. Neuen Überordner (Super-Folder) dynamisch erstellen
+window.createNewSuperFolderModal = function() {
+    const superName = window.prompt("Name für den neuen Überordner (z.B. 'Interdisziplinäre Notfälle'):");
+    if (!superName || !superName.trim()) return;
 
-// Speichert die Super-Folder
-function saveCustomSuperFolders(folders) {
-    localStorage.setItem('medcheck_custom_super_folders', JSON.stringify(folders));
-}
-
-// Hauptfunktion: Erstellt einen neuen Super-Folder analog zu "Psyche, Ethik, Recht"
-function generateNewSuperFolder() {
-    const folderName = prompt('Gib den Namen für den neuen Überordner ein (z.B. "Notfallmedizin", "Interdisziplinär"):');
-    if (!folderName || !folderName.trim()) return;
-
-    const customFolders = getCustomSuperFolders();
+    const cleanName = superName.trim();
     
-    // Eindeutige ID und Basis-Struktur erzeugen
-    const newFolderId = 'super_custom_' + Date.now();
-    const newSuperFolder = {
-        id: newFolderId,
-        name: folderName.trim(),
-        icon: '📂',
-        subfolders: [] // Enthält später die Unterordner oder Fälle
-    };
+    // Prüfen, ob der Überordner schon existiert
+    if (superFolderStates[cleanName] !== undefined) {
+        alert("Dieser Überordner existiert bereits.");
+        return;
+    }
 
-    customFolders.push(newSuperFolder);
-    saveCustomSuperFolders(customFolders);
+    // In die States aufnehmen
+    superFolderStates[cleanName] = true;
+    bookshelfSuperFolderState[cleanName] = true;
 
-    // Bücherregal in der Sidebar sofort neu rendern
-    if (typeof renderBookshelf === 'function') {
-        renderBookshelf();
+    // Optional in LocalStorage sichern, damit er persistent bleibt
+    let customSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
+    if (!customSupers.includes(cleanName)) {
+        customSupers.push(cleanName);
+        localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+};
+
+// Beim Start gespeicherte Custom Supers wiederherstellen
+function initCustomSuperFoldersState() {
+    try {
+        const savedSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
+        savedSupers.forEach(sName => {
+            if (superFolderStates[sName] === undefined) {
+                superFolderStates[sName] = true;
+                bookshelfSuperFolderState[sName] = true;
+            }
+        });
+    } catch (e) {
+        console.error("Fehler beim Laden der Custom Supers:", e);
     }
 }
 
-// Funktion zum Löschen eines benutzerdefinierten Super-Folders
-function removeCustomSuperFolder(folderId) {
-    if (!confirm('Möchtest du diesen Überordner wirklich löschen?')) return;
+// Dies direkt beim DOMContentLoaded oder in initUserData() aufrufen:
+initCustomSuperFoldersState();
 
-    let customFolders = getCustomSuperFolders();
-    customFolders = customFolders.filter(f => f.id !== folderId);
-    saveCustomSuperFolders(customFolders);
-
-    if (typeof renderBookshelf === 'function') {
-        renderBookshelf();
-    }
-}
-
-// --- CUSTOM SUPER FOLDERS STATE & LOGIC ---
-let customSuperFolders = JSON.parse(localStorage.getItem('medcheck_custom_super_folders')) || [];
-
-function saveCustomSuperFolders() {
-    localStorage.setItem('medcheck_custom_super_folders', JSON.stringify(customSuperFolders));
-}
-
-function createCustomSuperFolder(folderName) {
-    if (!folderName || !folderName.trim()) return;
-    
-    const newFolder = {
-        id: 'custom_super_' + Date.now(),
-        name: folderName.trim(),
-        icon: '📁',
-        createdAt: new Date().toISOString()
-    };
-
-    customSuperFolders.push(newFolder);
-    saveCustomSuperFolders();
-    
-    if (typeof renderBookshelf === 'function') {
-        renderBookshelf();
-    }
-}
-
-function deleteCustomSuperFolder(folderId) {
-    if (!confirm('Möchtest du diesen Überordner wirklich löschen?')) return;
-
-    customSuperFolders = customSuperFolders.filter(f => f.id !== folderId);
-    saveCustomSuperFolders();
-
-    if (typeof renderBookshelf === 'function') {
-        renderBookshelf();
-    }
-}
 // Im Header-Bereich deines Bücherregals in der Sidebar:
 function renderBookshelfHeader() {
     return `
         <div class="bookshelf-header-row">
             <span class="bookshelf-title">Bücherregal & Ordner</span>
-            <button class="bookshelf-add-btn" onclick="generateNewSuperFolder()" title="Neuen Überordner erstellen">+</button>
+            <div style="display:flex; gap:4px;">
+                <button class="bookshelf-add-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner erstellen" style="font-size:0.75rem;">+ Über</button>
+                <button class="bookshelf-add-btn" onclick="const name = window.prompt('Name für den neuen Unterordner:'); if(name && name.trim()) createNewFolder(name.trim());" title="Neuen Unterordner erstellen">+</button>
+            </div>
         </div>
     `;
 }
-
 function promptNewSuperFolder() {
     const folderName = prompt('Name des neuen Überordners (z.B. "Staatsexamen Fokus"):');
     if (folderName) {
