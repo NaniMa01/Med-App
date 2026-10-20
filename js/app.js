@@ -1,6 +1,7 @@
 // ====================================================
 // GLOBALE STATES & KONFIGURATION
 // ====================================================
+const CREATOR_EMAIL = 'marco.claudio.nani@gmail.com';
 let activeCaseData = null;
 let currentActiveChallenge = 'overview';
 
@@ -40,7 +41,7 @@ let specialtyQueue = [];
 let specialtyIndex = 0;
 let activeSpecialtyName = '';
 
-const CREATOR_EMAIL = 'marco.claudio.nani@gmail.com';
+
 const defaultSkills = {
     "Triage": { hits: 0, total: 0 },
     "Diagnostik": { hits: 0, total: 0 },
