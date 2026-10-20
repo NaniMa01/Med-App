@@ -2225,51 +2225,54 @@ function getSubjectColorClass(pct) {
     return 'bar-green';
 }
 
+// Liest alle Fälle aus und ordnet sie den echten Überordnern zu
 function renderSubjectProgressDrawer() {
     const listEl = document.getElementById('dynamic-subjects-list');
     if (!listEl) return;
 
     const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const folderStats = {};
 
-    let allAvailableCases = [];
-    if (typeof casesDatabase !== 'undefined' && Array.isArray(casesDatabase)) {
-        allAvailableCases = [...casesDatabase];
-    } else if (window.allCases && Array.isArray(window.allCases)) {
-        allAvailableCases = [...window.allCases];
-    } else {
-        const custom = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-        allAvailableCases = [...custom];
+    // 1. Alle Überordner aus superFolderStates mit 0 vorinitialisieren
+    const superStats = {};
+    if (typeof superFolderStates === 'object' && superFolderStates !== null) {
+        Object.keys(superFolderStates).forEach(name => {
+            superStats[name] = { total: 0, solved: 0 };
+        });
     }
+    // Fallback-Garantie für die Standard-Überordner
+    ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'].forEach(name => {
+        if (!superStats[name]) superStats[name] = { total: 0, solved: 0 };
+    });
 
+    // 2. Alle registrierten Fälle über die zentrale App-Methode laden
+    const allAvailableCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+
+    // 3. Fälle sauber über getSuperFolderForCategory() zuweisen
     allAvailableCases.forEach(c => {
-        const categoryName = c.folder || c.category || c.superFolder || c.topic || c.specialty || 'Allgemein';
-        const caseId = c.id || c.case_id || c.title;
+        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
+        
+        // Nutzt dein bestehendes Mapping + Heuristik
+        const superFolder = typeof getSuperFolderForCategory === 'function' 
+            ? getSuperFolderForCategory(rawCategory) 
+            : 'Allgemein';
 
-        if (!folderStats[categoryName]) {
-            folderStats[categoryName] = { total: 0, solved: 0 };
+        if (!superStats[superFolder]) {
+            superStats[superFolder] = { total: 0, solved: 0 };
         }
-        folderStats[categoryName].total += 1;
 
+        superStats[superFolder].total += 1;
+
+        const caseId = c.case_id || c.id;
         if (solvedIds.includes(caseId)) {
-            folderStats[categoryName].solved += 1;
+            superStats[superFolder].solved += 1;
         }
     });
 
-    document.querySelectorAll('.folder-card, .super-folder-title span, #existing-folders-list option').forEach(el => {
-        const name = (el.value || el.textContent || '').trim();
-        if (name && !folderStats[name] && name !== 'Lade Fall-Bibliothek...') {
-            folderStats[name] = { total: 0, solved: 0 };
-        }
-    });
+    const entries = Object.entries(superStats);
 
-    const entries = Object.entries(folderStats);
-
-    if (entries.length === 0) {
-        listEl.innerHTML = `<div style="font-size:0.75rem; color:var(--text-dim); text-align:center; padding:12px 0;">Noch keine Themen-Ordner geladen.</div>`;
-        return;
-    }
-
+    // Sortierung: Entweder nach Schwachstellen (niedrigste % zuerst) oder feste Reihenfolge
     entries.sort((a, b) => {
         const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
         const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
@@ -2281,9 +2284,9 @@ function renderSubjectProgressDrawer() {
         const colorClass = getSubjectColorClass(pct);
 
         return `
-            <div class="subject-item">
+            <div class="subject-item" style="cursor: pointer;" onclick="if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${folderName}' zu filtern">
                 <div class="subject-item-top">
-                    <span class="subject-item-name" title="${folderName}">${folderName}</span>
+                    <span class="subject-item-name" title="${escapeHtml(folderName)}">📁 ${escapeHtml(folderName)}</span>
                     <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
                 </div>
                 <div class="subject-bar-track">
@@ -2293,7 +2296,6 @@ function renderSubjectProgressDrawer() {
         `;
     }).join('');
 }
-
 // ==========================================
 // THEME ENGINE (FARBLAYOUT WECHSELN)
 // ==========================================
