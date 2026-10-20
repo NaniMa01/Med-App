@@ -224,40 +224,10 @@ function loadDDLibrary() {
         if (Array.isArray(stored)) stored.forEach(addToDDLibrary);
     } catch (e) {}
 }
+
 // ====================================================
-// ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG
+// ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG (FIXED)
 // ====================================================
-
-// 1. Neuen Überordner (Super-Folder) dynamisch erstellen
-window.createNewSuperFolderModal = function() {
-    const superName = window.prompt("Name für den neuen Überordner (z.B. 'Interdisziplinäre Notfälle'):");
-    if (!superName || !superName.trim()) return;
-
-    const cleanName = superName.trim();
-    
-    // Prüfen, ob der Überordner schon existiert
-    if (superFolderStates[cleanName] !== undefined) {
-        alert("Dieser Überordner existiert bereits.");
-        return;
-    }
-
-    // In die States aufnehmen
-    superFolderStates[cleanName] = true;
-    bookshelfSuperFolderState[cleanName] = true;
-
-    // Optional in LocalStorage sichern, damit er persistent bleibt
-    let customSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
-    if (!customSupers.includes(cleanName)) {
-        customSupers.push(cleanName);
-        localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
-    }
-
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
-};
 
 // Beim Start gespeicherte Custom Supers wiederherstellen
 function initCustomSuperFoldersState() {
@@ -274,21 +244,64 @@ function initCustomSuperFoldersState() {
     }
 }
 
-// Dies direkt beim DOMContentLoaded oder in initUserData() aufrufen:
+// Direkt beim Laden initialisieren
 initCustomSuperFoldersState();
 
-// Im Header-Bereich deines Bücherregals in der Sidebar:
-function renderBookshelfHeader() {
+// 1. Neuen Überordner (Super-Folder) dynamisch per Modal erstellen
+window.createNewSuperFolderModal = function() {
+    const superName = window.prompt("Name für den neuen Überordner (z.B. 'Interdisziplinäre Notfälle'):");
+    if (!superName || !superName.trim()) return;
+
+    const cleanName = superName.trim();
+    
+    if (superFolderStates[cleanName] !== undefined) {
+        alert("Dieser Überordner existiert bereits.");
+        return;
+    }
+
+    // In States aufnehmen
+    superFolderStates[cleanName] = true;
+    bookshelfSuperFolderState[cleanName] = true;
+
+    // In LocalStorage persistieren
+    let customSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
+    if (!customSupers.includes(cleanName)) {
+        customSupers.push(cleanName);
+        localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    
+    // UI aktualisieren
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+};
+
+// 2. Einheitlicher und korrekter Bookshelf-Header mit beiden Buttons
+window.renderBookshelfHeader = function() {
     return `
         <div class="bookshelf-header-row">
             <span class="bookshelf-title">Bücherregal & Ordner</span>
-            <div style="display:flex; gap:4px;">
-                <button class="bookshelf-add-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner erstellen" style="font-size:0.75rem;">+ Über</button>
+            <div style="display:flex; gap:4px; align-items:center;">
+                <button class="bookshelf-add-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner erstellen" style="font-size:0.7rem; padding:2px 6px; width:auto;">+ Über</button>
                 <button class="bookshelf-add-btn" onclick="const name = window.prompt('Name für den neuen Unterordner:'); if(name && name.trim()) createNewFolder(name.trim());" title="Neuen Unterordner erstellen">+</button>
             </div>
         </div>
     `;
-}
+};
+
+// 3. Unterordner erstellen
+window.createNewFolder = function(folderName) {
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+    bookshelfFolderState[folderName] = true;
+    renderDashboardCases();
+};
 function promptNewSuperFolder() {
     const folderName = prompt('Name des neuen Überordners (z.B. "Staatsexamen Fokus"):');
     if (folderName) {
