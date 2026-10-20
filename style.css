@@ -2392,6 +2392,10 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
+   CLINICAL DAYLIGHT (Warm Paper White, Muted Slate & Nordic Blue)
+   Lückenlose Anpassung für Bookshelf, Sidebar, Reader & ALLE Challenges
+   ========================================================================== */
+/* ==========================================================================
    DAYLIGHT REFACTOR: BALKEN, AUDIT-TEXT & CHALLENGE-NAVIGATION
    ========================================================================== */
 
@@ -2516,6 +2520,431 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .stealth-hotspot:hover {
     background-color: rgba(3, 105, 161, 0.1) !important;
     color: #0369a1 !important;
+}
+[data-theme="daylight"] {
+    /* 1. Naturpapier-Grundfläche (kein grelles Blendweiß) */
+    --bg-color: #f0ece1 !important;
+    --bg-gradient: linear-gradient(180deg, #f6f3eb 0%, #ebe6dc 100%) !important;
+
+    /* 2. Container & Karten (Ruhiges, warmes Elfenbein) */
+    --sidebar-bg: #f7f4ec !important;
+    --card-bg: #faf8f3 !important;
+    --card-bg-hover: #f0ebe0 !important;
+    --card-border: #d8d0c2 !important;
+    --card-border-hover: #0369a1 !important;
+    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.8) !important;
+
+    /* 3. Textkontrast: Gedämpftes Schiefer-Anthrazit */
+    --text-main: #2b3037 !important;
+    --text-muted: #5c6470 !important;
+    --text-dim: #8b93a0 !important;
+
+    /* 4. Gedämpfte Akzentfarben */
+    --accent-blue: #0369a1 !important;
+    --accent-cyan: #0284c7 !important;
+    --accent-indigo: #4338ca !important;
+
+    /* 5. Harmonische Statusfarben (nicht grell) */
+    --color-risk: #b91c1c !important;
+    --color-lab: #6d28d9 !important;
+    --color-symptom: #047857 !important;
+    --color-treatment: #0369a1 !important;
+    --warning: #b45309 !important;
+    --error: #b91c1c !important;
+
+    --shadow-sm: 0 1px 3px rgba(43, 48, 55, 0.05);
+    --shadow-md: 0 4px 14px -3px rgba(43, 48, 55, 0.08);
+}
+
+/* ==========================================================================
+   A. GLOBALE FLÄCHEN, TOPBAR & PANELS
+   ========================================================================== */
+[data-theme="daylight"] body,
+[data-theme="daylight"] .main-wrapper {
+    background-color: var(--bg-color) !important;
+    color: var(--text-main) !important;
+}
+
+[data-theme="daylight"] topbar,
+[data-theme="daylight"] .panel,
+[data-theme="daylight"] .reveal-card,
+[data-theme="daylight"] .tutor-popup {
+    background: #faf8f3 !important;
+    color: #2b3037 !important;
+    border-color: #d8d0c2 !important;
+    box-shadow: 0 4px 16px rgba(43, 48, 55, 0.06) !important;
+}
+
+[data-theme="daylight"] .hud-stat {
+    background: #f0ebe0 !important;
+    border-color: #d8d0c2 !important;
+    color: #5c6470 !important;
+}
+[data-theme="daylight"] .hud-stat strong {
+    color: #1a1e24 !important;
+}
+
+/* ==========================================================================
+   B. SIDEBAR & BOOKSHELF (VOLLSTÄNDIGER FIX GEGEN SCHWARZE BALKEN)
+   ========================================================================== */
+[data-theme="daylight"] sidebar {
+    background: #f7f4ec !important;
+    border-right-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .nav-item {
+    color: #5c6470 !important;
+}
+[data-theme="daylight"] .nav-item:hover {
+    background: #ede7dc !important;
+    color: #1a1e24 !important;
+}
+[data-theme="daylight"] .nav-item.active {
+    background: #e4dccf !important;
+    color: #0369a1 !important;
+    border-color: #0369a1 !important;
+}
+
+/* Bookshelf Überordner, Ordner & Einzelfälle */
+[data-theme="daylight"] .bookshelf-container,
+[data-theme="daylight"] .bookshelf-super-group,
+[data-theme="daylight"] .bookshelf-super-body {
+    background: transparent !important;
+}
+
+[data-theme="daylight"] .bookshelf-super-header {
+    background: #ede7dc !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #1a1e24 !important;
+}
+
+[data-theme="daylight"] .folder-group {
+    background: #f4efe4 !important;
+    border: 1px solid #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .folder-header {
+    background: #faf8f3 !important;
+    color: #2b3037 !important;
+}
+[data-theme="daylight"] .folder-header:hover {
+    background: #f0ebe0 !important;
+}
+
+[data-theme="daylight"] .folder-cases-list {
+    background: #f0ebe0 !important;
+    border-top-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .folder-case-item {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #3e4550 !important;
+}
+[data-theme="daylight"] .folder-case-item:hover {
+    background: #e2f0fb !important;
+    border-color: #0369a1 !important;
+    color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .folder-badge-mini,
+[data-theme="daylight"] .bookshelf-super-badge {
+    background: #e4dccf !important;
+    color: #0369a1 !important;
+}
+
+/* ==========================================================================
+   C. DASHBOARD, SUPER-FOLDER & FALLKARTEN
+   ========================================================================== */
+[data-theme="daylight"] .super-folder {
+    background: #f4efe4 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .super-folder-header {
+    background: #faf8f3 !important;
+    border-bottom-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .category-folder {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .category-header {
+    background: #f4efe4 !important;
+}
+
+[data-theme="daylight"] .case-card,
+[data-theme="daylight"] .specialty-card {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2b3037 !important;
+    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.04) !important;
+}
+[data-theme="daylight"] .case-card:hover,
+[data-theme="daylight"] .specialty-card:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 8px 18px -4px rgba(3, 105, 161, 0.12) !important;
+}
+
+[data-theme="daylight"] .case-card-header,
+[data-theme="daylight"] .case-card h3 {
+    color: #1a1e24 !important;
+}
+
+/* ==========================================================================
+   D. AUDIT & TIMELINE
+   ========================================================================== */
+[data-theme="daylight"] .audit-step-container {
+    background-color: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    box-shadow: 0 2px 8px rgba(43, 48, 55, 0.04) !important;
+}
+
+[data-theme="daylight"] .step-content {
+    background-color: #f4efe4 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #1f2328 !important;
+}
+
+[data-theme="daylight"] .step-content p,
+[data-theme="daylight"] .step-content span,
+[data-theme="daylight"] .step-content div,
+[data-theme="daylight"] .stealth-word {
+    color: #1f2328 !important;
+}
+
+[data-theme="daylight"] .stealth-word:hover,
+[data-theme="daylight"] .stealth-hotspot:hover {
+    background-color: rgba(3, 105, 161, 0.1) !important;
+    box-shadow: 0 0 0 2px rgba(3, 105, 161, 0.15) !important;
+    color: #0369a1 !important;
+}
+
+/* ==========================================================================
+   E. CHALLENGE 1: SYNAPSEN-MATRIX (4x4 CONNECTIONS)
+   ========================================================================== */
+[data-theme="daylight"] .synapses-container {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .synapses-legend {
+    background: #f0ebe0 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .synapse-tile-modern {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.05) !important;
+}
+
+[data-theme="daylight"] .synapse-tile-modern .syn-tile-text {
+    color: #2b3037 !important;
+}
+
+[data-theme="daylight"] .synapse-tile-modern:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .synapse-tile-modern.selected {
+    background: #e2f0fb !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 0 10px rgba(3, 105, 161, 0.3) !important;
+}
+
+/* Kategorie-Nuancen im sanften Tageslicht */
+[data-theme="daylight"] .synapse-tile-modern.category-risk { 
+    background: #fdf5f5 !important; border-color: #fca5a5 !important; 
+}
+[data-theme="daylight"] .synapse-tile-modern.category-lab { 
+    background: #fbf5ff !important; border-color: #d8b4fe !important; 
+}
+[data-theme="daylight"] .synapse-tile-modern.category-symptom { 
+    background: #f2fcf6 !important; border-color: #86efac !important; 
+}
+[data-theme="daylight"] .synapse-tile-modern.category-treatment { 
+    background: #f0f8ff !important; border-color: #93c5fd !important; 
+}
+
+/* ==========================================================================
+   F. CHALLENGE 2: CLINICAL CASCADES (FLOW-CHARTS) & DRAG-ZONES
+   ========================================================================== */
+[data-theme="daylight"] .cascade-disease-container,
+[data-theme="daylight"] #mode-container-cascade > div,
+[data-theme="daylight"] #mode-container-cat > div,
+[data-theme="daylight"] #mode-container-quiz > div,
+[data-theme="daylight"] #mode-container-flashcards > div {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+
+[data-theme="daylight"] .drag-bank {
+    background: #f4efe4 !important;
+    border: 1px dashed #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .drag-item {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2b3037 !important;
+    box-shadow: 0 2px 5px rgba(43, 48, 55, 0.05) !important;
+}
+[data-theme="daylight"] .drag-item:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .drop-zone {
+    background: #f0ebe0 !important;
+    border: 2px dashed #d8d0c2 !important;
+}
+[data-theme="daylight"] .drop-zone.drag-over {
+    background: #e2f0fb !important;
+    border-color: #0369a1 !important;
+}
+
+/* ==========================================================================
+   G. CHALLENGE 3: DOCTORDLE, FLASHCARDS & MASTER-QUIZ
+   ========================================================================== */
+/* Doctordle */
+[data-theme="daylight"] .hint-card {
+    background: #f4efe4 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+
+[data-theme="daylight"] #doctordle-input {
+    background: #faf8f3 !important;
+    color: #2b3037 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+    box-shadow: 0 8px 20px rgba(43, 48, 55, 0.1) !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list li {
+    color: #2b3037 !important;
+    border-bottom: 1px solid #ede7dc !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
+    background: #e4dccf !important;
+    color: #0369a1 !important;
+}
+
+/* Master-Quiz */
+[data-theme="daylight"] .quiz-card {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .quiz-opt-btn {
+    background: #f4efe4 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+[data-theme="daylight"] .quiz-opt-btn:hover {
+    background: #ede7dc !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .quiz-opt-btn.selected {
+    background: #e2f0fb !important;
+    border-color: #0369a1 !important;
+    color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .quiz-explanation-box {
+    background: #f0ebe0 !important;
+    border-left-color: #0369a1 !important;
+    color: #3e4550 !important;
+}
+
+/* ==========================================================================
+   H. CORNELL-NOTES, ÜBERSICHT & LERN-DEPOT
+   ========================================================================== */
+[data-theme="daylight"] .cornell-wrapper {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .cornell-header {
+    background: #ede7dc !important;
+    border-bottom-color: #d8d0c2 !important;
+}
+[data-theme="daylight"] .cornell-header h2 {
+    color: #1a1e24 !important;
+}
+
+[data-theme="daylight"] .cornell-cue-col,
+[data-theme="daylight"] .cornell-cues {
+    background: #f4efe4 !important;
+    border-right-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .cornell-cue-item {
+    background: #e8e2d5 !important;
+    border-left-color: #0369a1 !important;
+    color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .cornell-fragment {
+    color: #2b3037 !important;
+}
+
+[data-theme="daylight"] .cornell-summary {
+    background: #f0ebe0 !important;
+    border-top-color: #d8d0c2 !important;
+}
+
+/* Lern-Depot */
+[data-theme="daylight"] .depot-card,
+[data-theme="daylight"] .depot-quiz-arena {
+    background: #faf8f3 !important;
+    border-color: #d8d0c2 !important;
+}
+
+[data-theme="daylight"] .depot-quote-text {
+    background: #f4efe4 !important;
+    border-color: #d8d0c2 !important;
+    color: #2b3037 !important;
+}
+
+/* ==========================================================================
+   I. BUTTONS & STEUERELEMENTE
+   ========================================================================== */
+[data-theme="daylight"] .action-btn,
+[data-theme="daylight"] .btn {
+    background: linear-gradient(135deg, #0369a1, #075985) !important;
+    color: #ffffff !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: 0 2px 6px rgba(3, 105, 161, 0.2) !important;
+}
+
+[data-theme="daylight"] .action-btn.secondary,
+[data-theme="daylight"] .btn-secondary {
+    background: #f4efe4 !important;
+    color: #3e4550 !important;
+    border: 1px solid #d8d0c2 !important;
+    box-shadow: none !important;
+}
+[data-theme="daylight"] .action-btn.secondary:hover,
+[data-theme="daylight"] .btn-secondary:hover {
+    background: #ede7dc !important;
+    color: #1a1e24 !important;
+}
+
+/* Allgemeine Text-Sicherheit */
+[data-theme="daylight"] h1, [data-theme="daylight"] h2, [data-theme="daylight"] h3,
+[data-theme="daylight"] h4, [data-theme="daylight"] h5, [data-theme="daylight"] h6,
+[data-theme="daylight"] p, [data-theme="daylight"] span, [data-theme="daylight"] label {
+    color: #2b3037 !important;
 }
 /* Theme: Surgical Scrubs (OP-Smaragdgrün) */
 [data-theme="scrubs"] {
