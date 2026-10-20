@@ -988,7 +988,7 @@ let categoriesHtml = '';
             </div>
             <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
         </div>`;
-}.join('');
+}).join('');
         superFoldersHtml += `
             <div class="super-folder" data-super-title="${encodeURIComponent(superTitle)}">
                 <div class="super-folder-header" onclick="toggleSuperFolder('${superTitle}')">
