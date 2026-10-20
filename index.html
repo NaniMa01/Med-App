@@ -218,6 +218,25 @@
                         <textarea id="forge-topic" class="forge-topic-input" placeholder="Beispiel: Akute Thoraxschmerzen bei 58-jährigem Patienten mit Risikofaktoren..."></textarea>
                         <button class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
                     </div>
+
+                    <!-- ⚡ NEU: KI-Masterprompt Button -->
+    <div class="forge-prompt-export-card" style="margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: rgba(16, 24, 46, 0.6); border: 1px dashed rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <div style="font-size: 0.86rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                <span>📋</span>
+                <span>System-Masterprompt für externe KIs (Gemini, Claude, GPT)</span>
+            </div>
+            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+                Kopiert die strikten IMPP/NBME-Vorgaben, Cornell Notes, 9-Schritte-Audits, Synapsen und Master-Quiz.
+            </div>
+        </div>
+        <button type="button" class="action-btn secondary btn-sm" id="btn-copy-masterprompt" onclick="copyMasterPromptToClipboard(this)" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue); font-weight: 700;">
+            📋 KI-Prompt zur Fallgenerierung kopieren
+        </button>
+    </div>
+    <!-- ⚡ ENDE NEU -->
+
+    <div class="forge-divider"></div>
                     <div class="forge-divider"></div>
                     <div class="form-group" style="margin-bottom: 14px;">
                         <label for="case-folder-input" class="forge-label">Zielordner (Kategorie):</label>
