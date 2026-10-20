@@ -1830,7 +1830,114 @@ window.generateCaseWithGemini = async function() {
         generateBtn.innerHTML = originalBtnText;
     }
 };
+// ====================================================
+// INTELLIGENTER FALL-KLASSIFIZIERER (AUTO-ROUTING)
+// ====================================================
 
+/**
+ * Ermittelt vollautomatisch den sauberen Ordnernamen aus den Falldaten.
+ * Braucht keine Updates, wenn du neue Fachgebiete hinzufügst!
+ */
+function resolveCaseFolderName(caseData) {
+    if (!caseData) return 'Allgemein';
+
+    // 1. Hat der Nutzer/die Forge schon einen Ordner vorgegeben?
+    const explicitFolder = (caseData.folder_name || '').trim();
+    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
+        return explicitFolder;
+    }
+
+    // 2. Aus medical_field ableiten (z. B. "29.2.10_Erkrankungen des Rückenmarks...")
+    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
+    if (rawField) {
+        // Falls ein ICD-/Katalog-Code vorangestellt ist (z.B. "29.2.10_Titel"):
+        if (rawField.includes('_')) {
+            const parts = rawField.split('_');
+            const cleanTitle = parts.slice(1).join('_').trim();
+            if (cleanTitle.length > 2) return cleanTitle;
+        }
+        return rawField;
+    }
+
+    // 3. Aus dem übergeordneten Thema ableiten
+    const topic = (caseData.case_overview?.topic || '').trim();
+    if (topic && topic.length > 2) {
+        return topic;
+    }
+
+    return 'Allgemein';
+}
+
+/**
+ * Weist jeden beliebigen Ordner einem Überordner zu – lernt dynamisch mit!
+ */
+function autoAssignSuperFolder(folderName) {
+    if (!folderName) return 'Allgemein';
+    const clean = folderName.trim();
+
+    // 1. Gibt es schon ein gespeichertes Mapping vom Nutzer? (Höchste Priorität)
+    const mapping = getFolderSuperMapping();
+    if (mapping[clean] && superFolderStates[mapping[clean]] !== undefined) {
+        return mapping[clean];
+    }
+
+    // 2. Automatische Zuordnung anhand von Wortstämmen
+    const lower = clean.toLowerCase();
+    
+    // Nervensystem & Sinnesorgane
+    if (
+        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') ||
+        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') ||
+        lower.includes('ohr') || lower.includes('myelon') || lower.includes('rückenmark') ||
+        lower.includes('hirn') || lower.includes('cns') || lower.includes('zns') ||
+        lower.includes('insult') || lower.includes('schwindel')
+    ) {
+        return 'Nervensystem und Sinnesorgane';
+    }
+
+    // Psyche, Ethik & Recht
+    if (
+        lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') ||
+        lower.includes('forens') || lower.includes('suizid') || lower.includes('depress') ||
+        lower.includes('schizo') || lower.includes('bipolar') || lower.includes('delir')
+    ) {
+        return 'Psyche / Ethik / Recht';
+    }
+
+    // Reproduktion
+    if (
+        lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') ||
+        lower.includes('schwanger') || lower.includes('ovard') || lower.includes('mamma') ||
+        lower.includes('uterus') || lower.includes('zyklus') || lower.includes('partus')
+    ) {
+        return 'Reproduktion';
+    }
+
+    // Standard-Fallback für alles andere (Innere Medizin, Chirurgie etc.)
+    return 'Allgemein';
+}
+
+/**
+ * Registriert einen neuen Ordner dauerhaft in der App, ohne Duplikate.
+ */
+function registerDynamicFolder(folderName, targetSuperFolder = null) {
+    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
+    
+    // In der Bookshelf-Reihenfolge sichern
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+
+    // Überordner-Zuweisung persistieren
+    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
+    const mapping = getFolderSuperMapping();
+    if (!mapping[folderName]) {
+        mapping[folderName] = superTarget;
+        saveFolderSuperMapping(mapping);
+    }
+}
 window.validateAndSaveCustomCase = function() {
     const inputEl = document.getElementById('forge-input');
     if (!inputEl) return;
@@ -1844,6 +1951,7 @@ window.validateAndSaveCustomCase = function() {
     try {
         const sanitized = sanitizeForgeJsonInput(rawVal);
         const parsed = JSON.parse(sanitized);
+        
 
         if (Array.isArray(parsed)) {
             throw new Error('Bitte füge einen einzelnen Fall ein, kein JSON-Array.');
@@ -1860,6 +1968,13 @@ window.validateAndSaveCustomCase = function() {
         if (!Array.isArray(parsed.timeline)) {
             throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
         }
+
+        // Direkt nach dem Parsen des JSON-Objekts:
+    parsed.folder_name = document.getElementById('case-folder-input')?.value.trim() 
+                         || resolveCaseFolderName(parsed);
+
+    // Automatisch registrieren und Überordner zuweisen
+    registerDynamicFolder(parsed.folder_name);
 
         let customCases = [];
         try {
@@ -3236,6 +3351,7 @@ async function handleInternalCaseUpload(caseId) {
 }
 
 async function handleCaseFiles(files) {
+    
     const sb = getActiveSupabaseClient();
     if (!sb) {
         alert("Fehler: Keine Supabase-Verbindung vorhanden.");
@@ -3270,6 +3386,68 @@ async function handleCaseFiles(files) {
 
             caseData.case_id = caseId;
 
+            async function handleCaseFiles(files) {
+    // Direkt beim Verarbeiten jeder .json-Datei:
+    caseData.folder_name = caseData.folder_name || resolveCaseFolderName(caseData);
+    
+    // Automatisch registrieren und Überordner zuweisen
+    registerDynamicFolder(caseData.folder_name);
+    const sb = getActiveSupabaseClient();
+    if (!sb) {
+        alert("Fehler: Keine Supabase-Verbindung vorhanden.");
+        return;
+    }
+
+    const { data: { session } } = await sb.auth.getSession();
+    const currentUser = session?.user;
+
+    if (!currentUser) {
+        alert("Bitte melde dich zuerst als Creator an.");
+        return;
+    }
+
+    for (const file of Array.from(files)) {
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
+            continue;
+        }
+
+        renderStatus(file.name, 'loading', 'Validierung und Speicherung...');
+
+        try {
+            const rawContent = await file.text();
+            const caseData = JSON.parse(rawContent);
+
+            const caseId = caseData.case_id || caseData.id;
+            const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
+            const title = caseData.metadata?.title || caseData.title || caseId;
+
+            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
+
+            caseData.case_id = caseId;
+
+            const { error } = await sb
+                .from('cases')
+                .upsert({
+                    case_id: caseId,
+                    title: title,
+                    medical_field: field,
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: caseData
+                }, { onConflict: 'case_id' });
+
+            if (error) throw error;
+
+            renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
+            await loadCasesFromDatabase();
+        } catch (err) {
+            console.error("Upload Error:", err);
+            renderStatus(file.name, 'error', `Fehler: ${err.message}`);
+        }
+    }
+}
             const { error } = await sb
                 .from('cases')
                 .upsert({
