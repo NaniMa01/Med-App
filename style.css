@@ -2126,7 +2126,21 @@ body.is-resizing .resizer-handle-pill {
         overflow-x: clip !important; 
         overflow-y: hidden !important; 
     }
-
+/* ==========================================================================
+   iOS STANDALONE / HOMESCREEN SAFE AREA FIX (TOPBAR & HEADER)
+   ========================================================================== */
+@supports(padding: max(0px)) {
+    topbar {
+        /* Addiert die dynamische Statusleisten-Höhe des iPhones auf die Topbar-Höhe */
+        padding-top: max(12px, env(safe-area-inset-top)) !important;
+        height: calc(70px + max(12px, env(safe-area-inset-top))) !important;
+    }
+    
+    /* Falls die Sidebar ebenfalls ganz oben sitzt */
+    sidebar {
+        padding-top: max(24px, env(safe-area-inset-top)) !important;
+    }
+}
     /* FIX 2: Kein 260px-Versatz mehr nach rechts */
     .main-wrapper { 
         margin-left: 0 !important;
