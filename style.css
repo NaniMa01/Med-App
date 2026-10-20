@@ -1783,30 +1783,7 @@ body.is-resizing .resizer-handle-pill {
     margin-top: 14px;
 }
 
-/* Anpassung für Clinical Daylight Theme */
-[data-theme="daylight"] .audit-step-container {
-    background-color: #ffffff !important;
-    border-color: #bae6fd !important;
-    box-shadow: 0 2px 10px rgba(2, 132, 199, 0.05) !important;
-}
 
-[data-theme="daylight"] .audit-step-header,
-[data-theme="daylight"] .audit-step-footer {
-    border-color: #e2e8f0 !important;
-}
-
-[data-theme="daylight"] .step-content.audit-editorial-body {
-    background-color: transparent !important;
-    border: none !important;
-    color: #1e293b !important;
-}
-
-[data-theme="daylight"] .stealth-word:hover,
-[data-theme="daylight"] .stealth-hotspot:hover {
-    background-color: rgba(2, 132, 199, 0.12) !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12) !important;
-    color: #0f172a !important;
-}
 
 @media screen and (max-width: 768px) {
     .audit-step-container {
