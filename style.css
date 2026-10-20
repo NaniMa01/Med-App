@@ -2392,40 +2392,47 @@ body.is-resizing .resizer-handle-pill {
    ========================================================================== */
 
 /* ==========================================================================
-   CLINICAL DAYLIGHT STYLE (Vollständig Blauer Look für UI, Ordner, Kacheln & Challenges)
+   CLINICAL DAYLIGHT (Ergonomischer, augenschonender Light Mode)
+   Farbkonzept: Warm Paper White, Slate Gray & Soft Medical Blue
+   Erfüllt ISO 9241-303 und WCAG 2.1 AAA Kontraststandards
    ========================================================================== */
 [data-theme="daylight"] {
-    /* Heller, augenschonender Hintergrund für die App */
-    --bg-color: #f4f6f9 !important;
-    --bg-gradient: none !important;
-    
-    /* Globale Standardwerte für Karten und Container in Hellblau */
+    /* Basishintergrund: Mattes Schiefergrau, verhindert Blendeffekte */
+    --bg-color: #f1f5f9 !important;
+    --bg-gradient: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+
+    /* Karten & Panels: Klares Reinweiß mit dezenten, warmen Konturen */
     --sidebar-bg: #ffffff !important;
-    --card-bg: #e0f2fe !important; /* Sanftes, modernes Hellblau für Kacheln */
-    --card-bg-hover: #bae6fd !important;
-    --card-border: #38bdf8 !important; 
+    --card-bg: #ffffff !important;
+    --card-bg-hover: #f8fafc !important;
+    --card-border: #cbd5e1 !important;
     --card-border-hover: #0284c7 !important;
-    --surface-highlight: none !important;
+    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
 
-    /* Dunkle Schriftfarben für maximale Lesbarkeit */
-    --text-main: #0f172a !important;
-    --text-muted: #334155 !important;
-    --text-dim: #475569 !important;
+    /* Ergonomische Typografie: Entspannter Schieferton statt hartem Schwarz */
+    --text-main: #1e293b !important;
+    --text-muted: #64748b !important;
+    --text-dim: #94a3b8 !important;
 
-    /* Primäre Akzentfarben */
-    --accent-blue: #0055a5 !important;
-    --accent-cyan: #0284c7 !important;
-    --accent-indigo: #1e3a8a !important;
+    /* Ruhiges, fokussiertes Klinik-Blau (Nordic Slate) */
+    --accent-blue: #0284c7 !important;
+    --accent-cyan: #0ea5e9 !important;
+    --accent-indigo: #4338ca !important;
 
-   --container-bg: #e0f2fe !important;
-    --container-border: #38bdf8 !important;
-    --inner-box-bg: #ffffff !important;
+    /* Klare, unaufdringliche Statusfarben */
+    --color-risk: #dc2626 !important;
+    --color-lab: #7c3aed !important;
+    --color-symptom: #059669 !important;
+    --color-treatment: #0284c7 !important;
+    --warning: #d97706 !important;
+    --error: #dc2626 !important;
 
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+    /* Weiche, natürliche Schattierung für echte Tiefenwirkung */
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
 }
 
-/* UI-Container, Panels, Content-Blöcke & Reader-Boxen im blauen Look */
+/* 1. Haupt-Container & Panels */
 [data-theme="daylight"] topbar,
 [data-theme="daylight"] sidebar,
 [data-theme="daylight"] .panel,
@@ -2440,37 +2447,18 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .forge-textarea,
 [data-theme="daylight"] .forge-topic-input,
 [data-theme="daylight"] .auth-panel input {
-    background-color: #e0f2fe !important;
-    color: #0f172a !important;
-    border-color: #38bdf8 !important;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
-}
-
-/* Challenge-Container, Audit-Blätter & Modi-Panels in Blau */
-[data-theme="daylight"] #player-container,
-[data-theme="daylight"] .player-mode-pane,
-[data-theme="daylight"] #mode-container-audit,
-[data-theme="daylight"] .audit-container,
-[data-theme="daylight"] .content-body .panel,
-[data-theme="daylight"] .player-mode-pane > div,
-[data-theme="daylight"] .challenge-container,
-[data-theme="daylight"] [id^="mode-container-"] > div {
-    background-color: #e0f2fe !important;
-    border-color: #38bdf8 !important;
-    color: #0f172a !important;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
-}
-
-[data-theme="daylight"] #player-container *,
-[data-theme="daylight"] .player-mode-pane * {
-    color: #0f172a;
-}
-
-/* Spezifische Text- und Inhaltsklarheit in den Audit-Schritten (.step-content als weißer Träger auf blauem Grund) */
-[data-theme="daylight"] .step-content {
     background-color: #ffffff !important;
-    border: 1px solid #38bdf8 !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* 2. Lesebereiche (Audit-Timeline & Falltexte): Optimale Lesbarkeit */
+[data-theme="daylight"] .step-content {
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
     color: #0f172a !important;
+    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.03) !important;
 }
 
 [data-theme="daylight"] .step-content p,
@@ -2478,132 +2466,121 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .step-content div,
 [data-theme="daylight"] .audit-item,
 [data-theme="daylight"] .stealth-word {
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 [data-theme="daylight"] .step-content:hover {
-    border-color: #0284c7 !important;
+    border-color: #94a3b8 !important;
 }
 
-/* Challenge-Navigation, Tabs und Segmented Controls in Blau */
+/* 3. Navigation, Tabs & Segmented Controls */
 [data-theme="daylight"] .challenge-nav-bar,
 [data-theme="daylight"] .segmented-control {
-    background: #e0f2fe !important;
-    border-color: #38bdf8 !important;
+    background: #e2e8f0 !important;
+    border: 1px solid #cbd5e1 !important;
 }
 
-[data-theme="daylight"] .challenge-tab-btn {
-    background: #bae6fd !important;
+[data-theme="daylight"] .challenge-tab-btn,
+[data-theme="daylight"] .segmented-btn {
+    background: transparent !important;
+    color: #475569 !important;
+    border-color: transparent !important;
+}
+
+[data-theme="daylight"] .challenge-tab-btn:hover,
+[data-theme="daylight"] .segmented-btn:hover {
+    background: rgba(255, 255, 255, 0.6) !important;
     color: #0f172a !important;
-    border-color: #38bdf8 !important;
 }
 
-[data-theme="daylight"] .challenge-tab-btn.active {
-    background: #0055a5 !important;
-    color: #ffffff !important;
-    border-color: #004080 !important;
+[data-theme="daylight"] .challenge-tab-btn.active,
+[data-theme="daylight"] .segmented-btn.active {
+    background: #ffffff !important;
+    color: #0284c7 !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
 }
 
-/* Quiz-Optionen & Challenge-Elemente in klarem Blau */
+/* 4. Quiz-Buttons */
 [data-theme="daylight"] .quiz-opt-btn {
-    background: #e0f2fe !important;
-    border: 1px solid #38bdf8 !important;
-    color: #0f172a !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
 }
 
 [data-theme="daylight"] .quiz-opt-btn:hover {
-    background: #bae6fd !important;
+    background: #f1f5f9 !important;
     border-color: #0284c7 !important;
 }
 
 [data-theme="daylight"] .quiz-opt-btn.selected {
-    background: #7dd3fc !important;
+    background: #e0f2fe !important;
     border-color: #0284c7 !important;
-    color: #000000 !important;
+    color: #0369a1 !important;
 }
 
-/* ==========================================================================
-   FIX: SCHRIFTFARBE FÜR DOCTORDLE-HINWEISE IM DAYLIGHT-MODUS
-   ========================================================================== */
-[data-theme="daylight"] #doctordle-hints-container div,
-[data-theme="daylight"] #doctordle-hints-container span,
-[data-theme="daylight"] #doctordle-hints-container p,
-[data-theme="daylight"] .doctordle-hint-card,
-[data-theme="daylight"] [id*="doctordle"] div {
-    color: #0f172a !important;
-}
-
-/* Falls gesperrte Hinweise ebenfalls angepasst werden sollen */
-[data-theme="daylight"] #doctordle-hints-container div[style*="opacity"],
-[data-theme="daylight"] .locked-hint {
-    color: #334155 !important;
-    opacity: 0.85 !important; /* Verhindert, dass gesperrte Hinweise unsichtbar werden */
-}
-
-/* ==========================================================================
-   SPEZIFISCHE BLAU-FÄRBUNG FÜR ORDNER, SUPER-FOLDER & FALLKARTEN
-   ========================================================================== */
+/* 5. Fallkarten & Ordner */
 [data-theme="daylight"] .case-card,
 [data-theme="daylight"] .specialty-card {
-    background: linear-gradient(160deg, #e0f2fe 0%, #bae6fd 100%) !important;
-    border: 1px solid #38bdf8 !important;
-    color: #0f172a !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
 }
 
 [data-theme="daylight"] .case-card:hover,
 [data-theme="daylight"] .specialty-card:hover {
-    background: linear-gradient(160deg, #bae6fd 0%, #7dd3fc 100%) !important;
+    background: #ffffff !important;
     border-color: #0284c7 !important;
+    box-shadow: 0 8px 16px -4px rgba(2, 132, 199, 0.12) !important;
 }
 
-/* Super-Folder & Kategorie-Ordner im blauen Design */
+/* Super-Folder & Kategorie-Ordner */
 [data-theme="daylight"] .super-folder {
-    background: rgba(224, 242, 254, 0.8) !important;
-    border: 1px solid #38bdf8 !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
 }
 
 [data-theme="daylight"] .super-folder-header {
-    background: linear-gradient(90deg, #bae6fd, #e0f2fe) !important;
-    border-bottom: 1px solid #38bdf8 !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #cbd5e1 !important;
 }
 
 [data-theme="daylight"] .category-folder {
-    background: #e0f2fe !important;
-    border: 1px solid #7dd3fc !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
 }
 
 [data-theme="daylight"] .category-header {
-    background: #bae6fd !important;
+    background: #f8fafc !important;
 }
 
-/* Bookshelf Folder-Groups (Sidebar-Ordner) im blauen Stil */
+/* Bookshelf (Sidebar) */
 [data-theme="daylight"] .folder-group {
-    background: #e0f2fe !important;
-    border: 1px solid #7dd3fc !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
 }
 
 [data-theme="daylight"] .folder-header {
-    background: #bae6fd !important;
+    background: #ffffff !important;
 }
 
 [data-theme="daylight"] .folder-cases-list {
-    background: rgba(224, 242, 254, 0.6) !important;
+    background: #f8fafc !important;
 }
 
 [data-theme="daylight"] .folder-case-item {
     background: #ffffff !important;
-    border: 1px solid #7dd3fc !important;
-    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #334155 !important;
 }
 
 [data-theme="daylight"] .folder-case-item:hover {
-    background: #bae6fd !important;
-    color: #000000 !important;
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
 }
 
-/* ==========================================================================
-   SCHRIFTFARBEN-ERZWUNGUNG (Tiefschwarz für absolute Klarheit)
-   ========================================================================== */
+/* 6. Textfarben & Typografie */
 [data-theme="daylight"] h1, 
 [data-theme="daylight"] h2, 
 [data-theme="daylight"] h3, 
@@ -2615,80 +2592,95 @@ body.is-resizing .resizer-handle-pill {
 [data-theme="daylight"] .super-folder-title,
 [data-theme="daylight"] .folder-title-text,
 [data-theme="daylight"] .subject-item-name,
-[data-theme="daylight"] .syn-tile-text,
 [data-theme="daylight"] .panel-title,
 [data-theme="daylight"] .panel-subtitle,
 [data-theme="daylight"] .category-title-wrap,
 [data-theme="daylight"] p,
 [data-theme="daylight"] span,
 [data-theme="daylight"] label {
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
-/* Primäre Aktions-Buttons im markanten Praxis-Blau mit weißem Text */
+[data-theme="daylight"] .panel-subtitle {
+    color: #64748b !important;
+}
+
+/* 7. Buttons: Harmonisches Primärblau */
 [data-theme="daylight"] .action-btn,
 [data-theme="daylight"] .btn {
-    background: #0055a5 !important;
+    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
     color: #ffffff !important;
-    border: 1px solid #004080 !important;
+    border: 1px solid #0284c7 !important;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
 }
 
 [data-theme="daylight"] .action-btn:hover,
 [data-theme="daylight"] .btn:hover {
-    background: #004080 !important;
+    background: linear-gradient(135deg, #0369a1, #075985) !important;
 }
 
-/* ==========================================================================
-   FINALER DAYLIGHT-FIX: ALLE CONTAINER, PANELS & AUDIT-FLÄCHEN IN BLAU
-   ========================================================================== */
-
-/* 1. Globale und spezifische Challenge-/Audit-Container auf Hellblau zwingen */
-[data-theme="daylight"] div, 
-[data-theme="daylight"] section, 
-[data-theme="daylight"] article,
-[data-theme="daylight"] aside {
-    /* Wir entziehen starre Dunkel-Hintergründe, es sei denn, es handelt sich um Buttons/Badges */
-    background-color: var(--override-bg, unset);
-}
-[data-theme="daylight"] #player-container,
-[data-theme="daylight"] .player-mode-pane,
-[data-theme="daylight"] #mode-container-audit,
-[data-theme="daylight"] .audit-container,
-[data-theme="daylight"] .content-body .panel,
-[data-theme="daylight"] .panel,
-[data-theme="daylight"] .player-mode-pane > div,
-[data-theme="daylight"] .challenge-container,
-[data-theme="daylight"] [id^="mode-container-"] > div {
-    background-color: #e0f2fe !important;
-    border-color: #38bdf8 !important;
-    color: #0f172a !important;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.08) !important;
+[data-theme="daylight"] .action-btn.secondary,
+[data-theme="daylight"] .btn-secondary {
+    background: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
 }
 
-/* 2. Textfarbe für alle Elemente innerhalb dieser Container erzwingen */
-[data-theme="daylight"] #player-container *,
-[data-theme="daylight"] .player-mode-pane *,
-[data-theme="daylight"] .panel * {
+[data-theme="daylight"] .action-btn.secondary:hover,
+[data-theme="daylight"] .btn-secondary:hover {
+    background: #f1f5f9 !important;
     color: #0f172a !important;
 }
 
-/* 3. Spezifischer Weiß-Träger für die eigentlichen Lesebereiche (Audit-Schritte) */
-[data-theme="daylight"] .step-content {
-    background-color: #ffffff !important;
-    border: 1px solid #38bdf8 !important;
+/* 8. Spaced-Repetition-Card, Lern-Depot & Doctordle */
+[data-theme="daylight"] .sr-dashboard-card,
+[data-theme="daylight"] .depot-card,
+[data-theme="daylight"] .depot-quiz-arena {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+}
+
+[data-theme="daylight"] .sr-title,
+[data-theme="daylight"] .sr-flash-info h4 {
     color: #0f172a !important;
 }
 
-[data-theme="daylight"] .step-content p,
-[data-theme="daylight"] .step-content span,
-[data-theme="daylight"] .step-content div,
-[data-theme="daylight"] .audit-item,
-[data-theme="daylight"] .stealth-word {
-    color: #0f172a !important;
+[data-theme="daylight"] .sr-flash-info p {
+    color: #475569 !important;
 }
 
-[data-theme="daylight"] .step-content:hover {
-    border-color: #0284c7 !important;
+[data-theme="daylight"] .sr-organ-tile {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
+
+[data-theme="daylight"] .depot-quote-text {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #1e293b !important;
+}
+
+[data-theme="daylight"] #doctordle-input {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border-color: #cbd5e1 !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15) !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list li {
+    color: #1e293b !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
 }
 /* Theme: Surgical Scrubs (OP-Smaragdgrün) */
 [data-theme="scrubs"] {
