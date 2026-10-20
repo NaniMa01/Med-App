@@ -3078,72 +3078,89 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE (60 FPS EDGE SCROLLING - SICHER)
+// DRAG & DROP AUTO-SCROLL ENGINE (BUTTERY SMOOTH 60 FPS - VERBESSERT)
 // ==========================================================================
 (function initDragAutoScroll() {
-    const EDGE_THRESHOLD = 90; 
-    const MAX_SCROLL_SPEED = 18; 
+    // Schwellenwerte für reaktionsschnelles Scrollen
+    const TOP_THRESHOLD = 140;       // Vergrößerte Zone oben (berücksichtigt die 70px Topbar)
+    const BOTTOM_THRESHOLD = 110;    // Reaktionszone unten
+    const MAX_SCROLL_SPEED = 24;     // Dynamische Maximalgeschwindigkeit in px/frame
 
     let isDraggingActive = false;
-    let currentMouseY = 0;
-    let currentMouseX = 0;
+    let currentMouseY = -1;
+    let currentMouseX = -1;
     let scrollFrameId = null;
 
-    function getScrollableMainContainer() {
+    // Ermittelt dynamisch den aktiven Scroll-Container
+    function getScrollContainer() {
         const mainWrapper = document.querySelector('.main-wrapper');
         if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) {
             return mainWrapper;
         }
-        return document.scrollingElement || document.documentElement;
+        return document.scrollingElement || document.documentElement || document.body;
     }
 
+    // 60-FPS Animations-Schleife mit quadratischer Beschleunigungskurve
     function performAutoScroll() {
         if (!isDraggingActive) {
             scrollFrameId = null;
             return;
         }
 
-        let scrolled = false;
-        const viewportHeight = window.innerHeight;
-
+        // 1. Priorität: Prüfen, ob der Cursor über dem Bookshelf in der Sidebar steht
+        let bookshelfScrolled = false;
         const bookshelf = document.getElementById('bookshelf-container');
-        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight) {
+        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
             const rect = bookshelf.getBoundingClientRect();
-            const isInsideBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
-            const isInsideBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
+            const inBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
+            const inBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
 
-            if (isInsideBookshelfX && isInsideBookshelfY) {
-                const booksEdge = Math.min(60, rect.height * 0.25);
-                if (currentMouseY < rect.top + booksEdge) {
-                    const intensity = 1 - ((currentMouseY - rect.top) / booksEdge);
-                    bookshelf.scrollTop -= Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
-                    scrolled = true;
-                } else if (currentMouseY > rect.bottom - booksEdge) {
-                    const intensity = 1 - ((rect.bottom - currentMouseY) / booksEdge);
-                    bookshelf.scrollTop += Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, intensity));
-                    scrolled = true;
+            if (inBookshelfX && inBookshelfY) {
+                const edgeZone = Math.min(70, rect.height * 0.25);
+                if (currentMouseY < rect.top + edgeZone) {
+                    const ratio = Math.max(0.1, 1 - ((currentMouseY - rect.top) / edgeZone));
+                    bookshelf.scrollTop -= Math.ceil(MAX_SCROLL_SPEED * (ratio * ratio));
+                    bookshelfScrolled = true;
+                } else if (currentMouseY > rect.bottom - edgeZone) {
+                    const ratio = Math.max(0.1, 1 - ((rect.bottom - currentMouseY) / edgeZone));
+                    bookshelf.scrollTop += Math.ceil(MAX_SCROLL_SPEED * (ratio * ratio));
+                    bookshelfScrolled = true;
                 }
             }
         }
 
-        if (!scrolled) {
-            const scrollTarget = getScrollableMainContainer();
-            if (currentMouseY < EDGE_THRESHOLD) {
-                const intensity = Math.max(0.1, 1 - (currentMouseY / EDGE_THRESHOLD));
-                const delta = -Math.ceil(MAX_SCROLL_SPEED * intensity);
+        // 2. Dashboard / Hauptbereich scrollen
+        if (!bookshelfScrolled && currentMouseY >= 0) {
+            const scrollTarget = getScrollContainer();
+            const viewportHeight = window.innerHeight;
+
+            // TOPBAR-OFFSET: Berücksichtigt die 70px feste Höhe der Topbar
+            const topbar = document.querySelector('topbar');
+            const topbarOffset = topbar ? topbar.getBoundingClientRect().bottom : 70;
+            const topScrollZone = topbarOffset + TOP_THRESHOLD;
+
+            // NACH OBEN SCROLLEN
+            if (currentMouseY < topScrollZone) {
+                // Je näher an der Topbar oder am oberen Rand, desto schneller
+                const distanceRatio = Math.max(0, Math.min(1, (topScrollZone - currentMouseY) / TOP_THRESHOLD));
+                // Quadratische Kurve für samtweiches Anlaufen bis hin zu schnellem Durchgleiten
+                const speed = Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, distanceRatio * distanceRatio));
+                
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, delta);
+                    window.scrollBy(0, -speed);
                 } else {
-                    scrollTarget.scrollTop += delta;
+                    scrollTarget.scrollTop -= speed;
                 }
-            } else if (currentMouseY > viewportHeight - EDGE_THRESHOLD) {
-                const distFromBottom = viewportHeight - currentMouseY;
-                const intensity = Math.max(0.1, 1 - (distFromBottom / EDGE_THRESHOLD));
-                const delta = Math.ceil(MAX_SCROLL_SPEED * intensity);
+            } 
+            // NACH UNTEN SCROLLEN
+            else if (currentMouseY > viewportHeight - BOTTOM_THRESHOLD) {
+                const distanceRatio = Math.max(0, Math.min(1, (currentMouseY - (viewportHeight - BOTTOM_THRESHOLD)) / BOTTOM_THRESHOLD));
+                const speed = Math.ceil(MAX_SCROLL_SPEED * Math.max(0.15, distanceRatio * distanceRatio));
+
                 if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, delta);
+                    window.scrollBy(0, speed);
                 } else {
-                    scrollTarget.scrollTop += delta;
+                    scrollTarget.scrollTop += speed;
                 }
             }
         }
@@ -3151,25 +3168,40 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollFrameId = requestAnimationFrame(performAutoScroll);
     }
 
+    // Präzise Koordinaten-Erfassung über dragover (zuverlässiger als e.clientY bei 'drag')
+    function updateCoordinates(e) {
+        if (!isDraggingActive) return;
+        currentMouseY = e.clientY;
+        currentMouseX = e.clientX;
+    }
+
+    // Drag-Start mit .closest(), damit auch Klicks auf Kindelemente (Titel, Icons) greifen
     document.addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('category-folder') || e.target.classList.contains('case-card') || e.target.classList.contains('folder-case-item') || e.target.closest('.folder-group')) {
+        const isDraggableItem = e.target.closest('.case-card') || 
+                               e.target.closest('.category-folder') || 
+                               e.target.closest('.folder-case-item') || 
+                               e.target.closest('.folder-group');
+
+        if (isDraggableItem) {
             isDraggingActive = true;
+            currentMouseY = e.clientY;
+            currentMouseX = e.clientX;
+
             if (!scrollFrameId) {
                 scrollFrameId = requestAnimationFrame(performAutoScroll);
             }
         }
     });
 
-    document.addEventListener('drag', (e) => {
-        if (!isDraggingActive) return;
-        if (e.clientY > 0) {
-            currentMouseY = e.clientY;
-            currentMouseX = e.clientX;
-        }
-    }, { passive: true });
+    // Beide Events hören, damit kein Frame verloren geht
+    window.addEventListener('dragover', updateCoordinates, { passive: true });
+    document.addEventListener('drag', updateCoordinates, { passive: true });
 
+    // Sicheres Beenden
     const stopAutoScroll = () => {
         isDraggingActive = false;
+        currentMouseY = -1;
+        currentMouseX = -1;
         if (scrollFrameId) {
             cancelAnimationFrame(scrollFrameId);
             scrollFrameId = null;
@@ -3179,7 +3211,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('dragend', stopAutoScroll);
     document.addEventListener('drop', stopAutoScroll);
 })();
-
 // ==========================================
 // CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
 // ==========================================
