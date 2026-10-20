@@ -930,21 +930,23 @@ function renderDashboardCases() {
 
                // In renderDashboardCases() beim Erstellen von cardsHtml:
 // In renderDashboardCases():
-    const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+
+categoriesHtml = categories.map((category, catIdx) => {
+    const cases = grouped[category] || [];
+    const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
+    const isExpanded = !!openFolders[category];
 
     const cardsHtml = cases.map(c => {
         const isSolved = solved.includes(c.case_id);
         const savedState = ProgressManager.getCaseProgress(c.case_id);
         const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-        
-        // Prüfung, ob der Fall in Supabase als Cloud-Fall hinterlegt ist
         const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
 
         const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
             ? ''
             : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
             
-        // Creator-Button zum Entfernen aus der Cloud
         const unpublishBtn = (isCurrentUserCreator && isCloudCase)
             ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
             : '';
@@ -979,24 +981,23 @@ function renderDashboardCases() {
             </div>
         </div>`;
     }).join('');
-                return `
-                    <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
-                        <div class="category-header">
-                            <div class="category-title-wrap">
-                                <span class="category-drag-handle" title="Ordner ziehen zum Verschieben">⠿</span>
-                                <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
-                                <span>📁 ${escapeHtml(category)}</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapeHtml(category)}')" title="Überordner wechseln">⇄</button>
-                                <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
-                            </div>
-                        </div>
-                        <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
-                    </div>`;
-            }).join('');
-        }
 
+    return `
+        <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
+            <div class="category-header">
+                <div class="category-title-wrap">
+                    <span class="category-drag-handle" title="Ordner ziehen zum Verschieben">⠿</span>
+                    <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
+                    <span>📁 ${escapeHtml(category)}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapeHtml(category)}')" title="Überordner wechseln">⇄</button>
+                    <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
+                </div>
+            </div>
+            <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
+        </div>`;
+}).join('');
         superFoldersHtml += `
             <div class="super-folder" data-super-title="${encodeURIComponent(superTitle)}">
                 <div class="super-folder-header" onclick="toggleSuperFolder('${superTitle}')">
@@ -1451,14 +1452,13 @@ async function renameFolder(oldName, newName) {
         } catch (err) {}
     }
 const mapping = getFolderSuperMapping();
-if (mapping[oldName]) {
-    mapping[newName] = mapping[oldName];
-    delete mapping[oldName];
-    saveFolderSuperMapping(mapping);
-}
+    if (mapping[oldName]) {
+        mapping[newName] = mapping[oldName];
+        delete mapping[oldName];
+        saveFolderSuperMapping(mapping);
+    }
     renderDashboardCases();
 }
-
 async function deleteFolder(folderName, caseCount) {
     const warning = caseCount > 0 
         ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden nicht gelöscht, sondern sicher in den Ordner "Allgemein" verschoben.`
@@ -1506,13 +1506,12 @@ async function deleteFolder(folderName, caseCount) {
         } catch (err) {}
     }
 const mapping = getFolderSuperMapping();
-if (mapping[folderName]) {
-    delete mapping[folderName];
-    saveFolderSuperMapping(mapping);
-}
+    if (mapping[folderName]) {
+        delete mapping[folderName];
+        saveFolderSuperMapping(mapping);
+    }
     renderDashboardCases();
 }
-
 async function moveCaseToFolder(caseId, targetFolder) {
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
     let targetCase = customCases.find(c => c.case_id === caseId);
