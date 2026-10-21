@@ -48,8 +48,13 @@ const defaultSkills = {
     "Pathophysiologie": { hits: 0, total: 0 }
 };
 
+// Creator Hub & Cloud States
+window.cloudCaseIds = new Set();
+window.currentSessionUser = null;
+
+
 // ==========================================
-// THEME ENGINE (FRÜHZEITIG INITIALISIERT)
+// THEME ENGINE (Frühzeitige Initialisierung)
 // ==========================================
 const THEME_STORAGE_KEY = 'medcheck_ui_theme';
 const THEME_META_COLORS = {
@@ -80,7 +85,10 @@ window.applyAppTheme = function(themeName) {
     localStorage.setItem(THEME_STORAGE_KEY, validTheme);
 };
 
+
+// ====================================================
 // V6.0 BUILT-IN DEMO CASE
+// ====================================================
 const BUILTIN_DEMO_CASE = {
     "case_id": "MYELON_MASTER_001_USB",
     "metadata": {
@@ -259,26 +267,26 @@ function loadDDLibrary() {
 // ====================================================
 // ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG
 // ====================================================
-function getCustomSuperFolders() {
+window.getCustomSuperFolders = function() {
     try {
         return JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
     } catch (e) {
         return [];
     }
-}
+};
 
-function removeCustomSuperFolder(superTitle) {
+window.removeCustomSuperFolder = function(superTitle) {
     if (!confirm(`Überordner "${superTitle}" wirklich entfernen?`)) return;
-    let customSupers = getCustomSuperFolders().filter(s => s !== superTitle);
+    let customSupers = window.getCustomSuperFolders().filter(s => s !== superTitle);
     localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
     delete superFolderStates[superTitle];
     delete bookshelfSuperFolderState[superTitle];
     renderDashboardCases();
-}
+};
 
 function initCustomSuperFoldersState() {
     try {
-        const savedSupers = getCustomSuperFolders();
+        const savedSupers = window.getCustomSuperFolders();
         savedSupers.forEach(sName => {
             if (superFolderStates[sName] === undefined) {
                 superFolderStates[sName] = true;
@@ -289,7 +297,6 @@ function initCustomSuperFoldersState() {
         console.error("Fehler beim Laden der Custom Supers:", e);
     }
 }
-
 initCustomSuperFoldersState();
 
 window.createNewSuperFolderModal = function() {
@@ -305,7 +312,7 @@ window.createNewSuperFolderModal = function() {
     superFolderStates[cleanName] = true;
     bookshelfSuperFolderState[cleanName] = true;
 
-    let customSupers = getCustomSuperFolders();
+    let customSupers = window.getCustomSuperFolders();
     if (!customSupers.includes(cleanName)) {
         customSupers.push(cleanName);
         localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
@@ -368,7 +375,7 @@ window.saveChallengeProgress = function(challengeKey, data) {
 };
 
 // ====================================================
-// COMPLETION CHECK (VOR LOADCASE VORAB DEFINIERT)
+// ABSCHLUSS & RESETS (Vorzeitige Initialisierung)
 // ====================================================
 window.checkFinalCompletion = function() {
     const stepsDone = (clearedStepsCount === totalStepsCount);
@@ -391,60 +398,99 @@ window.checkFinalCompletion = function() {
     if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
 };
 
-// ====================================================
-// INITIALISIERUNG
-// ====================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
-    window.applyAppTheme(savedTheme);
-
-    initUserData();
-    if (typeof initCreatorHubAndCloudCases === 'function') {
-        initCreatorHubAndCloudCases();
+window.finishCase = function() {
+    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
+        solved.push(activeCaseData.case_id);
+        localStorage.setItem('solved_cases', JSON.stringify(solved));
+        if (window.Cloud && typeof window.Cloud.scheduleProgressSync === 'function') window.Cloud.scheduleProgressSync();
+        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
+    } else {
+        applyXpDelta(50, 'Review Bonus');
     }
 
-    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
-    prefetchManifestDDs();
-    renderSkillsSidebar();
-    renderDashboardCases();
-    if (typeof window.renderSpecialtyHub === 'function') {
-        window.renderSpecialtyHub();
+    if (window.isSpecialtyBlindMode) {
+        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
+        window.nextSpecialtyCase();
+        return;
+    } else {
+        alert('🎉 Gratulation! Alle Challenges gemeistert.');
     }
 
-    if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    const navItems = document.querySelectorAll('.nav-item');
+    if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
+};
+
+window.resetCurrentChallenge = function() {
+    if (!activeCaseData || currentActiveChallenge === 'overview') return;
+
+    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
+    if (!confirmReset) return;
+
+    const caseId = activeCaseData.case_id;
+
+    switch (currentActiveChallenge) {
+        case 'audit':
+            ProgressManager.resetChallenge(caseId, 'audit');
+            clearedStepsCount = 0;
+            const badgeAudit = document.getElementById('badge-mode-audit');
+            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
+            if (window.renderTimeline) window.renderTimeline();
+            break;
+        case 'quiz':
+            ProgressManager.resetChallenge(caseId, 'quiz');
+            quizSolved = false;
+            userQuizAnswers = {};
+            if (window.renderQuiz) window.renderQuiz();
+            break;
+        case 'synapses':
+            ProgressManager.resetChallenge(caseId, 'synapses');
+            solvedSynapseDiseases = 0;
+            selectedSynapses = [];
+            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
+            break;
+        case 'cascade':
+            ProgressManager.resetChallenge(caseId, 'cascades');
+            cascadesSolvedCount = 0;
+            if (window.renderCascades) window.renderCascades();
+            break;
+        case 'cat':
+            ProgressManager.resetChallenge(caseId, 'categorization');
+            categorizationSolved = false;
+            if (window.renderCategorization) window.renderCategorization();
+            break;
+        case 'doctordle':
+            ProgressManager.resetChallenge(caseId, 'doctordle');
+            solvedDoctordlePuzzles = 0;
+            doctordleSolved = false;
+            const docBadge = document.getElementById('badge-mode-doctordle');
+            if (docBadge) {
+                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
+                docBadge.style.background = '';
+            }
+            if (window.doctordleGame) {
+                window.doctordleGame.resetGame();
+            }
+            break;
+        case 'flashcards':
+            ProgressManager.resetChallenge(caseId, 'flashcards');
+            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
+            break;
     }
+    window.checkFinalCompletion();
+};
 
-    window.addEventListener('sr:updated', () => {
-        if (window.SpacedRepetitionEngine) {
-            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
-            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
-        }
-    });
+window.resetCurrentCaseEntirely = function() {
+    if (!activeCaseData) return;
+    const blind = !!window.isSpecialtyBlindMode;
+    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
+    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
 
-    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
-    if (addFolderBtn) {
-        addFolderBtn.addEventListener('click', () => {
-            const name = window.prompt("Name für den neuen Ordner:");
-            if (name && name.trim()) window.createNewFolder(name.trim());
-        });
-    }
+    ProgressManager.resetEntireCase(activeCaseData.case_id);
+    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
+};
 
-    document.addEventListener('click', (e) => {
-        if (e.target && e.target.closest('#btn-next-specialty-case')) window.nextSpecialtyCase();
-        if (e.target && e.target.closest('#btn-exit-specialty')) {
-            window.isSpecialtyBlindMode = false;
-            window.applyBlindHeader(false, null);
-            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-        }
-        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
-            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-            alert(`🔍 Diagnose enthüllt:\n\n${title}`);
-        }
-    });
-
-    setTimeout(renderSubjectProgressDrawer, 500);
-});
 
 // ====================================================
 // ALLGEMEINE UI & UTILS
@@ -472,7 +518,6 @@ function escapeHtml(str) {
 
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
-
     if (tab === 'auth') tab = 'settings';
 
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
@@ -544,7 +589,6 @@ window.switchPlayerMode = function(mode) {
     if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
         window.initDoctordle(activeCaseData);
     }
-
     if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
         window.renderFlashcards();
     }
@@ -571,6 +615,10 @@ window.toggleSuperFolder = function(superFolderTitle) {
     renderDashboardCases();
 };
 
+
+// ====================================================
+// FOLDER-MAPPING & ROUTING
+// ====================================================
 const FOLDER_SUPER_MAPPING_KEY = 'medcheck_folder_super_mapping';
 
 function getFolderSuperMapping() {
@@ -614,11 +662,51 @@ function getSuperFolderForCategory(categoryName) {
         lower.includes('hals-nase') || lower.includes('ohr') || lower.includes('29.2') ||
         lower.includes('myelon') || lower.includes('hirn') || lower.includes('gehirn') ||
         lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') ||
-        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz')
+        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz') ||
+        lower.includes('insult') || lower.includes('schwindel')
     ) {
         return 'Nervensystem und Sinnesorgane';
     }
     return 'Allgemein';
+}
+
+function resolveCaseFolderName(caseData) {
+    if (!caseData) return 'Allgemein';
+    const explicitFolder = (caseData.folder_name || '').trim();
+    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
+        return explicitFolder;
+    }
+    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
+    if (rawField) {
+        if (rawField.includes('_')) {
+            const parts = rawField.split('_');
+            const cleanTitle = parts.slice(1).join('_').trim();
+            if (cleanTitle.length > 2) return cleanTitle;
+        }
+        return rawField;
+    }
+    const topic = (caseData.case_overview?.topic || '').trim();
+    if (topic && topic.length > 2) return topic;
+    return 'Allgemein';
+}
+
+function autoAssignSuperFolder(folderName) {
+    return getSuperFolderForCategory(folderName);
+}
+
+function registerDynamicFolder(folderName, targetSuperFolder = null) {
+    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
+    const mapping = getFolderSuperMapping();
+    if (!mapping[folderName]) {
+        mapping[folderName] = superTarget;
+        saveFolderSuperMapping(mapping);
+    }
 }
 
 window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
@@ -669,6 +757,7 @@ window.promptMoveFolderToSuperFolder = function(folderName) {
     }
 };
 
+
 // ==========================================
 // DYNAMISCHES RESIZING DER SIDEBAR
 // ==========================================
@@ -716,9 +805,6 @@ function initSidebarResizer() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initSidebarResizer();
-});
 
 // ====================================================
 // STATS & SKILLS
@@ -765,7 +851,9 @@ function applyXpDelta(delta, label) {
     let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
     localStorage.setItem('user_xp', currentXp);
     updateStatsUI();
-    if (window.Cloud) window.Cloud.scheduleProgressSync();
+    if (window.Cloud && typeof window.Cloud.scheduleProgressSync === 'function') {
+        window.Cloud.scheduleProgressSync();
+    }
 
     const container = document.getElementById('hud-popup-container');
     if (!container) return;
@@ -785,7 +873,9 @@ function trackSkill(skillTag, isHit) {
     if (isHit) skills[tag].hits += 1;
     localStorage.setItem('user_skills', JSON.stringify(skills));
     renderSkillsSidebar();
-    if (window.Cloud) window.Cloud.scheduleProgressSync();
+    if (window.Cloud && typeof window.Cloud.scheduleProgressSync === 'function') {
+        window.Cloud.scheduleProgressSync();
+    }
 }
 
 function renderSkillsSidebar() {
@@ -810,6 +900,7 @@ function renderSkillsSidebar() {
             </div>`;
     }).join('');
 }
+
 
 // ====================================================
 // FACHRICHTUNGS-TRAINING ENGINE
@@ -916,8 +1007,6 @@ window.applyBlindHeader = function(blind, caseData) {
         field = caseData.metadata.medical_field;
     } else if (caseData && caseData.folder_name) {
         field = caseData.folder_name;
-    } else if (typeof specialtySession !== 'undefined' && specialtySession.field) {
-        field = specialtySession.field;
     }
 
     if (wrap) {
@@ -964,9 +1053,18 @@ window.applyBlindHeader = function(blind, caseData) {
     }
 };
 
+
 // ====================================================
-// DASHBOARD DYNAMISCHES RENDERING (SUPER-FOLDER ENGINE)
+// DASHBOARD & BOOKSHELF RENDERING
 // ====================================================
+function getDashboardFolderOrder() {
+    try { return JSON.parse(localStorage.getItem('medcheck_dashboard_folder_order') || '[]'); } catch (_e) { return []; }
+}
+
+function saveDashboardFolderOrder(orderArray) {
+    try { localStorage.setItem('medcheck_dashboard_folder_order', JSON.stringify(orderArray)); } catch (e) {}
+}
+
 function renderDashboardCases() {
     const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
@@ -1102,7 +1200,8 @@ function renderDashboardCases() {
 
     wrapper.innerHTML = superFoldersHtml;
 
-    // Drag-over & Drop für die Überordner im Dashboard
+    let draggedDashboardFolder = null;
+
     wrapper.querySelectorAll('.super-folder').forEach(superEl => {
         const sTitle = decodeURIComponent(superEl.dataset.superTitle);
 
@@ -1128,7 +1227,6 @@ function renderDashboardCases() {
         });
     });
 
-    // Klick- & Drag-Handler für Ordner
     wrapper.querySelectorAll('.category-folder').forEach(folderEl => {
         const catName = decodeURIComponent(folderEl.dataset.category);
         const header = folderEl.querySelector('.category-header');
@@ -1155,7 +1253,6 @@ function renderDashboardCases() {
         });
     });
 
-    // Fall-Karten Handler
     wrapper.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
 
@@ -1193,7 +1290,7 @@ function renderDashboardCases() {
         if (unpublishBtn) {
             unpublishBtn.addEventListener('click', async (event) => {
                 event.stopPropagation();
-                await unpublishCaseFromCloud(caseId);
+                await window.unpublishCaseFromCloud(caseId);
             });
         }
     });
@@ -1205,20 +1302,6 @@ function renderDashboardCases() {
     }
 }
 
-const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
-let draggedDashboardFolder = null;
-
-function getDashboardFolderOrder() {
-    try { return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]'); } catch (_e) { return []; }
-}
-
-function saveDashboardFolderOrder(orderArray) {
-    try { localStorage.setItem(DASHBOARD_FOLDER_ORDER_KEY, JSON.stringify(orderArray)); } catch (e) {}
-}
-
-// ====================================================
-// BOOKSHELF & ORDNER-VERWALTUNG
-// ====================================================
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
@@ -1389,7 +1472,7 @@ function renderBookshelf(casesArray) {
                         e.stopPropagation();
                         const newName = window.prompt("Neuer Name für den Ordner:", folderName);
                         if (newName && newName.trim() && newName.trim() !== folderName) {
-                            renameFolder(folderName, newName.trim());
+                            window.renameFolder(folderName, newName.trim());
                         }
                     });
                 }
@@ -1398,7 +1481,7 @@ function renderBookshelf(casesArray) {
                 if (deleteFolderBtn) {
                     deleteFolderBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        deleteFolder(folderName, casesInFolder.length);
+                        window.deleteFolder(folderName, casesInFolder.length);
                     });
                 }
 
@@ -1431,7 +1514,7 @@ function renderBookshelf(casesArray) {
                     if (!draggedItemState) return;
                     if (draggedItemState.type === 'case') {
                         const caseId = draggedItemState.id;
-                        if (caseId) await moveCaseToFolder(caseId, folderName);
+                        if (caseId) await window.moveCaseToFolder(caseId, folderName);
                     } else if (draggedItemState.type === 'folder') {
                         const draggedFolder = draggedItemState.name;
                         if (draggedFolder && draggedFolder !== folderName) {
@@ -1453,7 +1536,91 @@ function renderBookshelf(casesArray) {
     });
 }
 
-async function renameFolder(oldName, newName) {
+function toggleSubjectDrawer() {
+    const drawer = document.getElementById('subject-progress-drawer');
+    if (!drawer) return;
+    drawer.classList.toggle('collapsed');
+
+    if (!drawer.classList.contains('collapsed')) {
+        renderSubjectProgressDrawer();
+    }
+}
+
+function getSubjectColorClass(pct) {
+    if (pct <= 32) return 'bar-red';
+    if (pct <= 66) return 'bar-orange';
+    return 'bar-green';
+}
+
+function renderSubjectProgressDrawer() {
+    const listEl = document.getElementById('dynamic-subjects-list');
+    if (!listEl) return;
+
+    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    const superStats = {};
+
+    if (typeof superFolderStates === 'object' && superFolderStates !== null) {
+        Object.keys(superFolderStates).forEach(name => {
+            superStats[name] = { total: 0, solved: 0 };
+        });
+    }
+
+    ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'].forEach(name => {
+        if (!superStats[name]) superStats[name] = { total: 0, solved: 0 };
+    });
+
+    const allAvailableCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+
+    allAvailableCases.forEach(c => {
+        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
+        const superFolder = typeof getSuperFolderForCategory === 'function'
+            ? getSuperFolderForCategory(rawCategory)
+            : 'Allgemein';
+
+        if (!superStats[superFolder]) {
+            superStats[superFolder] = { total: 0, solved: 0 };
+        }
+
+        superStats[superFolder].total += 1;
+
+        const caseId = c.case_id || c.id;
+        if (solvedIds.includes(caseId)) {
+            superStats[superFolder].solved += 1;
+        }
+    });
+
+    const entries = Object.entries(superStats);
+    entries.sort((a, b) => {
+        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
+        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
+        return pctA - pctB;
+    });
+
+    listEl.innerHTML = entries.map(([folderName, stats]) => {
+        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+        const colorClass = getSubjectColorClass(pct);
+
+        return `
+            <div class="subject-item" style="cursor: pointer;" onclick="if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${folderName}' zu filtern">
+                <div class="subject-item-top">
+                    <span class="subject-item-name" title="${escapeHtml(folderName)}">📁 ${escapeHtml(folderName)}</span>
+                    <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
+                </div>
+                <div class="subject-bar-track">
+                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+
+// ====================================================
+// ORDNUNG: RENAME / DELETE / MOVE CASES
+// ====================================================
+window.renameFolder = async function(oldName, newName) {
     if (!newName || oldName === newName) return;
 
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
@@ -1493,9 +1660,9 @@ async function renameFolder(oldName, newName) {
         saveFolderSuperMapping(mapping);
     }
     renderDashboardCases();
-}
+};
 
-async function deleteFolder(folderName, caseCount) {
+window.deleteFolder = async function(folderName, caseCount) {
     const warning = caseCount > 0 
         ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden sicher in den Ordner "Allgemein" verschoben.`
         : `Möchtest du den leeren Ordner "${folderName}" wirklich löschen?`;
@@ -1538,9 +1705,9 @@ async function deleteFolder(folderName, caseCount) {
         saveFolderSuperMapping(mapping);
     }
     renderDashboardCases();
-}
+};
 
-async function moveCaseToFolder(caseId, targetFolder) {
+window.moveCaseToFolder = async function(caseId, targetFolder) {
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
     let targetCase = customCases.find(c => c.case_id === caseId);
 
@@ -1551,46 +1718,13 @@ async function moveCaseToFolder(caseId, targetFolder) {
     } else if (caseId === BUILTIN_DEMO_CASE.case_id) {
         BUILTIN_DEMO_CASE.folder_name = targetFolder;
     }
-
-    renderDashboardCases();
-}
-
-window.deleteCaseById = function(caseId) {
-    if (caseId === BUILTIN_DEMO_CASE.case_id) return;
-
-    let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
-    if (!Array.isArray(customCases)) customCases = [];
-
-    const target = customCases.find(c => c.case_id === caseId);
-    const title = target?.metadata?.title || caseId;
-    if (!window.confirm(`Fall "${title}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) return;
-
-    localStorage.setItem('custom_cases', JSON.stringify(customCases.filter(c => c.case_id !== caseId)));
-
-    let solved = [];
-    try { solved = JSON.parse(localStorage.getItem('solved_cases') || '[]'); } catch (e) { solved = []; }
-    localStorage.setItem('solved_cases', JSON.stringify(solved.filter(id => id !== caseId)));
-
-    if (window.Cloud && window.Cloud.isLoggedIn()) {
-        window.Cloud.deleteCloudCase(caseId)
-            .then(() => window.Cloud.scheduleProgressSync())
-            .catch(err => alert(`Fall wurde lokal gelöscht, aber nicht online: ${err.message}`));
-    }
-
-    if (activeCaseData && activeCaseData.case_id === caseId) {
-        activeCaseData = null;
-        window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-    } else {
-        renderDashboardCases();
-    }
-};
-
-window.toggleFolder = function(category) {
-    openFolders[category] = !openFolders[category];
     renderDashboardCases();
 };
 
+
+// ====================================================
+// FALL LADEN & PLAYER LOGIK
+// ====================================================
 function getCustomCases() {
     try { return JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { return []; }
 }
@@ -1788,6 +1922,9 @@ window.renderOverview = function() {
     });
 };
 
+// ====================================================
+// FORGE / GEMINI API
+// ====================================================
 function showForgeFeedback(type, message) {
     const fb = document.getElementById('forge-fb');
     if (!fb) return;
@@ -1803,75 +1940,6 @@ function sanitizeForgeJsonInput(rawValue) {
         .replace(/[\u201C\u201D]/g, '"')
         .replace(/[\u2018\u2019]/g, "'")
         .trim();
-}
-
-function resolveCaseFolderName(caseData) {
-    if (!caseData) return 'Allgemein';
-    const explicitFolder = (caseData.folder_name || '').trim();
-    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
-        return explicitFolder;
-    }
-    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
-    if (rawField) {
-        if (rawField.includes('_')) {
-            const parts = rawField.split('_');
-            const cleanTitle = parts.slice(1).join('_').trim();
-            if (cleanTitle.length > 2) return cleanTitle;
-        }
-        return rawField;
-    }
-    const topic = (caseData.case_overview?.topic || '').trim();
-    if (topic && topic.length > 2) return topic;
-    return 'Allgemein';
-}
-
-function autoAssignSuperFolder(folderName) {
-    if (!folderName) return 'Allgemein';
-    const clean = folderName.trim();
-    const mapping = getFolderSuperMapping();
-    if (mapping[clean] && superFolderStates[mapping[clean]] !== undefined) {
-        return mapping[clean];
-    }
-    const lower = clean.toLowerCase();
-    if (
-        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') ||
-        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') ||
-        lower.includes('ohr') || lower.includes('myelon') || lower.includes('rückenmark') ||
-        lower.includes('hirn') || lower.includes('cns') || lower.includes('zns') ||
-        lower.includes('insult') || lower.includes('schwindel')
-    ) {
-        return 'Nervensystem und Sinnesorgane';
-    }
-    if (
-        lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') ||
-        lower.includes('forens') || lower.includes('suizid') || lower.includes('depress') ||
-        lower.includes('schizo') || lower.includes('bipolar') || lower.includes('delir')
-    ) {
-        return 'Psyche / Ethik / Recht';
-    }
-    if (
-        lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') ||
-        lower.includes('schwanger') || lower.includes('ovard') || lower.includes('mamma') ||
-        lower.includes('uterus') || lower.includes('zyklus') || lower.includes('partus')
-    ) {
-        return 'Reproduktion';
-    }
-    return 'Allgemein';
-}
-
-function registerDynamicFolder(folderName, targetSuperFolder = null) {
-    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!order.includes(folderName)) {
-        order.push(folderName);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-    }
-    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
-    const mapping = getFolderSuperMapping();
-    if (!mapping[folderName]) {
-        mapping[folderName] = superTarget;
-        saveFolderSuperMapping(mapping);
-    }
 }
 
 window.validateAndSaveCustomCase = function() {
@@ -1927,7 +1995,7 @@ window.validateAndSaveCustomCase = function() {
         showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
         renderDashboardCases();
 
-        if (window.Cloud && window.Cloud.isLoggedIn()) {
+        if (window.Cloud && typeof window.Cloud.isLoggedIn === 'function' && window.Cloud.isLoggedIn()) {
             window.Cloud.saveCloudCase(parsed)
                 .then(() => showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`))
                 .catch(cloudErr => showForgeFeedback('feedback-error', `Fall lokal gespeichert, aber Online-Speicherung fehlgeschlagen: ${cloudErr.message}`));
@@ -1938,226 +2006,850 @@ window.validateAndSaveCustomCase = function() {
     }
 };
 
-window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
-    solvedDoctordlePuzzles = solvedCount;
-    totalDoctordlePuzzles = totalCount;
-    const badge = document.getElementById('badge-mode-doctordle');
-    if (badge) {
-        if (solvedCount >= totalCount && totalCount > 0) {
-            badge.innerText = 'Gelöst';
-            badge.style.background = 'var(--color-symptom, #10b981)';
-        } else {
-            badge.innerText = `${solvedCount}/${totalCount}`;
-            badge.style.background = '';
-        }
-    }
+window.generateCaseWithGemini = async function() {
+    const promptInput = document.getElementById('forge-topic');
+    const outputInput = document.getElementById('forge-input');
+    const generateBtn = document.getElementById('forge-generate-btn');
+    
+    if (!promptInput || !outputInput || !generateBtn) return;
+    const prompt = promptInput.value.trim();
 
-    if (solvedCount >= totalCount) {
-        doctordleSolved = true;
-    }
-
-    if (activeCaseData) {
-        ProgressManager.saveCaseState(activeCaseData.case_id, {
-            doctordle: {
-                solvedCount: solvedCount,
-                totalCount: totalCount,
-                solved: solvedCount >= totalCount
-            }
-        });
-    }
-
-    window.checkFinalCompletion();
-};
-
-window.finishCase = function() {
-    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
-        solved.push(activeCaseData.case_id);
-        localStorage.setItem('solved_cases', JSON.stringify(solved));
-        if (window.Cloud) window.Cloud.scheduleProgressSync();
-        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
-    } else {
-        applyXpDelta(50, 'Review Bonus');
-    }
-
-    if (window.isSpecialtyBlindMode) {
-        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
-        window.nextSpecialtyCase();
+    if (!prompt) {
+        showForgeFeedback('feedback-error', 'Bitte gib zuerst ein Thema oder einen Prompt ein.');
         return;
-    } else {
-        alert('🎉 Gratulation! Alle Challenges gemeistert.');
     }
 
-    const navItems = document.querySelectorAll('.nav-item');
-    if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
-};
-
-window.resetCurrentChallenge = function() {
-    if (!activeCaseData || currentActiveChallenge === 'overview') return;
-
-    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
-    if (!confirmReset) return;
-
-    const caseId = activeCaseData.case_id;
-
-    switch (currentActiveChallenge) {
-        case 'audit':
-            ProgressManager.resetChallenge(caseId, 'audit');
-            clearedStepsCount = 0;
-            const badgeAudit = document.getElementById('badge-mode-audit');
-            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
-            if (window.renderTimeline) window.renderTimeline();
-            break;
-
-        case 'quiz':
-            ProgressManager.resetChallenge(caseId, 'quiz');
-            quizSolved = false;
-            userQuizAnswers = {};
-            if (window.renderQuiz) window.renderQuiz();
-            break;
-
-        case 'synapses':
-            ProgressManager.resetChallenge(caseId, 'synapses');
-            solvedSynapseDiseases = 0;
-            selectedSynapses = [];
-            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
-            break;
-
-        case 'cascade':
-            ProgressManager.resetChallenge(caseId, 'cascades');
-            cascadesSolvedCount = 0;
-            if (window.renderCascades) window.renderCascades();
-            break;
-
-        case 'cat':
-            ProgressManager.resetChallenge(caseId, 'categorization');
-            categorizationSolved = false;
-            if (window.renderCategorization) window.renderCategorization();
-            break;
-
-        case 'doctordle':
-            ProgressManager.resetChallenge(caseId, 'doctordle');
-            solvedDoctordlePuzzles = 0;
-            doctordleSolved = false;
-            const docBadge = document.getElementById('badge-mode-doctordle');
-            if (docBadge) {
-                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
-                docBadge.style.background = '';
-            }
-            if (window.doctordleGame) {
-                window.doctordleGame.resetGame();
-            }
-            break;
-
-        case 'flashcards':
-            ProgressManager.resetChallenge(caseId, 'flashcards');
-            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
-            break;
+    if (prompt.length > 50000) {
+        showForgeFeedback('feedback-error', 'Prompt zu lang. Bitte auf maximal 50000 Zeichen kürzen.');
+        return;
     }
 
-    window.checkFinalCompletion();
-};
+    const originalBtnText = generateBtn.innerHTML;
+    generateBtn.disabled = true;
+    generateBtn.innerText = 'Generiere...';
+    showForgeFeedback('feedback-neutral', 'Gemini wird kontaktiert. Bitte warten...');
 
-window.resetCurrentCaseEntirely = function() {
-    if (!activeCaseData) return;
-    const blind = !!window.isSpecialtyBlindMode;
-    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
-    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
-
-    ProgressManager.resetEntireCase(activeCaseData.case_id);
-    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
-};
-
-window.addEventListener("cloudCasesSynced", () => {
-    getCustomCases().forEach(window.registerCaseDDs);
-    if (typeof renderDashboardCases === "function") {
-        renderDashboardCases();
-    }
-    if (typeof window.renderSpecialtyHub === "function") {
-        window.renderSpecialtyHub();
-    }
-});
-
-function toggleSubjectDrawer() {
-    const drawer = document.getElementById('subject-progress-drawer');
-    if (!drawer) return;
-    drawer.classList.toggle('collapsed');
-
-    if (!drawer.classList.contains('collapsed')) {
-        renderSubjectProgressDrawer();
-    }
-}
-
-function getSubjectColorClass(pct) {
-    if (pct <= 32) return 'bar-red';
-    if (pct <= 66) return 'bar-orange';
-    return 'bar-green';
-}
-
-function renderSubjectProgressDrawer() {
-    const listEl = document.getElementById('dynamic-subjects-list');
-    if (!listEl) return;
-
-    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const superStats = {};
-
-    if (typeof superFolderStates === 'object' && superFolderStates !== null) {
-        Object.keys(superFolderStates).forEach(name => {
-            superStats[name] = { total: 0, solved: 0 };
+    try {
+        const res = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
         });
+
+        const responseText = await res.text();
+        let data = null;
+        try {
+            data = JSON.parse(responseText);
+        } catch (_error) {
+            data = null;
+        }
+
+        if (!res.ok || !data) {
+            const serverMessage = data?.error || responseText.trim().slice(0, 200);
+            throw new Error(`Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten.`);
+        }
+
+        const rawResult = typeof data.generatedText === 'string' ? data.generatedText : '';
+        const sanitized = sanitizeForgeJsonInput(rawResult);
+
+        try {
+            const parsed = JSON.parse(sanitized);
+            outputInput.value = JSON.stringify(parsed, null, 2);
+        } catch (_error) {
+            outputInput.value = sanitized;
+        }
+
+        showForgeFeedback('feedback-success', 'Fall generiert. Bitte prüfen, ggf. anpassen und validieren/speichern.');
+    } catch (error) {
+        showForgeFeedback('feedback-error', `Generierungsfehler: ${error.message}`);
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = originalBtnText;
+    }
+};
+
+// ==========================================================================
+// LERN-DEPOT (KNOWLEDGE VAULT) MODULE
+// ==========================================================================
+const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
+let currentDepotFilter = 'open';
+let pendingSelectionData = null;
+
+function getLocalDepot() {
+    try { return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function saveLocalDepot(items) {
+    localStorage.setItem(DEPOT_STORAGE_KEY, JSON.stringify(items));
+    window.updateDepotBadges(items);
+}
+
+function getSupabaseInstance() {
+    return window.supabaseClient || window.sb || window.supabase_client || null;
+}
+
+async function syncDepotWithSupabase() {
+    const sb = getSupabaseInstance();
+    if (!sb || !sb.auth) {
+        window.updateDepotBadges(getLocalDepot());
+        return;
     }
 
-    ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'].forEach(name => {
-        if (!superStats[name]) superStats[name] = { total: 0, solved: 0 };
-    });
-
-    const allAvailableCases = typeof window.getRegisteredCases === 'function'
-        ? window.getRegisteredCases()
-        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-
-    allAvailableCases.forEach(c => {
-        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
-        const superFolder = typeof getSuperFolderForCategory === 'function'
-            ? getSuperFolderForCategory(rawCategory)
-            : 'Allgemein';
-
-        if (!superStats[superFolder]) {
-            superStats[superFolder] = { total: 0, solved: 0 };
+    try {
+        const { data: sessionData } = await sb.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (!user) {
+            window.updateDepotBadges(getLocalDepot());
+            return;
         }
 
-        superStats[superFolder].total += 1;
+        const { data, error } = await sb
+            .from('user_depot')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-        const caseId = c.case_id || c.id;
-        if (solvedIds.includes(caseId)) {
-            superStats[superFolder].solved += 1;
+        if (!error && Array.isArray(data)) {
+            saveLocalDepot(data);
+            const depotView = document.getElementById('depot-view');
+            if (depotView && depotView.style.display !== 'none' && typeof window.renderDepotView === 'function') {
+                window.renderDepotView();
+            }
         }
+    } catch (err) {
+        console.warn('Depot Offline-Modus aktiv:', err);
+    }
+}
+
+function initOverviewSelectionListener() {
+    const popover = document.getElementById('depot-selection-popover');
+    if (!popover) return;
+
+    const handleSelection = () => {
+        const overviewPane = document.getElementById('mode-container-overview');
+        if (!overviewPane || overviewPane.style.display === 'none') {
+            popover.classList.add('hidden');
+            return;
+        }
+
+        const selection = window.getSelection();
+        const selectedText = selection ? selection.toString().trim() : '';
+
+        if (selectedText.length < 5 || !overviewPane.contains(selection.anchorNode)) {
+            popover.classList.add('hidden');
+            pendingSelectionData = null;
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        let cueContext = '';
+        const anchorEl = selection.anchorNode.nodeType === 3 ? selection.anchorNode.parentElement : selection.anchorNode;
+        const cornellRow = anchorEl ? anchorEl.closest('.cornell-grid, .cornell-row-item') : null;
+        if (cornellRow) {
+            const cueEl = cornellRow.querySelector('.cornell-cue-item');
+            if (cueEl) cueContext = cueEl.textContent.trim();
+        }
+
+        const activeCaseObj = window.currentCase || window.activeCaseData || {};
+        const badgeTitleEl = document.getElementById('player-case-badge-title');
+        const caseTitle = activeCaseObj.title || (badgeTitleEl ? badgeTitleEl.textContent.trim() : 'Klinischer Fall');
+        const caseId = activeCaseObj.id || activeCaseObj.case_id || caseTitle;
+        const category = activeCaseObj.folder || activeCaseObj.folder_name || activeCaseObj.specialty || 'Allgemein';
+
+        pendingSelectionData = {
+            case_id: caseId,
+            case_title: caseTitle,
+            category: category,
+            cue_context: cueContext,
+            highlighted_text: selectedText
+        };
+
+        const topPos = Math.max(45, rect.top);
+        const leftPos = Math.min(window.innerWidth - 90, Math.max(90, rect.left + rect.width / 2));
+
+        popover.style.top = `${topPos}px`;
+        popover.style.left = `${leftPos}px`;
+        popover.classList.remove('hidden');
+    };
+
+    document.addEventListener('mouseup', () => setTimeout(handleSelection, 20));
+    document.addEventListener('touchend', () => setTimeout(handleSelection, 60));
+
+    document.querySelector('.main-wrapper')?.addEventListener('scroll', () => {
+        popover.classList.add('hidden');
+    });
+}
+
+window.saveCurrentSelectionToDepot = async function(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const popover = document.getElementById('depot-selection-popover');
+    if (popover) popover.classList.add('hidden');
+
+    if (!pendingSelectionData) return;
+
+    await createDepotEntry(pendingSelectionData);
+    window.getSelection()?.removeAllRanges();
+    pendingSelectionData = null;
+};
+
+window.addManualDepotEntry = async function() {
+    const input = document.getElementById('depot-manual-input');
+    const text = input ? input.value.trim() : '';
+    if (!text) return;
+
+    await createDepotEntry({
+        case_id: 'manual_note',
+        case_title: 'Eigene Notiz / Eselsbrücke',
+        category: 'Eigene Notizen',
+        cue_context: 'Merksatz',
+        highlighted_text: text
     });
 
-    const entries = Object.entries(superStats);
-    entries.sort((a, b) => {
-        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
-        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
-        return pctA - pctB;
+    input.value = '';
+    if(typeof window.renderDepotView === 'function') window.renderDepotView();
+};
+
+async function createDepotEntry(entryData) {
+    const items = getLocalDepot();
+
+    const exists = items.some(i => i.highlighted_text === entryData.highlighted_text && i.case_id === entryData.case_id);
+    if (exists) {
+        if (typeof showScorePopup === 'function') showScorePopup('Bereits im Lern-Depot vorhanden', 'neutral');
+        return;
+    }
+
+    const newItem = {
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'dep_' + Date.now(),
+        case_id: entryData.case_id,
+        case_title: entryData.case_title,
+        category: entryData.category || 'Allgemein',
+        cue_context: entryData.cue_context || '',
+        highlighted_text: entryData.highlighted_text,
+        user_note: '',
+        is_mastered: false,
+        created_at: new Date().toISOString()
+    };
+
+    items.unshift(newItem);
+    saveLocalDepot(items);
+
+    if (typeof showScorePopup === 'function') showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try {
+            const { data: sessionData } = await sb.auth.getSession();
+            const user = sessionData?.session?.user;
+            if (user) {
+                await sb.from('user_depot').insert([{
+                    id: newItem.id,
+                    user_id: user.id,
+                    case_id: newItem.case_id,
+                    case_title: newItem.case_title,
+                    category: newItem.category,
+                    cue_context: newItem.cue_context,
+                    highlighted_text: newItem.highlighted_text,
+                    user_note: newItem.user_note,
+                    is_mastered: newItem.is_mastered
+                }]);
+            }
+        } catch (e) {}
+    }
+}
+
+window.toggleDepotItemMastered = async function(itemId) {
+    const items = getLocalDepot();
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+
+    target.is_mastered = !target.is_mastered;
+    saveLocalDepot(items);
+    if(typeof window.renderDepotView === 'function') window.renderDepotView();
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try { await sb.from('user_depot').update({ is_mastered: target.is_mastered }).eq('id', itemId); } catch (e) {}
+    }
+};
+
+window.updateDepotItemNote = async function(itemId, noteText) {
+    const items = getLocalDepot();
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+
+    target.user_note = noteText.trim();
+    saveLocalDepot(items);
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try { await sb.from('user_depot').update({ user_note: target.user_note }).eq('id', itemId); } catch (e) {}
+    }
+};
+
+window.deleteDepotItem = async function(itemId) {
+    const items = getLocalDepot().filter(i => i.id !== itemId);
+    saveLocalDepot(items);
+    if(typeof window.renderDepotView === 'function') window.renderDepotView();
+
+    const sb = getSupabaseInstance();
+    if (sb && sb.auth) {
+        try { await sb.from('user_depot').delete().eq('id', itemId); } catch (e) {}
+    }
+};
+
+window.setDepotFilter = function(filterType) {
+    currentDepotFilter = filterType;
+    ['open', 'mastered', 'all'].forEach(type => {
+        const btn = document.getElementById(`depot-filter-${type}`);
+        if (btn) btn.classList.toggle('active', type === filterType);
+    });
+    if(typeof window.renderDepotView === 'function') window.renderDepotView();
+};
+
+window.updateDepotBadges = function(items = getLocalDepot()) {
+    const openCount = items.filter(i => !i.is_mastered).length;
+    const masteredCount = items.filter(i => i.is_mastered).length;
+
+    const navBadge = document.getElementById('nav-depot-badge');
+    if (navBadge) navBadge.textContent = openCount;
+
+    const openEl = document.getElementById('depot-count-open');
+    if (openEl) openEl.textContent = openCount;
+
+    const masteredEl = document.getElementById('depot-count-mastered');
+    if (masteredEl) masteredEl.textContent = masteredCount;
+};
+
+function escapeDepotHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+window.renderDepotView = function() {
+    const container = document.getElementById('depot-items-container');
+    const categorySelect = document.getElementById('depot-category-select');
+    const searchInput = document.getElementById('depot-search-input');
+    if (!container) return;
+
+    const allItems = getLocalDepot();
+    window.updateDepotBadges(allItems);
+
+    if (categorySelect) {
+        const currentVal = categorySelect.value || 'ALL';
+        const categories = [...new Set(allItems.map(i => i.category || 'Allgemein'))];
+        categorySelect.innerHTML = `<option value="ALL">Alle Kategorien (${allItems.length})</option>` +
+            categories.map(c => `<option value="${escapeDepotHtml(c)}">${escapeDepotHtml(c)}</option>`).join('');
+        if (categories.includes(currentVal)) categorySelect.value = currentVal;
+    }
+
+    const selectedCat = categorySelect ? categorySelect.value : 'ALL';
+    const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+    const filtered = allItems.filter(item => {
+        if (currentDepotFilter === 'open' && item.is_mastered) return false;
+        if (currentDepotFilter === 'mastered' && !item.is_mastered) return false;
+        if (selectedCat !== 'ALL' && item.category !== selectedCat) return false;
+        if (query) {
+            const hay = `${item.highlighted_text}${item.case_title} ${item.cue_context}${item.user_note}`.toLowerCase();
+            if (!hay.includes(query)) return false;
+        }
+        return true;
     });
 
-    listEl.innerHTML = entries.map(([folderName, stats]) => {
-        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
-        const colorClass = getSubjectColorClass(pct);
-
-        return `
-            <div class="subject-item" style="cursor: pointer;" onclick="if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${folderName}' zu filtern">
-                <div class="subject-item-top">
-                    <span class="subject-item-name" title="${escapeHtml(folderName)}">📁 ${escapeHtml(folderName)}</span>
-                    <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
-                </div>
-                <div class="subject-bar-track">
-                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
-                </div>
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 36px 20px; color: var(--text-muted); background: rgba(10,15,29,0.35); border-radius: 14px; border: 1px dashed var(--card-border);">
+                <div style="font-size: 1.5rem; margin-bottom: 8px;">📌</div>
+                <div style="font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Keine Einträge in dieser Ansicht</div>
+                <div style="font-size: 0.82rem;">Markiere im Tab <strong>„🧭 Übersicht“</strong> eines Falls beliebige Textstellen mit der Maus, um sie direkt hier zu sammeln.</div>
             </div>
         `;
-    }).join('');
+        return;
+    }
+
+    container.innerHTML = filtered.map(item => `
+        <div class="depot-card ${item.is_mastered ? 'is-mastered' : ''}">
+            <div>
+                <div class="depot-card-meta">
+                    <span class="depot-case-Origin" title="${escapeDepotHtml(item.case_title)}">
+                        📁 ${escapeDepotHtml(item.case_title)}
+                    </span>
+                    <span class="tag">${escapeDepotHtml(item.category)}</span>
+                </div>
+                ${item.cue_context ? `<div class="depot-cue-tag">💡 ${escapeDepotHtml(item.cue_context)}</div>` : ''}
+                <div class="depot-quote-text">„${escapeDepotHtml(item.highlighted_text)}“</div>
+            </div>
+            <div>
+                <input type="text" class="depot-note-input" 
+                       placeholder="Eigene Notiz / Eselsbrücke ergänzen..." 
+                       value="${escapeDepotHtml(item.user_note)}"
+                       onchange="updateDepotItemNote('${item.id}', this.value)">
+                <div class="depot-card-actions" style="margin-top: 8px;">
+                    <button type="button" class="depot-toggle-btn" onclick="toggleDepotItemMastered('${item.id}')">
+                        ${item.is_mastered ? '↺ Zurück zu Offen' : '✓ Als gelernt markieren'}
+                    </button>
+                    <button type="button" class="depot-delete-btn" onclick="deleteDepotItem('${item.id}')" title="Eintrag löschen">🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+
+// ==========================================================================
+// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API)
+// ==========================================================================
+let currentDepotQuizQuestions = [];
+
+window.closeDepotQuizArena = function() {
+    const arena = document.getElementById('depot-quiz-arena');
+    if (arena) arena.classList.add('hidden');
+};
+
+window.generateDepotQuizWithAI = async function() {
+    const allItems = getLocalDepot();
+    const categorySelect = document.getElementById('depot-category-select');
+    const selectedCat = categorySelect ? categorySelect.value : 'ALL';
+
+    let targetItems = allItems.filter(item => !item.is_mastered && (selectedCat === 'ALL' || item.category === selectedCat));
+    if (targetItems.length === 0) targetItems = allItems.filter(item => !item.is_mastered);
+
+    if (targetItems.length === 0) {
+        if (typeof showScorePopup === 'function') {
+            showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
+        } else {
+            alert('Du hast aktuell keine offenen Lernlücken im Depot.');
+        }
+        return;
+    }
+
+    const sampledItems = [...targetItems].sort(() => Math.random() - 0.5).slice(0, 6);
+
+    const arena = document.getElementById('depot-quiz-arena');
+    const body = document.getElementById('depot-quiz-body');
+    const subtitle = document.getElementById('depot-quiz-subtitle');
+    const btn = document.getElementById('btn-generate-depot-quiz');
+
+    if (!arena || !body) return;
+
+    arena.classList.remove('hidden');
+    if (btn) btn.disabled = true;
+    if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken...`;
+
+    body.innerHTML = `<div class="skeleton" style="height: 110px; width: 100%;"></div><div class="skeleton" style="height: 110px; width: 100%;"></div>`;
+
+    const notesContext = sampledItems.map(item => 
+        `[ID: ${item.id}] (Thema:${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Notiz: ${item.user_note})` : ''}`
+    ).join('\n');
+
+    const promptText = `Du bist Dozent für medizinische Didaktik. Erstelle aus den folgenden Lernlücken ${Math.min(sampledItems.length, 4)} Single-Choice-Fragen als striktes JSON-Array. Format: [{"source_depot_id": "Die ID", "topic": "Fach", "question": "Vignette + Frage", "options": ["A","B","C","D"], "correct_index": 0, "explanation": "Grund"}]. LERNLÜCKEN:\n${notesContext}`;
+
+    try {
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: promptText, mode: 'depot_quiz' })
+        });
+        const rawData = await response.json();
+        const questions = Array.isArray(rawData.result) ? rawData.result : (Array.isArray(rawData) ? rawData : []);
+
+        if (questions.length === 0) throw new Error("Leeres API Resultat.");
+        
+        currentDepotQuizQuestions = questions;
+        if (subtitle) subtitle.textContent = `${questions.length} Fragen aus deinen Lücken bereit:`;
+        window.renderDepotQuizQuestions(questions);
+    } catch (err) {
+        const fallbackQuestions = sampledItems.slice(0, 4).map(item => {
+            const options = [item.highlighted_text, "Anderer Befund A", "Unauffällig", "Labor-Artefakt"].sort(() => Math.random() - 0.5);
+            return {
+                source_depot_id: item.id,
+                topic: item.category || 'Active Recall',
+                question: `Aussage zu Fall „${item.case_title}“?`,
+                options: options,
+                correct_index: options.indexOf(item.highlighted_text),
+                explanation: `Original-Markierung: ${item.highlighted_text}`
+            };
+        });
+        currentDepotQuizQuestions = fallbackQuestions;
+        if (subtitle) subtitle.textContent = `Offline-Modus: ${fallbackQuestions.length} Active-Recall-Fragen:`;
+        window.renderDepotQuizQuestions(fallbackQuestions);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+};
+
+window.renderDepotQuizQuestions = function(questions) {
+    const body = document.getElementById('depot-quiz-body');
+    if (!body) return;
+
+    body.innerHTML = questions.map((q, qIdx) => `
+        <div class="depot-q-card" id="depot-q-card-${qIdx}">
+            <div class="depot-q-meta">
+                <span>Frage ${qIdx + 1} / ${questions.length}</span>
+                <span>${escapeHtml(q.topic || 'Klinische Prüfung')}</span>
+            </div>
+            <div class="depot-q-stem">${escapeHtml(q.question)}</div>
+            <div class="depot-q-options">
+                ${(q.options || []).map((opt, optIdx) => `
+                    <button type="button" class="quiz-opt-btn" id="depot-q-${qIdx}-opt-${optIdx}" onclick="evaluateDepotQuizAnswer(${qIdx},${optIdx})">
+                        <span><strong>${String.fromCharCode(65 + optIdx)})</strong> ${escapeHtml(opt)}</span>
+                    </button>
+                `).join('')}
+            </div>
+            <div class="depot-q-feedback" id="depot-q-fb-${qIdx}"></div>
+        </div>
+    `).join('');
+};
+
+window.evaluateDepotQuizAnswer = function(qIdx, selectedOptIdx) {
+    const q = currentDepotQuizQuestions[qIdx];
+    if (!q || q.answered) return;
+    q.answered = true;
+
+    const isCorrect = selectedOptIdx === Number(q.correct_index);
+
+    (q.options || []).forEach((_, idx) => {
+        const btn = document.getElementById(`depot-q-${qIdx}-opt-${idx}`);
+        if (!btn) return;
+        btn.disabled = true;
+        if (idx === Number(q.correct_index)) btn.classList.add('correct-highlight');
+        else if (idx === selectedOptIdx && !isCorrect) btn.classList.add('wrong-highlight');
+    });
+
+    if (isCorrect && typeof showScorePopup === 'function') showScorePopup('+50 XP', 'positive');
+
+    const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
+    if (fbEl) {
+        fbEl.style.display = 'block';
+        fbEl.innerHTML = `
+            <div style="font-weight: 700; color: ${isCorrect ? 'var(--color-symptom)' : 'var(--color-risk)'}; margin-bottom: 4px;">
+                ${isCorrect ? '✓ Korrekt!' : '✕ Falsch.'}
+            </div>
+            <div>${escapeHtml(q.explanation || '')}</div>
+            ${q.source_depot_id ? `
+                <div class="depot-mastery-prompt">
+                    <button type="button" class="depot-toggle-btn" onclick="markDepotMasteredFromQuiz('${q.source_depot_id}', this)">
+                        ✓ Im Depot als gelernt abhaken
+                    </button>
+                </div>
+            ` : ''}
+        `;
+    }
+};
+
+window.markDepotMasteredFromQuiz = async function(depotId, btnEl) {
+    await window.toggleDepotItemMastered(depotId);
+    if (btnEl) {
+        btnEl.textContent = '✓ Als gelernt gespeichert!';
+        btnEl.disabled = true;
+        btnEl.style.opacity = '0.6';
+    }
+};
+
+
+// ====================================================
+// PHARMA-COMPASS CLOUD-SPEICHER
+// ====================================================
+const PHARMA_STORAGE_KEY = 'medcheck_pharma_sets';
+
+window.savePharmaSet = async function(setObj) {
+    if (!setObj || !setObj.set_id) return;
+    try {
+        let savedSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
+        savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
+        savedSets.push(setObj);
+        localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(savedSets));
+    } catch (e) {}
+
+    const sb = window.supabaseClient || window.sb || null;
+    if (sb && sb.auth) {
+        try {
+            const { data: sessionData } = await sb.auth.getSession();
+            const user = sessionData?.session?.user;
+            if (user) {
+                await sb.from('pharma_sets').upsert([{
+                    set_id: setObj.set_id,
+                    user_id: user.id,
+                    title: setObj.title,
+                    medical_field: setObj.medical_field || 'Pharmakologie',
+                    game_type: setObj.game_type || 'arrow_compass',
+                    content: setObj,
+                    updated_at: new Date().toISOString()
+                }]);
+            }
+        } catch (err) {}
+    }
+};
+
+window.syncPharmaSetsFromCloud = async function() {
+    const sb = window.supabaseClient || window.sb || null;
+    if (!sb || !sb.auth) return;
+    try {
+        const { data: sessionData } = await sb.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (!user) return;
+
+        const { data, error } = await sb.from('pharma_sets').select('content').eq('user_id', user.id);
+        if (!error && Array.isArray(data) && data.length > 0) {
+            const localSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
+            const mergedMap = new Map();
+            localSets.forEach(s => { if (s?.set_id) mergedMap.set(s.set_id, s); });
+            data.forEach(row => { if (row?.content?.set_id) mergedMap.set(row.content.set_id, row.content); });
+            localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(Array.from(mergedMap.values())));
+        }
+    } catch (e) {}
+};
+
+
+// ==========================================
+// CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
+// ==========================================
+function getActiveSupabaseClient() {
+    return window.supabaseClient || window.supabase || window.sb || null;
 }
+
+window.addEventListener('dragover', (e) => {
+    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) e.preventDefault();
+}, false);
+
+window.addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) e.preventDefault();
+}, false);
+
+window.initCreatorHubAndCloudCases = async function() {
+    const sb = getActiveSupabaseClient();
+    await window.loadCasesFromDatabase();
+
+    if (!sb || !sb.auth) return;
+
+    try {
+        const { data: { session } } = await sb.auth.getSession();
+        window.currentSessionUser = session?.user || null;
+        window.setupCreatorHub(window.currentSessionUser);
+
+        sb.auth.onAuthStateChange((_event, session) => {
+            window.currentSessionUser = session?.user || null;
+            window.setupCreatorHub(window.currentSessionUser);
+            window.loadCasesFromDatabase();
+        });
+    } catch (e) {
+        console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
+    }
+};
+
+window.setupCreatorHub = function(currentUser) {
+    const uploadSection = document.getElementById('creatorUploadSection');
+    if (!uploadSection) return;
+
+    if (currentUser && currentUser.email && currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase()) {
+        uploadSection.style.display = 'block';
+        window.initDropZone();
+    } else {
+        uploadSection.style.display = 'none';
+    }
+};
+
+window.initDropZone = function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('caseFileInput');
+    if (!dropZone || !fileInput) return;
+
+    dropZone.onclick = (e) => { if (e.target !== fileInput) fileInput.click(); };
+    fileInput.onchange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            window.handleCaseFiles(e.target.files);
+            fileInput.value = '';
+        }
+    };
+
+    const highlight = (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); };
+    const unhighlight = (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover'); };
+
+    ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, highlight, false));
+    ['dragleave', 'dragend'].forEach(name => dropZone.addEventListener(name, unhighlight, false));
+
+    dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover');
+
+        const dt = e.dataTransfer;
+        if (!dt) return;
+
+        const internalCaseId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
+        if (internalCaseId && (!dt.files || dt.files.length === 0)) {
+            await window.handleInternalCaseUpload(internalCaseId);
+            return;
+        }
+
+        if (dt.files && dt.files.length > 0) {
+            window.handleCaseFiles(dt.files);
+        }
+    }, false);
+};
+
+window.handleInternalCaseUpload = async function(caseId) {
+    const sb = getActiveSupabaseClient();
+    if (!sb) return alert("Verbindung zu Supabase nicht gefunden.");
+
+    const { data: { session } } = await sb.auth.getSession();
+    const currentUser = session?.user;
+    if (!currentUser) return window.renderStatus(caseId, 'error', 'Nicht eingeloggt.');
+
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
+
+    if (!targetCase) return window.renderStatus(caseId, 'error', 'Fall nicht gefunden.');
+
+    const title = targetCase.metadata?.title || targetCase.title || caseId;
+    const field = targetCase.folder_name || targetCase.metadata?.medical_field || targetCase.medical_field || 'Allgemein';
+    window.renderStatus(title, 'loading', 'Synchronisiere mit Cloud...');
+
+    try {
+        const { error } = await sb.from('cases').upsert({
+            case_id: caseId,
+            title: title,
+            medical_field: field,
+            is_public: true,
+            user_id: currentUser.id,
+            created_by: currentUser.id,
+            content: targetCase
+        }, { onConflict: 'case_id' });
+
+        if (error) throw error;
+        window.renderStatus(title, 'success', `Cloud-Upload erfolgreich (${caseId})`);
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
+        await window.loadCasesFromDatabase();
+    } catch (err) {
+        window.renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
+    }
+};
+
+window.handleCaseFiles = async function(files) {
+    const sb = getActiveSupabaseClient();
+    if (!sb) return alert("Keine Supabase-Verbindung vorhanden.");
+
+    const { data: { session } } = await sb.auth.getSession();
+    const currentUser = session?.user;
+    if (!currentUser) return alert("Bitte melde dich als Creator an.");
+
+    for (const file of Array.from(files)) {
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            window.renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
+            continue;
+        }
+
+        window.renderStatus(file.name, 'loading', 'Validierung...');
+        try {
+            const rawContent = await file.text();
+            const caseData = JSON.parse(rawContent);
+
+            const caseId = caseData.case_id || caseData.id;
+            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
+            caseData.case_id = caseId;
+
+            caseData.folder_name = caseData.folder_name || resolveCaseFolderName(caseData);
+            registerDynamicFolder(caseData.folder_name);
+
+            const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
+            const title = caseData.metadata?.title || caseData.title || caseId;
+
+            const { error } = await sb.from('cases').upsert({
+                case_id: caseId,
+                title: title,
+                medical_field: field,
+                is_public: true,
+                user_id: currentUser.id,
+                created_by: currentUser.id,
+                content: caseData
+            }, { onConflict: 'case_id' });
+
+            if (error) throw error;
+            window.renderStatus(file.name, 'success', `Hochgeladen (${caseId})`);
+            await window.loadCasesFromDatabase();
+        } catch (err) {
+            window.renderStatus(file.name, 'error', `Fehler: ${err.message}`);
+        }
+    }
+};
+
+window.unpublishCaseFromCloud = async function(caseId) {
+    if (!window.confirm(`Möchtest du den Fall "${caseId}" aus der Cloud entfernen?`)) return;
+    const sb = getActiveSupabaseClient();
+    if (!sb) return;
+
+    try {
+        const { error } = await sb.from('cases').delete().eq('case_id', caseId);
+        if (error) throw error;
+        window.renderStatus(caseId, 'success', 'Nur noch lokal verfügbar.');
+        await window.loadCasesFromDatabase();
+    } catch (err) {
+        alert(`Fehler beim Entfernen: ${err.message}`);
+    }
+};
+
+window.renderStatus = function(fileName, state, message) {
+    const statusContainer = document.getElementById('uploadStatusList');
+    if (!statusContainer) return;
+
+    const safeId = 'status-' + fileName.replace(/[^a-zA-Z0-9]/g, '_');
+    let item = document.getElementById(safeId);
+    if (!item) {
+        item = document.createElement('div');
+        item.id = safeId;
+        statusContainer.prepend(item);
+    }
+    item.className = `upload-status-item ${state}`;
+    item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
+};
+
+window.loadCasesFromDatabase = async function() {
+    const sb = getActiveSupabaseClient();
+    if (!sb) return;
+
+    try {
+        const { data, error } = await sb
+            .from('cases')
+            .select('case_id, title, medical_field, is_public, content')
+            .order('created_at', { ascending: false });
+
+        if (error) return console.warn("Fälle konnten nicht geladen werden:", error.message);
+
+        window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
+
+        if (data && data.length > 0) {
+            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+            let modified = false;
+
+            data.forEach(dbCase => {
+                const cloudCase = dbCase.content;
+                const idx = customCases.findIndex(c => (c.case_id || c.id) === (cloudCase.case_id || cloudCase.id));
+                if (idx !== -1) {
+                    customCases[idx] = cloudCase;
+                } else {
+                    customCases.push(cloudCase);
+                    modified = true;
+                }
+                if (typeof window.registerCaseDDs === 'function') window.registerCaseDDs(cloudCase);
+            });
+
+            if (modified) localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        }
+
+        if (typeof renderDashboardCases === 'function') renderDashboardCases();
+        if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    } catch (err) {
+        console.error("Fehler bei loadCasesFromDatabase:", err);
+    }
+};
 
 // ==========================================================================
 // DRAG & DROP AUTO-SCROLL ENGINE
@@ -2175,9 +2867,7 @@ function renderSubjectProgressDrawer() {
 
     function getScrollContainer() {
         const mainWrapper = document.querySelector('.main-wrapper');
-        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) {
-            return mainWrapper;
-        }
+        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) return mainWrapper;
         return document.scrollingElement || document.documentElement || document.body;
     }
 
@@ -2191,20 +2881,15 @@ function renderSubjectProgressDrawer() {
         const bookshelf = document.getElementById('bookshelf-container');
         if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
             const rect = bookshelf.getBoundingClientRect();
-            const inBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
-            const inBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
-
-            if (inBookshelfX && inBookshelfY) {
+            if (currentMouseX >= rect.left && currentMouseX <= rect.right && currentMouseY >= rect.top && currentMouseY <= rect.bottom) {
                 const edgeZone = Math.min(80, rect.height * 0.28);
                 if (currentMouseY < rect.top + edgeZone) {
                     const ratio = Math.max(0, (edgeZone - (currentMouseY - rect.top)) / edgeZone);
-                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
-                    bookshelf.scrollTop -= speed;
+                    bookshelf.scrollTop -= BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
                     bookshelfScrolled = true;
                 } else if (currentMouseY > rect.bottom - edgeZone) {
                     const ratio = Math.max(0, (currentMouseY - (rect.bottom - edgeZone)) / edgeZone);
-                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
-                    bookshelf.scrollTop -= speed;
+                    bookshelf.scrollTop += BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
                     bookshelfScrolled = true;
                 }
             }
@@ -2214,32 +2899,18 @@ function renderSubjectProgressDrawer() {
             const scrollTarget = getScrollContainer();
             const viewportHeight = window.innerHeight;
             const topbar = document.querySelector('topbar');
-            const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 70;
-            const topScrollZone = topbarBottom + TOP_THRESHOLD;
+            const topScrollZone = (topbar ? topbar.getBoundingClientRect().bottom : 70) + TOP_THRESHOLD;
 
             if (currentMouseY < topScrollZone) {
-                const distanceInside = Math.max(0, topScrollZone - currentMouseY);
-                const ratio = Math.min(1, distanceInside / TOP_THRESHOLD);
+                const ratio = Math.min(1, Math.max(0, topScrollZone - currentMouseY) / TOP_THRESHOLD);
                 const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
-
-                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, -speed);
-                } else {
-                    scrollTarget.scrollTop -= speed;
-                }
+                (scrollTarget === document.documentElement || scrollTarget === document.body) ? window.scrollBy(0, -speed) : scrollTarget.scrollTop -= speed;
             } else if (currentMouseY > viewportHeight - BOTTOM_THRESHOLD) {
-                const distanceInside = Math.max(0, currentMouseY - (viewportHeight - BOTTOM_THRESHOLD));
-                const ratio = Math.min(1, distanceInside / BOTTOM_THRESHOLD);
+                const ratio = Math.min(1, Math.max(0, currentMouseY - (viewportHeight - BOTTOM_THRESHOLD)) / BOTTOM_THRESHOLD);
                 const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
-
-                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, speed);
-                } else {
-                    scrollTarget.scrollTop -= speed;
-                }
+                (scrollTarget === document.documentElement || scrollTarget === document.body) ? window.scrollBy(0, speed) : scrollTarget.scrollTop += speed;
             }
         }
-
         scrollFrameId = requestAnimationFrame(performAutoScroll);
     }
 
@@ -2250,19 +2921,11 @@ function renderSubjectProgressDrawer() {
     }
 
     document.addEventListener('dragstart', (e) => {
-        const isDraggableItem = e.target.closest('.case-card') || 
-                               e.target.closest('.category-folder') || 
-                               e.target.closest('.folder-case-item') || 
-                               e.target.closest('.folder-group');
-
-        if (isDraggableItem) {
+        if (e.target.closest('.case-card') || e.target.closest('.category-folder') || e.target.closest('.folder-case-item') || e.target.closest('.folder-group')) {
             isDraggingActive = true;
             currentMouseY = e.clientY;
             currentMouseX = e.clientX;
-
-            if (!scrollFrameId) {
-                scrollFrameId = requestAnimationFrame(performAutoScroll);
-            }
+            if (!scrollFrameId) scrollFrameId = requestAnimationFrame(performAutoScroll);
         }
     });
 
@@ -2278,312 +2941,66 @@ function renderSubjectProgressDrawer() {
             scrollFrameId = null;
         }
     };
-
     document.addEventListener('dragend', stopAutoScroll);
     document.addEventListener('drop', stopAutoScroll);
 })();
 
-// ==========================================
-// CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
-// ==========================================
-window.cloudCaseIds = new Set();
-window.currentSessionUser = null;
 
-function getActiveSupabaseClient() {
-    return window.supabaseClient || window.supabase || window.sb || null;
-}
+// ====================================================
+// INITIALISIERUNG
+// ====================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
+    if(typeof window.applyAppTheme === 'function') window.applyAppTheme(savedTheme);
 
-window.addEventListener('dragover', (e) => {
-    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-        e.preventDefault();
+    initUserData();
+    
+    // Cloud-Logik starten
+    if (typeof window.initCreatorHubAndCloudCases === 'function') {
+        window.initCreatorHubAndCloudCases();
     }
-}, false);
 
-window.addEventListener('drop', (e) => {
-    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-        e.preventDefault();
+    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
+    prefetchManifestDDs();
+    renderSkillsSidebar();
+    renderDashboardCases();
+    if (typeof window.renderSpecialtyHub === 'function') {
+        window.renderSpecialtyHub();
     }
-}, false);
 
-async function initCreatorHubAndCloudCases() {
-    const sb = getActiveSupabaseClient();
-    await loadCasesFromDatabase();
+    if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    }
 
-    if (!sb || !sb.auth) return;
+    window.addEventListener('sr:updated', () => {
+        if (window.SpacedRepetitionEngine) {
+            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
+        }
+    });
 
-    try {
-        const { data: { session } } = await sb.auth.getSession();
-        window.currentSessionUser = session?.user || null;
-        setupCreatorHub(window.currentSessionUser);
-
-        sb.auth.onAuthStateChange((_event, session) => {
-            window.currentSessionUser = session?.user || null;
-            setupCreatorHub(window.currentSessionUser);
-            loadCasesFromDatabase();
+    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
+    if (addFolderBtn) {
+        addFolderBtn.addEventListener('click', () => {
+            const name = window.prompt("Name für den neuen Ordner:");
+            if (name && name.trim()) window.createNewFolder(name.trim());
         });
-    } catch (e) {
-        console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
     }
-}
 
-function setupCreatorHub(currentUser) {
-    const uploadSection = document.getElementById('creatorUploadSection');
-    if (!uploadSection) return;
-
-    if (currentUser && currentUser.email && currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase()) {
-        uploadSection.style.display = 'block';
-        initDropZone();
-    } else {
-        uploadSection.style.display = 'none';
-    }
-}
-
-function initDropZone() {
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('caseFileInput');
-    if (!dropZone || !fileInput) return;
-
-    dropZone.onclick = (e) => {
-        if (e.target !== fileInput) fileInput.click();
-    };
-
-    fileInput.onchange = (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-            handleCaseFiles(e.target.files);
-            fileInput.value = '';
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.closest('#btn-next-specialty-case')) window.nextSpecialtyCase();
+        if (e.target && e.target.closest('#btn-exit-specialty')) {
+            window.isSpecialtyBlindMode = false;
+            window.applyBlindHeader(false, null);
+            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
         }
-    };
-
-    const highlight = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.add('dragover');
-    };
-
-    const unhighlight = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove('dragover');
-    };
-
-    ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, highlight, false));
-    ['dragleave', 'dragend'].forEach(name => dropZone.addEventListener(name, unhighlight, false));
-
-    dropZone.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove('dragover');
-
-        const dt = e.dataTransfer;
-        if (!dt) return;
-
-        const internalCaseId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
-        if (internalCaseId && (!dt.files || dt.files.length === 0)) {
-            await handleInternalCaseUpload(internalCaseId);
-            return;
+        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
+            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+            alert(`🔍 Diagnose enthüllt:\n\n${title}`);
         }
+    });
 
-        if (dt.files && dt.files.length > 0) {
-            handleCaseFiles(dt.files);
-        }
-    }, false);
-}
-
-async function handleInternalCaseUpload(caseId) {
-    const sb = getActiveSupabaseClient();
-    if (!sb) {
-        alert("Fehler: Verbindung zu Supabase nicht gefunden.");
-        return;
-    }
-
-    const { data: { session } } = await sb.auth.getSession();
-    const currentUser = session?.user;
-
-    if (!currentUser) {
-        renderStatus(caseId, 'error', 'Nicht eingeloggt. Bitte melde dich zuerst an.');
-        return;
-    }
-
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
-
-    if (!targetCase) {
-        renderStatus(caseId, 'error', 'Fall nicht im lokalen Speicher gefunden.');
-        return;
-    }
-
-    const title = targetCase.metadata?.title || targetCase.title || caseId;
-    const field = targetCase.folder_name || targetCase.metadata?.medical_field || targetCase.medical_field || 'Allgemein';
-
-    renderStatus(title, 'loading', 'Wird mit Supabase Cloud synchronisiert...');
-
-    try {
-        const { error } = await sb
-            .from('cases')
-            .upsert({
-                case_id: caseId,
-                title: title,
-                medical_field: field,
-                is_public: true,
-                user_id: currentUser.id,
-                created_by: currentUser.id,
-                content: targetCase
-            }, { onConflict: 'case_id' });
-
-        if (error) throw error;
-
-        renderStatus(title, 'success', `In Cloud veröffentlicht (${caseId})`);
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
-
-        await loadCasesFromDatabase();
-    } catch (err) {
-        console.error("Upload Error:", err);
-        renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
-    }
-}
-
-async function handleCaseFiles(files) {
-    const sb = getActiveSupabaseClient();
-    if (!sb) {
-        alert("Fehler: Keine Supabase-Verbindung vorhanden.");
-        return;
-    }
-
-    const { data: { session } } = await sb.auth.getSession();
-    const currentUser = session?.user;
-
-    if (!currentUser) {
-        alert("Bitte melde dich zuerst als Creator an.");
-        return;
-    }
-
-    for (const file of Array.from(files)) {
-        if (!file.name.toLowerCase().endsWith('.json')) {
-            renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
-            continue;
-        }
-
-        renderStatus(file.name, 'loading', 'Validierung und Speicherung...');
-
-        try {
-            const rawContent = await file.text();
-            const caseData = JSON.parse(rawContent);
-
-            const caseId = caseData.case_id || caseData.id;
-            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
-            caseData.case_id = caseId;
-
-            caseData.folder_name = caseData.folder_name || resolveCaseFolderName(caseData);
-            registerDynamicFolder(caseData.folder_name);
-
-            const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
-            const title = caseData.metadata?.title || caseData.title || caseId;
-
-            const { error } = await sb
-                .from('cases')
-                .upsert({
-                    case_id: caseId,
-                    title: title,
-                    medical_field: field,
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: caseData
-                }, { onConflict: 'case_id' });
-
-            if (error) throw error;
-
-            renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
-            await loadCasesFromDatabase();
-        } catch (err) {
-            console.error("Upload Error:", err);
-            renderStatus(file.name, 'error', `Fehler: ${err.message}`);
-        }
-    }
-}
-
-async function unpublishCaseFromCloud(caseId) {
-    if (!window.confirm(`Möchtest du den Fall "${caseId}" wirklich aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
-        return;
-    }
-
-    const sb = getActiveSupabaseClient();
-    if (!sb) return;
-
-    try {
-        const { error } = await sb
-            .from('cases')
-            .delete()
-            .eq('case_id', caseId);
-
-        if (error) throw error;
-
-        renderStatus(caseId, 'success', 'Aus der Cloud entfernt (nur noch lokal verfügbar)');
-        await loadCasesFromDatabase();
-    } catch (err) {
-        alert(`Fehler beim Entfernen aus der Cloud: ${err.message}`);
-    }
-}
-
-function renderStatus(fileName, state, message) {
-    const statusContainer = document.getElementById('uploadStatusList');
-    if (!statusContainer) return;
-
-    const safeId = 'status-' + fileName.replace(/[^a-zA-Z0-9]/g, '_');
-    let item = document.getElementById(safeId);
-    if (!item) {
-        item = document.createElement('div');
-        item.id = safeId;
-        statusContainer.prepend(item);
-    }
-
-    item.className = `upload-status-item ${state}`;
-    item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
-}
-
-async function loadCasesFromDatabase() {
-    const sb = getActiveSupabaseClient();
-    if (!sb) return;
-
-    try {
-        const { data, error } = await sb
-            .from('cases')
-            .select('case_id, title, medical_field, is_public, content')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.warn("Supabase-Fälle konnten nicht abgerufen werden:", error.message);
-            return;
-        }
-
-        window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
-
-        if (data && data.length > 0) {
-            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-            let modified = false;
-
-            data.forEach(dbCase => {
-                const cloudCase = dbCase.content;
-                const idx = customCases.findIndex(c => (c.case_id || c.id) === (cloudCase.case_id || cloudCase.id));
-                if (idx !== -1) {
-                    customCases[idx] = cloudCase;
-                } else {
-                    customCases.push(cloudCase);
-                    modified = true;
-                }
-                window.registerCaseDDs(cloudCase);
-            });
-
-            if (modified) {
-                localStorage.setItem('custom_cases', JSON.stringify(customCases));
-            }
-        }
-
-        renderDashboardCases();
-        if (typeof renderSubjectProgressDrawer === 'function') {
-            renderSubjectProgressDrawer();
-        }
-    } catch (err) {
-        console.error("Fehler bei loadCasesFromDatabase:", err);
-    }
-}
+    setTimeout(() => {
+        if(typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    }, 500);
+});
