@@ -1,3 +1,35 @@
+/* Standard (Midnight) nutzt die Root-Variablen */
+
+/* Clinical Daylight */
+[data-theme="daylight"] {
+    --bg-main: #f1f5f9;
+    --card-bg: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --card-border: #cbd5e1;
+    --accent-blue: #0284c7;
+}
+
+/* Surgical Scrubs */
+[data-theme="scrubs"] {
+    --bg-main: #04110f;
+    --card-bg: #0b221e;
+    --text-main: #f0fdf4;
+    --text-muted: #86efac;
+    --card-border: #134e4a;
+    --accent-blue: #10b981;
+}
+
+/* Neuro Focus */
+[data-theme="neuro"] {
+    --bg-main: #090614;
+    --card-bg: #17112b;
+    --text-main: #faf5ff;
+    --text-muted: #d8b4fe;
+    --card-border: #3b0764;
+    --accent-blue: #c084fc;
+}
+
 /* ==========================================================================
    1. DESIGN SYSTEM & TOKENS (Modern Clinical Dark/Clean Theme)
    ========================================================================== */
