@@ -47,13 +47,20 @@ let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles =
 let flashcardsSolved = true, totalFlashcardsCount = 0, solvedFlashcardsCount = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
 
-// Dashboard & UI States
+// ====================================================
+// SUPER-FOLDER & DASHBOARD STATE KONFIGURATION
+// ====================================================
 const DEFAULT_SUPER_FOLDERS = [
     'Nervensystem und Sinnesorgane',
     'Psyche / Ethik / Recht',
     'Reproduktion',
     'Allgemein'
 ];
+
+const SUPER_FOLDER_ORDER_KEY = 'medcheck_super_folder_order_v1';
+const CUSTOM_SUPERS_LEGACY_KEY = 'medcheck_custom_supers';
+const FOLDER_SUPER_MAPPING_KEY = 'medcheck_folder_super_mapping';
+const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
 
 let openFolders = {};
 let superFolderStates = {
@@ -73,6 +80,8 @@ let bookshelfSuperFolderState = {
 
 let bookshelfFolderState = {};
 let draggedItemState = null;
+let draggedDashboardFolder = null;
+let draggedSuperFolderTitle = null;
 let dragHoverTimer = null;
 let currentLearningMode = 'topic';
 
@@ -265,68 +274,112 @@ function loadDDLibrary() {
 }
 
 // ====================================================
-// ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG (FIXED)
+// VOLLSTÄNDIGE ÜBERORDNER- & ORDNER-ENGINE (DASHBOARD + BOOKSHELF)
 // ====================================================
 
-function getCustomSuperFolders() {
+function getSuperFolderOrder() {
     try {
-        const raw = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
-        if (!Array.isArray(raw)) return [];
-        return raw.map(item => {
-            if (typeof item === 'string') {
-                return { id: item, name: item, icon: '📂' };
+        let order = JSON.parse(localStorage.getItem(SUPER_FOLDER_ORDER_KEY) || 'null');
+        const legacyCustom = JSON.parse(localStorage.getItem(CUSTOM_SUPERS_LEGACY_KEY) || '[]')
+            .map(item => (typeof item === 'string' ? item : item?.name))
+            .filter(Boolean);
+
+        if (!Array.isArray(order) || order.length === 0) {
+            order = [...DEFAULT_SUPER_FOLDERS];
+            legacyCustom.forEach(c => {
+                if (!order.includes(c)) order.push(c);
+            });
+            if (!order.includes('Allgemein')) order.push('Allgemein');
+            localStorage.setItem(SUPER_FOLDER_ORDER_KEY, JSON.stringify(order));
+        } else {
+            let changed = false;
+            legacyCustom.forEach(c => {
+                if (!order.includes(c)) {
+                    order.push(c);
+                    changed = true;
+                }
+            });
+            if (!order.includes('Allgemein')) {
+                order.push('Allgemein');
+                changed = true;
             }
-            return {
-                id: item.id || item.name,
-                name: item.name || item.id,
-                icon: item.icon || '📂'
-            };
-        }).filter(x => x && x.name);
+            if (changed) localStorage.setItem(SUPER_FOLDER_ORDER_KEY, JSON.stringify(order));
+        }
+        return order;
     } catch (e) {
-        return [];
+        return [...DEFAULT_SUPER_FOLDERS];
     }
+}
+
+function saveSuperFolderOrder(orderArray) {
+    try {
+        const clean = Array.from(new Set(orderArray.map(s => s.trim()).filter(Boolean)));
+        if (!clean.includes('Allgemein')) clean.push('Allgemein');
+        localStorage.setItem(SUPER_FOLDER_ORDER_KEY, JSON.stringify(clean));
+
+        // Legacy-Array synchron halten
+        const customOnly = clean.filter(name => !DEFAULT_SUPER_FOLDERS.includes(name));
+        localStorage.setItem(CUSTOM_SUPERS_LEGACY_KEY, JSON.stringify(customOnly));
+    } catch (e) {
+        console.error('Fehler beim Speichern der Überordner-Reihenfolge:', e);
+    }
+}
+
+function getCustomSuperFolders() {
+    const order = getSuperFolderOrder();
+    return order
+        .filter(name => !DEFAULT_SUPER_FOLDERS.includes(name))
+        .map(name => ({ id: name, name: name, icon: '📂' }));
 }
 window.getCustomSuperFolders = getCustomSuperFolders;
 
-// Beim Start gespeicherte Custom Supers wiederherstellen
 function initCustomSuperFoldersState() {
     try {
-        const savedSupers = getCustomSuperFolders();
-        savedSupers.forEach(sObj => {
-            const sName = sObj.name;
+        const allSupers = getSuperFolderOrder();
+        // Entfernte Überordner aus dem Laufzeit-State bereinigen
+        Object.keys(superFolderStates).forEach(k => {
+            if (!allSupers.includes(k)) delete superFolderStates[k];
+        });
+        allSupers.forEach(sName => {
             if (superFolderStates[sName] === undefined) {
                 superFolderStates[sName] = true;
+            }
+            if (bookshelfSuperFolderState[sName] === undefined) {
                 bookshelfSuperFolderState[sName] = true;
             }
         });
     } catch (e) {
-        console.error("Fehler beim Laden der Custom Supers:", e);
+        console.error("Fehler beim Laden der Super-Folders:", e);
     }
 }
 
 // Direkt beim Laden initialisieren
 initCustomSuperFoldersState();
 
+// 1. Neuen Überordner erstellen
 function createCustomSuperFolder(folderName) {
     if (!folderName || !folderName.trim()) return;
     const cleanName = folderName.trim();
 
-    if (superFolderStates[cleanName] !== undefined) {
-        alert("Dieser Überordner existiert bereits.");
+    const order = getSuperFolderOrder();
+    if (order.some(s => s.toLowerCase() === cleanName.toLowerCase())) {
+        alert(`Der Überordner "${cleanName}" existiert bereits.`);
         return;
     }
+
+    // Vor "Allgemein" einfügen, damit "Allgemein" als Sammelbecken unten bleibt
+    const allgIdx = order.indexOf('Allgemein');
+    if (allgIdx !== -1) {
+        order.splice(allgIdx, 0, cleanName);
+    } else {
+        order.push(cleanName);
+    }
+    saveSuperFolderOrder(order);
 
     superFolderStates[cleanName] = true;
     bookshelfSuperFolderState[cleanName] = true;
 
-    let customSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
-    const exists = customSupers.some(s => (typeof s === 'string' ? s === cleanName : s.name === cleanName));
-    if (!exists) {
-        customSupers.push(cleanName);
-        localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
-    }
-
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
 
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') {
@@ -335,24 +388,109 @@ function createCustomSuperFolder(folderName) {
 }
 window.createCustomSuperFolder = createCustomSuperFolder;
 
-function removeCustomSuperFolder(superNameOrId) {
-    if (!superNameOrId || DEFAULT_SUPER_FOLDERS.includes(superNameOrId)) return;
-    if (!window.confirm(`Überordner "${superNameOrId}" wirklich löschen?\n\nZugeordnete Unterordner fallen automatisch zurück in ihren Standard-Überordner.`)) {
+window.createNewSuperFolderModal = function() {
+    const superName = window.prompt("Name für den neuen Überordner (z.B. 'Innere Medizin', 'Chirurgie', 'Staatsexamen Fokus'):");
+    if (!superName || !superName.trim()) return;
+    createCustomSuperFolder(superName.trim());
+};
+
+function promptNewSuperFolder() {
+    window.createNewSuperFolderModal();
+}
+window.promptNewSuperFolder = promptNewSuperFolder;
+
+// 2. Überordner umbenennen (inkl. Migration aller Unterordner-Zuweisungen)
+window.renameSuperFolder = function(oldTitle) {
+    if (!oldTitle) return;
+    if (oldTitle === 'Allgemein') {
+        alert('Der Standard-Sammelordner "Allgemein" kann nicht umbenannt werden.');
         return;
     }
 
-    delete superFolderStates[superNameOrId];
-    delete bookshelfSuperFolderState[superNameOrId];
+    const newTitleRaw = window.prompt(`Neuer Name für den Überordner "${oldTitle}":`, oldTitle);
+    if (!newTitleRaw || !newTitleRaw.trim() || newTitleRaw.trim() === oldTitle) return;
+    const newTitle = newTitleRaw.trim();
 
-    let customSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
-    customSupers = customSupers.filter(s => (typeof s === 'string' ? s !== superNameOrId : (s.name !== superNameOrId && s.id !== superNameOrId)));
-    localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
+    const order = getSuperFolderOrder();
+    if (order.some(s => s.toLowerCase() === newTitle.toLowerCase() && s !== oldTitle)) {
+        alert(`Ein Überordner mit dem Namen "${newTitle}" existiert bereits.`);
+        return;
+    }
+
+    const idx = order.indexOf(oldTitle);
+    if (idx !== -1) {
+        order[idx] = newTitle;
+    } else {
+        order.push(newTitle);
+    }
+    saveSuperFolderOrder(order);
+
+    // States übertragen
+    superFolderStates[newTitle] = superFolderStates[oldTitle] !== undefined ? superFolderStates[oldTitle] : true;
+    bookshelfSuperFolderState[newTitle] = bookshelfSuperFolderState[oldTitle] !== undefined ? bookshelfSuperFolderState[oldTitle] : true;
+    delete superFolderStates[oldTitle];
+    delete bookshelfSuperFolderState[oldTitle];
+
+    // Alle zugewiesenen Unterordner auf den neuen Überordner umziehen
+    const mapping = getFolderSuperMapping();
+    Object.keys(mapping).forEach(subFolder => {
+        if (mapping[subFolder] === oldTitle) {
+            mapping[subFolder] = newTitle;
+        }
+    });
+
+    // Auch bisher heuristisch zugeordnete Unterordner explizit an den neuen Namen binden
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const allSubFolders = new Set(savedSubOrder);
+    allCases.forEach(c => {
+        allSubFolders.add((c.folder_name || c.metadata?.medical_field || 'Allgemein').trim());
+    });
+    allSubFolders.forEach(sub => {
+        if (!mapping[sub] && getSuperFolderForCategoryHeuristic(sub) === oldTitle) {
+            mapping[sub] = newTitle;
+        }
+    });
+
+    saveFolderSuperMapping(mapping);
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+};
+
+// 3. Überordner löschen (Unterordner wandern sicher nach "Allgemein")
+function removeCustomSuperFolder(superTitle) {
+    if (!superTitle) return;
+    if (superTitle === 'Allgemein') {
+        alert('Der Basis-Überordner "Allgemein" wird als Fallback benötigt und kann nicht gelöscht werden.');
+        return;
+    }
+
+    if (!window.confirm(`Möchtest du den Überordner "${superTitle}" wirklich entfernen?\n\nAlle darin liegenden Unterordner und Fälle bleiben erhalten und werden sicher in den Überordner "Allgemein" verschoben.`)) {
+        return;
+    }
+
+    const order = getSuperFolderOrder().filter(s => s !== superTitle);
+    saveSuperFolderOrder(order);
+
+    delete superFolderStates[superTitle];
+    delete bookshelfSuperFolderState[superTitle];
 
     const mapping = getFolderSuperMapping();
-    Object.keys(mapping).forEach(k => {
-        if (mapping[k] === superNameOrId) delete mapping[k];
+    Object.keys(mapping).forEach(subFolder => {
+        if (mapping[subFolder] === superTitle) {
+            mapping[subFolder] = 'Allgemein';
+        }
     });
     saveFolderSuperMapping(mapping);
+
+    superFolderStates['Allgemein'] = true;
+    bookshelfSuperFolderState['Allgemein'] = true;
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') {
@@ -360,6 +498,56 @@ function removeCustomSuperFolder(superNameOrId) {
     }
 }
 window.removeCustomSuperFolder = removeCustomSuperFolder;
+window.deleteSuperFolder = removeCustomSuperFolder;
+
+// 4. Überordner per Drag & Drop umsortieren
+function reorderSuperFolders(draggedTitle, targetTitle) {
+    if (!draggedTitle || !targetTitle || draggedTitle === targetTitle) return;
+    const order = getSuperFolderOrder();
+    const fromIdx = order.indexOf(draggedTitle);
+    const toIdx = order.indexOf(targetTitle);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, draggedTitle);
+    saveSuperFolderOrder(order);
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+}
+window.reorderSuperFolders = reorderSuperFolders;
+
+// 5. Unterordner direkt innerhalb eines bestimmten Überordners anlegen
+window.createSubfolderInSuperFolder = function(superTitle) {
+    const targetSuper = superTitle || 'Allgemein';
+    const subName = window.prompt(`Neuen Unterordner in "${targetSuper}" erstellen:\n\nName des Unterordners:`);
+    if (!subName || !subName.trim()) return;
+    const cleanSub = subName.trim();
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(cleanSub)) {
+        order.push(cleanSub);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+
+    const mapping = getFolderSuperMapping();
+    mapping[cleanSub] = targetSuper;
+    saveFolderSuperMapping(mapping);
+
+    superFolderStates[targetSuper] = true;
+    bookshelfSuperFolderState[targetSuper] = true;
+    bookshelfFolderState[cleanSub] = true;
+    openFolders[cleanSub] = true;
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+};
 
 function toggleBookshelfSuperGroup(superTitle) {
     bookshelfSuperFolderState[superTitle] = bookshelfSuperFolderState[superTitle] === false ? true : false;
@@ -367,44 +555,97 @@ function toggleBookshelfSuperGroup(superTitle) {
 }
 window.toggleBookshelfSuperGroup = toggleBookshelfSuperGroup;
 
-// 1. Neuen Überordner (Super-Folder) dynamisch per Modal erstellen
-window.createNewSuperFolderModal = function() {
-    const superName = window.prompt("Name für den neuen Überordner (z.B. 'Interdisziplinäre Notfälle'):");
-    if (!superName || !superName.trim()) return;
-    createCustomSuperFolder(superName.trim());
-};
-
-// 2. Einheitlicher und korrekter Bookshelf-Header mit beiden Buttons
+// 6. Bookshelf-Header-Buttons (stellt sicher, dass "+ Über" auch ohne HTML-Anpassung im Bookshelf erscheint)
 window.renderBookshelfHeader = function() {
     return `
         <div class="bookshelf-header-row">
             <span class="bookshelf-title">Bücherregal & Ordner</span>
             <div style="display:flex; gap:4px; align-items:center;">
-                <button class="bookshelf-add-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner erstellen" style="font-size:0.7rem; padding:2px 6px; width:auto;">+ Über</button>
-                <button class="bookshelf-add-btn" onclick="const name = window.prompt('Name für den neuen Unterordner:'); if(name && name.trim()) createNewFolder(name.trim());" title="Neuen Unterordner erstellen">+</button>
+                <button type="button" class="bookshelf-add-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner erstellen" style="font-size:0.7rem; padding:2px 6px; width:auto;">+ Über</button>
+                <button type="button" class="bookshelf-add-btn" onclick="window.promptCreateNewFolderWithSuper()" title="Neuen Unterordner erstellen">+</button>
             </div>
         </div>
     `;
 };
 
-// 3. Unterordner erstellen
-window.createNewFolder = function(folderName) {
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!order.includes(folderName)) {
-        order.push(folderName);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-    }
-    bookshelfFolderState[folderName] = true;
-    renderDashboardCases();
-};
-
-function promptNewSuperFolder() {
-    const folderName = prompt('Name des neuen Überordners (z.B. "Staatsexamen Fokus"):');
-    if (folderName) {
-        createCustomSuperFolder(folderName);
+function ensureBookshelfHeaderButtons() {
+    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
+    if (addFolderBtn && !document.getElementById('add-bookshelf-super-btn')) {
+        const superBtn = document.createElement('button');
+        superBtn.type = 'button';
+        superBtn.id = 'add-bookshelf-super-btn';
+        superBtn.className = addFolderBtn.className || 'bookshelf-add-btn';
+        superBtn.title = 'Neuen Überordner erstellen';
+        superBtn.style.cssText = 'font-size:0.7rem; padding:2px 7px; width:auto; margin-right:4px; font-weight:700;';
+        superBtn.textContent = '+ Über';
+        superBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.createNewSuperFolderModal();
+        });
+        addFolderBtn.parentNode.insertBefore(superBtn, addFolderBtn);
     }
 }
-window.promptNewSuperFolder = promptNewSuperFolder;
+
+window.promptCreateNewFolderWithSuper = function() {
+    const name = window.prompt("Name für den neuen Unterordner:");
+    if (!name || !name.trim()) return;
+    const cleanName = name.trim();
+
+    const availableSupers = getSuperFolderOrder();
+    const defaultSuper = getSuperFolderForCategoryHeuristic(cleanName);
+    const defaultIdx = Math.max(0, availableSupers.indexOf(defaultSuper)) + 1;
+
+    const optionsText = availableSupers
+        .map((s, idx) => `${idx + 1}: ${s}${s === defaultSuper ? ' (Vorschlag)' : ''}`)
+        .join('\n');
+
+    const superChoice = window.prompt(
+        `In welchem Überordner soll "${cleanName}" angelegt werden?\n\nGib die Ziffer ein (oder lasse es für "${defaultSuper}" auf ${defaultIdx}):\n${optionsText}`,
+        String(defaultIdx)
+    );
+
+    let chosenSuper = defaultSuper;
+    if (superChoice !== null && superChoice.trim() !== '') {
+        const num = parseInt(superChoice.trim(), 10);
+        if (!isNaN(num) && num >= 1 && num <= availableSupers.length) {
+            chosenSuper = availableSupers[num - 1];
+        } else {
+            const match = availableSupers.find(s => s.toLowerCase() === superChoice.trim().toLowerCase());
+            if (match) chosenSuper = match;
+        }
+    }
+
+    createNewFolder(cleanName, chosenSuper);
+};
+
+// 7. Unterordner erstellen
+function createNewFolder(folderName, targetSuperFolder = null) {
+    if (!folderName || !folderName.trim()) return;
+    const cleanName = folderName.trim();
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(cleanName)) {
+        order.push(cleanName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+
+    const chosenSuper = targetSuperFolder || getSuperFolderForCategory(cleanName);
+    const mapping = getFolderSuperMapping();
+    mapping[cleanName] = chosenSuper;
+    saveFolderSuperMapping(mapping);
+
+    superFolderStates[chosenSuper] = true;
+    bookshelfSuperFolderState[chosenSuper] = true;
+    bookshelfFolderState[cleanName] = true;
+    openFolders[cleanName] = true;
+
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+}
+window.createNewFolder = createNewFolder;
 
 window.registerCaseDDs = function(caseData) {
     const tasks = caseData?.extra_tasks;
@@ -452,6 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
     applyAppTheme(savedTheme);
 
+    ensureBookshelfHeaderButtons();
     initUserData();
     initCreatorHubAndCloudCases();
 
@@ -480,10 +722,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn) {
-        addFolderBtn.addEventListener('click', () => {
-            const name = window.prompt("Name für den neuen Ordner:");
-            if (name && name.trim()) createNewFolder(name.trim());
-        });
+        addFolderBtn.onclick = (e) => {
+            e.preventDefault();
+            window.promptCreateNewFolderWithSuper();
+        };
     }
 
     document.addEventListener('click', (e) => {
@@ -529,7 +771,6 @@ function escapeHtml(str) {
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
 
-    // Fallback: Anmeldung in die Einstellungen integriert
     if (tab === 'auth') {
         tab = 'settings';
     }
@@ -641,8 +882,6 @@ window.toggleSuperFolder = function(superFolderTitle) {
 // ====================================================
 // PERSISTENTE ÜBERORDNER-ZUWEISUNG (FOLDER-MAPPING)
 // ====================================================
-const FOLDER_SUPER_MAPPING_KEY = 'medcheck_folder_super_mapping';
-
 function getFolderSuperMapping() {
     try {
         return JSON.parse(localStorage.getItem(FOLDER_SUPER_MAPPING_KEY) || '{}');
@@ -659,26 +898,22 @@ function saveFolderSuperMapping(mapping) {
     }
 }
 
-function getSuperFolderForCategory(categoryName) {
-    if (!categoryName) return 'Allgemein';
-    const cleanName = categoryName.trim();
+function getSuperFolderForCategoryHeuristic(cleanName) {
+    const lower = (cleanName || '').toLowerCase();
+    const availableSupers = getSuperFolderOrder();
 
-    // 1. Explizite Nutzerzuweisung prüfen
-    const mapping = getFolderSuperMapping();
-    if (mapping[cleanName] && superFolderStates[mapping[cleanName]] !== undefined) {
-        return mapping[cleanName];
-    }
+    // Direkter Treffer mit einem benutzerdefinierten Überordnernamen
+    const directMatch = availableSupers.find(s => s.toLowerCase() === lower);
+    if (directMatch) return directMatch;
 
-    // 2. Intelligente Heuristik als Fallback
-    const lower = cleanName.toLowerCase();
     if (lower === 'allgemein' || lower.startsWith('allgemein') || lower === 'sonstiges' || lower === 'uncategorized') {
         return 'Allgemein';
     }
     if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
-        return 'Psyche / Ethik / Recht';
+        return availableSupers.includes('Psyche / Ethik / Recht') ? 'Psyche / Ethik / Recht' : 'Allgemein';
     }
     if (lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') || lower.includes('fertilit') || lower.includes('schwanger') || lower.includes('zyklus') || lower.includes('ovard')) {
-        return 'Reproduktion';
+        return availableSupers.includes('Reproduktion') ? 'Reproduktion' : 'Allgemein';
     }
     if (
         lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') || 
@@ -688,24 +923,51 @@ function getSuperFolderForCategory(categoryName) {
         lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') || 
         lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz')
     ) {
-        return 'Nervensystem und Sinnesorgane';
+        return availableSupers.includes('Nervensystem und Sinnesorgane') ? 'Nervensystem und Sinnesorgane' : 'Allgemein';
     }
     return 'Allgemein';
 }
 
+function getSuperFolderForCategory(categoryName) {
+    if (!categoryName) return 'Allgemein';
+    const cleanName = categoryName.trim();
+    const availableSupers = getSuperFolderOrder();
+
+    // 1. Explizite Nutzerzuweisung prüfen
+    const mapping = getFolderSuperMapping();
+    if (mapping[cleanName] && availableSupers.includes(mapping[cleanName])) {
+        return mapping[cleanName];
+    }
+
+    // 2. Intelligente Heuristik als Fallback
+    return getSuperFolderForCategoryHeuristic(cleanName);
+}
+
 window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
     if (!folderName || !targetSuperFolder) return;
-    if (superFolderStates[targetSuperFolder] === undefined) return;
+    const cleanFolder = folderName.trim();
+    const cleanSuper = targetSuperFolder.trim();
+
+    const order = getSuperFolderOrder();
+    if (!order.includes(cleanSuper)) {
+        order.push(cleanSuper);
+        saveSuperFolderOrder(order);
+    }
 
     const mapping = getFolderSuperMapping();
-    mapping[folderName] = targetSuperFolder;
+    mapping[cleanFolder] = cleanSuper;
     saveFolderSuperMapping(mapping);
 
-    // Ziel-Überordner automatisch aufklappen
-    superFolderStates[targetSuperFolder] = true;
-    if (typeof bookshelfSuperFolderState !== 'undefined') {
-        bookshelfSuperFolderState[targetSuperFolder] = true;
+    // Sicherstellen, dass der Unterordner auch in der Ordnerliste bekannt ist
+    let subOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!subOrder.includes(cleanFolder)) {
+        subOrder.push(cleanFolder);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(subOrder));
     }
+
+    // Ziel-Überordner automatisch aufklappen
+    superFolderStates[cleanSuper] = true;
+    bookshelfSuperFolderState[cleanSuper] = true;
 
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') {
@@ -715,30 +977,62 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
 };
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
 
+// Fall direkt auf einen Überordner ziehen
+async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
+    if (!caseId || !targetSuperTitle) return;
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const targetCase = allCases.find(c => c.case_id === caseId);
+    if (!targetCase) return;
+
+    const currentFolder = (targetCase.folder_name || targetCase.metadata?.medical_field || 'Allgemein').trim();
+
+    // Wenn der Fall aktuell in "Allgemein" liegt, verschieben wir ihn in einen Ordner mit dem Namen des Überordners
+    let destinationSubfolder = currentFolder;
+    if (currentFolder.toLowerCase() === 'allgemein') {
+        destinationSubfolder = targetSuperTitle;
+    }
+
+    // Den Unterordner dem gewählten Überordner zuweisen
+    const mapping = getFolderSuperMapping();
+    mapping[destinationSubfolder] = targetSuperTitle;
+    saveFolderSuperMapping(mapping);
+
+    superFolderStates[targetSuperTitle] = true;
+    bookshelfSuperFolderState[targetSuperTitle] = true;
+    openFolders[destinationSubfolder] = true;
+    bookshelfFolderState[destinationSubfolder] = true;
+
+    await moveCaseToFolder(caseId, destinationSubfolder);
+}
+
 window.promptMoveFolderToSuperFolder = function(folderName) {
     if (!folderName) return;
     const currentSuper = getSuperFolderForCategory(folderName);
-    const availableSupers = Object.keys(superFolderStates);
+    const availableSupers = getSuperFolderOrder();
 
     const optionsText = availableSupers
         .map((s, idx) => `${idx + 1}: ${s}${s === currentSuper ? ' (aktuell)' : ''}`)
         .join('\n');
 
     const choice = window.prompt(
-        `In welchen Überordner möchtest du "${folderName}" verschieben?\n\nGib die Ziffer ein:\n${optionsText}`
+        `In welchen Überordner möchtest du "${folderName}" verschieben?\n\nGib die Ziffer ein (oder tippe einen komplett neuen Überordner-Namen ein):\n${optionsText}`
     );
 
-    if (choice === null) return;
-    const num = parseInt(choice.trim(), 10);
+    if (choice === null || !choice.trim()) return;
+    const trimmed = choice.trim();
+    const num = parseInt(trimmed, 10);
+
     if (!isNaN(num) && num >= 1 && num <= availableSupers.length) {
         const target = availableSupers[num - 1];
-        if (target !== currentSuper) {
-            window.moveFolderToSuperFolder(folderName, target);
-        }
+        window.moveFolderToSuperFolder(folderName, target);
     } else {
-        const match = availableSupers.find(s => s.toLowerCase() === choice.trim().toLowerCase());
-        if (match && match !== currentSuper) {
-            window.moveFolderToSuperFolder(folderName, match);
+        const existingMatch = availableSupers.find(s => s.toLowerCase() === trimmed.toLowerCase());
+        if (existingMatch) {
+            window.moveFolderToSuperFolder(folderName, existingMatch);
+        } else {
+            // Erlaubt das direkte Erstellen eines neuen Überordners aus dem Verschiebe-Dialog!
+            createCustomSuperFolder(trimmed);
+            window.moveFolderToSuperFolder(folderName, trimmed);
         }
     }
 };
@@ -1041,9 +1335,6 @@ window.applyBlindHeader = function(blind, caseData) {
 // ====================================================
 // DASHBOARD DYNAMISCHES RENDERING (SUPER-FOLDER ENGINE)
 // ====================================================
-const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
-let draggedDashboardFolder = null;
-
 function getDashboardFolderOrder() {
     try { return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]'); } catch (_e) { return []; }
 }
@@ -1061,12 +1352,24 @@ function reorderDashboardFolders(draggedCat, targetCat) {
         order.splice(fromIdx, 1);
         order.splice(toIdx, 0, draggedCat);
         saveDashboardFolderOrder(order);
-        renderDashboardCases();
     }
+
+    let bsOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const bsFrom = bsOrder.indexOf(draggedCat);
+    const bsTo = bsOrder.indexOf(targetCat);
+    if (bsFrom !== -1 && bsTo !== -1) {
+        bsOrder.splice(bsFrom, 1);
+        bsOrder.splice(bsTo, 0, draggedCat);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(bsOrder));
+    }
+
+    renderDashboardCases();
 }
 
 function renderDashboardCases() {
     initCustomSuperFoldersState();
+    ensureBookshelfHeaderButtons();
+
     const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
 
@@ -1084,16 +1387,25 @@ function renderDashboardCases() {
 
     const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
 
+    // Auch angelegte (noch leere) Unterordner aus medcheck_folder_order berücksichtigen
+    const savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     const grouped = {};
+    savedSubOrder.forEach(folderName => {
+        if (folderName && folderName.trim()) {
+            grouped[folderName.trim()] = [];
+        }
+    });
+
     allCases.forEach(c => {
         const cat = (c.folder_name || c.metadata?.medical_field || "Allgemein").trim();
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(c);
     });
 
-    // Dynamische Überordner aus den States generieren
+    // Überordner in der vom Nutzer sortierten Reihenfolge aufbauen
+    const orderedSuperTitles = getSuperFolderOrder();
     const superFolders = {};
-    Object.keys(superFolderStates).forEach(key => {
+    orderedSuperTitles.forEach(key => {
         superFolders[key] = [];
     });
 
@@ -1103,80 +1415,124 @@ function renderDashboardCases() {
         superFolders[targetSuper].push(cat);
     });
 
-    let superFoldersHtml = '';
     const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+
+    // Direkt im Dashboard integrierte Toolbar zum schnellen Erstellen von Über- und Unterordnern
+    let superFoldersHtml = `
+        <div class="dashboard-folder-toolbar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:10px 14px; background:rgba(15,23,42,0.55); border:1px solid var(--card-border, rgba(148,163,184,0.16)); border-radius:12px;">
+            <div style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-muted, #94a3b8);">
+                <span>🗂️ <strong>Struktur & Themenblöcke:</strong> Ziehe Überordner, Ordner oder Fälle per Drag & Drop an die gewünschte Stelle.</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" onclick="window.createNewSuperFolderModal()" style="background:rgba(56,189,248,0.14); color:var(--accent-blue, #38bdf8); border:1px solid rgba(56,189,248,0.35); padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                    + Neuer Überordner
+                </button>
+                <button type="button" onclick="window.promptCreateNewFolderWithSuper()" style="background:rgba(148,163,184,0.12); color:var(--text-main, #f8fafc); border:1px solid var(--card-border, rgba(148,163,184,0.25)); padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:600; cursor:pointer;">
+                    + Neuer Unterordner
+                </button>
+            </div>
+        </div>
+    `;
+
+    const subFolderOrderList = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
 
     Object.entries(superFolders).forEach(([superTitle, categories], superIdx) => {
         const isOpen = superFolderStates[superTitle] !== undefined ? superFolderStates[superTitle] : true;
         const arrowSymbol = isOpen ? '▼' : '▶';
-        const isCustomSuper = !DEFAULT_SUPER_FOLDERS.includes(superTitle);
+        const isProtectedDefault = (superTitle === 'Allgemein');
+
+        let totalCasesInSuper = 0;
+        let solvedCasesInSuper = 0;
+        categories.forEach(cName => {
+            const list = grouped[cName] || [];
+            totalCasesInSuper += list.length;
+            solvedCasesInSuper += list.filter(c => solved.includes(c.case_id)).length;
+        });
 
         let categoriesHtml = '';
         if (categories.length === 0) {
-            categoriesHtml = `<div style="padding: 16px; color: var(--text-dim); font-size: 0.85rem; font-style: italic;">Ordner hierher ziehen, um sie diesem Themenblock zuzuweisen.</div>`;
+            categoriesHtml = `
+                <div style="padding: 16px; color: var(--text-dim, #64748b); font-size: 0.84rem; font-style: italic; display:flex; justify-content:space-between; align-items:center; border:1px dashed rgba(148,163,184,0.2); border-radius:10px;">
+                    <span>Ziehe Ordner oder Fälle hierher oder lege direkt einen Unterordner an.</span>
+                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapeHtml(superTitle).replace(/'/g, "\\'")}')" style="padding:4px 10px; font-style:normal; font-size:0.75rem; border:1px solid rgba(56,189,248,0.3); border-radius:6px; color:var(--accent-blue, #38bdf8);">+ Unterordner</button>
+                </div>`;
         } else {
-            categories.sort((a, b) => a.localeCompare(b));
+            // Sortiere Unterordner anhand der gespeicherten Reihenfolge (falls vorhanden), sonst alphabetisch
+            categories.sort((a, b) => {
+                const idxA = subFolderOrderList.indexOf(a);
+                const idxB = subFolderOrderList.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
 
             categoriesHtml = categories.map((category, catIdx) => {
                 const cases = grouped[category] || [];
                 const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
                 const isExpanded = !!openFolders[category];
 
-                const cardsHtml = cases.map(c => {
-                    const isSolved = solved.includes(c.case_id);
-                    const savedState = ProgressManager.getCaseProgress(c.case_id);
-                    const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-                    const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
+                const cardsHtml = cases.length === 0
+                    ? `<div style="grid-column: 1 / -1; padding: 12px; color: var(--text-dim, #64748b); font-size: 0.8rem; font-style: italic;">Noch keine Fälle in diesem Ordner (Fallkarte hierher ziehen).</div>`
+                    : cases.map(c => {
+                        const isSolved = solved.includes(c.case_id);
+                        const savedState = ProgressManager.getCaseProgress(c.case_id);
+                        const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+                        const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
 
-                    const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-                        ? ''
-                        : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
+                        const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+                            ? ''
+                            : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
 
-                    const unpublishBtn = (isCurrentUserCreator && isCloudCase)
-                        ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
-                        : '';
+                        const unpublishBtn = (isCurrentUserCreator && isCloudCase)
+                            ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
+                            : '';
 
-                    return `
-                    <div class="case-card ${inProgress ? 'in-progress' : ''}" 
-                         draggable="true" 
-                         data-case-id="${encodeURIComponent(c.case_id)}" 
-                         role="button" 
-                         tabindex="0">
+                        return `
+                        <div class="case-card ${inProgress ? 'in-progress' : ''}" 
+                             draggable="true" 
+                             data-case-id="${encodeURIComponent(c.case_id)}" 
+                             role="button" 
+                             tabindex="0">
 
-                        <div class="case-card-header">
-                            <div class="case-card-badges">
-                                <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
-                                <span class="cloud-badge ${isCloudCase ? 'is-cloud' : 'is-local'}">
-                                    ${isCloudCase ? '☁️ Cloud' : '💾 Lokal'}
+                            <div class="case-card-header">
+                                <div class="case-card-badges">
+                                    <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
+                                    <span class="cloud-badge ${isCloudCase ? 'is-cloud' : 'is-local'}">
+                                        ${isCloudCase ? '☁️ Cloud' : '💾 Lokal'}
+                                    </span>
+                                </div>
+                                <div class="case-card-actions">
+                                    ${unpublishBtn}
+                                    ${deleteBtn}
+                                </div>
+                            </div>
+
+                            <h3>${escapeHtml(c.metadata?.title || c.case_id)}</h3>
+
+                            <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                                <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
+                                    ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
                                 </span>
+                                <span>+${c.metadata?.xp_reward || 900} XP</span>
                             </div>
-                            <div class="case-card-actions">
-                                ${unpublishBtn}
-                                ${deleteBtn}
-                            </div>
-                        </div>
+                        </div>`;
+                    }).join('');
 
-                        <h3>${escapeHtml(c.metadata?.title || c.case_id)}</h3>
-
-                        <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
-                            <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
-                                ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
-                            </span>
-                            <span>+${c.metadata?.xp_reward || 900} XP</span>
-                        </div>
-                    </div>`;
-                }).join('');
+                const escapedCatJs = escapeHtml(category).replace(/'/g, "\\'");
 
                 return `
                     <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
                         <div class="category-header">
                             <div class="category-title-wrap">
-                                <span class="category-drag-handle" title="Ordner ziehen zum Verschieben">⠿</span>
+                                <span class="category-drag-handle" title="Unterordner ziehen zum Verschieben">⠿</span>
                                 <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
                                 <span>📁 ${escapeHtml(category)}</span>
                             </div>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapeHtml(category)}')" title="Überordner wechseln">⇄</button>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapedCatJs}')" title="In anderen Überordner verschieben">⇄</button>
+                                <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); const n = window.prompt('Neuer Name für den Unterordner:', '${escapedCatJs}'); if(n && n.trim() && n.trim() !== '${escapedCatJs}') renameFolder('${escapedCatJs}', n.trim());" title="Unterordner umbenennen">✏️</button>
+                                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); deleteFolder('${escapedCatJs}', ${cases.length});" title="Unterordner löschen">🗑️</button>
                                 <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
                             </div>
                         </div>
@@ -1185,20 +1541,29 @@ function renderDashboardCases() {
             }).join('');
         }
 
-        const deleteSuperBtn = isCustomSuper
-            ? `<button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); removeCustomSuperFolder('${escapeHtml(superTitle)}')" title="Überordner löschen" style="margin-right:8px;">🗑️</button>`
-            : '';
+        const escapedSuperJs = escapeHtml(superTitle).replace(/'/g, "\\'");
+        const superEditControls = !isProtectedDefault
+            ? `
+                <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuen Unterordner in diesem Überordner erstellen">➕</button>
+                <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.renameSuperFolder('${escapedSuperJs}')" title="Überordner umbenennen">✏️</button>
+                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.removeCustomSuperFolder('${escapedSuperJs}')" title="Überordner löschen">🗑️</button>
+              `
+            : `
+                <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuen Unterordner in diesem Überordner erstellen">➕</button>
+              `;
 
         superFoldersHtml += `
-            <div class="super-folder" data-super-title="${encodeURIComponent(superTitle)}">
-                <div class="super-folder-header" onclick="toggleSuperFolder('${escapeHtml(superTitle)}')">
-                    <div class="super-folder-title">
+            <div class="super-folder" draggable="true" data-super-title="${encodeURIComponent(superTitle)}">
+                <div class="super-folder-header" onclick="toggleSuperFolder('${escapedSuperJs}')">
+                    <div class="super-folder-title" style="display:flex; align-items:center; gap:8px;">
+                        <span class="super-drag-handle" title="Überordner ziehen zum Umsortieren" style="cursor:grab; opacity:0.65; user-select:none;">⠿</span>
                         <svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                         <span>${escapeHtml(superTitle)}</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted, #94a3b8); font-weight:500; margin-left:4px;">(${solvedCasesInSuper}/${totalCasesInSuper})</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        ${deleteSuperBtn}
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">${arrowSymbol}</span>
+                        ${superEditControls}
+                        <span style="font-size: 0.8rem; color: var(--text-muted); margin-left:4px;">${arrowSymbol}</span>
                     </div>
                 </div>
                 <div class="super-folder-body" style="display:${isOpen ? 'flex' : 'none'}; flex-direction:column; gap:12px;">
@@ -1210,12 +1575,34 @@ function renderDashboardCases() {
 
     wrapper.innerHTML = superFoldersHtml;
 
-    // Drag-over & Drop für die Überordner im Dashboard
+    // Drag & Drop für Überordner (nimmt Überordner, Unterordner UND einzelne Fälle entgegen)
     wrapper.querySelectorAll('.super-folder').forEach(superEl => {
         const sTitle = decodeURIComponent(superEl.dataset.superTitle);
+        const superHeader = superEl.querySelector('.super-folder-header');
+
+        if (superHeader) {
+            superEl.addEventListener('dragstart', (e) => {
+                // Nur starten, wenn nicht ein innerer Unterordner oder eine Fallkarte gezogen wird
+                if (e.target.closest('.category-folder') || e.target.closest('.case-card')) return;
+                draggedSuperFolderTitle = sTitle;
+                draggedItemState = { type: 'super-folder', name: sTitle };
+                superEl.classList.add('folder-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', sTitle);
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+            });
+
+            superEl.addEventListener('dragend', () => {
+                superEl.classList.remove('folder-dragging');
+                draggedSuperFolderTitle = null;
+                if (draggedItemState?.type === 'super-folder') draggedItemState = null;
+                wrapper.querySelectorAll('.super-folder').forEach(f => f.classList.remove('super-folder-drag-over'));
+            });
+        }
 
         superEl.addEventListener('dragover', (e) => {
-            if (!draggedDashboardFolder) return;
+            const hasDragPayload = draggedDashboardFolder || draggedSuperFolderTitle || draggedItemState;
+            if (!hasDragPayload) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             superEl.classList.add('super-folder-drag-over');
@@ -1227,16 +1614,46 @@ function renderDashboardCases() {
             }
         });
 
-        superEl.addEventListener('drop', (e) => {
+        superEl.addEventListener('drop', async (e) => {
+            // Wenn auf einem spezifischen Unterordner gedroppt wurde, übernimmt dessen Handler
+            if (e.target.closest('.category-folder') && !draggedSuperFolderTitle && draggedItemState?.type !== 'super-folder') {
+                superEl.classList.remove('super-folder-drag-over');
+                return;
+            }
             e.preventDefault();
+            e.stopPropagation();
             superEl.classList.remove('super-folder-drag-over');
-            if (!draggedDashboardFolder) return;
-            window.moveFolderToSuperFolder(draggedDashboardFolder, sTitle);
-            draggedDashboardFolder = null;
+
+            if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') {
+                const sourceSuper = draggedSuperFolderTitle || draggedItemState.name;
+                draggedSuperFolderTitle = null;
+                draggedItemState = null;
+                reorderSuperFolders(sourceSuper, sTitle);
+                return;
+            }
+
+            if (draggedDashboardFolder) {
+                const folderToMove = draggedDashboardFolder;
+                draggedDashboardFolder = null;
+                window.moveFolderToSuperFolder(folderToMove, sTitle);
+                return;
+            }
+
+            if (draggedItemState) {
+                if (draggedItemState.type === 'folder') {
+                    const fName = draggedItemState.name;
+                    draggedItemState = null;
+                    window.moveFolderToSuperFolder(fName, sTitle);
+                } else if (draggedItemState.type === 'case') {
+                    const cId = draggedItemState.id;
+                    draggedItemState = null;
+                    await moveCaseToSuperFolder(cId, sTitle);
+                }
+            }
         });
     });
 
-    // Klick- & Drag-Handler für Ordner
+    // Klick- & Drag-Handler für Unterordner im Dashboard
     wrapper.querySelectorAll('.category-folder').forEach(folderEl => {
         const catName = decodeURIComponent(folderEl.dataset.category);
         const header = folderEl.querySelector('.category-header');
@@ -1248,8 +1665,10 @@ function renderDashboardCases() {
         }
 
         folderEl.addEventListener('dragstart', (e) => {
-            if (e.target !== folderEl && !e.target.closest('.category-header')) return;
+            if (e.target.closest('.case-card')) return;
+            e.stopPropagation();
             draggedDashboardFolder = catName;
+            draggedItemState = { type: 'folder', name: catName };
             folderEl.classList.add('folder-dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', catName);
@@ -1259,7 +1678,49 @@ function renderDashboardCases() {
         folderEl.addEventListener('dragend', () => {
             folderEl.classList.remove('folder-dragging');
             draggedDashboardFolder = null;
+            if (draggedItemState?.type === 'folder') draggedItemState = null;
             wrapper.querySelectorAll('.super-folder').forEach(f => f.classList.remove('super-folder-drag-over'));
+            wrapper.querySelectorAll('.category-folder').forEach(f => f.classList.remove('drag-over-folder'));
+        });
+
+        folderEl.addEventListener('dragover', (e) => {
+            if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            folderEl.classList.add('drag-over-folder');
+        });
+
+        folderEl.addEventListener('dragleave', (e) => {
+            if (!folderEl.contains(e.relatedTarget)) {
+                folderEl.classList.remove('drag-over-folder');
+            }
+        });
+
+        folderEl.addEventListener('drop', async (e) => {
+            if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') return;
+            e.preventDefault();
+            e.stopPropagation();
+            folderEl.classList.remove('drag-over-folder');
+
+            // A) Fallkarte auf diesen Unterordner gezogen
+            const droppedCaseId = (draggedItemState?.type === 'case' && draggedItemState.id) || e.dataTransfer.getData('application/medcheck-case-id');
+            if (droppedCaseId) {
+                draggedItemState = null;
+                openFolders[catName] = true;
+                await moveCaseToFolder(droppedCaseId, catName);
+                return;
+            }
+
+            // B) Anderen Unterordner auf diesen Unterordner gezogen -> Überordner angleichen + Reihenfolge anpassen
+            const sourceFolder = draggedDashboardFolder || (draggedItemState?.type === 'folder' ? draggedItemState.name : null);
+            if (sourceFolder && sourceFolder !== catName) {
+                draggedDashboardFolder = null;
+                draggedItemState = null;
+                const targetSuper = getSuperFolderForCategory(catName);
+                window.moveFolderToSuperFolder(sourceFolder, targetSuper);
+                reorderDashboardFolders(sourceFolder, catName);
+            }
         });
     });
 
@@ -1278,6 +1739,7 @@ function renderDashboardCases() {
 
         card.addEventListener('dragstart', (e) => {
             e.stopPropagation();
+            draggedItemState = { type: 'case', id: caseId };
             e.dataTransfer.effectAllowed = 'copyMove';
             e.dataTransfer.setData('text/plain', caseId);
             e.dataTransfer.setData('application/medcheck-case-id', caseId);
@@ -1287,6 +1749,7 @@ function renderDashboardCases() {
 
         card.addEventListener('dragend', () => {
             card.classList.remove('case-card-dragging');
+            if (draggedItemState?.type === 'case') draggedItemState = null;
         });
 
         const deleteBtn = card.querySelector('.delete-case-btn');
@@ -1314,13 +1777,15 @@ function renderDashboardCases() {
 }
 
 // ====================================================
-// BOOKSHELF & ORDNER-VERWALTUNG
+// BOOKSHELF & ORDNER-VERWALTUNG (MIT VOLLER SUPER-FOLDER KONTROLLE)
 // ====================================================
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
 
+    ensureBookshelfHeaderButtons();
     bookshelfContainer.innerHTML = '';
+
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
 
@@ -1338,9 +1803,10 @@ function renderBookshelf(casesArray) {
 
     localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
 
-    // Überordner dynamisch initialisieren
+    // Überordner in exakt derselben Reihenfolge wie im Dashboard initialisieren
+    const orderedSuperTitles = getSuperFolderOrder();
     const superFolders = {};
-    Object.keys(superFolderStates).forEach(key => {
+    orderedSuperTitles.forEach(key => {
         superFolders[key] = [];
     });
 
@@ -1354,7 +1820,7 @@ function renderBookshelf(casesArray) {
 
     Object.entries(superFolders).forEach(([superTitle, subfolderNames]) => {
         const isSuperOpen = bookshelfSuperFolderState[superTitle] !== false;
-        const isCustomSuper = !DEFAULT_SUPER_FOLDERS.includes(superTitle);
+        const isProtectedDefault = (superTitle === 'Allgemein');
 
         let totalCasesInSuper = 0;
         let solvedCasesInSuper = 0;
@@ -1368,26 +1834,50 @@ function renderBookshelf(casesArray) {
         superDiv.className = 'bookshelf-super-group';
         superDiv.dataset.superTitle = superTitle;
         superDiv.dataset.superId = superTitle;
+        superDiv.draggable = true;
 
-        const deleteSuperBtnHtml = isCustomSuper
-            ? `<button type="button" class="folder-action-btn delete-folder-btn" title="Überordner löschen">×</button>`
-            : '';
+        const superActionsHtml = !isProtectedDefault
+            ? `
+                <button type="button" class="folder-action-btn add-sub-btn" title="Unterordner hier erstellen">➕</button>
+                <button type="button" class="folder-action-btn edit-super-btn" title="Überordner umbenennen">✏️</button>
+                <button type="button" class="folder-action-btn delete-super-btn" title="Überordner löschen">🗑️</button>
+              `
+            : `
+                <button type="button" class="folder-action-btn add-sub-btn" title="Unterordner hier erstellen">➕</button>
+              `;
 
         const superHeader = document.createElement('div');
         superHeader.className = 'bookshelf-super-header';
         superHeader.innerHTML = `
-            <div class="bookshelf-super-title-wrap">
+            <div class="bookshelf-super-title-wrap" style="display:flex; align-items:center; gap:5px; overflow:hidden; flex:1; min-width:0;">
+                <span class="folder-drag-handle super-drag-handle" title="Überordner ziehen zum Umsortieren">⠿</span>
                 <span class="bookshelf-super-arrow ${isSuperOpen ? 'open' : ''}">▶</span>
                 <span class="bookshelf-super-icon">📂</span>
-                <span class="bookshelf-super-title" title="${escapeHtml(superTitle)}">${escapeHtml(superTitle)}</span>
+                <span class="bookshelf-super-title" title="${escapeHtml(superTitle)}" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(superTitle)}</span>
             </div>
-            <div style="display:flex; align-items:center; gap:4px;">
-                <span class="bookshelf-super-badge">${solvedCasesInSuper}/${totalCasesInSuper}</span>
-                ${deleteSuperBtnHtml}
+            <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
+                <span class="bookshelf-super-badge" style="margin-right:2px;">${solvedCasesInSuper}/${totalCasesInSuper}</span>
+                ${superActionsHtml}
             </div>
         `;
 
-        const delSuperBtn = superHeader.querySelector('.delete-folder-btn');
+        const addSubBtn = superHeader.querySelector('.add-sub-btn');
+        if (addSubBtn) {
+            addSubBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.createSubfolderInSuperFolder(superTitle);
+            });
+        }
+
+        const editSuperBtn = superHeader.querySelector('.edit-super-btn');
+        if (editSuperBtn) {
+            editSuperBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.renameSuperFolder(superTitle);
+            });
+        }
+
+        const delSuperBtn = superHeader.querySelector('.delete-super-btn');
         if (delSuperBtn) {
             delSuperBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1395,14 +1885,32 @@ function renderBookshelf(casesArray) {
             });
         }
 
-        superHeader.addEventListener('click', () => {
+        superHeader.addEventListener('click', (e) => {
+            if (e.target.closest('.folder-action-btn') || e.target.closest('.super-drag-handle')) return;
             bookshelfSuperFolderState[superTitle] = !isSuperOpen;
             renderBookshelf(casesArray);
         });
 
-        // Drop-Target für den gesamten Überordner im Bookshelf
+        // Drag-Start für den gesamten Überordner im Bookshelf
+        superDiv.addEventListener('dragstart', (e) => {
+            if (e.target.closest('.folder-group') || e.target.closest('.folder-case-item')) return;
+            draggedSuperFolderTitle = superTitle;
+            draggedItemState = { type: 'super-folder', name: superTitle };
+            superDiv.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', superTitle);
+        });
+
+        superDiv.addEventListener('dragend', () => {
+            superDiv.classList.remove('dragging');
+            draggedSuperFolderTitle = null;
+            if (draggedItemState?.type === 'super-folder') draggedItemState = null;
+            document.querySelectorAll('.bookshelf-super-group').forEach(f => f.classList.remove('bookshelf-super-drag-over'));
+        });
+
+        // Drop-Target für den gesamten Überordner im Bookshelf (nimmt Überordner, Unterordner und Fälle an)
         superDiv.addEventListener('dragover', (e) => {
-            if (!draggedItemState || draggedItemState.type !== 'folder') return;
+            if (!draggedItemState && !draggedDashboardFolder && !draggedSuperFolderTitle) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             superDiv.classList.add('bookshelf-super-drag-over');
@@ -1414,11 +1922,40 @@ function renderBookshelf(casesArray) {
             }
         });
 
-        superDiv.addEventListener('drop', (e) => {
+        superDiv.addEventListener('drop', async (e) => {
+            if (e.target.closest('.folder-group') && draggedItemState?.type !== 'super-folder' && !draggedSuperFolderTitle) {
+                superDiv.classList.remove('bookshelf-super-drag-over');
+                return;
+            }
             e.preventDefault();
+            e.stopPropagation();
             superDiv.classList.remove('bookshelf-super-drag-over');
-            if (!draggedItemState || draggedItemState.type !== 'folder') return;
-            window.moveFolderToSuperFolder(draggedItemState.name, superTitle);
+
+            if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') {
+                const sourceSuper = draggedSuperFolderTitle || draggedItemState.name;
+                draggedSuperFolderTitle = null;
+                draggedItemState = null;
+                reorderSuperFolders(sourceSuper, superTitle);
+                return;
+            }
+
+            if (draggedDashboardFolder) {
+                const fName = draggedDashboardFolder;
+                draggedDashboardFolder = null;
+                window.moveFolderToSuperFolder(fName, superTitle);
+                return;
+            }
+
+            if (!draggedItemState) return;
+            if (draggedItemState.type === 'folder') {
+                const fName = draggedItemState.name;
+                draggedItemState = null;
+                window.moveFolderToSuperFolder(fName, superTitle);
+            } else if (draggedItemState.type === 'case') {
+                const cId = draggedItemState.id;
+                draggedItemState = null;
+                await moveCaseToSuperFolder(cId, superTitle);
+            }
         });
 
         const superBody = document.createElement('div');
@@ -1427,7 +1964,7 @@ function renderBookshelf(casesArray) {
         if (subfolderNames.length === 0) {
             const emptyNotice = document.createElement('div');
             emptyNotice.style.cssText = 'font-size:0.68rem; color:var(--text-dim, #64748b); padding:4px 8px; font-style:italic;';
-            emptyNotice.textContent = 'Hierher ziehen zum Ablegen';
+            emptyNotice.textContent = 'Ordner/Fall hierher ziehen oder ➕ klicken';
             superBody.appendChild(emptyNotice);
         } else {
             subfolderNames.forEach(folderName => {
@@ -1477,7 +2014,12 @@ function renderBookshelf(casesArray) {
                             e.stopPropagation();
                             draggedItemState = { type: 'case', id: caseItem.case_id };
                             e.dataTransfer.setData('text/plain', caseItem.case_id);
+                            e.dataTransfer.setData('application/medcheck-case-id', caseItem.case_id);
                             e.dataTransfer.effectAllowed = 'move';
+                        });
+
+                        li.addEventListener('dragend', () => {
+                            if (draggedItemState?.type === 'case') draggedItemState = null;
                         });
 
                         li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
@@ -1519,9 +2061,12 @@ function renderBookshelf(casesArray) {
                 }
 
                 folderDiv.addEventListener('dragstart', (e) => {
+                    if (e.target.closest('.folder-case-item')) return;
+                    e.stopPropagation();
                     draggedItemState = { type: 'folder', name: folderName };
                     folderDiv.classList.add('dragging');
                     e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', folderName);
                 });
 
                 folderDiv.addEventListener('dragend', () => {
@@ -1531,7 +2076,9 @@ function renderBookshelf(casesArray) {
                 });
 
                 folderDiv.addEventListener('dragover', (e) => {
+                    if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') return;
                     e.preventDefault();
+                    e.stopPropagation();
                     e.dataTransfer.dropEffect = 'move';
                     folderDiv.classList.add('drag-over-folder');
                 });
@@ -1541,20 +2088,26 @@ function renderBookshelf(casesArray) {
                 });
 
                 folderDiv.addEventListener('drop', async (e) => {
+                    if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') return;
                     e.preventDefault();
+                    e.stopPropagation();
                     folderDiv.classList.remove('drag-over-folder');
 
-                    if (!draggedItemState) return;
-                    if (draggedItemState.type === 'case') {
-                        const caseId = draggedItemState.id;
-                        if (caseId) await moveCaseToFolder(caseId, folderName);
-                    } else if (draggedItemState.type === 'folder') {
-                        const draggedFolder = draggedItemState.name;
-                        if (draggedFolder && draggedFolder !== folderName) {
-                            const targetSuper = getSuperFolderForCategory(folderName);
-                            window.moveFolderToSuperFolder(draggedFolder, targetSuper);
-                            reorderFolders(draggedFolder, folderName);
-                        }
+                    const droppedCaseId = (draggedItemState?.type === 'case' && draggedItemState.id) || e.dataTransfer.getData('application/medcheck-case-id');
+                    if (droppedCaseId) {
+                        draggedItemState = null;
+                        bookshelfFolderState[folderName] = true;
+                        await moveCaseToFolder(droppedCaseId, folderName);
+                        return;
+                    }
+
+                    const draggedFolder = (draggedItemState?.type === 'folder' && draggedItemState.name) || draggedDashboardFolder;
+                    if (draggedFolder && draggedFolder !== folderName) {
+                        draggedItemState = null;
+                        draggedDashboardFolder = null;
+                        const targetSuper = getSuperFolderForCategory(folderName);
+                        window.moveFolderToSuperFolder(draggedFolder, targetSuper);
+                        reorderFolders(draggedFolder, folderName);
                     }
                 });
 
@@ -1568,16 +2121,6 @@ function renderBookshelf(casesArray) {
         superDiv.appendChild(superBody);
         bookshelfContainer.appendChild(superDiv);
     });
-}
-
-function createNewFolder(folderName) {
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!order.includes(folderName)) {
-        order.push(folderName);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-    }
-    bookshelfFolderState[folderName] = true;
-    renderDashboardCases();
 }
 
 function reorderFolders(draggedName, targetName) {
@@ -1624,6 +2167,10 @@ async function renameFolder(oldName, newName) {
     if (bookshelfFolderState[oldName] !== undefined) {
         bookshelfFolderState[newName] = bookshelfFolderState[oldName];
         delete bookshelfFolderState[oldName];
+    }
+    if (openFolders[oldName] !== undefined) {
+        openFolders[newName] = openFolders[oldName];
+        delete openFolders[oldName];
     }
 
     if (typeof supabaseClient !== 'undefined' && window.currentSession) {
@@ -1681,6 +2228,7 @@ async function deleteFolder(folderName, caseCount) {
     }
 
     delete bookshelfFolderState[folderName];
+    delete openFolders[folderName];
 
     if (typeof supabaseClient !== 'undefined' && window.currentSession && caseCount > 0) {
         try {
@@ -1703,6 +2251,12 @@ async function deleteFolder(folderName, caseCount) {
 async function moveCaseToFolder(caseId, targetFolder) {
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
     let targetCase = customCases.find(c => c.case_id === caseId);
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(targetFolder)) {
+        order.push(targetFolder);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
 
     if (targetCase) {
         targetCase.folder_name = targetFolder;
@@ -2322,7 +2876,6 @@ window.copyMasterPromptToClipboard = async function(btnElement) {
 
     let success = false;
 
-    // 1. Moderne Asynchrone Clipboard API
     if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         try {
             await navigator.clipboard.writeText(MEDCHECK_MASTER_PROMPT);
@@ -2332,7 +2885,6 @@ window.copyMasterPromptToClipboard = async function(btnElement) {
         }
     }
 
-    // 2. Robuster Fallback für iFrames, HTTP oder ältere Mobile-Browser
     if (!success) {
         try {
             const tempArea = document.createElement('textarea');
@@ -2351,7 +2903,6 @@ window.copyMasterPromptToClipboard = async function(btnElement) {
         }
     }
 
-    // 3. Benutzer-Feedback auf dem Button
     if (btnElement) {
         const originalHtml = btnElement.innerHTML;
         if (success) {
@@ -2381,20 +2932,14 @@ window.copyMasterPromptToClipboard = async function(btnElement) {
 // ====================================================
 // INTELLIGENTER FALL-KLASSIFIZIERER (AUTO-ROUTING)
 // ====================================================
-
-/**
- * Ermittelt vollautomatisch den sauberen Ordnernamen aus den Falldaten.
- */
 function resolveCaseFolderName(caseData) {
     if (!caseData) return 'Allgemein';
 
-    // 1. Hat der Nutzer/die Forge schon einen Ordner vorgegeben?
     const explicitFolder = (caseData.folder_name || '').trim();
     if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
         return explicitFolder;
     }
 
-    // 2. Aus medical_field ableiten (z. B. "29.2.10_Erkrankungen des Rückenmarks...")
     const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
     if (rawField) {
         if (rawField.includes('_')) {
@@ -2405,7 +2950,6 @@ function resolveCaseFolderName(caseData) {
         return rawField;
     }
 
-    // 3. Aus dem übergeordneten Thema ableiten
     const topic = (caseData.case_overview?.topic || '').trim();
     if (topic && topic.length > 2) {
         return topic;
@@ -2414,69 +2958,28 @@ function resolveCaseFolderName(caseData) {
     return 'Allgemein';
 }
 
-/**
- * Weist jeden beliebigen Ordner einem Überordner zu – lernt dynamisch mit!
- */
 function autoAssignSuperFolder(folderName) {
     if (!folderName) return 'Allgemein';
     const clean = folderName.trim();
 
-    // 1. Gibt es schon ein gespeichertes Mapping vom Nutzer? (Höchste Priorität)
     const mapping = getFolderSuperMapping();
-    if (mapping[clean] && superFolderStates[mapping[clean]] !== undefined) {
+    const availableSupers = getSuperFolderOrder();
+    if (mapping[clean] && availableSupers.includes(mapping[clean])) {
         return mapping[clean];
     }
 
-    // 2. Automatische Zuordnung anhand von Wortstämmen
-    const lower = clean.toLowerCase();
-
-    // Nervensystem & Sinnesorgane
-    if (
-        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') ||
-        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') ||
-        lower.includes('ohr') || lower.includes('myelon') || lower.includes('rückenmark') ||
-        lower.includes('hirn') || lower.includes('cns') || lower.includes('zns') ||
-        lower.includes('insult') || lower.includes('schwindel')
-    ) {
-        return 'Nervensystem und Sinnesorgane';
-    }
-
-    // Psyche, Ethik & Recht
-    if (
-        lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') ||
-        lower.includes('forens') || lower.includes('suizid') || lower.includes('depress') ||
-        lower.includes('schizo') || lower.includes('bipolar') || lower.includes('delir')
-    ) {
-        return 'Psyche / Ethik / Recht';
-    }
-
-    // Reproduktion
-    if (
-        lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') ||
-        lower.includes('schwanger') || lower.includes('ovard') || lower.includes('mamma') ||
-        lower.includes('uterus') || lower.includes('zyklus') || lower.includes('partus')
-    ) {
-        return 'Reproduktion';
-    }
-
-    // Standard-Fallback für alles andere (Innere Medizin, Chirurgie etc.)
-    return 'Allgemein';
+    return getSuperFolderForCategoryHeuristic(clean);
 }
 
-/**
- * Registriert einen neuen Ordner dauerhaft in der App, ohne Duplikate.
- */
 function registerDynamicFolder(folderName, targetSuperFolder = null) {
     if (!folderName || folderName.toLowerCase() === 'allgemein') return;
 
-    // In der Bookshelf-Reihenfolge sichern
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!order.includes(folderName)) {
         order.push(folderName);
         localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
     }
 
-    // Überordner-Zuweisung persistieren
     const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
     const mapping = getFolderSuperMapping();
     if (!mapping[folderName]) {
@@ -2518,7 +3021,6 @@ window.validateAndSaveCustomCase = function() {
         parsed.folder_name = document.getElementById('case-folder-input')?.value.trim() 
                              || resolveCaseFolderName(parsed);
 
-        // Automatisch registrieren und Überordner zuweisen
         registerDynamicFolder(parsed.folder_name);
 
         let customCases = [];
@@ -2865,24 +3367,15 @@ function renderSubjectProgressDrawer() {
 
     const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
 
-    // 1. Alle Überordner aus superFolderStates mit 0 vorinitialisieren
     const superStats = {};
-    if (typeof superFolderStates === 'object' && superFolderStates !== null) {
-        Object.keys(superFolderStates).forEach(name => {
-            superStats[name] = { total: 0, solved: 0 };
-        });
-    }
-    // Fallback-Garantie für die Standard-Überordner
-    DEFAULT_SUPER_FOLDERS.forEach(name => {
-        if (!superStats[name]) superStats[name] = { total: 0, solved: 0 };
+    getSuperFolderOrder().forEach(name => {
+        superStats[name] = { total: 0, solved: 0 };
     });
 
-    // 2. Alle registrierten Fälle über die zentrale App-Methode laden
     const allAvailableCases = typeof window.getRegisteredCases === 'function'
         ? window.getRegisteredCases()
         : [BUILTIN_DEMO_CASE, ...getCustomCases()];
 
-    // 3. Fälle sauber über getSuperFolderForCategory() zuweisen
     allAvailableCases.forEach(c => {
         const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
 
@@ -3612,7 +4105,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1. Priorität: Schnelles Scrollen im Bookshelf (Sidebar)
         let bookshelfScrolled = false;
         const bookshelf = document.getElementById('bookshelf-container');
         if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
@@ -3636,7 +4128,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 2. Schnelles Scrollen im Haupt-Dashboard
         if (!bookshelfScrolled && currentMouseY >= 0) {
             const scrollTarget = getScrollContainer();
             const viewportHeight = window.innerHeight;
@@ -3680,6 +4171,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('dragstart', (e) => {
         const isDraggableItem = e.target.closest('.case-card') || 
                                e.target.closest('.category-folder') || 
+                               e.target.closest('.super-folder') ||
+                               e.target.closest('.bookshelf-super-group') ||
                                e.target.closest('.folder-case-item') || 
                                e.target.closest('.folder-group');
 
@@ -3749,7 +4242,6 @@ function getActiveSupabaseClient() {
     return window.supabaseClient || window.supabase || window.sb || null;
 }
 
-// Globales Verhindern von versehentlichem Öffnen der JSON-Dateien im Tab
 window.addEventListener('dragover', (e) => {
     if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
         e.preventDefault();
@@ -3837,14 +4329,12 @@ function initDropZone() {
         const dt = e.dataTransfer;
         if (!dt) return;
 
-        // A) Fall-Karte aus dem Dashboard hineingezogen
         const internalCaseId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
         if (internalCaseId && (!dt.files || dt.files.length === 0)) {
             await handleInternalCaseUpload(internalCaseId);
             return;
         }
 
-        // B) Externe .json-Dateien vom Desktop/Explorer
         if (dt.files && dt.files.length > 0) {
             handleCaseFiles(dt.files);
         }
