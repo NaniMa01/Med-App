@@ -3800,8 +3800,6 @@ function initDropZone() {
 }
 
 // 4. Upload von In-App Fallkarten
-// In js/app.js:
-
 async function handleInternalCaseUpload(caseId) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
@@ -3809,7 +3807,6 @@ async function handleInternalCaseUpload(caseId) {
         return;
     }
 
-    // Aktuelle Session & User-ID abfragen
     const { data: { session } } = await sb.auth.getSession();
     const currentUser = session?.user;
 
@@ -3856,8 +3853,8 @@ async function handleInternalCaseUpload(caseId) {
     }
 }
 
+// 5. Externe JSON-Dateien per Dropzone verarbeiten
 async function handleCaseFiles(files) {
-    
     const sb = getActiveSupabaseClient();
     if (!sb) {
         alert("Fehler: Keine Supabase-Verbindung vorhanden.");
@@ -3885,75 +3882,15 @@ async function handleCaseFiles(files) {
             const caseData = JSON.parse(rawContent);
 
             const caseId = caseData.case_id || caseData.id;
+            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
+            caseData.case_id = caseId;
+
+            caseData.folder_name = caseData.folder_name || resolveCaseFolderName(caseData);
+            registerDynamicFolder(caseData.folder_name);
+
             const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
             const title = caseData.metadata?.title || caseData.title || caseId;
 
-            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
-
-            caseData.case_id = caseId;
-
-            async function handleCaseFiles(files) {
-    // Direkt beim Verarbeiten jeder .json-Datei:
-    caseData.folder_name = caseData.folder_name || resolveCaseFolderName(caseData);
-    
-    // Automatisch registrieren und Überordner zuweisen
-    registerDynamicFolder(caseData.folder_name);
-    const sb = getActiveSupabaseClient();
-    if (!sb) {
-        alert("Fehler: Keine Supabase-Verbindung vorhanden.");
-        return;
-    }
-
-    const { data: { session } } = await sb.auth.getSession();
-    const currentUser = session?.user;
-
-    if (!currentUser) {
-        alert("Bitte melde dich zuerst als Creator an.");
-        return;
-    }
-
-    for (const file of Array.from(files)) {
-        if (!file.name.toLowerCase().endsWith('.json')) {
-            renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
-            continue;
-        }
-
-        renderStatus(file.name, 'loading', 'Validierung und Speicherung...');
-
-        try {
-            const rawContent = await file.text();
-            const caseData = JSON.parse(rawContent);
-
-            const caseId = caseData.case_id || caseData.id;
-            const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
-            const title = caseData.metadata?.title || caseData.title || caseId;
-
-            if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
-
-            caseData.case_id = caseId;
-
-            const { error } = await sb
-                .from('cases')
-                .upsert({
-                    case_id: caseId,
-                    title: title,
-                    medical_field: field,
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: caseData
-                }, { onConflict: 'case_id' });
-
-            if (error) throw error;
-
-            renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
-            await loadCasesFromDatabase();
-        } catch (err) {
-            console.error("Upload Error:", err);
-            renderStatus(file.name, 'error', `Fehler: ${err.message}`);
-        }
-    }
-}
             const { error } = await sb
                 .from('cases')
                 .upsert({
