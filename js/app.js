@@ -32,14 +32,15 @@ let bookshelfSuperFolderState = {
 };
 
 let bookshelfFolderState = {};
-let draggedItemState = null;
-let dragHoverTimer = null;
+let draggedItemState = null;      // Korrigiert: war 'gedItemState'
+let dragHoverTimer = null;        // Korrigiert: war 'HoverTimer'
 let currentLearningMode = 'topic';
 
 // Fachrichtungs-Modus Queue
 let specialtyQueue = [];
 let specialtyIndex = 0;
 let activeSpecialtyName = '';
+
 
 const defaultSkills = {
     "Triage": { hits: 0, total: 0 },
@@ -48,47 +49,7 @@ const defaultSkills = {
     "Pathophysiologie": { hits: 0, total: 0 }
 };
 
-// Creator Hub & Cloud States
-window.cloudCaseIds = new Set();
-window.currentSessionUser = null;
-
-
-// ==========================================
-// THEME ENGINE (Frühzeitige Initialisierung)
-// ==========================================
-const THEME_STORAGE_KEY = 'medcheck_ui_theme';
-const THEME_META_COLORS = {
-    midnight: '#060913',
-    daylight: '#f1f5f9',
-    scrubs:   '#04110f',
-    neuro:    '#090614'
-};
-
-window.applyAppTheme = function(themeName) {
-    const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
-
-    if (validTheme === 'midnight') {
-        document.documentElement.removeAttribute('data-theme');
-    } else {
-        document.documentElement.setAttribute('data-theme', validTheme);
-    }
-
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-        metaTheme.setAttribute('content', THEME_META_COLORS[validTheme]);
-    }
-
-    document.querySelectorAll('.theme-card').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
-    });
-
-    localStorage.setItem(THEME_STORAGE_KEY, validTheme);
-};
-
-
-// ====================================================
 // V6.0 BUILT-IN DEMO CASE
-// ====================================================
 const BUILTIN_DEMO_CASE = {
     "case_id": "MYELON_MASTER_001_USB",
     "metadata": {
@@ -265,28 +226,13 @@ function loadDDLibrary() {
 }
 
 // ====================================================
-// ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG
+// ERWEITERTE ORDNER- & ÜBERORDNER-VERWALTUNG (FIXED)
 // ====================================================
-window.getCustomSuperFolders = function() {
-    try {
-        return JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
-    } catch (e) {
-        return [];
-    }
-};
 
-window.removeCustomSuperFolder = function(superTitle) {
-    if (!confirm(`Überordner "${superTitle}" wirklich entfernen?`)) return;
-    let customSupers = window.getCustomSuperFolders().filter(s => s !== superTitle);
-    localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
-    delete superFolderStates[superTitle];
-    delete bookshelfSuperFolderState[superTitle];
-    renderDashboardCases();
-};
-
+// Beim Start gespeicherte Custom Supers wiederherstellen
 function initCustomSuperFoldersState() {
     try {
-        const savedSupers = window.getCustomSuperFolders();
+        const savedSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
         savedSupers.forEach(sName => {
             if (superFolderStates[sName] === undefined) {
                 superFolderStates[sName] = true;
@@ -297,34 +243,56 @@ function initCustomSuperFoldersState() {
         console.error("Fehler beim Laden der Custom Supers:", e);
     }
 }
+
+// Direkt beim Laden initialisieren
 initCustomSuperFoldersState();
 
+// 1. Neuen Überordner (Super-Folder) dynamisch per Modal erstellen
 window.createNewSuperFolderModal = function() {
     const superName = window.prompt("Name für den neuen Überordner (z.B. 'Interdisziplinäre Notfälle'):");
     if (!superName || !superName.trim()) return;
 
     const cleanName = superName.trim();
+    
     if (superFolderStates[cleanName] !== undefined) {
         alert("Dieser Überordner existiert bereits.");
         return;
     }
 
+    // In States aufnehmen
     superFolderStates[cleanName] = true;
     bookshelfSuperFolderState[cleanName] = true;
 
-    let customSupers = window.getCustomSuperFolders();
+    // In LocalStorage persistieren
+    let customSupers = JSON.parse(localStorage.getItem('medcheck_custom_supers') || '[]');
     if (!customSupers.includes(cleanName)) {
         customSupers.push(cleanName);
         localStorage.setItem('medcheck_custom_supers', JSON.stringify(customSupers));
     }
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    
+    // UI aktualisieren
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') {
         renderSubjectProgressDrawer();
     }
 };
 
+// 2. Einheitlicher und korrekter Bookshelf-Header mit beiden Buttons
+window.renderBookshelfHeader = function() {
+    return `
+        <div class="bookshelf-header-row">
+            <span class="bookshelf-title">Bücherregal & Ordner</span>
+            <div style="display:flex; gap:4px; align-items:center;">
+                <button class="bookshelf-add-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner erstellen" style="font-size:0.7rem; padding:2px 6px; width:auto;">+ Über</button>
+                <button class="bookshelf-add-btn" onclick="const name = window.prompt('Name für den neuen Unterordner:'); if(name && name.trim()) createNewFolder(name.trim());" title="Neuen Unterordner erstellen">+</button>
+            </div>
+        </div>
+    `;
+};
+
+// 3. Unterordner erstellen
 window.createNewFolder = function(folderName) {
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!order.includes(folderName)) {
@@ -334,7 +302,12 @@ window.createNewFolder = function(folderName) {
     bookshelfFolderState[folderName] = true;
     renderDashboardCases();
 };
-
+function promptNewSuperFolder() {
+    const folderName = prompt('Name des neuen Überordners (z.B. "Staatsexamen Fokus"):');
+    if (folderName) {
+        createCustomSuperFolder(folderName);
+    }
+}
 window.registerCaseDDs = function(caseData) {
     const tasks = caseData?.extra_tasks;
     if (!tasks) return;
@@ -375,123 +348,60 @@ window.saveChallengeProgress = function(challengeKey, data) {
 };
 
 // ====================================================
-// ABSCHLUSS & RESETS (Vorzeitige Initialisierung)
+// INITIALISIERUNG
 // ====================================================
-window.checkFinalCompletion = function() {
-    const stepsDone = (clearedStepsCount === totalStepsCount);
-    const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
-    const casDone = (cascadesSolvedCount === totalCascades);
-    const docDone = doctordleSolved;
-    const fcDone = window.flashcardsSolved !== undefined ? window.flashcardsSolved : true;
+document.addEventListener('DOMContentLoaded', () => {
+   
+    
+    initUserData();
+    initCreatorHubAndCloudCases();
+    
+    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
+    prefetchManifestDDs();
+    renderSkillsSidebar();
+    renderDashboardCases();
+    if (typeof window.renderSpecialtyHub === 'function') {
+        window.renderSpecialtyHub();
+    }
 
-    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone && fcDone;
+    // =========================================================================
+    // INITIALISIERUNG: SPACED REPETITION WIDGET (Stabil & Fehlerfrei)
+    // =========================================================================
+    if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    }
 
-    const finishBtn = document.getElementById('finish-case-btn');
-    if (finishBtn) {
-        finishBtn.style.display = allCompleted ? 'block' : 'none';
-        if (window.isSpecialtyBlindMode) {
-            finishBtn.innerText = '🎉 Krankheitsbild aufdecken & abschließen';
-        } else {
-            finishBtn.innerText = 'Fall abschließen & XP sichern';
+    window.addEventListener('sr:updated', () => {
+        if (window.SpacedRepetitionEngine) {
+            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
         }
-    }
-    if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
-};
-
-window.finishCase = function() {
-    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
-        solved.push(activeCaseData.case_id);
-        localStorage.setItem('solved_cases', JSON.stringify(solved));
-        if (window.Cloud && typeof window.Cloud.scheduleProgressSync === 'function') window.Cloud.scheduleProgressSync();
-        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
-    } else {
-        applyXpDelta(50, 'Review Bonus');
+    });
+    // =========================================================================
+    
+    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
+    if (addFolderBtn) {
+        addFolderBtn.addEventListener('click', () => {
+            const name = window.prompt("Name für den neuen Ordner:");
+            if (name && name.trim()) createNewFolder(name.trim());
+        });
     }
 
-    if (window.isSpecialtyBlindMode) {
-        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
-        window.nextSpecialtyCase();
-        return;
-    } else {
-        alert('🎉 Gratulation! Alle Challenges gemeistert.');
-    }
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.closest('#btn-next-specialty-case')) window.nextSpecialtyCase();
+        if (e.target && e.target.closest('#btn-exit-specialty')) {
+            window.isSpecialtyBlindMode = false;
+            window.applyBlindHeader(false, null);
+            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        }
+        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
+            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+            alert(`🔍 Diagnose enthüllt:\n\n${title}`);
+        }
+    });
 
-    const navItems = document.querySelectorAll('.nav-item');
-    if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
-};
-
-window.resetCurrentChallenge = function() {
-    if (!activeCaseData || currentActiveChallenge === 'overview') return;
-
-    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
-    if (!confirmReset) return;
-
-    const caseId = activeCaseData.case_id;
-
-    switch (currentActiveChallenge) {
-        case 'audit':
-            ProgressManager.resetChallenge(caseId, 'audit');
-            clearedStepsCount = 0;
-            const badgeAudit = document.getElementById('badge-mode-audit');
-            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
-            if (window.renderTimeline) window.renderTimeline();
-            break;
-        case 'quiz':
-            ProgressManager.resetChallenge(caseId, 'quiz');
-            quizSolved = false;
-            userQuizAnswers = {};
-            if (window.renderQuiz) window.renderQuiz();
-            break;
-        case 'synapses':
-            ProgressManager.resetChallenge(caseId, 'synapses');
-            solvedSynapseDiseases = 0;
-            selectedSynapses = [];
-            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
-            break;
-        case 'cascade':
-            ProgressManager.resetChallenge(caseId, 'cascades');
-            cascadesSolvedCount = 0;
-            if (window.renderCascades) window.renderCascades();
-            break;
-        case 'cat':
-            ProgressManager.resetChallenge(caseId, 'categorization');
-            categorizationSolved = false;
-            if (window.renderCategorization) window.renderCategorization();
-            break;
-        case 'doctordle':
-            ProgressManager.resetChallenge(caseId, 'doctordle');
-            solvedDoctordlePuzzles = 0;
-            doctordleSolved = false;
-            const docBadge = document.getElementById('badge-mode-doctordle');
-            if (docBadge) {
-                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
-                docBadge.style.background = '';
-            }
-            if (window.doctordleGame) {
-                window.doctordleGame.resetGame();
-            }
-            break;
-        case 'flashcards':
-            ProgressManager.resetChallenge(caseId, 'flashcards');
-            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
-            break;
-    }
-    window.checkFinalCompletion();
-};
-
-window.resetCurrentCaseEntirely = function() {
-    if (!activeCaseData) return;
-    const blind = !!window.isSpecialtyBlindMode;
-    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
-    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
-
-    ProgressManager.resetEntireCase(activeCaseData.case_id);
-    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
-};
-
-
+    setTimeout(renderSubjectProgressDrawer, 500);
+});
 // ====================================================
 // ALLGEMEINE UI & UTILS
 // ====================================================
@@ -511,14 +421,18 @@ window.toggleSidebar = function() {
 
 function escapeHtml(str) {
     if (!str) return '';
-    return String(str).replace(/[&<>'"]/g,
+    return String(str).replace(/[&<>'"]/g, 
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
 
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
-    if (tab === 'auth') tab = 'settings';
+
+    // Fallback: Anmeldung in die Einstellungen integriert
+    if (tab === 'auth') {
+        tab = 'settings';
+    }
 
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
     if (el) {
@@ -531,7 +445,15 @@ window.switchTab = function(tab, el) {
         });
     }
 
-    const allViews = ['dashboard-view', 'player-view', 'forge-view', 'settings-view', 'depot-view', 'pharmacology-view'];
+    const allViews = [
+        'dashboard-view', 
+        'player-view', 
+        'forge-view', 
+        'settings-view', 
+        'depot-view', 
+        'pharmacology-view'
+    ];
+
     allViews.forEach(viewId => {
         const element = document.getElementById(viewId);
         if (element) element.style.display = 'none';
@@ -554,7 +476,7 @@ window.switchTab = function(tab, el) {
 
     const navPlayer = document.getElementById('nav-player');
     if (navPlayer) navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
-
+    
     const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.remove('open');
@@ -580,7 +502,7 @@ window.switchPlayerMode = function(mode) {
 
     document.querySelectorAll('.player-mode-pane').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.challenge-tab-btn').forEach(btn => btn.classList.remove('active'));
-
+    
     const targetPane = document.getElementById('mode-container-' + mode);
     const targetTab = document.getElementById('tab-btn-' + mode);
     if (targetPane) targetPane.style.display = 'block';
@@ -589,6 +511,7 @@ window.switchPlayerMode = function(mode) {
     if (mode === 'doctordle' && window.initDoctordle && activeCaseData) {
         window.initDoctordle(activeCaseData);
     }
+
     if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
         window.renderFlashcards();
     }
@@ -597,13 +520,13 @@ window.switchPlayerMode = function(mode) {
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
     let hint = "Kein spezifischer Hinweis hinterlegt.";
-
+    
     if (taskKey === 'clinical_cascades' && activeCaseData.extra_tasks.clinical_cascades) {
         hint = activeCaseData.extra_tasks.clinical_cascades[0]?.tutor_hint || hint;
     } else if (activeCaseData.extra_tasks[taskKey]) {
         hint = activeCaseData.extra_tasks[taskKey].tutor_hint || hint;
     }
-
+    
     const tutorText = document.getElementById('tutor-text');
     const tutorModal = document.getElementById('tutor-modal');
     if (tutorText) tutorText.innerText = hint;
@@ -615,9 +538,8 @@ window.toggleSuperFolder = function(superFolderTitle) {
     renderDashboardCases();
 };
 
-
 // ====================================================
-// FOLDER-MAPPING & ROUTING
+// PERSISTENTE ÜBERORDNER-ZUWEISUNG (FOLDER-MAPPING)
 // ====================================================
 const FOLDER_SUPER_MAPPING_KEY = 'medcheck_folder_super_mapping';
 
@@ -636,16 +558,17 @@ function saveFolderSuperMapping(mapping) {
         console.error('Fehler beim Speichern der Überordner-Zuweisung:', e);
     }
 }
-
 function getSuperFolderForCategory(categoryName) {
     if (!categoryName) return 'Allgemein';
     const cleanName = categoryName.trim();
 
+    // 1. Explizite Nutzerzuweisung prüfen
     const mapping = getFolderSuperMapping();
     if (mapping[cleanName] && superFolderStates[mapping[cleanName]] !== undefined) {
         return mapping[cleanName];
     }
 
+    // 2. Intelligente Heuristik als Fallback
     const lower = cleanName.toLowerCase();
     if (lower === 'allgemein' || lower.startsWith('allgemein') || lower === 'sonstiges' || lower === 'uncategorized') {
         return 'Allgemein';
@@ -657,56 +580,16 @@ function getSuperFolderForCategory(categoryName) {
         return 'Reproduktion';
     }
     if (
-        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') ||
-        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') ||
-        lower.includes('hals-nase') || lower.includes('ohr') || lower.includes('29.2') ||
-        lower.includes('myelon') || lower.includes('hirn') || lower.includes('gehirn') ||
-        lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') ||
-        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz') ||
-        lower.includes('insult') || lower.includes('schwindel')
+        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') || 
+        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') || 
+        lower.includes('hals-nase') || lower.includes('ohr') || lower.includes('29.2') || 
+        lower.includes('myelon') || lower.includes('hirn') || lower.includes('gehirn') || 
+        lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') || 
+        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz')
     ) {
         return 'Nervensystem und Sinnesorgane';
     }
     return 'Allgemein';
-}
-
-function resolveCaseFolderName(caseData) {
-    if (!caseData) return 'Allgemein';
-    const explicitFolder = (caseData.folder_name || '').trim();
-    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
-        return explicitFolder;
-    }
-    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
-    if (rawField) {
-        if (rawField.includes('_')) {
-            const parts = rawField.split('_');
-            const cleanTitle = parts.slice(1).join('_').trim();
-            if (cleanTitle.length > 2) return cleanTitle;
-        }
-        return rawField;
-    }
-    const topic = (caseData.case_overview?.topic || '').trim();
-    if (topic && topic.length > 2) return topic;
-    return 'Allgemein';
-}
-
-function autoAssignSuperFolder(folderName) {
-    return getSuperFolderForCategory(folderName);
-}
-
-function registerDynamicFolder(folderName, targetSuperFolder = null) {
-    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!order.includes(folderName)) {
-        order.push(folderName);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-    }
-    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
-    const mapping = getFolderSuperMapping();
-    if (!mapping[folderName]) {
-        mapping[folderName] = superTarget;
-        saveFolderSuperMapping(mapping);
-    }
 }
 
 window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
@@ -717,6 +600,7 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
     mapping[folderName] = targetSuperFolder;
     saveFolderSuperMapping(mapping);
 
+    // Ziel-Überordner automatisch aufklappen
     superFolderStates[targetSuperFolder] = true;
     if (typeof bookshelfSuperFolderState !== 'undefined') {
         bookshelfSuperFolderState[targetSuperFolder] = true;
@@ -757,7 +641,6 @@ window.promptMoveFolderToSuperFolder = function(folderName) {
     }
 };
 
-
 // ==========================================
 // DYNAMISCHES RESIZING DER SIDEBAR
 // ==========================================
@@ -783,28 +666,31 @@ function initSidebarResizer() {
     const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (savedWidth) setSidebarWidth(parseInt(savedWidth, 10));
 
-    let isResizing = false;
+    let isging = false;
 
     resizer.addEventListener('mousedown', (e) => {
         if (e.target.tagName === 'BUTTON') return;
-        isResizing = true;
+        isging = true;
         document.body.classList.add('is-resizing');
         e.preventDefault();
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
+        if (!isging) return;
         setSidebarWidth(e.clientX);
     });
 
     window.addEventListener('mouseup', () => {
-        if (isResizing) {
-            isResizing = false;
+        if (isging) {
+            isging = false;
             document.body.classList.remove('is-resizing');
         }
     });
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    initSidebarResizer();
+});
 
 // ====================================================
 // STATS & SKILLS
@@ -841,7 +727,7 @@ function updateStatsUI() {
     const xp = parseInt(localStorage.getItem('user_xp') || '0');
     const statXp = document.getElementById('stat-xp');
     if (statXp) statXp.innerText = xp;
-
+    
     let rank = xp >= 1500 ? 'Oberarzt' : (xp >= 800 ? 'Facharzt' : (xp >= 300 ? 'Assistenzarzt' : 'Famulus'));
     const statRank = document.getElementById('stat-rank');
     if (statRank) statRank.innerText = rank;
@@ -851,10 +737,8 @@ function applyXpDelta(delta, label) {
     let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
     localStorage.setItem('user_xp', currentXp);
     updateStatsUI();
-    if (window.Cloud && typeof window.Cloud.scheduleProgressSync === 'function') {
-        window.Cloud.scheduleProgressSync();
-    }
-
+    if (window.Cloud) window.Cloud.scheduleProgressSync();
+    
     const container = document.getElementById('hud-popup-container');
     if (!container) return;
     const popup = document.createElement('div');
@@ -873,15 +757,13 @@ function trackSkill(skillTag, isHit) {
     if (isHit) skills[tag].hits += 1;
     localStorage.setItem('user_skills', JSON.stringify(skills));
     renderSkillsSidebar();
-    if (window.Cloud && typeof window.Cloud.scheduleProgressSync === 'function') {
-        window.Cloud.scheduleProgressSync();
-    }
+    if (window.Cloud) window.Cloud.scheduleProgressSync();
 }
 
 function renderSkillsSidebar() {
     const container = document.getElementById('skills-sidebar-container');
     if (!container) return;
-
+    
     const skills = JSON.parse(localStorage.getItem('user_skills') || JSON.stringify(defaultSkills));
     const canonicalOrder = ["Triage", "Diagnostik", "Pharmakologie", "Pathophysiologie"];
     container.innerHTML = canonicalOrder.map(skill => {
@@ -901,13 +783,12 @@ function renderSkillsSidebar() {
     }).join('');
 }
 
-
 // ====================================================
 // FACHRICHTUNGS-TRAINING ENGINE
 // ====================================================
 window.setLearningMode = function(mode) {
     currentLearningMode = mode;
-
+    
     const btnTopic = document.getElementById('seg-topic');
     const btnSpecialty = document.getElementById('seg-specialty');
     const topicGrid = document.getElementById('super-folders-wrapper');
@@ -1001,12 +882,14 @@ window.nextSpecialtyCase = function() {
 window.applyBlindHeader = function(blind, caseData) {
     const badge = document.getElementById('player-case-badge-title');
     const wrap = badge ? badge.parentElement : null;
-
+    
     let field = 'Fachrichtung';
     if (caseData && caseData.metadata && caseData.metadata.medical_field) {
         field = caseData.metadata.medical_field;
     } else if (caseData && caseData.folder_name) {
         field = caseData.folder_name;
+    } else if (typeof specialtySession !== 'undefined' && specialtySession.field) {
+        field = specialtySession.field;
     }
 
     if (wrap) {
@@ -1021,7 +904,7 @@ window.applyBlindHeader = function(blind, caseData) {
             nextBtn.id = 'btn-top-new-case';
             nextBtn.innerHTML = 'Neuer Fall ➔';
             nextBtn.style.cssText = 'background: #0284c7; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 15px; font-size: 0.85rem; box-shadow: 0 2px 8px rgba(2,132,199,0.4); flex-shrink: 0;';
-
+            
             nextBtn.onmouseenter = () => nextBtn.style.background = '#0369a1';
             nextBtn.onmouseleave = () => nextBtn.style.background = '#0284c7';
 
@@ -1034,12 +917,12 @@ window.applyBlindHeader = function(blind, caseData) {
                     window.SpecialtyEngine.nextCase();
                 }
             };
-
+            
             wrap.appendChild(nextBtn);
             wrap.style.display = 'inline-flex';
             wrap.style.alignItems = 'center';
         }
-
+        
         nextBtn.style.display = blind ? 'inline-block' : 'none';
     }
 
@@ -1053,22 +936,13 @@ window.applyBlindHeader = function(blind, caseData) {
     }
 };
 
-
 // ====================================================
-// DASHBOARD & BOOKSHELF RENDERING
+// DASHBOARD DYNAMISCHES RENDERING (SUPER-FOLDER ENGINE)
 // ====================================================
-function getDashboardFolderOrder() {
-    try { return JSON.parse(localStorage.getItem('medcheck_dashboard_folder_order') || '[]'); } catch (_e) { return []; }
-}
-
-function saveDashboardFolderOrder(orderArray) {
-    try { localStorage.setItem('medcheck_dashboard_folder_order', JSON.stringify(orderArray)); } catch (e) {}
-}
-
 function renderDashboardCases() {
     const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-
+    
     let wrapper = document.getElementById('super-folders-wrapper');
     if (!wrapper) {
         const topicGrid = document.getElementById('topic-grid');
@@ -1082,7 +956,7 @@ function renderDashboardCases() {
     if (!wrapper) return;
 
     const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
-
+    
     const grouped = {};
     allCases.forEach(c => {
         const cat = (c.folder_name || c.metadata?.medical_field || "Allgemein").trim();
@@ -1090,6 +964,7 @@ function renderDashboardCases() {
         grouped[cat].push(c);
     });
 
+    // Dynamische Überordner aus den States generieren
     const superFolders = {};
     Object.keys(superFolderStates).forEach(key => {
         superFolders[key] = [];
@@ -1128,7 +1003,7 @@ function renderDashboardCases() {
                     const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
                         ? ''
                         : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
-
+                    
                     const unpublishBtn = (isCurrentUserCreator && isCloudCase)
                         ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
                         : '';
@@ -1139,7 +1014,7 @@ function renderDashboardCases() {
                          data-case-id="${encodeURIComponent(c.case_id)}" 
                          role="button" 
                          tabindex="0">
-
+                        
                         <div class="case-card-header">
                             <div class="case-card-badges">
                                 <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
@@ -1200,8 +1075,7 @@ function renderDashboardCases() {
 
     wrapper.innerHTML = superFoldersHtml;
 
-    let draggedDashboardFolder = null;
-
+    // Drag-over & Drop für die Überordner im Dashboard
     wrapper.querySelectorAll('.super-folder').forEach(superEl => {
         const sTitle = decodeURIComponent(superEl.dataset.superTitle);
 
@@ -1227,6 +1101,7 @@ function renderDashboardCases() {
         });
     });
 
+    // Klick- & Drag-Handler für Ordner
     wrapper.querySelectorAll('.category-folder').forEach(folderEl => {
         const catName = decodeURIComponent(folderEl.dataset.category);
         const header = folderEl.querySelector('.category-header');
@@ -1236,7 +1111,7 @@ function renderDashboardCases() {
                 toggleFolder(catName);
             });
         }
-
+        
         folderEl.addEventListener('dragstart', (e) => {
             if (e.target !== folderEl && !e.target.closest('.category-header')) return;
             draggedDashboardFolder = catName;
@@ -1253,9 +1128,10 @@ function renderDashboardCases() {
         });
     });
 
+    // Fall-Karten Handler
     wrapper.querySelectorAll('.case-card[data-case-id]').forEach(card => {
         const caseId = decodeURIComponent(card.dataset.caseId);
-
+        
         card.addEventListener('click', () => window.loadCaseById(caseId));
         card.addEventListener('keydown', event => {
             if (event.target !== card) return;
@@ -1290,7 +1166,7 @@ function renderDashboardCases() {
         if (unpublishBtn) {
             unpublishBtn.addEventListener('click', async (event) => {
                 event.stopPropagation();
-                await window.unpublishCaseFromCloud(caseId);
+                await unpublishCaseFromCloud(caseId);
             });
         }
     });
@@ -1301,7 +1177,33 @@ function renderDashboardCases() {
         console.error("Bookshelf Fehler:", bsErr);
     }
 }
+const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
+let draggedDashboardFolder = null;
 
+function getDashboardFolderOrder() {
+    try { return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]'); } catch (_e) { return []; }
+}
+
+function saveDashboardFolderOrder(orderArray) {
+    try { localStorage.setItem(DASHBOARD_FOLDER_ORDER_KEY, JSON.stringify(orderArray)); } catch (e) {}
+}
+
+function reorderDashboardFolders(draggedCat, targetCat) {
+    if (!draggedCat || !targetCat || draggedCat === targetCat) return;
+    let order = getDashboardFolderOrder();
+    const fromIdx = order.indexOf(draggedCat);
+    const toIdx = order.indexOf(targetCat);
+    if (fromIdx !== -1 && toIdx !== -1) {
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedCat);
+        saveDashboardFolderOrder(order);
+        renderDashboardCases();
+    }
+}
+
+// ====================================================
+// BOOKSHELF & ORDNER-VERWALTUNG
+// ====================================================
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
@@ -1324,6 +1226,7 @@ function renderBookshelf(casesArray) {
 
     localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
 
+    // Überordner dynamisch initialisieren
     const superFolders = {};
     Object.keys(superFolderStates).forEach(key => {
         superFolders[key] = [];
@@ -1368,6 +1271,7 @@ function renderBookshelf(casesArray) {
             renderBookshelf(casesArray);
         });
 
+        // Drop-Target für den gesamten Überordner im Bookshelf
         superDiv.addEventListener('dragover', (e) => {
             if (!draggedItemState || draggedItemState.type !== 'folder') return;
             e.preventDefault();
@@ -1472,7 +1376,7 @@ function renderBookshelf(casesArray) {
                         e.stopPropagation();
                         const newName = window.prompt("Neuer Name für den Ordner:", folderName);
                         if (newName && newName.trim() && newName.trim() !== folderName) {
-                            window.renameFolder(folderName, newName.trim());
+                            renameFolder(folderName, newName.trim());
                         }
                     });
                 }
@@ -1481,7 +1385,7 @@ function renderBookshelf(casesArray) {
                 if (deleteFolderBtn) {
                     deleteFolderBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        window.deleteFolder(folderName, casesInFolder.length);
+                        deleteFolder(folderName, casesInFolder.length);
                     });
                 }
 
@@ -1514,12 +1418,14 @@ function renderBookshelf(casesArray) {
                     if (!draggedItemState) return;
                     if (draggedItemState.type === 'case') {
                         const caseId = draggedItemState.id;
-                        if (caseId) await window.moveCaseToFolder(caseId, folderName);
+                        if (caseId) await moveCaseToFolder(caseId, folderName);
                     } else if (draggedItemState.type === 'folder') {
                         const draggedFolder = draggedItemState.name;
                         if (draggedFolder && draggedFolder !== folderName) {
+                            // Wenn auf einen Ordner in einem anderen Überordner abgelegt wird:
                             const targetSuper = getSuperFolderForCategory(folderName);
                             window.moveFolderToSuperFolder(draggedFolder, targetSuper);
+                            reorderFolders(draggedFolder, folderName);
                         }
                     }
                 });
@@ -1536,91 +1442,30 @@ function renderBookshelf(casesArray) {
     });
 }
 
-function toggleSubjectDrawer() {
-    const drawer = document.getElementById('subject-progress-drawer');
-    if (!drawer) return;
-    drawer.classList.toggle('collapsed');
+function createNewFolder(folderName) {
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+    bookshelfFolderState[folderName] = true;
+    renderDashboardCases();
+}
 
-    if (!drawer.classList.contains('collapsed')) {
-        renderSubjectProgressDrawer();
+function reorderFolders(draggedName, targetName) {
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const fromIdx = order.indexOf(draggedName);
+    const toIdx = order.indexOf(targetName);
+
+    if (fromIdx !== -1 && toIdx !== -1) {
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+        renderDashboardCases();
     }
 }
 
-function getSubjectColorClass(pct) {
-    if (pct <= 32) return 'bar-red';
-    if (pct <= 66) return 'bar-orange';
-    return 'bar-green';
-}
-
-function renderSubjectProgressDrawer() {
-    const listEl = document.getElementById('dynamic-subjects-list');
-    if (!listEl) return;
-
-    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const superStats = {};
-
-    if (typeof superFolderStates === 'object' && superFolderStates !== null) {
-        Object.keys(superFolderStates).forEach(name => {
-            superStats[name] = { total: 0, solved: 0 };
-        });
-    }
-
-    ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'].forEach(name => {
-        if (!superStats[name]) superStats[name] = { total: 0, solved: 0 };
-    });
-
-    const allAvailableCases = typeof window.getRegisteredCases === 'function'
-        ? window.getRegisteredCases()
-        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-
-    allAvailableCases.forEach(c => {
-        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
-        const superFolder = typeof getSuperFolderForCategory === 'function'
-            ? getSuperFolderForCategory(rawCategory)
-            : 'Allgemein';
-
-        if (!superStats[superFolder]) {
-            superStats[superFolder] = { total: 0, solved: 0 };
-        }
-
-        superStats[superFolder].total += 1;
-
-        const caseId = c.case_id || c.id;
-        if (solvedIds.includes(caseId)) {
-            superStats[superFolder].solved += 1;
-        }
-    });
-
-    const entries = Object.entries(superStats);
-    entries.sort((a, b) => {
-        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
-        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
-        return pctA - pctB;
-    });
-
-    listEl.innerHTML = entries.map(([folderName, stats]) => {
-        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
-        const colorClass = getSubjectColorClass(pct);
-
-        return `
-            <div class="subject-item" style="cursor: pointer;" onclick="if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${folderName}' zu filtern">
-                <div class="subject-item-top">
-                    <span class="subject-item-name" title="${escapeHtml(folderName)}">📁 ${escapeHtml(folderName)}</span>
-                    <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
-                </div>
-                <div class="subject-bar-track">
-                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-
-// ====================================================
-// ORDNUNG: RENAME / DELETE / MOVE CASES
-// ====================================================
-window.renameFolder = async function(oldName, newName) {
+async function renameFolder(oldName, newName) {
     if (!newName || oldName === newName) return;
 
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
@@ -1653,25 +1498,33 @@ window.renameFolder = async function(oldName, newName) {
         delete bookshelfFolderState[oldName];
     }
 
-    const mapping = getFolderSuperMapping();
+    if (typeof supabaseClient !== 'undefined' && window.currentSession) {
+        try {
+            await supabaseClient
+                .from('medical_cases')
+                .update({ folder_name: newName, updated_at: new Date().toISOString() })
+                .eq('folder_name', oldName)
+                .eq('user_id', window.currentSession.user.id);
+        } catch (err) {}
+    }
+const mapping = getFolderSuperMapping();
     if (mapping[oldName]) {
         mapping[newName] = mapping[oldName];
         delete mapping[oldName];
         saveFolderSuperMapping(mapping);
     }
     renderDashboardCases();
-};
-
-window.deleteFolder = async function(folderName, caseCount) {
+}
+async function deleteFolder(folderName, caseCount) {
     const warning = caseCount > 0 
-        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden sicher in den Ordner "Allgemein" verschoben.`
+        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden nicht gelöscht, sondern sicher in den Ordner "Allgemein" verschoben.`
         : `Möchtest du den leeren Ordner "${folderName}" wirklich löschen?`;
 
     if (!window.confirm(warning)) return;
 
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     order = order.filter(name => name !== folderName);
-
+    
     if (caseCount > 0 && !order.includes('Allgemein')) {
         order.push('Allgemein');
     }
@@ -1699,15 +1552,23 @@ window.deleteFolder = async function(folderName, caseCount) {
 
     delete bookshelfFolderState[folderName];
 
-    const mapping = getFolderSuperMapping();
+    if (typeof supabaseClient !== 'undefined' && window.currentSession && caseCount > 0) {
+        try {
+            await supabaseClient
+                .from('medical_cases')
+                .update({ folder_name: 'Allgemein', updated_at: new Date().toISOString() })
+                .eq('folder_name', folderName)
+                .eq('user_id', window.currentSession.user.id);
+        } catch (err) {}
+    }
+const mapping = getFolderSuperMapping();
     if (mapping[folderName]) {
         delete mapping[folderName];
         saveFolderSuperMapping(mapping);
     }
     renderDashboardCases();
-};
-
-window.moveCaseToFolder = async function(caseId, targetFolder) {
+}
+async function moveCaseToFolder(caseId, targetFolder) {
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
     let targetCase = customCases.find(c => c.case_id === caseId);
 
@@ -1715,12 +1576,58 @@ window.moveCaseToFolder = async function(caseId, targetFolder) {
         targetCase.folder_name = targetFolder;
         targetCase.updated_at = new Date().toISOString();
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+        if (typeof supabaseClient !== 'undefined' && window.currentSession) {
+            try {
+                await supabaseClient
+                    .from('medical_cases')
+                    .update({ folder_name: targetFolder, updated_at: new Date().toISOString() })
+                    .eq('case_id', caseId)
+                    .eq('user_id', window.currentSession.user.id);
+            } catch (err) {}
+        }
     } else if (caseId === BUILTIN_DEMO_CASE.case_id) {
         BUILTIN_DEMO_CASE.folder_name = targetFolder;
     }
+
     renderDashboardCases();
+}
+
+window.deleteCaseById = function(caseId) {
+    if (caseId === BUILTIN_DEMO_CASE.case_id) return;
+
+    let customCases = [];
+    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
+    if (!Array.isArray(customCases)) customCases = [];
+
+    const target = customCases.find(c => c.case_id === caseId);
+    const title = target?.metadata?.title || caseId;
+    if (!window.confirm(`Fall "${title}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) return;
+
+    localStorage.setItem('custom_cases', JSON.stringify(customCases.filter(c => c.case_id !== caseId)));
+
+    let solved = [];
+    try { solved = JSON.parse(localStorage.getItem('solved_cases') || '[]'); } catch (e) { solved = []; }
+    localStorage.setItem('solved_cases', JSON.stringify(solved.filter(id => id !== caseId)));
+
+    if (window.Cloud && window.Cloud.isLoggedIn()) {
+        window.Cloud.deleteCloudCase(caseId)
+            .then(() => window.Cloud.scheduleProgressSync())
+            .catch(err => alert(`Fall wurde lokal gelöscht, aber nicht online: ${err.message}`));
+    }
+
+    if (activeCaseData && activeCaseData.case_id === caseId) {
+        activeCaseData = null;
+        window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+    } else {
+        renderDashboardCases();
+    }
 };
 
+window.toggleFolder = function(category) {
+    openFolders[category] = !openFolders[category];
+    renderDashboardCases();
+};
 
 // ====================================================
 // FALL LADEN & PLAYER LOGIK
@@ -1761,9 +1668,9 @@ window.applySpecialtyFilters = applySpecialtyFilters;
 window.loadCaseById = function(caseId, opts = {}) {
     const specialtyMode = !!opts.specialty || !!window.isSpecialtyBlindMode;
     window.isSpecialtyBlindMode = specialtyMode;
-
+    
     let targetCase = window.getRegisteredCases().find(c => c.case_id === caseId);
-
+    
     if (!targetCase) { 
         alert("Fall nicht gefunden!"); 
         return; 
@@ -1779,7 +1686,7 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
     clearedStepsCount = saved.audit?.clearedStepsCount || 0;
-
+    
     const badgeAudit = document.getElementById('badge-mode-audit');
     if (badgeAudit) badgeAudit.innerText = `${clearedStepsCount}/${totalStepsCount}`;
 
@@ -1836,7 +1743,7 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (hasQuiz) safely('Quiz', window.renderQuiz);
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
     safely('Flashcards', window.renderFlashcards);
-
+    
     if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
     window.switchTab('player', document.getElementById('nav-player'));
     window.switchPlayerMode(specialtyMode ? 'audit' : 'overview');
@@ -1858,7 +1765,7 @@ window.renderOverview = function() {
         data.cornell_notes.forEach((note, noteIdx) => {
             const cuesArray = Array.isArray(note.cues) ? note.cues : [];
             const rawNotes = note.notes || '';
-
+            
             const paragraphs = rawNotes.split(/<br\s*\/?>\s*<br\s*\/?>|<\/p>/i)
                 .map(p => p.trim())
                 .filter(p => p.length > 0);
@@ -1942,76 +1849,13 @@ function sanitizeForgeJsonInput(rawValue) {
         .trim();
 }
 
-window.validateAndSaveCustomCase = function() {
-    const inputEl = document.getElementById('forge-input');
-    if (!inputEl) return;
-    const rawVal = inputEl.value.trim();
-
-    if (!rawVal) {
-        showForgeFeedback('feedback-error', 'Bitte füge zuerst einen JSON-Fall ein.');
-        return;
-    }
-
-    try {
-        const sanitized = sanitizeForgeJsonInput(rawVal);
-        const parsed = JSON.parse(sanitized);
-
-        if (Array.isArray(parsed)) {
-            throw new Error('Bitte füge einen einzelnen Fall ein, kein JSON-Array.');
-        }
-        if (!parsed.case_id || typeof parsed.case_id !== 'string') {
-            throw new Error('Das Pflichtfeld "case_id" fehlt.');
-        }
-
-        parsed.case_id = parsed.case_id.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        if (!parsed.case_id) {
-            throw new Error('Die case_id ist ungültig.');
-        }
-        if (!Array.isArray(parsed.timeline)) {
-            throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
-        }
-
-        parsed.folder_name = document.getElementById('case-folder-input')?.value.trim() || resolveCaseFolderName(parsed);
-        registerDynamicFolder(parsed.folder_name);
-
-        let customCases = [];
-        try {
-            customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-            if (!Array.isArray(customCases)) { customCases = []; }
-        } catch (storageError) {
-            customCases = [];
-        }
-
-        customCases = customCases.filter(c => c.case_id !== parsed.case_id);
-        customCases.push(parsed);
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-        try {
-            if (window.MedicalDictionary && typeof window.MedicalDictionary.registerCase === 'function') {
-                window.MedicalDictionary.registerCase(parsed);
-            }
-        } catch (_dictErr) {}
-
-        showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
-        renderDashboardCases();
-
-        if (window.Cloud && typeof window.Cloud.isLoggedIn === 'function' && window.Cloud.isLoggedIn()) {
-            window.Cloud.saveCloudCase(parsed)
-                .then(() => showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`))
-                .catch(cloudErr => showForgeFeedback('feedback-error', `Fall lokal gespeichert, aber Online-Speicherung fehlgeschlagen: ${cloudErr.message}`));
-        }
-
-    } catch (err) {
-        showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
-    }
-};
-
 window.generateCaseWithGemini = async function() {
     const promptInput = document.getElementById('forge-topic');
     const outputInput = document.getElementById('forge-input');
     const generateBtn = document.getElementById('forge-generate-btn');
     
     if (!promptInput || !outputInput || !generateBtn) return;
+    
     const prompt = promptInput.value.trim();
 
     if (!prompt) {
@@ -2046,7 +1890,9 @@ window.generateCaseWithGemini = async function() {
 
         if (!res.ok || !data) {
             const serverMessage = data?.error || responseText.trim().slice(0, 200);
-            throw new Error(`Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten.`);
+            throw new Error(
+                `Serverfehler (HTTP ${res.status})${serverMessage ? ': ' + serverMessage : ''}. Die Anfrage hat evtl. das Zeitlimit überschritten.`
+            );
         }
 
         const rawResult = typeof data.generatedText === 'string' ? data.generatedText : '';
@@ -2067,6 +1913,955 @@ window.generateCaseWithGemini = async function() {
         generateBtn.innerHTML = originalBtnText;
     }
 };
+// ====================================================
+// FORGE / GEMINI API & MASTERPROMPT EXPORT
+// ====================================================
+
+const MEDCHECK_MASTER_PROMPT = `Du bist ein erfahrener Facharzt, universitärer Prüfungsbeauftragter für das humanmedizinische Staatsexamen (orientiert an IMPP- und NBME-Standards) und leitender didaktischer Software-Architect für MedCheck. Deine Aufgabe ist es, aus dem übergebenen Vorlesungsskript bzw. medizinischen Fachtext genau EINEN maximal vollständigen, hochdifferenzierten Fall als syntaktisch valides JSON-Objekt zu generieren.
+
+ZIELGRUPPE & DIDAKTISCHER ANSPRUCH:
+Medizinstudierende im letzten Masterjahr vor dem Staatsexamen. Fokus auf Differenzialdiagnosen, pathophysiologische Kausalketten, diagnostische Goldstandards, Leitlinienempfehlungen und klinische Fallstricke (Cognitive Biases, typische Behandlungsfehler). Höchste Fachterminologie: Verwende konkrete Fachbegriffe, anatomische Leitstrukturen, exakte Laborparameter (mit Einheiten/Grenzwerten), Bildgebungsmorphologien und Medikamentennamen inklusive Wirkmechanismen.
+
+KRITISCHE TECHNISCHE REGELN FÜR DEN IMPORT (ZERO-TOLERANCE):
+
+ZWINGENDE CASE_ID AM ANFANG DES FILES:
+Das Feld "case_id" ist IMMER zwingend notwendig und MUSS als allererste Eigenschaft direkt am Anfang des JSON-Objekts stehen (z. B. "case_id": "STRING_IDENTIFIER"). Es darf unter keinen Umständen fehlen, leer sein oder erst weiter hinten im JSON platziert werden.
+
+REINES ROHTEXT-JSON & VOLLSTÄNDIGKEITS-GARANTIE (TRUNCATION-SCHUTZ):
+Antworte AUSSCHLIESSLICH mit dem validen JSON-Objekt. Das ALLERERSTE Zeichen deiner Antwort ist { und das ALLERLETZTE Zeichen ist }. Absolut KEIN einleitender oder erklärender Text, kein Markdown-Codeblock (KEIN \`\`\`json und KEIN \`\`\`), keine Kommentare davor oder danach. Der Text wird direkt an JSON.parse() übergeben. Das JSON muss zwingend vollständig generiert werden und syntaktisch geschlossen mit } enden.
+
+STRIKTES ZITATIONSVERBOT (LESEFLUSS & DATENBANK-KOMPATIBILITÄT):
+Füge NIEMALS Zitationsmarker, Quellenverweise, Klammern oder Zitations-Tags wie,, [1], (Quelle: ...) in irgendeinen String oder Task ein. Alle Texte müssen reine, flüssige, hochprofessionelle klinische Fachsprache ohne jegliche Zitationsartefakte sein.
+
+STRING-ESCAPING & TEXTFORMATIERUNG:
+In Fließtexten innerhalb von JSON-Strings sind unescapte doppelte Anführungszeichen STRENG VERBOTEN. Nutze stattdessen einfache Anführungszeichen ('...') oder maskiere sie als \\". Zeilenumbrüche innerhalb von JSON-Werten dürfen NIEMALS als echte Returns stehen, sondern müssen immer als \\\\n\\\\n escaped sein.
+HTML-Gültigkeitsbereich: HTML-Tags (<p>, <b>, <ul>, <li>) sind ausschließlich im Feld case_overview.cornell_notes[].notes gestattet. Alle übrigen Felder (summary, content, hotspots, hints, cascades, explanation, flashcards etc.) sind ausnahmslos reiner Plain-Text.
+
+FACHRICHTUNG & PRIMÄRERKRANKUNG (METADATA-STANDARDS):
+metadata.medical_field: Wähle strikt aus der vorgegebenen Whitelist: ["HNO", "Neurologie", "Hämatologie", "Kardiologie", "Gastroenterologie", "Pneumologie", "Infektiologie", "Nephrologie", "Endokrinologie", "Rheumatologie", "Dermatologie"]. Keine freien Umschreibungen oder Langformen.
+metadata.primary_disease: Exakte Zielerkrankung des Falls (z. B. "Morbus Menière", "Creutzfeldt-Jakob-Krankheit"). Dient als primärer Systemanker für die fachrichtungsspezifische Filterung und Zuordnung in der MedCheck-App.
+
+CASE_OVERVIEW (MAXIMALE VOLLSTÄNDIGKEIT, SYNCHRONISIERTE CUES, INTENSIVE FETTMARKIERUNG & PERFEKTE TAKE-HOME-MESSAGE):
+case_overview.cornell_notes: MUSS ALLE im übergebenen Skript oder Text vorkommenden Themenblöcke, Entitäten, Anatomie-Details, physiologischen Funktionen, Leitsymptome, Diagnostik- und Therapieschemata lückenlos abdecken – egal wie umfangreich die Sektion wird.
+HÖHEN-SYNCHRONISATION DER ÜBERSCHRIFTEN / CUES: Die Stichworte/Überschriften im Array cues müssen strikt auf der vertikalen Höhe stehen, wo die jeweilige Information im Text zu finden ist. Strukturiere jeden Eintrag daher feingranular oder spiegele die Absätze/Bulletpoints im Text exakt 1:1 durch die Reihenfolge der Cues wider.
+INTENSIVE FETTMARKIERUNG: Alle wichtigen Inhalte, klinischen Schlüsselbegriffe, Grenzwerte, Leitstrukturen, Goldstandards, Erregernamen, Medikamente, Warnzeichen ('Cave') und Leitsymptome MÜSSEN im Fließtext konsequent fett hervorgehoben werden (mittels <b>...</b>).
+cues: Präzise, hochspezifische Fachbegriffe und Kernaspekte als Array von Strings.
+notes: Ausführliche HTML-Darstellung mit <p>, <b>Schlüsselbegriffen</b> und detaillierten <ul><li>Aufzählungspunkten</li></ul>.
+case_overview.summary (Take-Home-Message): Reiner Plain-Text (kein HTML). Muss als perfekter, flüssiger Fließtext aus 2 bis 4 prägnanten Sätzen aufgebaut sein, der die Kernfrage des Themas beantwortet:
+1. Der Kern: Einleitende Definition oder Grundaussage auf den Punkt gebracht.
+2. Der Mechanismus / Das Warum: Verbindung zwischen Ursache, Wirkung oder Hauptargument.
+3. Der Nutzen / Die Konsequenz: Praktischer Nutzen oder übergeordnete Bedeutung für Klausur und Praxis.
+
+AUDIT & TIMELINE (9 SCHRITTE – INTERAKTIVES LAYOUT & HOHER KLINISCHER ANSPRUCH):
+REINER PLAIN-TEXT IN "content": Absolut keine HTML-Tags und keine eckigen Klammern [...] in timeline[].content.
+9 SCHRITTE GEGLIEDERT IN 3 KLINISCHE SZENARIEN (patient_1, patient_2, patient_3, je 3 Schritte): 70 bis 160 Wörter pro Schritt als realistischer klinischer Verlaufsbericht mit Vitalparametern und Befunden.
+INTERAKTIVE VALIDIERUNG (KEINE VORAB-FREIGABE): Die Hotspots und Timeline-Abschnitte dürfen im JSON niemals als bereits validiert markiert sein.
+FEHLER-QUANTITÄT & DISTRAKTOREN: Mindestens 6 bis 7 der 9 Schritte enthalten echte klinische Fehler (is_error: true) mit sokratischem Impuls (socratic_trap) und fundierter pathophysiologischer Korrektur (correct_pathophysiology). Jeder Schritt enthält zudem 3 bis 5 täuschend echte Plausibilitäts-Distraktoren (is_error: false) mit Begründung im feedback-Feld.
+GANZHEITLICHE PHRASENBILDUNG: Jede phrase im Array hotspots muss ein kompletter, zusammenhängender sprachlicher Satzbaustein aus 3 bis 8 Wörtern sein und als exakter, zeichengenauer Substring in content vorkommen.
+
+HOCHQUALITATIVE FLASH CARDS (REINES FAKTENWISSEN / BLOOM-STUFE 1 - ERINNERN):
+extra_tasks.flashcards ist ein Array mit 8 bis 12 atomaren Karteikarten zur gezielten und fundierten Abfrage von medizinischem Fachwissen.
+PURE DECLARATIVE FACTS / MINIMUM INFORMATION PRINCIPLE: Jede Karte fragt exakt EINEN atomaren Fakt ab (Definitionen, pathognomonische Triaden, Cut-off-Grenzwerte, Antikörper-/Gen-Zuordnungen, Leitlinien-Erstlinienmedikamente, anatomische Ausfallmuster).
+PRÄZISE VORDERSEITE (front): Eindeutige, direkte Faktenfrage oder Begriffsnennung.
+KNAPPE RÜCKSEITE (back): Maximal 1 bis 2 kurze Sätze oder 3 bis 5 Stichpunkte.
+ESELSBRÜCKE / KONTEXT (mnemonic_or_context): Optionaler Merksatz oder didaktische Eselsbrücke (max. 140 Zeichen).
+
+DOCTORDLE (ORIGINALES DEDUKTIONSPRINZIP – PROGRESSIVE HINWEISE OHNE FRÜH-SPOILER):
+extra_tasks.doctordle ist ein Array mit genau 3 Objekten (puzzle_id: 1, 2, 3).
+TITEL-KONVENTION: Der Titel lautet schlicht und standardisiert genau "Fall 1", "Fall 2" bzw. "Fall 3".
+Hinweis 1: Demografie & unspezifisches Leitsymptom.
+Hinweis 2: Körperlicher Untersuchungsbefund / Phänotyp.
+Hinweis 3: Basislabor oder Vitalparameter.
+Hinweis 4: Differenzialdiagnostische Weichenstellung / Funktionstest / Kontext.
+Hinweis 5: Spezifischer Befund / Bildgebung.
+Hinweis 6: Pathognomonischer Schlüsselbefund / Goldstandard.
+Jedes Rätsel enthält: puzzle_id (1, 2 oder 3), title ("Fall 1", "Fall 2", "Fall 3"), target_diagnosis, synonyms (3–6 valide Synonyme), hints (genau 6 Strings), learning_pearl (1–2 Sätze).
+
+LIBRARY_ENTRIES: Array aus mindestens 15 bis 20 Strings (alle 3 target_diagnoses, synonyms und 8 bis 12 Differenzialdiagnosen).
+
+ANSPRUCHSVOLLE TAXONOMIE (KEINE GENERISCHEN BINS & STRIKTE ITEM-DURCHMISCHUNG):
+Unter extra_tasks.categorization: categories (3–4 spezifische Entitäten/Kategorien, keine trivialen Bins wie 'Diagnostik' oder 'Symptom'). items (8–12 spezifische Befunde/Manöver, völlig unvorhersehbar und willkürlich durchmischt, niemals sequentielle Blöcke).
+
+CLINICAL CASCADES:
+Genau 3 Erkrankungen mit je 8 Stufen (01_Auslöser bis 08_Outcome). Feld tutor_hint heißt rein "hint". Kaskade 1 (Index 0) behandelt zwingend metadata.primary_disease.
+
+SYNAPSEN-MATRIX (OPENEVIDENCE STYLE / 4x4 CONNECTIONS):
+Exakt 16 Kacheln. 4 Gruppen à 4 Begriffe. Strikte Themenaufteilung: Genau 4 Kästchen für Risikofaktor/Pathophysiologie, 4 für Diagnostik, 4 für Therapie, 4 für Symptom. 1 bis maximal 4 Wörter pro Begriff (< 28 Zeichen).
+groups: Array aus 4 Objekten mit title, level (0–3), items (4 Begriffe), explanation (1–2 Sätze).
+variables: Array aus exakt 16 Objekten { "term": "...", "type": "...", "disease": "..." }, komplett pseudozufällig durchmischt. Feld tutor_hint heißt rein "hint".
+
+MASTER QUIZ (TYP A, 1 AUS 5):
+Mindestens 5 Multiple-Choice-Fragen.
+Erkrankungs-Tagging: target_disease und is_primary. Fragen 1 und 2 zwingend is_primary: true auf metadata.primary_disease.
+Bloom Level 3–5: Realistische Fallvignette mit zweistufigem Denkschritt ("Two-step reasoning").
+Anti-Bias-Protokoll: Kontrollierte Längenparität aller 5 Optionen (10–15 % Zeichenvarianz). Gleicher grammatikalischer Typus. Keine Signalwörter ("immer", "nie").
+Balancierte Schlüsselverteilung: Vollständig willkürliche Gleichverteilung von correct_index über das Fragenset (0=A, 1=B, 2=C, 3=D, 4=E). Kein Bias zu A/B. Keine gleichen Lösungsindizes hintereinander.
+explanation: Zeichenvergleich aller 5 Optionen, Begründung für die richtige Option und klinische Entkräftung jedes Distraktors. Feld tutor_hint heißt rein "hint".
+
+DIDAKTISCHES QUALITÄTSPROTOKOLL:
+Keine isolierten Zahlenabfragen im Quiz (gehören in Flashcards). Vignette-basiertes Entscheiden bei konkreten klinischen Zielkonflikten. Falschantworten auf Facharztniveau. Kausale mechanistische Begründungen.
+
+JSON-SCHEMA STRUKTUR (MINIMALBEISPIEL):
+{
+  "case_id": "STRING_IDENTIFIER",
+  "metadata": {
+    "title": "STRING",
+    "primary_disease": "STRING",
+    "medical_field": "HNO",
+    "bloom_level": "Evaluation & Synthese",
+    "difficulty": 5,
+    "xp_reward": 1200
+  },
+  "case_overview": {
+    "topic": "STRING",
+    "cornell_notes": [
+      {
+        "cues": ["Schlüsselbegriff 1", "Schlüsselbegriff 2"],
+        "notes": "<p>Fundierte Erklärung mit <b>wichtigen Inhalten immer fett</b>.</p><ul><li><b>Aspekt 1:</b> Details.</li></ul>"
+      }
+    ],
+    "summary": "STRING"
+  },
+  "timeline": [
+    {
+      "step_id": 1,
+      "patient_id": "patient_1",
+      "phase": "Patient 1: Anamnese & Erstkontakt",
+      "content": "Patient 1\\n\\nAusführlicher Plain-Text Bericht ohne HTML (70-160 Wörter)...",
+      "hotspots": [
+        {
+          "phrase": "harmlose unauffällige Maßnahme",
+          "is_error": false,
+          "feedback": "Diese Feststellung ist im klinischen Kontext fachlich vollkommen korrekt."
+        },
+        {
+          "phrase": "fehlerhafter klinischer Handlungsschritt",
+          "is_error": true,
+          "socratic_trap": "Sokratischer Impuls",
+          "correct_pathophysiology": "Fundierte Erklärung, warum Maßnahme falsch ist"
+        }
+      ]
+    }
+  ],
+  "extra_tasks": {
+    "flashcards": [
+      {
+        "id": "fc_01",
+        "category": "Diagnostische Triade",
+        "difficulty": "basic",
+        "front": "Frage",
+        "back": "Antwort",
+        "mnemonic_or_context": "Eselsbrücke"
+      }
+    ],
+    "doctordle": [
+      {
+        "puzzle_id": 1,
+        "title": "Fall 1",
+        "target_diagnosis": "Morbus Menière",
+        "synonyms": ["M. Menière", "Menière-Krankheit"],
+        "hints": ["Hinweis 1: ...", "Hinweis 2: ...", "Hinweis 3: ...", "Hinweis 4: ...", "Hinweis 5: ...", "Hinweis 6: ..."],
+        "learning_pearl": "Kernaussage."
+      },
+      {
+        "puzzle_id": 2,
+        "title": "Fall 2",
+        "target_diagnosis": "Vestibuläre Migräne",
+        "synonyms": ["Migräne-assoziierter Schwindel"],
+        "hints": ["Hinweis 1: ...", "Hinweis 2: ...", "Hinweis 3: ...", "Hinweis 4: ...", "Hinweis 5: ...", "Hinweis 6: ..."],
+        "learning_pearl": "Kernaussage B."
+      },
+      {
+        "puzzle_id": 3,
+        "title": "Fall 3",
+        "target_diagnosis": "Benigner paroxysmaler Lagerungsschwindel",
+        "synonyms": ["BPLS", "BPPV"],
+        "hints": ["Hinweis 1: ...", "Hinweis 2: ...", "Hinweis 3: ...", "Hinweis 4: ...", "Hinweis 5: ...", "Hinweis 6: ..."],
+        "learning_pearl": "Kernaussage C."
+      }
+    ],
+    "library_entries": ["Morbus Menière", "Vestibuläre Migräne", "Benigner paroxysmaler Lagerungsschwindel"],
+    "clinical_cascades": [
+      {
+        "disease": "Morbus Menière",
+        "hint": "Hinweis zum Ablauf",
+        "cascade": [
+          { "stage": "01_Auslöser", "content": "..." },
+          { "stage": "02_Pathophysiologie", "content": "..." },
+          { "stage": "03_Zellulärer Mechanismus", "content": "..." },
+          { "stage": "04_Anatomische Konsequenz", "content": "..." },
+          { "stage": "05_Klinische Manifestation", "content": "..." },
+          { "stage": "06_Diagnostischer Befund", "content": "..." },
+          { "stage": "07_Therapeutische Intervention", "content": "..." },
+          { "stage": "08_Outcome", "content": "..." }
+        ]
+      }
+    ],
+    "synapses_matrix": {
+      "description": "Finde 4 Gruppen aus jeweils 4 klinisch zusammengehörigen Begriffen.",
+      "hint": "Verbinde Risikofaktor/Pathophysiologie, Symptom, Diagnostik und Therapie.",
+      "diseases": ["Erkrankung A", "Erkrankung B", "Erkrankung C", "Erkrankung D"],
+      "groups": [
+        {
+          "title": "Erkrankung A",
+          "level": 0,
+          "items": ["Variable A1", "Variable A2", "Variable A3", "Variable A4"],
+          "explanation": "Fundierte Auflösung zu A."
+        },
+        {
+          "title": "Erkrankung B",
+          "level": 1,
+          "items": ["Variable B1", "Variable B2", "Variable B3", "Variable B4"],
+          "explanation": "Auflösung zu B."
+        },
+        {
+          "title": "Erkrankung C",
+          "level": 2,
+          "items": ["Variable C1", "Variable C2", "Variable C3", "Variable C4"],
+          "explanation": "Auflösung zu C."
+        },
+        {
+          "title": "Erkrankung D",
+          "level": 3,
+          "items": ["Variable D1", "Variable D2", "Variable D3", "Variable D4"],
+          "explanation": "Auflösung zu D."
+        }
+      ],
+      "variables": [
+        { "term": "Variable C1", "type": "Diagnostik", "disease": "Erkrankung C" },
+        { "term": "Variable A2", "type": "Risikofaktor/Pathophysiologie", "disease": "Erkrankung A" },
+        { "term": "Variable D4", "type": "Therapie", "disease": "Erkrankung D" },
+        { "term": "Variable B3", "type": "Symptom", "disease": "Erkrankung B" }
+      ]
+    },
+    "categorization": {
+      "description": "Ordne die klinischen Befunde den entsprechenden Krankheitsbildern zu.",
+      "hint": "Differenziere die pathognomonischen Befunde.",
+      "categories": ["Krankheitsbild A", "Krankheitsbild B", "Krankheitsbild C", "Krankheitsbild D"],
+      "items": [
+        { "term": "Spezifischer Befund 1", "category": "Krankheitsbild C" },
+        { "term": "Spezifischer Befund 2", "category": "Krankheitsbild A" },
+        { "term": "Spezifischer Befund 3", "category": "Krankheitsbild D" },
+        { "term": "Spezifischer Befund 4", "category": "Krankheitsbild B" }
+      ]
+    },
+    "master_quiz": [
+      {
+        "target_disease": "Morbus Menière",
+        "is_primary": true,
+        "question": "Detaillierte Fallvignette zur Haupterkrankung mit klinischer Leitsymptomatik...",
+        "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
+        "correct_index": 2,
+        "explanation": "Zeichenvergleich:\\n- Option A: 48 Z.\\n- Option B: 49 Z.\\n- Option C: 47 Z.\\n- Option D: 46 Z.\\n- Option E: 48 Z.\\n(Varianz: 6.2 %)\\n\\nFundierte Rationale...",
+        "hint": "Hinweis ohne Spoiler."
+      },
+      {
+        "target_disease": "Morbus Menière",
+        "is_primary": true,
+        "question": "Zweite anspruchsvolle Fallvignette zur Haupterkrankung...",
+        "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
+        "correct_index": 4,
+        "explanation": "...",
+        "hint": "Hinweis"
+      },
+      {
+        "target_disease": "Vestibuläre Migräne",
+        "is_primary": false,
+        "question": "Fallvignette zur zentralen Differenzialdiagnose...",
+        "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
+        "correct_index": 0,
+        "explanation": "...",
+        "hint": "Hinweis"
+      }
+    ]
+  }
+}`;
+
+/**
+ * Kopiert den didaktischen Masterprompt in die Zwischenablage (Clipboard API + Fallback)
+ */
+window.copyMasterPromptToClipboard = async function(btnElement) {
+    if (typeof window.triggerHaptic === 'function') {
+        window.triggerHaptic(12);
+    }
+
+    let success = false;
+
+    // 1. Moderne Asynchrone Clipboard API
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        try {
+            await navigator.clipboard.writeText(MEDCHECK_MASTER_PROMPT);
+            success = true;
+        } catch (_err) {
+            success = false;
+        }
+    }
+
+    // 2. Robuster Fallback für iFrames, HTTP oder ältere Mobile-Browser
+    if (!success) {
+        try {
+            const tempArea = document.createElement('textarea');
+            tempArea.value = MEDCHECK_MASTER_PROMPT;
+            tempArea.style.position = 'fixed';
+            tempArea.style.top = '-9999px';
+            tempArea.style.left = '-9999px';
+            tempArea.setAttribute('readonly', '');
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            success = document.execCommand('copy');
+            document.body.removeChild(tempArea);
+        } catch (e) {
+            console.error('Kopieren fehlgeschlagen:', e);
+            success = false;
+        }
+    }
+
+    // 3. Benutzer-Feedback auf dem Button
+    if (btnElement) {
+        const originalHtml = btnElement.innerHTML;
+        if (success) {
+            btnElement.innerHTML = '✓ Masterprompt kopiert!';
+            btnElement.style.background = 'rgba(16, 185, 129, 0.25)';
+            btnElement.style.borderColor = 'var(--color-symptom, #10b981)';
+            btnElement.style.color = '#86efac';
+
+            if (typeof showForgeFeedback === 'function') {
+                showForgeFeedback('feedback-success', '<strong>In Zwischenablage kopiert!</strong> Füge den Prompt einfach in deine externe KI (z. B. Gemini, ChatGPT oder Claude) ein und hänge dein Vorlesungsskript an.');
+            }
+        } else {
+            btnElement.innerHTML = '✕ Fehler beim Kopieren';
+            btnElement.style.borderColor = 'var(--color-risk, #ef4444)';
+            btnElement.style.color = '#fca5a5';
+        }
+
+        setTimeout(() => {
+            btnElement.innerHTML = originalHtml;
+            btnElement.style.background = '';
+            btnElement.style.borderColor = '';
+            btnElement.style.color = '';
+        }, 2200);
+    }
+};
+// ====================================================
+// INTELLIGENTER FALL-KLASSIFIZIERER (AUTO-ROUTING)
+// ====================================================
+
+/**
+ * Ermittelt vollautomatisch den sauberen Ordnernamen aus den Falldaten.
+ * Braucht keine Updates, wenn du neue Fachgebiete hinzufügst!
+ */
+function resolveCaseFolderName(caseData) {
+    if (!caseData) return 'Allgemein';
+
+    // 1. Hat der Nutzer/die Forge schon einen Ordner vorgegeben?
+    const explicitFolder = (caseData.folder_name || '').trim();
+    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
+        return explicitFolder;
+    }
+
+    // 2. Aus medical_field ableiten (z. B. "29.2.10_Erkrankungen des Rückenmarks...")
+    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
+    if (rawField) {
+        // Falls ein ICD-/Katalog-Code vorangestellt ist (z.B. "29.2.10_Titel"):
+        if (rawField.includes('_')) {
+            const parts = rawField.split('_');
+            const cleanTitle = parts.slice(1).join('_').trim();
+            if (cleanTitle.length > 2) return cleanTitle;
+        }
+        return rawField;
+    }
+
+    // 3. Aus dem übergeordneten Thema ableiten
+    const topic = (caseData.case_overview?.topic || '').trim();
+    if (topic && topic.length > 2) {
+        return topic;
+    }
+
+    return 'Allgemein';
+}
+
+/**
+ * Weist jeden beliebigen Ordner einem Überordner zu – lernt dynamisch mit!
+ */
+function autoAssignSuperFolder(folderName) {
+    if (!folderName) return 'Allgemein';
+    const clean = folderName.trim();
+
+    // 1. Gibt es schon ein gespeichertes Mapping vom Nutzer? (Höchste Priorität)
+    const mapping = getFolderSuperMapping();
+    if (mapping[clean] && superFolderStates[mapping[clean]] !== undefined) {
+        return mapping[clean];
+    }
+
+    // 2. Automatische Zuordnung anhand von Wortstämmen
+    const lower = clean.toLowerCase();
+    
+    // Nervensystem & Sinnesorgane
+    if (
+        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') ||
+        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') ||
+        lower.includes('ohr') || lower.includes('myelon') || lower.includes('rückenmark') ||
+        lower.includes('hirn') || lower.includes('cns') || lower.includes('zns') ||
+        lower.includes('insult') || lower.includes('schwindel')
+    ) {
+        return 'Nervensystem und Sinnesorgane';
+    }
+
+    // Psyche, Ethik & Recht
+    if (
+        lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') ||
+        lower.includes('forens') || lower.includes('suizid') || lower.includes('depress') ||
+        lower.includes('schizo') || lower.includes('bipolar') || lower.includes('delir')
+    ) {
+        return 'Psyche / Ethik / Recht';
+    }
+
+    // Reproduktion
+    if (
+        lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') ||
+        lower.includes('schwanger') || lower.includes('ovard') || lower.includes('mamma') ||
+        lower.includes('uterus') || lower.includes('zyklus') || lower.includes('partus')
+    ) {
+        return 'Reproduktion';
+    }
+
+    // Standard-Fallback für alles andere (Innere Medizin, Chirurgie etc.)
+    return 'Allgemein';
+}
+
+/**
+ * Registriert einen neuen Ordner dauerhaft in der App, ohne Duplikate.
+ */
+function registerDynamicFolder(folderName, targetSuperFolder = null) {
+    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
+    
+    // In der Bookshelf-Reihenfolge sichern
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+
+    // Überordner-Zuweisung persistieren
+    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
+    const mapping = getFolderSuperMapping();
+    if (!mapping[folderName]) {
+        mapping[folderName] = superTarget;
+        saveFolderSuperMapping(mapping);
+    }
+}
+
+// Innerhalb deiner renderBookshelf()-Funktion:
+
+// 1. Standard-Super-Folder (Psyche, Ethik, Recht etc.) rendern...
+// 2. Danach die dynamischen, vom Nutzer erstellten Super-Folder anhängen:
+
+const customFolders = getCustomSuperFolders();
+customFolders.forEach(superFolder => {
+    // HTML-Struktur exakt im Stil der bestehenden Super-Folder (.bookshelf-super-group)
+    html += `
+        <div class="bookshelf-super-group" data-super-id="${superFolder.id}">
+            <div class="bookshelf-super-header" onclick="toggleBookshelfSuperGroup('${superFolder.id}')">
+                <div class="bookshelf-super-title-wrap">
+                    <span class="bookshelf-super-arrow open" id="arrow-${superFolder.id}">▶</span>
+                    <span class="bookshelf-super-icon">${superFolder.icon}</span>
+                    <span class="bookshelf-super-title">${superFolder.name}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span class="bookshelf-super-badge">0</span>
+                    <button class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); removeCustomSuperFolder('${superFolder.id}')" title="Überordner löschen">×</button>
+                </div>
+            </div>
+            <div class="bookshelf-super-body" id="body-${superFolder.id}">
+                <div style="font-size: 0.72rem; color: var(--text-dim); padding: 4px; font-style: italic;">
+                    Ziehe Ordner oder Fälle hierher
+                </div>
+            </div>
+        </div>
+    `;
+});
+window.validateAndSaveCustomCase = function() {
+    const inputEl = document.getElementById('forge-input');
+    if (!inputEl) return;
+    const rawVal = inputEl.value.trim();
+
+    if (!rawVal) {
+        showForgeFeedback('feedback-error', 'Bitte füge zuerst einen JSON-Fall ein.');
+        return;
+    }
+
+    try {
+        const sanitized = sanitizeForgeJsonInput(rawVal);
+        const parsed = JSON.parse(sanitized);
+        
+
+        if (Array.isArray(parsed)) {
+            throw new Error('Bitte füge einen einzelnen Fall ein, kein JSON-Array.');
+        }
+        if (!parsed.case_id || typeof parsed.case_id !== 'string') {
+            throw new Error('Das Pflichtfeld "case_id" fehlt.');
+        }
+
+        parsed.case_id = parsed.case_id.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        if (!parsed.case_id) {
+            throw new Error('Die case_id ist ungültig.');
+        }
+        if (!Array.isArray(parsed.timeline)) {
+            throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
+        }
+
+        // Direkt nach dem Parsen des JSON-Objekts:
+    parsed.folder_name = document.getElementById('case-folder-input')?.value.trim() 
+                         || resolveCaseFolderName(parsed);
+
+    // Automatisch registrieren und Überordner zuweisen
+    registerDynamicFolder(parsed.folder_name);
+
+        let customCases = [];
+        try {
+            customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+            if (!Array.isArray(customCases)) { customCases = []; }
+        } catch (storageError) {
+            customCases = [];
+        }
+
+        customCases = customCases.filter(c => c.case_id !== parsed.case_id);
+        customCases.push(parsed);
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+        try {
+            if (window.MedicalDictionary && typeof window.MedicalDictionary.registerCase === 'function') {
+                window.MedicalDictionary.registerCase(parsed);
+            }
+        } catch (_dictErr) {}
+
+        showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal gespeichert.`);
+        renderDashboardCases();
+
+        if (window.Cloud && window.Cloud.isLoggedIn()) {
+            window.Cloud.saveCloudCase(parsed)
+                .then(() => showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`))
+                .catch(cloudErr => showForgeFeedback('feedback-error', `Fall lokal gespeichert, aber Online-Speicherung fehlgeschlagen: ${cloudErr.message}`));
+        }
+
+    } catch (err) {
+        showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
+    }
+};
+
+// ====================================================
+// ABSCHLUSS & RESETS
+// ====================================================
+window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
+    solvedDoctordlePuzzles = solvedCount;
+    totalDoctordlePuzzles = totalCount;
+    const badge = document.getElementById('badge-mode-doctordle');
+    if (badge) {
+        if (solvedCount >= totalCount && totalCount > 0) {
+            badge.innerText = 'Gelöst';
+            badge.style.background = 'var(--color-symptom, #10b981)';
+        } else {
+            badge.innerText = `${solvedCount}/${totalCount}`;
+            badge.style.background = '';
+        }
+    }
+    
+    if (solvedCount >= totalCount) {
+        doctordleSolved = true;
+    }
+
+    if (activeCaseData) {
+        ProgressManager.saveCaseState(activeCaseData.case_id, {
+            doctordle: {
+                solvedCount: solvedCount,
+                totalCount: totalCount,
+                solved: solvedCount >= totalCount
+            }
+        });
+    }
+    
+    window.checkFinalCompletion();
+};
+
+window.checkFinalCompletion = function() {
+    const stepsDone = (clearedStepsCount === totalStepsCount);
+    const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
+    const casDone = (cascadesSolvedCount === totalCascades);
+    const docDone = doctordleSolved;
+    const fcDone = window.flashcardsSolved !== undefined ? window.flashcardsSolved : true;
+    
+    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone && fcDone;
+    
+    const finishBtn = document.getElementById('finish-case-btn');
+    if (finishBtn) {
+        finishBtn.style.display = allCompleted ? 'block' : 'none';
+        if (window.isSpecialtyBlindMode) {
+            finishBtn.innerText = '🎉 Krankheitsbild aufdecken & abschließen';
+        } else {
+            finishBtn.innerText = 'Fall abschließen & XP sichern';
+        }
+    }
+    if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
+};
+
+window.finishCase = function() {
+    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
+        solved.push(activeCaseData.case_id);
+        localStorage.setItem('solved_cases', JSON.stringify(solved));
+        if (window.Cloud) window.Cloud.scheduleProgressSync();
+        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
+    } else {
+        applyXpDelta(50, 'Review Bonus');
+    }
+    
+    if (window.isSpecialtyBlindMode) {
+        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
+        window.nextSpecialtyCase();
+        return;
+    } else {
+        alert('🎉 Gratulation! Alle Challenges gemeistert.');
+    }
+    
+    const navItems = document.querySelectorAll('.nav-item');
+    if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
+};
+
+window.resetCurrentChallenge = function() {
+    if (!activeCaseData || currentActiveChallenge === 'overview') return;
+
+    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
+    if (!confirmReset) return;
+
+    const caseId = activeCaseData.case_id;
+
+    switch (currentActiveChallenge) {
+        case 'audit':
+            ProgressManager.resetChallenge(caseId, 'audit');
+            clearedStepsCount = 0;
+            const badgeAudit = document.getElementById('badge-mode-audit');
+            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
+            if (window.renderTimeline) window.renderTimeline();
+            break;
+
+        case 'quiz':
+            ProgressManager.resetChallenge(caseId, 'quiz');
+            quizSolved = false;
+            userQuizAnswers = {};
+            if (window.renderQuiz) window.renderQuiz();
+            break;
+
+        case 'synapses':
+            ProgressManager.resetChallenge(caseId, 'synapses');
+            solvedSynapseDiseases = 0;
+            selectedSynapses = [];
+            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
+            break;
+
+        case 'cascade':
+            ProgressManager.resetChallenge(caseId, 'cascades');
+            cascadesSolvedCount = 0;
+            if (window.renderCascades) window.renderCascades();
+            break;
+
+        case 'cat':
+            ProgressManager.resetChallenge(caseId, 'categorization');
+            categorizationSolved = false;
+            if (window.renderCategorization) window.renderCategorization();
+            break;
+
+        case 'doctordle':
+            ProgressManager.resetChallenge(caseId, 'doctordle');
+            solvedDoctordlePuzzles = 0;
+            doctordleSolved = false;
+            const docBadge = document.getElementById('badge-mode-doctordle');
+            if (docBadge) {
+                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
+                docBadge.style.background = '';
+            }
+            if (window.doctordleGame) {
+                window.doctordleGame.resetGame();
+            }
+            break;
+
+        case 'flashcards':
+            ProgressManager.resetChallenge(caseId, 'flashcards');
+            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
+            break;
+    }
+
+    window.checkFinalCompletion();
+};
+
+window.resetCurrentCaseEntirely = function() {
+    if (!activeCaseData) return;
+    const blind = !!window.isSpecialtyBlindMode;
+    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
+    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
+
+    ProgressManager.resetEntireCase(activeCaseData.case_id);
+    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
+};
+
+window.addEventListener("cloudCasesSynced", () => {
+    getCustomCases().forEach(window.registerCaseDDs);
+    if (typeof renderDashboardCases === "function") {
+        renderDashboardCases();
+    }
+    if (typeof window.renderSpecialtyHub === "function") {
+        window.renderSpecialtyHub();
+    }
+});
+
+// ====================================================
+// SMARTPHONE CHALLENGE-MENÜ
+// ====================================================
+(function initMobileChallengePicker() {
+    function syncMobileChallengePicker() {
+        const navBar = document.querySelector('.challenge-nav-bar');
+        if (!navBar) return;
+
+        let mobileWrapper = document.getElementById('mc-mobile-picker-wrap');
+        if (!mobileWrapper) {
+            mobileWrapper = document.createElement('div');
+            mobileWrapper.id = 'mc-mobile-picker-wrap';
+            mobileWrapper.className = 'mc-mobile-picker-wrap';
+            navBar.parentElement.insertBefore(mobileWrapper, navBar);
+        }
+
+        const buttons = Array.from(navBar.querySelectorAll('.challenge-tab-btn')).filter(btn => {
+            return btn.style.display !== 'none';
+        });
+
+        const optionsHtml = buttons.map(btn => {
+            const mode = btn.id.replace('tab-btn-', '');
+            const badgeText = btn.querySelector('.tab-badge')?.innerText || '';
+            const clone = btn.cloneNode(true);
+            const b = clone.querySelector('.tab-badge');
+            if (b) b.remove();
+            const label = clone.innerText.trim();
+            const selected = (mode === currentActiveChallenge) ? 'selected' : '';
+            return `<option value="${mode}" ${selected}>${label}${badgeText ? '(' + badgeText + ')' : ''}</option>`;
+        }).join('');
+
+        mobileWrapper.innerHTML = `
+            <div class="mc-mobile-picker-inner">
+                <label for="mc-mobile-challenge-select" class="mc-mobile-picker-label">🎯 Challenge wählen:</label>
+                <select id="mc-mobile-challenge-select" class="mc-mobile-picker-select">
+                    ${optionsHtml}
+                </select>
+            </div>
+        `;
+
+        const selectEl = document.getElementById('mc-mobile-challenge-select');
+        if (selectEl) {
+            selectEl.addEventListener('change', (e) => {
+                window.switchPlayerMode(e.target.value);
+            });
+        }
+
+        let fabContainer = document.getElementById('landscape-fab-container');
+        if (!fabContainer) {
+            fabContainer = document.createElement('div');
+            fabContainer.id = 'landscape-fab-container';
+            fabContainer.className = 'landscape-fab-container';
+            
+            fabContainer.innerHTML = `
+                <div class="landscape-fab-menu" id="landscape-fab-menu"></div>
+                <button class="landscape-fab-btn" id="landscape-fab-btn" title="Menü öffnen">+</button>
+            `;
+            document.body.appendChild(fabContainer);
+            
+            document.getElementById('landscape-fab-btn').addEventListener('click', () => {
+                const menu = document.getElementById('landscape-fab-menu');
+                const btn = document.getElementById('landscape-fab-btn');
+                menu.classList.toggle('open');
+                btn.classList.toggle('active');
+                window.triggerHaptic(8);
+            });
+        }
+        
+        const playerView = document.getElementById('player-view');
+        if (playerView && playerView.style.display !== 'none') {
+            fabContainer.classList.add('visible');
+        } else {
+            fabContainer.classList.remove('visible');
+            document.getElementById('landscape-fab-menu')?.classList.remove('open');
+            document.getElementById('landscape-fab-btn')?.classList.remove('active');
+        }
+
+        const fabMenu = document.getElementById('landscape-fab-menu');
+        if (fabMenu) {
+            fabMenu.innerHTML = buttons.map(btn => {
+                const mode = btn.id.replace('tab-btn-', '');
+                const clone = btn.cloneNode(true);
+                const b = clone.querySelector('.tab-badge');
+                if (b) b.remove();
+                const label = clone.innerText.trim();
+                const isActive = (mode === currentActiveChallenge) ? 'active' : '';
+                
+                return `<button class="${isActive}" onclick="
+                    window.triggerHaptic(5);
+                    window.switchPlayerMode('${mode}'); 
+                    document.getElementById('landscape-fab-menu').classList.remove('open'); 
+                    document.getElementById('landscape-fab-btn').classList.remove('active');
+                ">${label}</button>`;
+            }).join('');
+        }
+    }
+
+    const origSwitchPlayerMode = window.switchPlayerMode;
+    if (typeof origSwitchPlayerMode === 'function') {
+        window.switchPlayerMode = function(mode) {
+            origSwitchPlayerMode(mode);
+            syncMobileChallengePicker();
+        };
+    }
+
+    const origLoadCaseById = window.loadCaseById;
+    if (typeof origLoadCaseById === 'function') {
+        window.loadCaseById = function(caseId, opts) {
+            origLoadCaseById(caseId, opts);
+            setTimeout(syncMobileChallengePicker, 50);
+        };
+    }
+
+    const origSwitchTab = window.switchTab;
+    if (typeof origSwitchTab === 'function') {
+        window.switchTab = function(tab, el) {
+            origSwitchTab(tab, el);
+            setTimeout(syncMobileChallengePicker, 50);
+        };
+    }
+
+    window.addEventListener('DOMContentLoaded', () => setTimeout(syncMobileChallengePicker, 200));
+})();
+
+function toggleSubjectDrawer() {
+    const drawer = document.getElementById('subject-progress-drawer');
+    if (!drawer) return;
+    drawer.classList.toggle('collapsed');
+    
+    if (!drawer.classList.contains('collapsed')) {
+        renderSubjectProgressDrawer();
+    }
+}
+
+function getSubjectColorClass(pct) {
+    if (pct <= 32) return 'bar-red';
+    if (pct <= 66) return 'bar-orange';
+    return 'bar-green';
+}
+
+// Liest alle Fälle aus und ordnet sie den echten Überordnern zu
+function renderSubjectProgressDrawer() {
+    const listEl = document.getElementById('dynamic-subjects-list');
+    if (!listEl) return;
+
+    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+
+    // 1. Alle Überordner aus superFolderStates mit 0 vorinitialisieren
+    const superStats = {};
+    if (typeof superFolderStates === 'object' && superFolderStates !== null) {
+        Object.keys(superFolderStates).forEach(name => {
+            superStats[name] = { total: 0, solved: 0 };
+        });
+    }
+    // Fallback-Garantie für die Standard-Überordner
+    ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'].forEach(name => {
+        if (!superStats[name]) superStats[name] = { total: 0, solved: 0 };
+    });
+
+    // 2. Alle registrierten Fälle über die zentrale App-Methode laden
+    const allAvailableCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+
+    // 3. Fälle sauber über getSuperFolderForCategory() zuweisen
+    allAvailableCases.forEach(c => {
+        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
+        
+        // Nutzt dein bestehendes Mapping + Heuristik
+        const superFolder = typeof getSuperFolderForCategory === 'function' 
+            ? getSuperFolderForCategory(rawCategory) 
+            : 'Allgemein';
+
+        if (!superStats[superFolder]) {
+            superStats[superFolder] = { total: 0, solved: 0 };
+        }
+
+        superStats[superFolder].total += 1;
+
+        const caseId = c.case_id || c.id;
+        if (solvedIds.includes(caseId)) {
+            superStats[superFolder].solved += 1;
+        }
+    });
+
+    const entries = Object.entries(superStats);
+
+    // Sortierung: Entweder nach Schwachstellen (niedrigste % zuerst) oder feste Reihenfolge
+    entries.sort((a, b) => {
+        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
+        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
+        return pctA - pctB;
+    });
+
+    listEl.innerHTML = entries.map(([folderName, stats]) => {
+        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+        const colorClass = getSubjectColorClass(pct);
+
+        return `
+            <div class="subject-item" style="cursor: pointer;" onclick="if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${folderName}' zu filtern">
+                <div class="subject-item-top">
+                    <span class="subject-item-name" title="${escapeHtml(folderName)}">📁 ${escapeHtml(folderName)}</span>
+                    <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
+                </div>
+                <div class="subject-bar-track">
+                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+// ==========================================
+// THEME ENGINE (FARBLAYOUT WECHSELN)
+// ==========================================
+const THEME_STORAGE_KEY = 'medcheck_ui_theme';
+const THEME_META_COLORS = {
+    midnight: '#060913',
+    daylight: '#f1f5f9',
+    scrubs:   '#04110f',
+    neuro:    '#090614'
+};
+
+function applyAppTheme(themeName) {
+    const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
+
+    if (validTheme === 'midnight') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', validTheme);
+    }
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+        metaTheme.setAttribute('content', THEME_META_COLORS[validTheme]);
+    }
+
+    document.querySelectorAll('.theme-card').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
+    });
+
+    localStorage.setItem(THEME_STORAGE_KEY, validTheme);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
+    applyAppTheme(savedTheme);
+});
 
 // ==========================================================================
 // LERN-DEPOT (KNOWLEDGE VAULT) MODULE
@@ -2076,12 +2871,16 @@ let currentDepotFilter = 'open';
 let pendingSelectionData = null;
 
 function getLocalDepot() {
-    try { return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]'); } catch (e) { return []; }
+    try {
+        return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
+    } catch (e) {
+        return [];
+    }
 }
 
 function saveLocalDepot(items) {
     localStorage.setItem(DEPOT_STORAGE_KEY, JSON.stringify(items));
-    window.updateDepotBadges(items);
+    updateDepotBadges(items);
 }
 
 function getSupabaseInstance() {
@@ -2091,7 +2890,7 @@ function getSupabaseInstance() {
 async function syncDepotWithSupabase() {
     const sb = getSupabaseInstance();
     if (!sb || !sb.auth) {
-        window.updateDepotBadges(getLocalDepot());
+        updateDepotBadges(getLocalDepot());
         return;
     }
 
@@ -2099,7 +2898,7 @@ async function syncDepotWithSupabase() {
         const { data: sessionData } = await sb.auth.getSession();
         const user = sessionData?.session?.user;
         if (!user) {
-            window.updateDepotBadges(getLocalDepot());
+            updateDepotBadges(getLocalDepot());
             return;
         }
 
@@ -2111,8 +2910,8 @@ async function syncDepotWithSupabase() {
         if (!error && Array.isArray(data)) {
             saveLocalDepot(data);
             const depotView = document.getElementById('depot-view');
-            if (depotView && depotView.style.display !== 'none' && typeof window.renderDepotView === 'function') {
-                window.renderDepotView();
+            if (depotView && depotView.style.display !== 'none') {
+                renderDepotView();
             }
         }
     } catch (err) {
@@ -2145,17 +2944,17 @@ function initOverviewSelectionListener() {
 
         let cueContext = '';
         const anchorEl = selection.anchorNode.nodeType === 3 ? selection.anchorNode.parentElement : selection.anchorNode;
-        const cornellRow = anchorEl ? anchorEl.closest('.cornell-grid, .cornell-row-item') : null;
+        const cornellRow = anchorEl ? anchorEl.closest('.cornell-grid') : null;
         if (cornellRow) {
             const cueEl = cornellRow.querySelector('.cornell-cue-item');
             if (cueEl) cueContext = cueEl.textContent.trim();
         }
 
-        const activeCaseObj = window.currentCase || window.activeCaseData || {};
+        const activeCaseObj = window.currentCase || window.activeCase || {};
         const badgeTitleEl = document.getElementById('player-case-badge-title');
         const caseTitle = activeCaseObj.title || (badgeTitleEl ? badgeTitleEl.textContent.trim() : 'Klinischer Fall');
         const caseId = activeCaseObj.id || activeCaseObj.case_id || caseTitle;
-        const category = activeCaseObj.folder || activeCaseObj.folder_name || activeCaseObj.specialty || 'Allgemein';
+        const category = activeCaseObj.folder || activeCaseObj.category || activeCaseObj.specialty || 'Allgemein';
 
         pendingSelectionData = {
             case_id: caseId,
@@ -2181,7 +2980,7 @@ function initOverviewSelectionListener() {
     });
 }
 
-window.saveCurrentSelectionToDepot = async function(event) {
+async function saveCurrentSelectionToDepot(event) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -2195,9 +2994,9 @@ window.saveCurrentSelectionToDepot = async function(event) {
     await createDepotEntry(pendingSelectionData);
     window.getSelection()?.removeAllRanges();
     pendingSelectionData = null;
-};
+}
 
-window.addManualDepotEntry = async function() {
+async function addManualDepotEntry() {
     const input = document.getElementById('depot-manual-input');
     const text = input ? input.value.trim() : '';
     if (!text) return;
@@ -2211,15 +3010,17 @@ window.addManualDepotEntry = async function() {
     });
 
     input.value = '';
-    if(typeof window.renderDepotView === 'function') window.renderDepotView();
-};
+    renderDepotView();
+}
 
 async function createDepotEntry(entryData) {
     const items = getLocalDepot();
 
     const exists = items.some(i => i.highlighted_text === entryData.highlighted_text && i.case_id === entryData.case_id);
     if (exists) {
-        if (typeof showScorePopup === 'function') showScorePopup('Bereits im Lern-Depot vorhanden', 'neutral');
+        if (typeof showScorePopup === 'function') {
+            showScorePopup('Bereits im Lern-Depot vorhanden', 'neutral');
+        }
         return;
     }
 
@@ -2238,7 +3039,9 @@ async function createDepotEntry(entryData) {
     items.unshift(newItem);
     saveLocalDepot(items);
 
-    if (typeof showScorePopup === 'function') showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
+    if (typeof showScorePopup === 'function') {
+        showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
+    }
 
     const sb = getSupabaseInstance();
     if (sb && sb.auth) {
@@ -2258,26 +3061,30 @@ async function createDepotEntry(entryData) {
                     is_mastered: newItem.is_mastered
                 }]);
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn('Supabase Insert im Hintergrund fehlgeschlagen (lokal gesichert):', e);
+        }
     }
 }
 
-window.toggleDepotItemMastered = async function(itemId) {
+async function toggleDepotItemMastered(itemId) {
     const items = getLocalDepot();
     const target = items.find(i => i.id === itemId);
     if (!target) return;
 
     target.is_mastered = !target.is_mastered;
     saveLocalDepot(items);
-    if(typeof window.renderDepotView === 'function') window.renderDepotView();
+    renderDepotView();
 
     const sb = getSupabaseInstance();
     if (sb && sb.auth) {
-        try { await sb.from('user_depot').update({ is_mastered: target.is_mastered }).eq('id', itemId); } catch (e) {}
+        try {
+            await sb.from('user_depot').update({ is_mastered: target.is_mastered }).eq('id', itemId);
+        } catch (e) {}
     }
-};
+}
 
-window.updateDepotItemNote = async function(itemId, noteText) {
+async function updateDepotItemNote(itemId, noteText) {
     const items = getLocalDepot();
     const target = items.find(i => i.id === itemId);
     if (!target) return;
@@ -2287,31 +3094,35 @@ window.updateDepotItemNote = async function(itemId, noteText) {
 
     const sb = getSupabaseInstance();
     if (sb && sb.auth) {
-        try { await sb.from('user_depot').update({ user_note: target.user_note }).eq('id', itemId); } catch (e) {}
+        try {
+            await sb.from('user_depot').update({ user_note: target.user_note }).eq('id', itemId);
+        } catch (e) {}
     }
-};
+}
 
-window.deleteDepotItem = async function(itemId) {
+async function deleteDepotItem(itemId) {
     const items = getLocalDepot().filter(i => i.id !== itemId);
     saveLocalDepot(items);
-    if(typeof window.renderDepotView === 'function') window.renderDepotView();
+    renderDepotView();
 
     const sb = getSupabaseInstance();
     if (sb && sb.auth) {
-        try { await sb.from('user_depot').delete().eq('id', itemId); } catch (e) {}
+        try {
+            await sb.from('user_depot').delete().eq('id', itemId);
+        } catch (e) {}
     }
-};
+}
 
-window.setDepotFilter = function(filterType) {
+function setDepotFilter(filterType) {
     currentDepotFilter = filterType;
     ['open', 'mastered', 'all'].forEach(type => {
         const btn = document.getElementById(`depot-filter-${type}`);
         if (btn) btn.classList.toggle('active', type === filterType);
     });
-    if(typeof window.renderDepotView === 'function') window.renderDepotView();
-};
+    renderDepotView();
+}
 
-window.updateDepotBadges = function(items = getLocalDepot()) {
+function updateDepotBadges(items = getLocalDepot()) {
     const openCount = items.filter(i => !i.is_mastered).length;
     const masteredCount = items.filter(i => i.is_mastered).length;
 
@@ -2323,7 +3134,7 @@ window.updateDepotBadges = function(items = getLocalDepot()) {
 
     const masteredEl = document.getElementById('depot-count-mastered');
     if (masteredEl) masteredEl.textContent = masteredCount;
-};
+}
 
 function escapeDepotHtml(str) {
     return String(str || '')
@@ -2333,14 +3144,14 @@ function escapeDepotHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-window.renderDepotView = function() {
+function renderDepotView() {
     const container = document.getElementById('depot-items-container');
     const categorySelect = document.getElementById('depot-category-select');
     const searchInput = document.getElementById('depot-search-input');
     if (!container) return;
 
     const allItems = getLocalDepot();
-    window.updateDepotBadges(allItems);
+    updateDepotBadges(allItems);
 
     if (categorySelect) {
         const currentVal = categorySelect.value || 'ALL';
@@ -2387,6 +3198,7 @@ window.renderDepotView = function() {
                 ${item.cue_context ? `<div class="depot-cue-tag">💡 ${escapeDepotHtml(item.cue_context)}</div>` : ''}
                 <div class="depot-quote-text">„${escapeDepotHtml(item.highlighted_text)}“</div>
             </div>
+
             <div>
                 <input type="text" class="depot-note-input" 
                        placeholder="Eigene Notiz / Eselsbrücke ergänzen..." 
@@ -2401,37 +3213,46 @@ window.renderDepotView = function() {
             </div>
         </div>
     `).join('');
-};
+}
 
+document.addEventListener('DOMContentLoaded', () => {
+    initOverviewSelectionListener();
+    syncDepotWithSupabase();
+});
 
 // ==========================================================================
-// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API)
+// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
 // ==========================================================================
 let currentDepotQuizQuestions = [];
 
-window.closeDepotQuizArena = function() {
+function closeDepotQuizArena() {
     const arena = document.getElementById('depot-quiz-arena');
     if (arena) arena.classList.add('hidden');
-};
+}
 
-window.generateDepotQuizWithAI = async function() {
+async function generateDepotQuizWithAI() {
     const allItems = getLocalDepot();
     const categorySelect = document.getElementById('depot-category-select');
     const selectedCat = categorySelect ? categorySelect.value : 'ALL';
 
     let targetItems = allItems.filter(item => !item.is_mastered && (selectedCat === 'ALL' || item.category === selectedCat));
-    if (targetItems.length === 0) targetItems = allItems.filter(item => !item.is_mastered);
+
+    if (targetItems.length === 0) {
+        targetItems = allItems.filter(item => !item.is_mastered);
+    }
 
     if (targetItems.length === 0) {
         if (typeof showScorePopup === 'function') {
             showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
         } else {
-            alert('Du hast aktuell keine offenen Lernlücken im Depot.');
+            alert('Du hast aktuell keine offenen Lernlücken im Depot. Markiere zuerst Textstellen in einer Fall-Übersicht!');
         }
         return;
     }
 
-    const sampledItems = [...targetItems].sort(() => Math.random() - 0.5).slice(0, 6);
+    const sampledItems = [...targetItems]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6);
 
     const arena = document.getElementById('depot-quiz-arena');
     const body = document.getElementById('depot-quiz-body');
@@ -2442,51 +3263,112 @@ window.generateDepotQuizWithAI = async function() {
 
     arena.classList.remove('hidden');
     if (btn) btn.disabled = true;
-    if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken...`;
+    if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken und konstruiere klinische Prüfungsfragen...`;
 
-    body.innerHTML = `<div class="skeleton" style="height: 110px; width: 100%;"></div><div class="skeleton" style="height: 110px; width: 100%;"></div>`;
+    body.innerHTML = `
+        <div class="skeleton" style="height: 110px; width: 100%;"></div>
+        <div class="skeleton" style="height: 110px; width: 100%;"></div>
+    `;
 
-    const notesContext = sampledItems.map(item => 
-        `[ID: ${item.id}] (Thema:${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Notiz: ${item.user_note})` : ''}`
+    const notesContext = sampledItems.map((item, idx) => 
+        `[ID: ${item.id}] (Thema:${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
 
-    const promptText = `Du bist Dozent für medizinische Didaktik. Erstelle aus den folgenden Lernlücken ${Math.min(sampledItems.length, 4)} Single-Choice-Fragen als striktes JSON-Array. Format: [{"source_depot_id": "Die ID", "topic": "Fach", "question": "Vignette + Frage", "options": ["A","B","C","D"], "correct_index": 0, "explanation": "Grund"}]. LERNLÜCKEN:\n${notesContext}`;
+    const promptText = `
+Du bist ein renommierter Dozent für medizinische Didaktik und Autor für ärztliche Staatsexamensfragen (IMPP-Stil). 
+Deine Aufgabe: Erstelle aus den untenstehenden Lernlücken eines Medizinstudenten exakt ${Math.min(sampledItems.length, 4)} anspruchsvolle Multiple-Choice-Fragen (Single Choice).
+
+STRIKTE REGELN FÜR DIE FRAGEN:
+1. Klinische Vignette: Beginne JEDE Frage mit einer kurzen, realistischen Patientenvignette (Alter, Geschlecht, Leitsymptom/Anamnese, Befund), anstatt nur trockene Fakten abzufragen.
+2. Transferwissen: Frage nach dem nächsten diagnostischen Schritt, der wahrscheinlichsten Diagnose oder dem pathophysiologischen Mechanismus.
+3. Homogene Distraktoren: Die 3 falschen Optionen MÜSSEN klinisch extrem plausibel sein (z.B. Differenzialdiagnosen mit ähnlichen Symptomen). Keine absurden Quatsch-Antworten.
+4. Keine Negativfragen: Nutze niemals "Was ist NICHT richtig?".
+
+LERNLÜCKEN DES STUDENTEN:
+${notesContext}
+
+WICHTIG: Antworte AUSSCHLIESSLICH mit einem validen JSON-Array. Kein Markdown, keine Einleitungstexte, keine \`\`\`json Block-Tags.
+Nutze exakt dieses Format:
+[
+  {
+    "source_depot_id": "Die exakte ID aus [ID: ...]",
+    "topic": "Kurzes medizinisches Fachgebiet",
+    "question": "Klinische Vignette + eigentliche Prüfungsfrage",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_index": 0,
+    "explanation": "Ausführliche Begründung: Erkläre den Mechanismus und warum die richtige Antwort stimmt UND warum die Distraktoren in diesem Fall falsch sind."
+  }
+]`.trim();
 
     try {
-        const response = await fetch('/api/gemini', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: promptText, mode: 'depot_quiz' })
-        });
-        const rawData = await response.json();
-        const questions = Array.isArray(rawData.result) ? rawData.result : (Array.isArray(rawData) ? rawData : []);
-
-        if (questions.length === 0) throw new Error("Leeres API Resultat.");
-        
+        const questions = await fetchQuizFromGeminiEndpoint(promptText, sampledItems);
         currentDepotQuizQuestions = questions;
-        if (subtitle) subtitle.textContent = `${questions.length} Fragen aus deinen Lücken bereit:`;
-        window.renderDepotQuizQuestions(questions);
+        if (subtitle) subtitle.textContent = `${questions.length} klinische Fragen aus deinen offenen Lernlücken bereit:`;
+        renderDepotQuizQuestions(questions);
     } catch (err) {
-        const fallbackQuestions = sampledItems.slice(0, 4).map(item => {
-            const options = [item.highlighted_text, "Anderer Befund A", "Unauffällig", "Labor-Artefakt"].sort(() => Math.random() - 0.5);
-            return {
-                source_depot_id: item.id,
-                topic: item.category || 'Active Recall',
-                question: `Aussage zu Fall „${item.case_title}“?`,
-                options: options,
-                correct_index: options.indexOf(item.highlighted_text),
-                explanation: `Original-Markierung: ${item.highlighted_text}`
-            };
-        });
+        console.warn('KI-Endpunkt nicht erreichbar, nutze intelligenten lokalen Recall-Generator:', err);
+        const fallbackQuestions = buildLocalFallbackQuiz(sampledItems);
         currentDepotQuizQuestions = fallbackQuestions;
-        if (subtitle) subtitle.textContent = `Offline-Modus: ${fallbackQuestions.length} Active-Recall-Fragen:`;
-        window.renderDepotQuizQuestions(fallbackQuestions);
+        if (subtitle) subtitle.textContent = `${fallbackQuestions.length} Active-Recall-Fragen (Offline-Modus) bereit:`;
+        renderDepotQuizQuestions(fallbackQuestions);
     } finally {
         if (btn) btn.disabled = false;
     }
-};
+}
 
-window.renderDepotQuizQuestions = function(questions) {
+async function fetchQuizFromGeminiEndpoint(promptText, sampledItems) {
+    const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            prompt: promptText,
+            mode: 'depot_quiz'
+        })
+    });
+
+    const rawData = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        const serverReason = rawData.details || rawData.error || `HTTP ${response.status}`;
+        throw new Error(`Server-Antwort (${response.status}): ${serverReason}`);
+    }
+
+    if (Array.isArray(rawData.result)) {
+        return rawData.result;
+    } else if (Array.isArray(rawData)) {
+        return rawData;
+    }
+
+    throw new Error('Unerwartetes Antwortformat vom Server.');
+}
+
+function buildLocalFallbackQuiz(sampledItems) {
+    const allItems = getLocalDepot();
+    return sampledItems.slice(0, 4).map(item => {
+        const otherQuotes = allItems
+            .filter(other => other.id !== item.id)
+            .map(other => other.highlighted_text)
+            .slice(0, 3);
+
+        while (otherQuotes.length < 3) {
+            otherQuotes.push('Unauffälliger Normalbefund ohne pathologische Relevanz im beschriebenen Kontext.');
+        }
+
+        const options = [item.highlighted_text, ...otherQuotes].sort(() => Math.random() - 0.5);
+        const correctIndex = options.indexOf(item.highlighted_text);
+
+        return {
+            source_depot_id: item.id,
+            topic: item.category || 'Active Recall',
+            question: `Welche klinische Aussage bzw. welcher Pathomechanismus gehört zum Fall „${item.case_title}“ ${item.cue_context ? `(Fokus: ${item.cue_context})` : ''}?`,
+            options: options,
+            correct_index: correctIndex,
+            explanation: `Original-Markierung aus deinem Depot zu „${item.case_title}“: ${item.highlighted_text}`
+        };
+    });
+}
+
+function renderDepotQuizQuestions(questions) {
     const body = document.getElementById('depot-quiz-body');
     if (!body) return;
 
@@ -2499,17 +3381,20 @@ window.renderDepotQuizQuestions = function(questions) {
             <div class="depot-q-stem">${escapeHtml(q.question)}</div>
             <div class="depot-q-options">
                 ${(q.options || []).map((opt, optIdx) => `
-                    <button type="button" class="quiz-opt-btn" id="depot-q-${qIdx}-opt-${optIdx}" onclick="evaluateDepotQuizAnswer(${qIdx},${optIdx})">
-                        <span><strong>${String.fromCharCode(65 + optIdx)})</strong> ${escapeHtml(opt)}</span>
+                    <button type="button" 
+                            class="quiz-opt-btn" 
+                            id="depot-q-${qIdx}-opt-${optIdx}"
+                            onclick="evaluateDepotQuizAnswer(${qIdx},${optIdx})">
+                        <span><strong>${String.fromCharCode(65 + optIdx)})</strong>${escapeHtml(opt)}</span>
                     </button>
                 `).join('')}
             </div>
             <div class="depot-q-feedback" id="depot-q-fb-${qIdx}"></div>
         </div>
     `).join('');
-};
+}
 
-window.evaluateDepotQuizAnswer = function(qIdx, selectedOptIdx) {
+function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
     const q = currentDepotQuizQuestions[qIdx];
     if (!q || q.answered) return;
     q.answered = true;
@@ -2520,22 +3405,28 @@ window.evaluateDepotQuizAnswer = function(qIdx, selectedOptIdx) {
         const btn = document.getElementById(`depot-q-${qIdx}-opt-${idx}`);
         if (!btn) return;
         btn.disabled = true;
-        if (idx === Number(q.correct_index)) btn.classList.add('correct-highlight');
-        else if (idx === selectedOptIdx && !isCorrect) btn.classList.add('wrong-highlight');
+        if (idx === Number(q.correct_index)) {
+            btn.classList.add('correct-highlight');
+        } else if (idx === selectedOptIdx && !isCorrect) {
+            btn.classList.add('wrong-highlight');
+        }
     });
 
-    if (isCorrect && typeof showScorePopup === 'function') showScorePopup('+50 XP', 'positive');
+    if (isCorrect && typeof showScorePopup === 'function') {
+        showScorePopup('+50 XP (Lernlücke gelöst!)', 'positive');
+    }
 
     const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
     if (fbEl) {
         fbEl.style.display = 'block';
         fbEl.innerHTML = `
             <div style="font-weight: 700; color: ${isCorrect ? 'var(--color-symptom)' : 'var(--color-risk)'}; margin-bottom: 4px;">
-                ${isCorrect ? '✓ Korrekt!' : '✕ Falsch.'}
+                ${isCorrect ? '✓ Exakt richtig deduziert!' : '✕ Nicht ganz – hier ist der klinische Hintergrund:'}
             </div>
             <div>${escapeHtml(q.explanation || '')}</div>
             ${q.source_depot_id ? `
                 <div class="depot-mastery-prompt">
+                    <span style="font-size: 0.76rem; color: var(--text-dim);">Sitzt dieses Konzept jetzt sicher?</span>
                     <button type="button" class="depot-toggle-btn" onclick="markDepotMasteredFromQuiz('${q.source_depot_id}', this)">
                         ✓ Im Depot als gelernt abhaken
                     </button>
@@ -2543,31 +3434,36 @@ window.evaluateDepotQuizAnswer = function(qIdx, selectedOptIdx) {
             ` : ''}
         `;
     }
-};
+}
 
-window.markDepotMasteredFromQuiz = async function(depotId, btnEl) {
-    await window.toggleDepotItemMastered(depotId);
+async function markDepotMasteredFromQuiz(depotId, btnEl) {
+    await toggleDepotItemMastered(depotId);
     if (btnEl) {
         btnEl.textContent = '✓ Als gelernt gespeichert!';
         btnEl.disabled = true;
         btnEl.style.opacity = '0.6';
     }
-};
-
+}
 
 // ====================================================
-// PHARMA-COMPASS CLOUD-SPEICHER
+// PHARMA-COMPASS & MATRIX CLOUD-SPEICHER-MODULE
 // ====================================================
 const PHARMA_STORAGE_KEY = 'medcheck_pharma_sets';
 
 window.savePharmaSet = async function(setObj) {
-    if (!setObj || !setObj.set_id) return;
+    if (!setObj || !setObj.set_id) {
+        console.error('Ungültiges Pharma-Set übergeben.');
+        return;
+    }
+
     try {
         let savedSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
         savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
         savedSets.push(setObj);
         localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(savedSets));
-    } catch (e) {}
+    } catch (e) {
+        console.error('Fehler beim Speichern im LocalStorage:', e);
+    }
 
     const sb = window.supabaseClient || window.sb || null;
     if (sb && sb.auth) {
@@ -2575,7 +3471,7 @@ window.savePharmaSet = async function(setObj) {
             const { data: sessionData } = await sb.auth.getSession();
             const user = sessionData?.session?.user;
             if (user) {
-                await sb.from('pharma_sets').upsert([{
+                const { error } = await sb.from('pharma_sets').upsert([{
                     set_id: setObj.set_id,
                     user_id: user.id,
                     title: setObj.title,
@@ -2584,8 +3480,11 @@ window.savePharmaSet = async function(setObj) {
                     content: setObj,
                     updated_at: new Date().toISOString()
                 }]);
+                if (error) console.warn('Supabase Pharma-Sync Hinweis:', error.message);
             }
-        } catch (err) {}
+        } catch (err) {
+            console.warn('Cloud-Sync im Hintergrund fehlgeschlagen (lokal gesichert):', err);
+        }
     }
 };
 
@@ -2597,81 +3496,283 @@ window.syncPharmaSetsFromCloud = async function() {
         const user = sessionData?.session?.user;
         if (!user) return;
 
-        const { data, error } = await sb.from('pharma_sets').select('content').eq('user_id', user.id);
+        const { data, error } = await sb
+            .from('pharma_sets')
+            .select('content')
+            .eq('user_id', user.id);
+
         if (!error && Array.isArray(data) && data.length > 0) {
             const localSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
             const mergedMap = new Map();
             localSets.forEach(s => { if (s?.set_id) mergedMap.set(s.set_id, s); });
-            data.forEach(row => { if (row?.content?.set_id) mergedMap.set(row.content.set_id, row.content); });
+            data.forEach(row => {
+                if (row?.content?.set_id) mergedMap.set(row.content.set_id, row.content);
+            });
             localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(Array.from(mergedMap.values())));
         }
-    } catch (e) {}
+    } catch (e) {
+        console.warn('Pharma Cloud-Abruf übersprungen:', e);
+    }
 };
 
+document.addEventListener('DOMContentLoaded', () => {
+    window.syncPharmaSetsFromCloud();
+});
 
+// ==========================================================================
+// DRAG & DROP AUTO-SCROLL ENGINE (TURBO 60-120 FPS - ULTRA SCHNELL)
+// ==========================================================================
+(function initDragAutoScroll() {
+    // ⚡ KONFIGURATION FÜR MAXIMALES TEMPO & REAKTIVITÄT
+    const TOP_THRESHOLD = 180;        // Große Erfassungszone oben (reagiert weit vor der Topbar)
+    const BOTTOM_THRESHOLD = 140;     // Erfassungszone unten
+    const BASE_SPEED = 8;             // Mindesttempo sofort bei Eintritt in die Zone (kein Lag)
+    const MAX_SCROLL_SPEED = 52;      // Turbo-Maximalgeschwindigkeit (vorher 18-24 px)
+
+    let isDraggingActive = false;
+    let currentMouseY = -1;
+    let currentMouseX = -1;
+    let scrollFrameId = null;
+
+    // Ermittelt dynamisch den aktiven Scroll-Container
+    function getScrollContainer() {
+        const mainWrapper = document.querySelector('.main-wrapper');
+        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) {
+            return mainWrapper;
+        }
+        return document.scrollingElement || document.documentElement || document.body;
+    }
+
+    // High-Speed Animations-Loop mit progressiver Beschleunigung
+    function performAutoScroll() {
+        if (!isDraggingActive) {
+            scrollFrameId = null;
+            return;
+        }
+
+        // 1. Priorität: Schnelles Scrollen im Bookshelf (Sidebar)
+        let bookshelfScrolled = false;
+        const bookshelf = document.getElementById('bookshelf-container');
+        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
+            const rect = bookshelf.getBoundingClientRect();
+            const inBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
+            const inBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
+
+            if (inBookshelfX && inBookshelfY) {
+                const edgeZone = Math.min(80, rect.height * 0.28);
+                if (currentMouseY < rect.top + edgeZone) {
+                    const ratio = Math.max(0, (edgeZone - (currentMouseY - rect.top)) / edgeZone);
+                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
+                    bookshelf.scrollTop -= speed;
+                    bookshelfScrolled = true;
+                } else if (currentMouseY > rect.bottom - edgeZone) {
+                    const ratio = Math.max(0, (currentMouseY - (rect.bottom - edgeZone)) / edgeZone);
+                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
+                    bookshelf.scrollTop += speed;
+                    bookshelfScrolled = true;
+                }
+            }
+        }
+
+        // 2. Schnelles Scrollen im Haupt-Dashboard
+        if (!bookshelfScrolled && currentMouseY >= 0) {
+            const scrollTarget = getScrollContainer();
+            const viewportHeight = window.innerHeight;
+
+            // Berücksichtigt die feste Höhe der Topbar dynamisch
+            const topbar = document.querySelector('topbar');
+            const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 70;
+            const topScrollZone = topbarBottom + TOP_THRESHOLD;
+
+            // ⚡ BLITZSCHNELLES HOCHSCROLLEN
+            if (currentMouseY < topScrollZone) {
+                // Berechnet, wie tief die Maus in der Trigger-Zone ist (0 bis 1)
+                const distanceInside = Math.max(0, topScrollZone - currentMouseY);
+                const ratio = Math.min(1, distanceInside / TOP_THRESHOLD);
+                
+                // Kubische Beschleunigung: Je näher am Rand, desto brachialer das Tempo
+                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
+                
+                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
+                    window.scrollBy(0, -speed);
+                } else {
+                    scrollTarget.scrollTop -= speed;
+                }
+            } 
+            // ⚡ SCHNELLES RUNTERSCROLLEN
+            else if (currentMouseY > viewportHeight - BOTTOM_THRESHOLD) {
+                const distanceInside = Math.max(0, currentMouseY - (viewportHeight - BOTTOM_THRESHOLD));
+                const ratio = Math.min(1, distanceInside / BOTTOM_THRESHOLD);
+                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
+
+                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
+                    window.scrollBy(0, speed);
+                } else {
+                    scrollTarget.scrollTop += speed;
+                }
+            }
+        }
+
+        scrollFrameId = requestAnimationFrame(performAutoScroll);
+    }
+
+    // Aktualisiert die Mausposition kontinuierlich ohne Verzögerung
+    function updateCoordinates(e) {
+        if (!isDraggingActive) return;
+        currentMouseY = e.clientY;
+        currentMouseX = e.clientX;
+    }
+
+    // Zuverlässige Drag-Erkennung für alle verschiebbaren Dashboard-Elemente
+    document.addEventListener('dragstart', (e) => {
+        const isDraggableItem = e.target.closest('.case-card') || 
+                               e.target.closest('.category-folder') || 
+                               e.target.closest('.folder-case-item') || 
+                               e.target.closest('.folder-group');
+
+        if (isDraggableItem) {
+            isDraggingActive = true;
+            currentMouseY = e.clientY;
+            currentMouseX = e.clientX;
+
+            if (!scrollFrameId) {
+                scrollFrameId = requestAnimationFrame(performAutoScroll);
+            }
+        }
+    });
+
+    window.addEventListener('dragover', updateCoordinates, { passive: true });
+    document.addEventListener('drag', updateCoordinates, { passive: true });
+
+    // Sofortiges sauberes Stoppen bei Drop oder Drag-Ende
+    const stopAutoScroll = () => {
+        isDraggingActive = false;
+        currentMouseY = -1;
+        currentMouseX = -1;
+        if (scrollFrameId) {
+            cancelAnimationFrame(scrollFrameId);
+            scrollFrameId = null;
+        }
+    };
+
+    document.addEventListener('dragend', stopAutoScroll);
+    document.addEventListener('drop', stopAutoScroll);
+})();
+
+function setupSuperFolderDropZones() {
+    document.querySelectorAll('.bookshelf-super-group').forEach(superGroup => {
+        superGroup.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            superGroup.classList.add('bookshelf-super-drag-over');
+        });
+
+        superGroup.addEventListener('dragleave', () => {
+            superGroup.classList.remove('bookshelf-super-drag-over');
+        });
+
+        superGroup.addEventListener('drop', (e) => {
+            e.preventDefault();
+            superGroup.classList.remove('bookshelf-super-drag-over');
+            
+            const folderId = e.dataTransfer.getData('text/plain');
+            const targetSuperId = superGroup.dataset.superId;
+
+            if (folderId && targetSuperId) {
+                // Falls du eine Zuweisungsfunktion hast, hier aufrufen:
+                if (typeof assignFolderToSuperFolder === 'function') {
+                    assignFolderToSuperFolder(folderId, targetSuperId);
+                }
+            }
+        });
+    });
+}
 // ==========================================
 // CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
 // ==========================================
+
+window.cloudCaseIds = new Set();
+window.currentSessionUser = null;
+
 function getActiveSupabaseClient() {
     return window.supabaseClient || window.supabase || window.sb || null;
 }
 
+// Globales Verhindern von versehentlichem Öffnen der JSON-Dateien im Tab
 window.addEventListener('dragover', (e) => {
-    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+        e.preventDefault();
+    }
 }, false);
 
 window.addEventListener('drop', (e) => {
-    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+        e.preventDefault();
+    }
 }, false);
 
-window.initCreatorHubAndCloudCases = async function() {
+// 1. Initialisierung
+async function initCreatorHubAndCloudCases() {
     const sb = getActiveSupabaseClient();
-    await window.loadCasesFromDatabase();
+    await loadCasesFromDatabase();
 
     if (!sb || !sb.auth) return;
 
     try {
         const { data: { session } } = await sb.auth.getSession();
         window.currentSessionUser = session?.user || null;
-        window.setupCreatorHub(window.currentSessionUser);
+        setupCreatorHub(window.currentSessionUser);
 
         sb.auth.onAuthStateChange((_event, session) => {
             window.currentSessionUser = session?.user || null;
-            window.setupCreatorHub(window.currentSessionUser);
-            window.loadCasesFromDatabase();
+            setupCreatorHub(window.currentSessionUser);
+            loadCasesFromDatabase();
         });
     } catch (e) {
         console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
     }
-};
+}
 
-window.setupCreatorHub = function(currentUser) {
+// 2. UI aktivieren/deaktivieren
+function setupCreatorHub(currentUser) {
     const uploadSection = document.getElementById('creatorUploadSection');
     if (!uploadSection) return;
 
     if (currentUser && currentUser.email && currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase()) {
         uploadSection.style.display = 'block';
-        window.initDropZone();
+        initDropZone();
     } else {
         uploadSection.style.display = 'none';
     }
-};
+}
 
-window.initDropZone = function() {
+// 3. DropZone für Desktop-Dateien & Dashboard-Karten
+function initDropZone() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('caseFileInput');
     if (!dropZone || !fileInput) return;
 
-    dropZone.onclick = (e) => { if (e.target !== fileInput) fileInput.click(); };
+    dropZone.onclick = (e) => {
+        if (e.target !== fileInput) fileInput.click();
+    };
+
     fileInput.onchange = (e) => {
         if (e.target.files && e.target.files.length > 0) {
-            window.handleCaseFiles(e.target.files);
+            handleCaseFiles(e.target.files);
             fileInput.value = '';
         }
     };
 
-    const highlight = (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover'); };
-    const unhighlight = (e) => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover'); };
+    const highlight = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('dragover');
+    };
+
+    const unhighlight = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover');
+    };
 
     ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, highlight, false));
     ['dragleave', 'dragend'].forEach(name => dropZone.addEventListener(name, unhighlight, false));
@@ -2684,70 +3785,98 @@ window.initDropZone = function() {
         const dt = e.dataTransfer;
         if (!dt) return;
 
+        // A) Fall-Karte aus dem Dashboard hineingezogen
         const internalCaseId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
         if (internalCaseId && (!dt.files || dt.files.length === 0)) {
-            await window.handleInternalCaseUpload(internalCaseId);
+            await handleInternalCaseUpload(internalCaseId);
             return;
         }
 
+        // B) Externe .json-Dateien vom Desktop/Explorer
         if (dt.files && dt.files.length > 0) {
-            window.handleCaseFiles(dt.files);
+            handleCaseFiles(dt.files);
         }
     }, false);
-};
+}
 
-window.handleInternalCaseUpload = async function(caseId) {
+// 4. Upload von In-App Fallkarten
+async function handleInternalCaseUpload(caseId) {
     const sb = getActiveSupabaseClient();
-    if (!sb) return alert("Verbindung zu Supabase nicht gefunden.");
+    if (!sb) {
+        alert("Fehler: Verbindung zu Supabase nicht gefunden.");
+        return;
+    }
 
     const { data: { session } } = await sb.auth.getSession();
     const currentUser = session?.user;
-    if (!currentUser) return window.renderStatus(caseId, 'error', 'Nicht eingeloggt.');
+
+    if (!currentUser) {
+        renderStatus(caseId, 'error', 'Nicht eingeloggt. Bitte melde dich zuerst an.');
+        return;
+    }
 
     const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
 
-    if (!targetCase) return window.renderStatus(caseId, 'error', 'Fall nicht gefunden.');
+    if (!targetCase) {
+        renderStatus(caseId, 'error', 'Fall nicht im lokalen Speicher gefunden.');
+        return;
+    }
 
     const title = targetCase.metadata?.title || targetCase.title || caseId;
     const field = targetCase.folder_name || targetCase.metadata?.medical_field || targetCase.medical_field || 'Allgemein';
-    window.renderStatus(title, 'loading', 'Synchronisiere mit Cloud...');
+
+    renderStatus(title, 'loading', 'Wird mit Supabase Cloud synchronisiert...');
 
     try {
-        const { error } = await sb.from('cases').upsert({
-            case_id: caseId,
-            title: title,
-            medical_field: field,
-            is_public: true,
-            user_id: currentUser.id,
-            created_by: currentUser.id,
-            content: targetCase
-        }, { onConflict: 'case_id' });
+        const { error } = await sb
+            .from('cases')
+            .upsert({
+                case_id: caseId,
+                title: title,
+                medical_field: field,
+                is_public: true,
+                user_id: currentUser.id,
+                created_by: currentUser.id,
+                content: targetCase
+            }, { onConflict: 'case_id' });
 
         if (error) throw error;
-        window.renderStatus(title, 'success', `Cloud-Upload erfolgreich (${caseId})`);
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
-        await window.loadCasesFromDatabase();
-    } catch (err) {
-        window.renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
-    }
-};
 
-window.handleCaseFiles = async function(files) {
+        renderStatus(title, 'success', `In Cloud veröffentlicht (${caseId})`);
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
+
+        await loadCasesFromDatabase();
+    } catch (err) {
+        console.error("Upload Error:", err);
+        renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
+    }
+}
+
+// 5. Externe JSON-Dateien per Dropzone verarbeiten
+async function handleCaseFiles(files) {
     const sb = getActiveSupabaseClient();
-    if (!sb) return alert("Keine Supabase-Verbindung vorhanden.");
+    if (!sb) {
+        alert("Fehler: Keine Supabase-Verbindung vorhanden.");
+        return;
+    }
 
     const { data: { session } } = await sb.auth.getSession();
     const currentUser = session?.user;
-    if (!currentUser) return alert("Bitte melde dich als Creator an.");
+
+    if (!currentUser) {
+        alert("Bitte melde dich zuerst als Creator an.");
+        return;
+    }
 
     for (const file of Array.from(files)) {
         if (!file.name.toLowerCase().endsWith('.json')) {
-            window.renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
+            renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
             continue;
         }
 
-        window.renderStatus(file.name, 'loading', 'Validierung...');
+        renderStatus(file.name, 'loading', 'Validierung und Speicherung...');
+
         try {
             const rawContent = await file.text();
             const caseData = JSON.parse(rawContent);
@@ -2762,41 +3891,54 @@ window.handleCaseFiles = async function(files) {
             const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
             const title = caseData.metadata?.title || caseData.title || caseId;
 
-            const { error } = await sb.from('cases').upsert({
-                case_id: caseId,
-                title: title,
-                medical_field: field,
-                is_public: true,
-                user_id: currentUser.id,
-                created_by: currentUser.id,
-                content: caseData
-            }, { onConflict: 'case_id' });
+            const { error } = await sb
+                .from('cases')
+                .upsert({
+                    case_id: caseId,
+                    title: title,
+                    medical_field: field,
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: caseData
+                }, { onConflict: 'case_id' });
 
             if (error) throw error;
-            window.renderStatus(file.name, 'success', `Hochgeladen (${caseId})`);
-            await window.loadCasesFromDatabase();
+
+            renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
+            await loadCasesFromDatabase();
         } catch (err) {
-            window.renderStatus(file.name, 'error', `Fehler: ${err.message}`);
+            console.error("Upload Error:", err);
+            renderStatus(file.name, 'error', `Fehler: ${err.message}`);
         }
     }
-};
+}
 
-window.unpublishCaseFromCloud = async function(caseId) {
-    if (!window.confirm(`Möchtest du den Fall "${caseId}" aus der Cloud entfernen?`)) return;
+// 6. Unpublish-Funktion: Fall aus der Cloud entfernen
+async function unpublishCaseFromCloud(caseId) {
+    if (!window.confirm(`Möchtest du den Fall "${caseId}" wirklich aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
+        return;
+    }
+
     const sb = getActiveSupabaseClient();
     if (!sb) return;
 
     try {
-        const { error } = await sb.from('cases').delete().eq('case_id', caseId);
-        if (error) throw error;
-        window.renderStatus(caseId, 'success', 'Nur noch lokal verfügbar.');
-        await window.loadCasesFromDatabase();
-    } catch (err) {
-        alert(`Fehler beim Entfernen: ${err.message}`);
-    }
-};
+        const { error } = await sb
+            .from('cases')
+            .delete()
+            .eq('case_id', caseId);
 
-window.renderStatus = function(fileName, state, message) {
+        if (error) throw error;
+
+        renderStatus(caseId, 'success', 'Aus der Cloud entfernt (nur noch lokal verfügbar)');
+        await loadCasesFromDatabase();
+    } catch (err) {
+        alert(`Fehler beim Entfernen aus der Cloud: ${err.message}`);
+    }
+}
+
+function renderStatus(fileName, state, message) {
     const statusContainer = document.getElementById('uploadStatusList');
     if (!statusContainer) return;
 
@@ -2807,11 +3949,13 @@ window.renderStatus = function(fileName, state, message) {
         item.id = safeId;
         statusContainer.prepend(item);
     }
+
     item.className = `upload-status-item ${state}`;
     item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
-};
+}
 
-window.loadCasesFromDatabase = async function() {
+// 7. Datenbank synchronisieren & Cloud-Badges verwalten
+async function loadCasesFromDatabase() {
     const sb = getActiveSupabaseClient();
     if (!sb) return;
 
@@ -2821,7 +3965,10 @@ window.loadCasesFromDatabase = async function() {
             .select('case_id, title, medical_field, is_public, content')
             .order('created_at', { ascending: false });
 
-        if (error) return console.warn("Fälle konnten nicht geladen werden:", error.message);
+        if (error) {
+            console.warn("Supabase-Fälle konnten nicht abgerufen werden:", error.message);
+            return;
+        }
 
         window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
 
@@ -2838,169 +3985,19 @@ window.loadCasesFromDatabase = async function() {
                     customCases.push(cloudCase);
                     modified = true;
                 }
-                if (typeof window.registerCaseDDs === 'function') window.registerCaseDDs(cloudCase);
+                window.registerCaseDDs(cloudCase);
             });
 
-            if (modified) localStorage.setItem('custom_cases', JSON.stringify(customCases));
+            if (modified) {
+                localStorage.setItem('custom_cases', JSON.stringify(customCases));
+            }
         }
 
-        if (typeof renderDashboardCases === 'function') renderDashboardCases();
-        if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+        renderDashboardCases();
+        if (typeof renderSubjectProgressDrawer === 'function') {
+            renderSubjectProgressDrawer();
+        }
     } catch (err) {
         console.error("Fehler bei loadCasesFromDatabase:", err);
     }
-};
-
-// ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE
-// ==========================================================================
-(function initDragAutoScroll() {
-    const TOP_THRESHOLD = 180;
-    const BOTTOM_THRESHOLD = 140;
-    const BASE_SPEED = 8;
-    const MAX_SCROLL_SPEED = 52;
-
-    let isDraggingActive = false;
-    let currentMouseY = -1;
-    let currentMouseX = -1;
-    let scrollFrameId = null;
-
-    function getScrollContainer() {
-        const mainWrapper = document.querySelector('.main-wrapper');
-        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) return mainWrapper;
-        return document.scrollingElement || document.documentElement || document.body;
-    }
-
-    function performAutoScroll() {
-        if (!isDraggingActive) {
-            scrollFrameId = null;
-            return;
-        }
-
-        let bookshelfScrolled = false;
-        const bookshelf = document.getElementById('bookshelf-container');
-        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
-            const rect = bookshelf.getBoundingClientRect();
-            if (currentMouseX >= rect.left && currentMouseX <= rect.right && currentMouseY >= rect.top && currentMouseY <= rect.bottom) {
-                const edgeZone = Math.min(80, rect.height * 0.28);
-                if (currentMouseY < rect.top + edgeZone) {
-                    const ratio = Math.max(0, (edgeZone - (currentMouseY - rect.top)) / edgeZone);
-                    bookshelf.scrollTop -= BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
-                    bookshelfScrolled = true;
-                } else if (currentMouseY > rect.bottom - edgeZone) {
-                    const ratio = Math.max(0, (currentMouseY - (rect.bottom - edgeZone)) / edgeZone);
-                    bookshelf.scrollTop += BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
-                    bookshelfScrolled = true;
-                }
-            }
-        }
-
-        if (!bookshelfScrolled && currentMouseY >= 0) {
-            const scrollTarget = getScrollContainer();
-            const viewportHeight = window.innerHeight;
-            const topbar = document.querySelector('topbar');
-            const topScrollZone = (topbar ? topbar.getBoundingClientRect().bottom : 70) + TOP_THRESHOLD;
-
-            if (currentMouseY < topScrollZone) {
-                const ratio = Math.min(1, Math.max(0, topScrollZone - currentMouseY) / TOP_THRESHOLD);
-                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
-                (scrollTarget === document.documentElement || scrollTarget === document.body) ? window.scrollBy(0, -speed) : scrollTarget.scrollTop -= speed;
-            } else if (currentMouseY > viewportHeight - BOTTOM_THRESHOLD) {
-                const ratio = Math.min(1, Math.max(0, currentMouseY - (viewportHeight - BOTTOM_THRESHOLD)) / BOTTOM_THRESHOLD);
-                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
-                (scrollTarget === document.documentElement || scrollTarget === document.body) ? window.scrollBy(0, speed) : scrollTarget.scrollTop += speed;
-            }
-        }
-        scrollFrameId = requestAnimationFrame(performAutoScroll);
-    }
-
-    function updateCoordinates(e) {
-        if (!isDraggingActive) return;
-        currentMouseY = e.clientY;
-        currentMouseX = e.clientX;
-    }
-
-    document.addEventListener('dragstart', (e) => {
-        if (e.target.closest('.case-card') || e.target.closest('.category-folder') || e.target.closest('.folder-case-item') || e.target.closest('.folder-group')) {
-            isDraggingActive = true;
-            currentMouseY = e.clientY;
-            currentMouseX = e.clientX;
-            if (!scrollFrameId) scrollFrameId = requestAnimationFrame(performAutoScroll);
-        }
-    });
-
-    window.addEventListener('dragover', updateCoordinates, { passive: true });
-    document.addEventListener('drag', updateCoordinates, { passive: true });
-
-    const stopAutoScroll = () => {
-        isDraggingActive = false;
-        currentMouseY = -1;
-        currentMouseX = -1;
-        if (scrollFrameId) {
-            cancelAnimationFrame(scrollFrameId);
-            scrollFrameId = null;
-        }
-    };
-    document.addEventListener('dragend', stopAutoScroll);
-    document.addEventListener('drop', stopAutoScroll);
-})();
-
-
-// ====================================================
-// INITIALISIERUNG
-// ====================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
-    if(typeof window.applyAppTheme === 'function') window.applyAppTheme(savedTheme);
-
-    initUserData();
-    
-    // Cloud-Logik starten
-    if (typeof window.initCreatorHubAndCloudCases === 'function') {
-        window.initCreatorHubAndCloudCases();
-    }
-
-    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
-    prefetchManifestDDs();
-    renderSkillsSidebar();
-    renderDashboardCases();
-    if (typeof window.renderSpecialtyHub === 'function') {
-        window.renderSpecialtyHub();
-    }
-
-    if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
-    }
-
-    window.addEventListener('sr:updated', () => {
-        if (window.SpacedRepetitionEngine) {
-            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
-            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
-        }
-    });
-
-    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
-    if (addFolderBtn) {
-        addFolderBtn.addEventListener('click', () => {
-            const name = window.prompt("Name für den neuen Ordner:");
-            if (name && name.trim()) window.createNewFolder(name.trim());
-        });
-    }
-
-    document.addEventListener('click', (e) => {
-        if (e.target && e.target.closest('#btn-next-specialty-case')) window.nextSpecialtyCase();
-        if (e.target && e.target.closest('#btn-exit-specialty')) {
-            window.isSpecialtyBlindMode = false;
-            window.applyBlindHeader(false, null);
-            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-        }
-        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
-            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-            alert(`🔍 Diagnose enthüllt:\n\n${title}`);
-        }
-    });
-
-    setTimeout(() => {
-        if(typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    }, 500);
-});
+}
