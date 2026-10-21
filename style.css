@@ -1,40 +1,9 @@
-/* Standard (Midnight) nutzt die Root-Variablen */
-
-/* Clinical Daylight */
-[data-theme="daylight"] {
-    --bg-main: #f1f5f9;
-    --card-bg: #ffffff;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --card-border: #cbd5e1;
-    --accent-blue: #0284c7;
-}
-
-/* Surgical Scrubs */
-[data-theme="scrubs"] {
-    --bg-main: #04110f;
-    --card-bg: #0b221e;
-    --text-main: #f0fdf4;
-    --text-muted: #86efac;
-    --card-border: #134e4a;
-    --accent-blue: #10b981;
-}
-
-/* Neuro Focus */
-[data-theme="neuro"] {
-    --bg-main: #090614;
-    --card-bg: #17112b;
-    --text-main: #faf5ff;
-    --text-muted: #d8b4fe;
-    --card-border: #3b0764;
-    --accent-blue: #c084fc;
-}
-
 /* ==========================================================================
    1. DESIGN SYSTEM & TOKENS (Modern Clinical Dark/Clean Theme)
    ========================================================================== */
 :root {
     --bg-color: #060913;
+    --bg-main: #060913;
     --sidebar-bg: rgba(10, 15, 29, 0.82);
     --card-bg: rgba(15, 23, 42, 0.68);
     --card-bg-hover: rgba(23, 35, 61, 0.85);
@@ -48,7 +17,9 @@
     --sidebar-max-width: 480px;
     
     --text-main: #f8fafc;
+    --text-primary: #f8fafc;
     --text-muted: #94a3b8;
+    --text-secondary: #94a3b8;
     --text-dim: #64748b;
     
     --accent-blue: #38bdf8;
@@ -70,32 +41,33 @@
     --shadow-md: 0 12px 32px -4px rgba(0, 0, 0, 0.45);
     --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.22);
 }
+
 #intro-screen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: #0f172a; /* Ein dunkler, passender Medical-Hintergrundton als Fallback */
+    background-color: #0f172a;
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999; /* Garantiert, dass es über allem anderen liegt */
+    z-index: 9999;
     transition: opacity 0.6s ease-in-out, visibility 0.6s ease-in-out;
 }
 
 #intro-video {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Passt das Video perfekt an, ohne Verzerrung */
+    object-fit: cover;
 }
 
-/* Klasse zum Ausblenden */
 #intro-screen.fade-out {
     opacity: 0;
     visibility: hidden;
 }
-/* Globaler Reset (Bugfix: * statt -) */
+
+/* Globaler Reset */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -167,16 +139,16 @@ body {
     50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
 }
 
-/* Automatische Einblende-Animation für Views und Panels */
 .player-mode-pane,
 #dashboard-view,
 #player-view,
 #forge-view,
-#settings-view {
+#settings-view,
+#depot-view,
+#pharmacology-view {
     animation: fadeInUp 0.32s var(--ease-out) both;
 }
 
-/* Skeleton Loader für Ladezustände */
 .skeleton {
     background: linear-gradient(90deg, rgba(16, 24, 46, 0.6) 25%, rgba(56, 189, 248, 0.12) 50%, rgba(16, 24, 46, 0.6) 75%);
     background-size: 200% 100%;
@@ -200,17 +172,25 @@ body {
 .sidebar-overlay.active { display: block; }
 
 sidebar {
-    width: 270px;
+    width: var(--sidebar-width) !important;
+    min-width: var(--sidebar-min-width);
+    max-width: var(--sidebar-max-width);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 18px;
     background: var(--sidebar-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border-right: 1px solid var(--card-border);
-    display: flex;
-    flex-direction: column;
-    padding: 24px 18px;
-    z-index: 20;
     box-shadow: 4px 0 32px rgba(0, 0, 0, 0.45);
     overflow-y: auto;
+    transition: width 0.15s ease-out;
+    box-sizing: border-box;
 }
 
 .brand {
@@ -347,6 +327,64 @@ sidebar {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     scroll-behavior: smooth;
+    margin-left: var(--sidebar-width) !important;
+    width: calc(100% - var(--sidebar-width)) !important;
+    transition: margin-left 0.15s ease-out, width 0.15s ease-out;
+}
+
+body.is-resizing sidebar,
+body.is-resizing .main-wrapper {
+    transition: none !important;
+    cursor: col-resize !important;
+}
+
+.sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: -6px;
+    width: 12px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-resizer:hover .resizer-handle-pill,
+body.is-resizing .resizer-handle-pill {
+    background: var(--accent-blue);
+    color: #060913;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+.resizer-handle-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 6px 3px;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    cursor: col-resize;
+    transition: all 0.2s ease;
+}
+
+.resizer-btn-step {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+}
+
+.resizer-btn-step:hover {
+    color: #ffffff;
 }
 
 topbar {
@@ -437,114 +475,13 @@ topbar {
 .score-popup.positive { background: rgba(16, 185, 129, 0.22); border: 1px solid rgba(16, 185, 129, 0.45); color: #86efac; }
 .score-popup.negative { background: rgba(239, 68, 68, 0.22); border: 1px solid rgba(239, 68, 68, 0.45); color: #fca5a5; }
 
-/* Sidebar dynamisch steuern */
-sidebar {
-    width: var(--sidebar-width) !important;
-    min-width: var(--sidebar-min-width);
-    max-width: var(--sidebar-max-width);
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 20;
-    display: flex;
-    flex-direction: column;
-    padding: 24px 18px;
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--card-border);
-    transition: width 0.15s ease-out;
-    box-sizing: border-box;
-}
-
-body.is-resizing sidebar,
-body.is-resizing .main-wrapper {
-    transition: none !important;
-    cursor: col-resize !important;
-}
-
-.main-wrapper {
-    margin-left: var(--sidebar-width) !important;
-    width: calc(100% - var(--sidebar-width)) !important;
-    transition: margin-left 0.15s ease-out, width 0.15s ease-out;
-}
-
-/* Der Resizer-Trennsteg mit Pfeilen am rechten Rand der Sidebar */
-.sidebar-resizer {
-    position: absolute;
-    top: 0;
-    right: -6px;
-    width: 12px;
-    height: 100%;
-    cursor: col-resize;
-    z-index: 110;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.sidebar-resizer:hover .resizer-handle-pill,
-body.is-resizing .resizer-handle-pill {
-    background: var(--accent-blue);
-    color: #060913;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-}
-
-.resizer-handle-pill {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 6px 3px;
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    cursor: col-resize;
-    transition: all 0.2s ease;
-}
-
-.resizer-btn-step {
-    background: transparent;
-    border: none;
-    color: inherit;
-    font-size: 0.7rem;
-    cursor: pointer;
-    padding: 2px;
-    line-height: 1;
-}
-
-.resizer-btn-step:hover {
-    color: #ffffff;
-}
-/* Feedback beim Ziehen der Fall-Karte */
-.case-card[draggable="true"] {
-    cursor: grab;
-}
-
-.case-card[draggable="true"]:active {
-    cursor: grabbing;
-}
-
-.case-card-dragging {
-    opacity: 0.45;
-    transform: scale(0.97);
-    border: 1px dashed var(--accent-blue, #38bdf8) !important;
-}
-
-/* Zielzone optisch hervorheben */
-.drop-zone.dragover {
-    border-color: #38bdf8 !important;
-    background: rgba(56, 189, 248, 0.15) !important;
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
-}
 /* ==========================================================================
    5. CONTENT LAYOUT, PANELS & DASHBOARD CARDS
    ========================================================================== */
 .content-body {
     padding: 30px;
     display: grid;
-    grid-template-columns: 2.2fr 1fr;
+    grid-template-columns: 1fr !important;
     gap: 28px;
     max-width: 1440px;
     margin: 0 auto;
@@ -606,7 +543,7 @@ body.is-resizing .resizer-handle-pill {
 .super-folder-header:hover {
     background: linear-gradient(90deg, rgba(22, 33, 62, 0.95), rgba(38, 52, 74, 0.88));
 }
-.super-folder-title { font-size: 1.08rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; }
+.super-folder-title { font-size: 1.08rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
 .super-folder-icon { color: var(--accent-indigo); }
 .super-folder-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
 
@@ -615,9 +552,12 @@ body.is-resizing .resizer-handle-pill {
     border-radius: 13px;
     background: rgba(16, 24, 46, 0.5);
     overflow: hidden;
-    transition: border-color 0.2s;
+    transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
 }
 .category-folder:hover { border-color: rgba(255, 255, 255, 0.14); }
+.category-folder.folder-dragging { opacity: 0.45; transform: scale(0.98); }
+.category-folder.folder-drag-over { border: 2px dashed #38bdf8 !important; background: rgba(56, 189, 248, 0.05); }
+
 .category-header {
     display: flex;
     justify-content: space-between;
@@ -635,6 +575,18 @@ body.is-resizing .resizer-handle-pill {
 .category-badge { font-size: 0.72rem; padding: 3px 10px; border-radius: 999px; background: rgba(56, 189, 248, 0.14); color: var(--accent-blue); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
 .category-cases-body { padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; border-top: 1px solid var(--card-border); }
 
+.category-drag-handle {
+    cursor: grab;
+    user-select: none;
+    font-size: 0.9rem;
+    color: var(--text-dim, #64748b);
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+}
+.category-drag-handle:hover { color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }
+.category-drag-handle:active { cursor: grabbing; }
+
 /* INTERAKTIVE FALLKARTEN MIT SPRING-PHYSICS */
 .case-card {
     background: linear-gradient(160deg, rgba(22, 33, 61, 0.78) 0%, rgba(13, 20, 38, 0.88) 100%);
@@ -650,6 +602,13 @@ body.is-resizing .resizer-handle-pill {
     min-height: 125px;
     position: relative;
 }
+.case-card[draggable="true"] { cursor: grab; }
+.case-card[draggable="true"]:active { cursor: grabbing; }
+.case-card-dragging {
+    opacity: 0.45;
+    transform: scale(0.97);
+    border: 1px dashed var(--accent-blue, #38bdf8) !important;
+}
 .case-card:hover {
     border-color: var(--card-border-hover);
     transform: translateY(-4px) scale(1.01);
@@ -664,7 +623,7 @@ body.is-resizing .resizer-handle-pill {
     font-weight: 700;
     line-height: 1.42;
     margin: 10px 0 8px 0;
-    color: #f8fafc;
+    color: var(--text-main);
     overflow-wrap: break-word;
     word-break: break-word;
     hyphens: auto;
@@ -684,47 +643,8 @@ body.is-resizing .resizer-handle-pill {
     letter-spacing: 0.03em;
 }
 
-/* ==========================================================================
-   DASHBOARD CATEGORY FOLDER DRAG & DROP
-   ========================================================================== */
-.category-folder {
-    transition: transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
-}
-
-.category-folder.folder-dragging {
-    opacity: 0.45;
-    transform: scale(0.98);
-}
-
-.category-folder.folder-drag-over {
-    border: 2px dashed #38bdf8 !important;
-    background: rgba(56, 189, 248, 0.05);
-}
-
-.category-drag-handle {
-    cursor: grab;
-    user-select: none;
-    font-size: 0.9rem;
-    color: var(--text-dim, #64748b);
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: color 0.2s, background 0.2s;
-}
-
-.category-drag-handle:hover {
-    color: #38bdf8;
-    background: rgba(56, 189, 248, 0.1);
-}
-
-.category-drag-handle:active {
-    cursor: grabbing;
-}
-
-.creator-upload-section {
-    margin: 20px 0;
-    width: 100%;
-}
-
+/* CREATOR HUB & CLOUD STATUS BADGES */
+.creator-upload-section { margin: 20px 0; width: 100%; }
 .creator-upload-card {
     background: #1e293b;
     border: 1px solid #334155;
@@ -732,18 +652,8 @@ body.is-resizing .resizer-handle-pill {
     padding: 24px;
     color: #f8fafc;
 }
-
-.upload-header h3 {
-    margin: 0 0 6px 0;
-    font-size: 1.25rem;
-    color: #38bdf8;
-}
-
-.upload-header p {
-    margin: 0 0 16px 0;
-    color: #94a3b8;
-    font-size: 0.9rem;
-}
+.upload-header h3 { margin: 0 0 6px 0; font-size: 1.25rem; color: var(--accent-blue); }
+.upload-header p { margin: 0 0 16px 0; color: var(--text-muted); font-size: 0.9rem; }
 
 .drop-zone {
     border: 2px dashed #475569;
@@ -754,34 +664,18 @@ body.is-resizing .resizer-handle-pill {
     cursor: pointer;
     transition: border-color 0.2s, background-color 0.2s;
 }
-
+.drop-zone * { pointer-events: none; }
 .drop-zone.dragover {
-    border-color: #38bdf8;
-    background-color: rgba(56, 189, 248, 0.08);
+    border-color: var(--accent-blue) !important;
+    background: rgba(56, 189, 248, 0.15) !important;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+    transform: scale(1.01);
 }
+.drop-zone-icon { font-size: 2.2rem; margin-bottom: 8px; }
+.drop-zone-text { font-size: 0.95rem; color: #cbd5e1; }
+.drop-zone-text .browse-link { color: var(--accent-blue); text-decoration: underline; }
 
-.drop-zone-icon {
-    font-size: 2.2rem;
-    margin-bottom: 8px;
-}
-
-.drop-zone-text {
-    font-size: 0.95rem;
-    color: #cbd5e1;
-}
-
-.drop-zone-text .browse-link {
-    color: #38bdf8;
-    text-decoration: underline;
-}
-
-.upload-status-list {
-    margin-top: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
+.upload-status-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .upload-status-item {
     display: flex;
     justify-content: space-between;
@@ -792,22 +686,39 @@ body.is-resizing .resizer-handle-pill {
     background: #0f172a;
     border: 1px solid #334155;
 }
-
 .upload-status-item.success { border-color: #22c55e; color: #4ade80; }
 .upload-status-item.error { border-color: #ef4444; color: #f87171; }
 .upload-status-item.loading { border-color: #38bdf8; color: #38bdf8; }
 
-.drop-zone * {
-    pointer-events: none; /* Verhindert, dass Text/Icon das Drop-Event abfangen */
+.case-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 8px; }
+.case-card-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cloud-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
+.cloud-badge.is-cloud { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.35); }
+.cloud-badge.is-local { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.25); }
+.case-card-actions { display: flex; align-items: center; gap: 4px; }
+.unpublish-case-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: color 0.15s, background-color 0.15s;
+}
+.unpublish-case-btn:hover { color: #f87171; background: rgba(239, 68, 68, 0.15); }
 
-.drop-zone.dragover {
-    border-color: #38bdf8 !important;
-    background: rgba(56, 189, 248, 0.12) !important;
-    transform: scale(1.01);
-}
 /* ==========================================================================
-   6. BUTTONS, TABS & FEEDBACK BOXES (Inkl. fehlender .btn-Klassen!)
+   6. BUTTONS, TABS & FEEDBACK BOXES
    ========================================================================== */
 .challenge-nav-bar {
     display: flex;
@@ -845,9 +756,7 @@ body.is-resizing .resizer-handle-pill {
     color: var(--text-main);
     transform: translateY(-1px);
 }
-.challenge-tab-btn:active {
-    transform: scale(0.97);
-}
+.challenge-tab-btn:active { transform: scale(0.97); }
 .challenge-tab-btn.active {
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.22));
     color: #ffffff;
@@ -992,7 +901,7 @@ body.is-resizing .resizer-handle-pill {
 }
 .back-btn:active { transform: scale(0.96); }
 
-/* Feedback Boxen mit sanftem Slide-In */
+/* Feedback Boxen */
 .feedback-box {
     margin-top: 16px;
     padding: 15px 18px;
@@ -1008,13 +917,9 @@ body.is-resizing .resizer-handle-pill {
 .feedback-error { background: rgba(239, 68, 68, 0.13); border: 1px solid rgba(239, 68, 68, 0.25); border-left: 4px solid var(--color-risk); color: #fecdd3; }
 .feedback-neutral { background: rgba(245, 158, 11, 0.13); border: 1px solid rgba(245, 158, 11, 0.25); border-left: 4px solid var(--warning); color: #fde68a; }
 
-
-/* 1. Hauptbereich nutzt nun 100% der Breite ohne die alte rechte Spalte */
-.content-body {
-    grid-template-columns: 1fr !important;
-}
-
-/* 2. Kompaktes Slide-In Widget am rechten Rand */
+/* ==========================================================================
+   PROGRESS DRAWER (RECHTS)
+   ========================================================================== */
 .progress-drawer {
     position: fixed;
     top: 88px;
@@ -1024,18 +929,9 @@ body.is-resizing .resizer-handle-pill {
     align-items: flex-start;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.progress-drawer.collapsed { transform: translateX(calc(100% - 38px)); }
+.progress-drawer:not(.collapsed) { transform: translateX(0); }
 
-/* Eingeklappt: Nur der kleine Griff schaut rechts heraus */
-.progress-drawer.collapsed {
-    transform: translateX(calc(100% - 38px));
-}
-
-/* Ausgeklappt: Fährt sanft nach links herein */
-.progress-drawer:not(.collapsed) {
-    transform: translateX(0);
-}
-
-/* Der schmale Klick-Reiter am linken Rand des Drawers */
 .progress-drawer-handle {
     width: 38px;
     padding: 14px 6px;
@@ -1053,32 +949,11 @@ body.is-resizing .resizer-handle-pill {
     backdrop-filter: blur(10px);
     transition: background 0.2s, color 0.2s;
 }
+.progress-drawer-handle:hover { background: rgba(30, 41, 59, 0.98); color: #fff; }
+.handle-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.handle-arrow { font-size: 0.65rem; opacity: 0.8; transition: transform 0.3s ease; }
+.progress-drawer:not(.collapsed) .handle-arrow { transform: rotate(180deg); }
 
-.progress-drawer-handle:hover {
-    background: rgba(30, 41, 59, 0.98);
-    color: #fff;
-}
-
-.handle-label {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.handle-arrow {
-    font-size: 0.65rem;
-    opacity: 0.8;
-    transition: transform 0.3s ease;
-}
-
-.progress-drawer:not(.collapsed) .handle-arrow {
-    transform: rotate(180deg);
-}
-
-/* Das eigentliche Panel (kompakt & platzsparend) */
 .progress-drawer-body {
     width: 270px;
     max-height: calc(100vh - 110px);
@@ -1101,7 +976,6 @@ body.is-resizing .resizer-handle-pill {
     padding-bottom: 10px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
-
 .drawer-close-btn {
     background: transparent;
     border: none;
@@ -1111,13 +985,8 @@ body.is-resizing .resizer-handle-pill {
     padding: 2px 6px;
     border-radius: 6px;
 }
+.drawer-close-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 
-.drawer-close-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-}
-
-/* Liste der Kategorien */
 .subjects-progress-list {
     display: flex;
     flex-direction: column;
@@ -1133,53 +1002,16 @@ body.is-resizing .resizer-handle-pill {
     border-radius: 10px;
     padding: 10px 12px;
 }
+.subject-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.subject-item-name { font-size: 0.78rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subject-item-stats { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
 
-.subject-item-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-}
-
-.subject-item-name {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #f1f5f9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.subject-item-stats {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #cbd5e1;
-    flex-shrink: 0;
-}
-
-/* Fortschrittsbalken */
-.subject-bar-track {
-    width: 100%;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.subject-bar-fill {
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.4s ease;
-}
-
-/* Exakte Farblogik: Rot <= 32%, Orange 33-66%, Grün >= 67% */
+.subject-bar-track { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden; }
+.subject-bar-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
 .bar-red    { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
 .bar-orange { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
 .bar-green  { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
 
-/* Legende */
 .progress-drawer-legend {
     display: flex;
     justify-content: space-between;
@@ -1188,22 +1020,12 @@ body.is-resizing .resizer-handle-pill {
     font-size: 0.68rem;
     color: var(--text-dim, #94a3b8);
 }
-
-.progress-drawer-legend span {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.dot-red, .dot-orange, .dot-green {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    display: inline-block;
-}
+.progress-drawer-legend span { display: flex; align-items: center; gap: 4px; }
+.dot-red, .dot-orange, .dot-green { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .dot-red    { background: #ef4444; }
 .dot-orange { background: #f59e0b; }
 .dot-green  { background: #10b981; }
+
 /* ==========================================================================
    7. CORNELL NOTE SYSTEM (EDITORIAL & HIGH READABILITY)
    ========================================================================== */
@@ -1236,7 +1058,6 @@ body.is-resizing .resizer-handle-pill {
     letter-spacing: -0.01em;
 }
 
-/* Jede Tabellenzeile: Feste, angenehme Breitenverteilung */
 .cornell-row-item {
     display: grid;
     grid-template-columns: 240px 1fr;
@@ -1244,16 +1065,9 @@ body.is-resizing .resizer-handle-pill {
     transition: background 0.2s ease;
     align-items: stretch;
 }
+.cornell-row-item:hover { background: rgba(255, 255, 255, 0.02); }
+.cornell-row-item:last-child { border-bottom: none; }
 
-.cornell-row-item:hover { 
-    background: rgba(255, 255, 255, 0.02); 
-}
-
-.cornell-row-item:last-child { 
-    border-bottom: none; 
-}
-
-/* Linke Spalte: Stichworte (Cues) */
 .cornell-cue-col { 
     background: rgba(15, 23, 42, 0.7);
     border-right: 1px solid rgba(56, 189, 248, 0.15);
@@ -1285,7 +1099,6 @@ body.is-resizing .resizer-handle-pill {
     color: #ffffff;
 }
 
-/* Rechte Spalte: Notizen und Inhalt */
 .cornell-note-col {
     padding: 16px 28px;
     display: flex;
@@ -1293,19 +1106,17 @@ body.is-resizing .resizer-handle-pill {
     justify-content: center;
 }
 
-/* Der Fließtext: Optimale Leselänge und Zeilenhöhe */
 .cornell-fragment {
     font-size: 0.96rem;
     line-height: 1.75;
     color: #cbd5e1;
-    max-width: 880px; /* Begrenzt die Zeilenlänge für entspanntes Lesen */
+    max-width: 880px;
     padding: 8px 14px;
     border-radius: 8px;
     border-left: 3px solid transparent;
     transition: all 0.25s ease;
 }
 
-/* Hervorhebung beim Überfahren des linken Cues */
 .cornell-fragment.highlight-target {
     background-color: rgba(56, 189, 248, 0.08);
     border-left-color: #38bdf8;
@@ -1313,7 +1124,6 @@ body.is-resizing .resizer-handle-pill {
     padding-left: 18px;
 }
 
-/* Semantische Auszeichnungen im Text */
 .cornell-fragment strong, 
 .cornell-fragment b {
     color: #f1f5f9;
@@ -1321,14 +1131,12 @@ body.is-resizing .resizer-handle-pill {
     letter-spacing: 0.01em;
 }
 
-/* Kennzeichnung von Leit- oder Fachbegriffen am Satzanfang */
 .cornell-fragment strong:first-child {
     color: #38bdf8;
     display: inline-block;
     margin-right: 4px;
 }
 
-/* Zusammenfassungsbox am Ende */
 .cornell-summary { 
     background: #0f172a;
     border-top: 1px solid rgba(56, 189, 248, 0.2);
@@ -1353,20 +1161,12 @@ body.is-resizing .resizer-handle-pill {
     max-width: 900px;
 }
 
-/* Mobile & Tablet-Anpassung */
 @media (max-width: 860px) {
-    .cornell-row-item {
-        grid-template-columns: 1fr;
-    }
-    .cornell-cue-col {
-        border-right: none;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 12px 16px;
-    }
-    .cornell-note-col {
-        padding: 14px 16px;
-    }
+    .cornell-row-item { grid-template-columns: 1fr; }
+    .cornell-cue-col { border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding: 12px 16px; }
+    .cornell-note-col { padding: 14px 16px; }
 }
+
 /* ==========================================================================
    8. SYNAPSEN-MATRIX & DOCTORDLE
    ========================================================================== */
@@ -1420,9 +1220,7 @@ body.is-resizing .resizer-handle-pill {
     transform: translateY(-3px);
     box-shadow: var(--surface-highlight), 0 10px 22px rgba(0, 0, 0, 0.4);
 }
-.synapse-tile-modern:active {
-    transform: scale(0.95);
-}
+.synapse-tile-modern:active { transform: scale(0.95); }
 .synapse-tile-modern.category-risk { border-color: rgba(239, 68, 68, 0.34); background: linear-gradient(145deg, rgba(239, 68, 68, 0.1), rgba(16, 24, 46, 0.88)); }
 .synapse-tile-modern.category-lab { border-color: rgba(168, 85, 247, 0.34); background: linear-gradient(145deg, rgba(168, 85, 247, 0.1), rgba(16, 24, 46, 0.88)); }
 .synapse-tile-modern.category-symptom { border-color: rgba(16, 185, 129, 0.34); background: linear-gradient(145deg, rgba(16, 185, 129, 0.1), rgba(16, 24, 46, 0.88)); }
@@ -1451,7 +1249,7 @@ body.is-resizing .resizer-handle-pill {
     font-weight: 700; 
     font-size: 0.8rem; 
     line-height: 1.35; 
-    color: #f1f5f9; 
+    color: var(--text-main); 
     max-width: 100%;
     overflow-wrap: anywhere; 
     word-break: break-word; 
@@ -1491,7 +1289,7 @@ body.is-resizing .resizer-handle-pill {
     cursor: grab; 
     font-size: 0.85rem; 
     font-weight: 600; 
-    color: #e2e8f0; 
+    color: var(--text-main); 
     user-select: none; 
     transition: transform 0.2s var(--ease-spring), background 0.15s, border-color 0.15s, box-shadow 0.15s; 
     max-width: 100%;
@@ -1579,9 +1377,7 @@ body.is-resizing .resizer-handle-pill {
     background: rgba(30, 41, 59, 0.88);
     transform: translateX(3px);
 }
-.quiz-opt-btn:active {
-    transform: scale(0.985);
-}
+.quiz-opt-btn:active { transform: scale(0.985); }
 .quiz-opt-btn.selected {
     border-color: var(--accent-blue);
     background: rgba(56, 189, 248, 0.16);
@@ -1626,10 +1422,10 @@ body.is-resizing .resizer-handle-pill {
 .body-region.incorrect { fill: var(--color-risk); stroke: #ffffff; }
 
 /* FORGE */
-.forge-textarea { width: 100%; height: 320px; background: rgba(6, 9, 19, 0.78); color: #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; padding: 16px; border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 14px; outline: none; line-height: 1.6; resize: vertical; transition: border-color 0.2s, box-shadow 0.2s; }
+.forge-textarea { width: 100%; height: 320px; background: rgba(6, 9, 19, 0.78); color: var(--text-main); font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; padding: 16px; border: 1px solid var(--card-border); border-radius: 12px; margin-bottom: 14px; outline: none; line-height: 1.6; resize: vertical; transition: border-color 0.2s, box-shadow 0.2s; }
 .forge-generator-controls { background: rgba(6, 9, 19, 0.5); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
 .forge-label { display: inline-block; font-size: 0.78rem; font-weight: 700; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
-.forge-topic-input { width: 100%; min-height: 90px; background: rgba(6, 9, 19, 0.78); color: #cbd5e1; font-family: inherit; font-size: 0.86rem; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 10px; outline: none; line-height: 1.5; resize: vertical; margin-bottom: 12px; transition: border-color 0.2s, box-shadow 0.2s; }
+.forge-topic-input { width: 100%; min-height: 90px; background: rgba(6, 9, 19, 0.78); color: var(--text-main); font-family: inherit; font-size: 0.86rem; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 10px; outline: none; line-height: 1.5; resize: vertical; margin-bottom: 12px; transition: border-color 0.2s, box-shadow 0.2s; }
 .forge-topic-input:focus, .forge-textarea:focus, .action-input:focus {
     border-color: rgba(56, 189, 248, 0.65) !important;
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14) !important;
@@ -1645,15 +1441,11 @@ body.is-resizing .resizer-handle-pill {
     border: 1px solid rgba(255, 255, 255, 0.06);
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25);
     margin-bottom: 14px;
-    color: #e2e8f0;
+    color: var(--text-main);
     overflow-wrap: break-word;
 }
 
-/* ==========================================================================
-   AUDIT-MODUS: EDITORIAL SCIENTIFIC ARTICLE LAYOUT
-   Schlichtes, ruhiges Satzbild mit dezentem Satzbaustein-Hover
-   ========================================================================== */
-
+/* AUDIT-MODUS: EDITORIAL SCIENTIFIC ARTICLE LAYOUT */
 #player-container {
     display: flex;
     flex-direction: column;
@@ -1670,10 +1462,7 @@ body.is-resizing .resizer-handle-pill {
     padding: 32px 36px;
     transition: border-color 0.25s ease, background-color 0.25s ease;
 }
-
-.audit-step-container:hover {
-    border-color: rgba(255, 255, 255, 0.13);
-}
+.audit-step-container:hover { border-color: rgba(255, 255, 255, 0.13); }
 
 .audit-step-header {
     margin-bottom: 20px;
@@ -1683,25 +1472,9 @@ body.is-resizing .resizer-handle-pill {
     flex-direction: column;
     gap: 4px;
 }
+.audit-step-kicker { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim, #64748b); }
+.audit-step-title { font-size: 1.08rem; font-weight: 700; color: var(--text-main, #f8fafc); letter-spacing: -0.01em; line-height: 1.35; margin: 0; }
 
-.audit-step-kicker {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dim, #64748b);
-}
-
-.audit-step-title {
-    font-size: 1.08rem;
-    font-weight: 700;
-    color: var(--text-main, #f8fafc);
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    margin: 0;
-}
-
-/* Der eigentliche Lesebereich: Ruhige Buch-/Journal-Typografie */
 .step-content.audit-editorial-body {
     background: transparent;
     border: none;
@@ -1710,22 +1483,15 @@ body.is-resizing .resizer-handle-pill {
     margin: 0;
     font-size: 1.04rem;
     line-height: 1.88;
-    color: #e2e8f0;
-    max-width: 68ch; /* Optimale Zeilenlänge für ermüdungsfreies Lesen */
+    color: var(--text-main);
+    max-width: 68ch;
     font-weight: 400;
     letter-spacing: 0.002em;
 }
 
-.audit-paragraph {
-    margin: 0 0 1.25em 0;
-    text-align: left;
-}
+.audit-paragraph { margin: 0 0 1.25em 0; text-align: left; }
+.audit-paragraph:last-child { margin-bottom: 0; }
 
-.audit-paragraph:last-child {
-    margin-bottom: 0;
-}
-
-/* Interaktive Satzbausteine im Fließtext (ohne künstliche Wortabstände) */
 .stealth-word,
 .stealth-hotspot {
     cursor: pointer;
@@ -1738,8 +1504,6 @@ body.is-resizing .resizer-handle-pill {
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
 }
-
-/* Dezentes, einheitliches Hervorheben beim Überfahren mit der Maus */
 .stealth-word:hover,
 .stealth-hotspot:hover {
     background-color: rgba(148, 163, 184, 0.14);
@@ -1747,7 +1511,6 @@ body.is-resizing .resizer-handle-pill {
     color: #ffffff;
 }
 
-/* Gefundener klinischer Fehler (ruhige, aber klare Unterstreichung) */
 .resolved-signal {
     background-color: rgba(239, 68, 68, 0.14) !important;
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.14) !important;
@@ -1756,7 +1519,6 @@ body.is-resizing .resizer-handle-pill {
     cursor: default !important;
 }
 
-/* Nach Aufdecken der Synthese wechselt die Unterstreichung dezent auf Grün */
 .resolved-signal.resolved-corrected {
     background-color: rgba(16, 185, 129, 0.12) !important;
     box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12) !important;
@@ -1764,7 +1526,6 @@ body.is-resizing .resizer-handle-pill {
     color: #d1fae5 !important;
 }
 
-/* Angeklickter korrekter Satzbaustein (Fehlalarm – dezent ausgegraut) */
 .resolved-noise {
     background-color: transparent !important;
     box-shadow: none !important;
@@ -1773,12 +1534,8 @@ body.is-resizing .resizer-handle-pill {
     cursor: default !important;
 }
 
-.resolved-generic {
-    opacity: 0.65;
-    cursor: default !important;
-}
+.resolved-generic { opacity: 0.65; cursor: default !important; }
 
-/* Ruhige Fußzeile & Feedback-Darstellung im Audit */
 .audit-step-footer {
     margin-top: 24px;
     padding-top: 18px;
@@ -1786,54 +1543,12 @@ body.is-resizing .resizer-handle-pill {
     display: flex;
     justify-content: flex-end;
 }
+.audit-clear-btn { width: auto !important; padding: 9px 18px !important; font-size: 0.82rem !important; font-weight: 600 !important; }
+.audit-fb-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
+.audit-fb-text { font-size: 0.92rem; line-height: 1.65; margin: 0; color: var(--text-main); }
+.audit-fb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 
-.audit-clear-btn {
-    width: auto !important;
-    padding: 9px 18px !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-}
-
-.audit-fb-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-    letter-spacing: -0.01em;
-}
-
-.audit-fb-text {
-    font-size: 0.92rem;
-    line-height: 1.65;
-    margin: 0;
-    color: var(--text-main);
-}
-
-.audit-fb-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 14px;
-}
-
-
-
-@media screen and (max-width: 768px) {
-    .audit-step-container {
-        padding: 20px 18px !important;
-    }
-    .step-content.audit-editorial-body {
-        font-size: 0.96rem !important;
-        line-height: 1.75 !important;
-    }
-    .audit-step-footer {
-        justify-content: stretch;
-    }
-    .audit-clear-btn {
-        width: 100% !important;
-    }
-}
-
-/* SKILL MATRIX & AUTH (Dein bestehender Code) */
+/* SKILL MATRIX & AUTH */
 .skill-scope-toggle { display: flex; background: rgba(6, 9, 19, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 3px; margin-bottom: 14px; gap: 4px; }
 .skill-scope-btn { flex: 1; background: transparent; border: none; color: var(--text-muted); font-size: 0.72rem; font-weight: 700; padding: 5px 8px; border-radius: 6px; cursor: pointer; transition: all 0.2s; text-align: center; }
 .skill-scope-btn.active { background: rgba(56, 189, 248, 0.2); color: #fff; border: 1px solid rgba(56, 189, 248, 0.4); }
@@ -1851,7 +1566,7 @@ body.is-resizing .resizer-handle-pill {
 .hidden { display: none !important; }
 
 /* ==========================================================================
-   11. BOOKSHELF SIDEBAR (Bereinigt ohne Duplikate)
+   11. BOOKSHELF SIDEBAR & SUPER-FOLDERS
    ========================================================================== */
 .bookshelf-header-row { display: flex; justify-content: space-between; align-items: center; padding: 0 4px 8px 4px; }
 .bookshelf-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.05em; }
@@ -1869,10 +1584,10 @@ body.is-resizing .resizer-handle-pill {
 .folder-drag-handle:active { cursor: grabbing; }
 .folder-toggle-arrow { font-size: 0.65rem; color: var(--accent-blue); transition: transform 0.22s var(--ease-spring); display: inline-block; width: 12px; text-align: center; }
 .folder-toggle-arrow.open { transform: rotate(90deg); }
-.folder-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: #e2e8f0; }
+.folder-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; color: var(--text-main); }
 .folder-edit-input { background: rgba(6, 9, 19, 0.9); border: 1px solid var(--accent-blue); color: #fff; border-radius: 4px; font-size: 0.8rem; padding: 2px 6px; width: 100%; outline: none; font-family: inherit; }
 .folder-badge-mini { font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; padding: 1px 6px; border-radius: 10px; background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); margin-left: auto; margin-right: 4px; flex-shrink: 0; }
-.folder-action-btn { background: transparent; border: none; cursor: pointer; font-size: 0.75rem; opacity: 0.5; padding: 2px 4px; border-radius: 4px; transition: opacity 0.2s, transform 0.2s; line-height: 1; }
+.folder-action-btn { background: transparent; border: none; cursor: pointer; font-size: 0.75rem; opacity: 0.6; padding: 2px 4px; border-radius: 4px; transition: opacity 0.2s, transform 0.2s; line-height: 1; color: var(--text-main); }
 .folder-header:hover .folder-action-btn { opacity: 1; }
 .folder-action-btn.delete-folder-btn:hover { color: #ef4444; opacity: 1; transform: scale(1.12); }
 
@@ -1882,9 +1597,6 @@ body.is-resizing .resizer-handle-pill {
 .folder-case-item:hover { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: #fff; transform: translateX(3px); }
 .folder-case-item.case-solved { border-left: 2px solid var(--color-symptom); }
 
-/* ====================================================
-   BOOKSHELF SUPER-FOLDER (TREE-HIERARCHIE)
-   ==================================================== */
 .bookshelf-super-group {
     margin-bottom: 8px;
     border-radius: 8px;
@@ -1892,7 +1604,6 @@ body.is-resizing .resizer-handle-pill {
     border: 1px solid rgba(255, 255, 255, 0.05);
     overflow: hidden;
 }
-
 .bookshelf-super-header {
     display: flex;
     align-items: center;
@@ -1903,94 +1614,29 @@ body.is-resizing .resizer-handle-pill {
     transition: background 0.2s ease, border-color 0.2s ease;
     user-select: none;
 }
+.bookshelf-super-header:hover { background: rgba(56, 189, 248, 0.08); }
+.bookshelf-super-title-wrap { display: flex; align-items: center; gap: 6px; overflow: hidden; min-width: 0; }
+.bookshelf-super-arrow { font-size: 0.65rem; color: var(--text-dim, #64748b); transition: transform 0.2s ease; display: inline-block; }
+.bookshelf-super-arrow.open { transform: rotate(90deg); color: var(--accent-blue, #38bdf8); }
+.bookshelf-super-icon { font-size: 0.85rem; }
+.bookshelf-super-title { font-size: 0.76rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bookshelf-super-badge { font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-cyan, #38bdf8); background: rgba(56, 189, 248, 0.12); padding: 2px 6px; border-radius: 10px; flex-shrink: 0; margin-left: 4px; }
+.bookshelf-super-body { padding: 4px 6px 6px 10px; border-left: 2px solid rgba(56, 189, 248, 0.2); margin-left: 8px; margin-top: 2px; display: flex; flex-direction: column; gap: 4px; }
+.bookshelf-super-body.collapsed { display: none; }
 
-.bookshelf-super-header:hover {
-    background: rgba(56, 189, 248, 0.08);
-}
-
-.bookshelf-super-title-wrap {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    overflow: hidden;
-    min-width: 0;
-}
-
-.bookshelf-super-arrow {
-    font-size: 0.65rem;
-    color: var(--text-dim, #64748b);
-    transition: transform 0.2s ease;
-    display: inline-block;
-}
-
-.bookshelf-super-arrow.open {
-    transform: rotate(90deg);
-    color: var(--accent-blue, #38bdf8);
-}
-
-.bookshelf-super-icon {
-    font-size: 0.85rem;
-}
-
-.bookshelf-super-title {
-    font-size: 0.76rem;
-    font-weight: 700;
-    color: #f1f5f9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.bookshelf-super-badge {
-    font-size: 0.65rem;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-    color: var(--accent-cyan, #38bdf8);
-    background: rgba(56, 189, 248, 0.12);
-    padding: 2px 6px;
-    border-radius: 10px;
-    flex-shrink: 0;
-    margin-left: 4px;
-}
-
-.bookshelf-super-body {
-    padding: 4px 6px 6px 10px;
-    border-left: 2px solid rgba(56, 189, 248, 0.2);
-    margin-left: 8px;
-    margin-top: 2px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.bookshelf-super-body.collapsed {
-    display: none;
-}
-/* Drag & Drop Feedback für Überordner */
 .super-folder.super-folder-drag-over {
     border-color: var(--accent-blue, #38bdf8) !important;
     background: rgba(56, 189, 248, 0.08) !important;
     box-shadow: 0 0 16px rgba(56, 189, 248, 0.25) !important;
 }
-
 .bookshelf-super-group.bookshelf-super-drag-over {
     border-color: var(--accent-blue, #38bdf8) !important;
     background: rgba(56, 189, 248, 0.15) !important;
     box-shadow: 0 0 12px rgba(56, 189, 248, 0.2) !important;
 }
+.folder-action-btn.move-btn { font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan, #38bdf8); opacity: 0.7; transition: opacity 0.2s ease, transform 0.2s ease; }
+.folder-action-btn.move-btn:hover { opacity: 1; transform: scale(1.15); }
 
-.folder-action-btn.move-btn {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--accent-cyan, #38bdf8);
-    opacity: 0.7;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.folder-action-btn.move-btn:hover {
-    opacity: 1;
-    transform: scale(1.15);
-}
 /* ==========================================================================
    12. LERNEN NACH FACHRICHTUNG & MODALS
    ========================================================================== */
@@ -2019,7 +1665,7 @@ body.is-resizing .resizer-handle-pill {
     outline: none;
 }
 .specialty-card:active { transform: scale(0.98) !important; }
-.specialty-card h3 { font-size: 1rem; font-weight: 800; color: #f8fafc; margin: 0; }
+.specialty-card h3 { font-size: 1rem; font-weight: 800; color: var(--text-main); margin: 0; }
 .specialty-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-muted); font-weight: 700; }
 .specialty-progress-track { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .specialty-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); transition: width 0.4s var(--ease-out); }
@@ -2031,7 +1677,7 @@ body.is-resizing .resizer-handle-pill {
 .specialty-actions #btn-reveal-diagnosis { background: rgba(99, 102, 241, 0.2); border: 1px solid var(--accent-indigo); color: var(--text-main); }
 
 .reveal-modal, .modal-backdrop { position: fixed; inset: 0; z-index: 600; background: rgba(3, 6, 14, 0.82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; padding: 16px; }
-.reveal-card, .modal-card { background: rgba(15, 23, 42, 0.98); border: 1px solid var(--accent-blue); border-radius: 16px; padding: 24px; width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto; box-shadow: var(--surface-highlight), 0 20px 60px rgba(0, 0, 0, 0.85); line-height: 1.6; color: #f8fafc; animation: fadeInUp 0.25s var(--ease-out) both; }
+.reveal-card, .modal-card { background: rgba(15, 23, 42, 0.98); border: 1px solid var(--accent-blue); border-radius: 16px; padding: 24px; width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto; box-shadow: var(--surface-highlight), 0 20px 60px rgba(0, 0, 0, 0.85); line-height: 1.6; color: var(--text-main); animation: fadeInUp 0.25s var(--ease-out) both; }
 .reveal-card h3 { color: var(--accent-blue); margin: 0 0 4px; font-size: 1.15rem; }
 .reveal-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); margin-top: 14px; }
 .reveal-pearl, .diag-pearl { margin-top: 14px; padding: 12px 16px; border-radius: 10px; background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.25); border-left: 4px solid var(--warning); font-size: 0.9rem; }
@@ -2053,9 +1699,9 @@ body.is-resizing .resizer-handle-pill {
 }
 .specialty-bar-left, .specialty-bar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .specialty-pill { background: linear-gradient(135deg, #2563eb, #4f46e5); color: #ffffff; padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; }
-.case-counter-pill { color: #94a3b8; font-size: 0.88rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.case-counter-pill { color: var(--text-muted); font-size: 0.88rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
 
-.diag-headline { font-size: 1.75rem; color: #38bdf8; margin: 4px 0 2px 0; }
+.diag-headline { font-size: 1.75rem; color: var(--accent-blue); margin: 4px 0 2px 0; }
 .diag-section { background: #0f172a; border-radius: 8px; padding: 14px 16px; margin-top: 14px; font-size: 0.95rem; line-height: 1.5; }
 .audit-patient-complete-card { background: #1e293b; border: 1px solid #10b981; border-radius: 12px; padding: 20px; margin-top: 24px; text-align: center; }
 .complete-actions { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
@@ -2070,6 +1716,8 @@ body.is-resizing .resizer-handle-pill {
 #player-view,
 #forge-view,
 #settings-view,
+#depot-view,
+#pharmacology-view,
 .panel,
 .player-mode-pane {
     min-width: 0 !important;
@@ -2086,6 +1734,12 @@ body.is-resizing .resizer-handle-pill {
 .mc-mobile-picker-select { flex: 1; min-width: 0; width: 100%; background: #070b16; color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 8px 10px; font-size: 16px; font-weight: 700; font-family: inherit; outline: none; cursor: pointer; text-overflow: ellipsis; }
 
 @media screen and (max-width: 1024px) {
+    .main-wrapper {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    .sidebar-resizer { display: none !important; }
     .content-body { grid-template-columns: 1fr; padding: 20px; }
     .menu-toggle {
         display: inline-flex !important;
@@ -2107,49 +1761,6 @@ body.is-resizing .resizer-handle-pill {
     .cornell-cues { border-right: none; border-bottom: 2px solid var(--accent-blue); display: flex; flex-direction: row; flex-wrap: wrap; }
 }
 
-@media screen and (max-width: 1024px) {
-    /* FIX 1: Desktop-Margin der Sidebar auf Mobilgeräten/Tablets aufheben! */
-    .main-wrapper {
-        margin-left: 0 !important;
-        width: 100% !important;
-        max-width: 100vw !important;
-    }
-
-    /* Resizer-Griff auf Touch-Geräten ausblenden */
-    .sidebar-resizer {
-        display: none !important;
-    }
-
-    .content-body { 
-        grid-template-columns: 1fr; 
-        padding: 20px; 
-    }
-
-    .menu-toggle {
-        display: inline-flex !important;
-        align-items: center;
-        justify-content: center;
-        z-index: 30;
-    }
-
-    sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        transform: translateX(-100%);
-        transition: transform 0.32s var(--ease-out);
-    }
-
-    sidebar.open { 
-        transform: translateX(0); 
-    }
-
-    .engine-text { display: none; }
-    .cornell-grid { grid-template-columns: 1fr; }
-    .cornell-cues { border-right: none; border-bottom: 2px solid var(--accent-blue); display: flex; flex-direction: row; flex-wrap: wrap; }
-}
-
 @media screen and (max-width: 768px) {
     html, body { 
         width: 100vw !important; 
@@ -2158,22 +1769,15 @@ body.is-resizing .resizer-handle-pill {
         overflow-x: clip !important; 
         overflow-y: hidden !important; 
     }
-/* ==========================================================================
-   iOS STANDALONE / HOMESCREEN SAFE AREA FIX (TOPBAR & HEADER)
-   ========================================================================== */
-@supports(padding: max(0px)) {
-    topbar {
-        /* Addiert die dynamische Statusleisten-Höhe des iPhones auf die Topbar-Höhe */
-        padding-top: max(12px, env(safe-area-inset-top)) !important;
-        height: calc(70px + max(12px, env(safe-area-inset-top))) !important;
+    @supports(padding: max(0px)) {
+        topbar {
+            padding-top: max(12px, env(safe-area-inset-top)) !important;
+            height: calc(70px + max(12px, env(safe-area-inset-top))) !important;
+        }
+        sidebar {
+            padding-top: max(24px, env(safe-area-inset-top)) !important;
+        }
     }
-    
-    /* Falls die Sidebar ebenfalls ganz oben sitzt */
-    sidebar {
-        padding-top: max(24px, env(safe-area-inset-top)) !important;
-    }
-}
-    /* FIX 2: Kein 260px-Versatz mehr nach rechts */
     .main-wrapper { 
         margin-left: 0 !important;
         width: 100vw !important; 
@@ -2183,7 +1787,6 @@ body.is-resizing .resizer-handle-pill {
         -webkit-overflow-scrolling: touch; 
         padding-bottom: 48px !important; 
     }
-
     .content-body { 
         display: grid !important; 
         grid-template-columns: minmax(0, 1fr) !important; 
@@ -2193,7 +1796,6 @@ body.is-resizing .resizer-handle-pill {
         max-width: 100vw !important; 
         margin: 0 !important; 
     }
-
     .panel { 
         padding: 14px 10px !important; 
         border-radius: 14px !important; 
@@ -2201,31 +1803,18 @@ body.is-resizing .resizer-handle-pill {
         max-width: 100% !important; 
         overflow: hidden !important; 
     }
-
-    /* FIX 3: Verschachtelte Ordner (Super-Folder & Category-Folder) kompakt machen */
     .super-folder-header { padding: 14px 12px !important; }
     .super-folder-body { padding: 10px 8px !important; gap: 10px !important; }
     .category-header { padding: 12px 10px !important; }
     .category-cases-body { 
         padding: 10px 8px !important; 
-        grid-template-columns: 1fr !important; /* 1 volle Spalte auf dem Handy statt 240px-Zwang */
+        grid-template-columns: 1fr !important;
         gap: 10px !important; 
     }
-    .specialty-hub, .depot-items-grid {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* FIX 4: Fächer-Drawer am rechten Rand auf Mobilgeräten sauber kappen */
-    .progress-drawer {
-        top: 64px !important;
-    }
-    .progress-drawer.collapsed .progress-drawer-body {
-        display: none !important; /* Verhindert, dass das unsichtbare Panel die Seite aufdrückt */
-    }
-    .progress-drawer.collapsed {
-        transform: none !important;
-        right: 0 !important;
-    }
+    .specialty-hub, .depot-items-grid { grid-template-columns: 1fr !important; }
+    .progress-drawer { top: 64px !important; }
+    .progress-drawer.collapsed .progress-drawer-body { display: none !important; }
+    .progress-drawer.collapsed { transform: none !important; right: 0 !important; }
 
     #player-view .panel > div:first-child, .panel-title { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; width: 100% !important; max-width: 100% !important; }
     #player-case-badge-title { white-space: normal !important; word-break: break-word !important; overflow-wrap: anywhere !important; line-height: 1.3 !important; display: inline-block !important; max-width: 100% !important; }
@@ -2246,6 +1835,11 @@ body.is-resizing .resizer-handle-pill {
     .cornell-notes { width: 100% !important; padding: 14px 12px !important; font-size: 0.88rem !important; }
     
     .step-content { padding: 14px 12px !important; font-size: 0.92rem !important; line-height: 1.65 !important; }
+    .audit-step-container { padding: 20px 18px !important; }
+    .step-content.audit-editorial-body { font-size: 0.96rem !important; line-height: 1.75 !important; }
+    .audit-step-footer { justify-content: stretch; }
+    .audit-clear-btn { width: 100% !important; }
+
     .drop-zone, .drop-zone-label { max-width: 100% !important; width: 100% !important; }
     .drag-bank { padding: 10px !important; gap: 8px !important; }
     .drag-item { font-size: 0.8rem !important; padding: 8px 10px !important; width: 100% !important; text-align: center; }
@@ -2261,7 +1855,7 @@ body.is-resizing .resizer-handle-pill {
     .synapse-tile-modern.syn-oe-md .syn-tile-text { font-size: 0.68rem !important; line-height: 1.15 !important; }
     .synapse-tile-modern.syn-oe-sm .syn-tile-text { font-size: 0.60rem !important; line-height: 1.10 !important; }
     .synapse-tile-modern.syn-oe-xs .syn-tile-text { font-size: 0.53rem !important; line-height: 1.05 !important; }
-    .synapse-tile-modern.selected { border: 2px solid #ffffff !important; box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), inset 0 0 10px rgba(255, 255, 255, 0.2) !important; transform: scale(0.95) !important; }
+    .synapse-tile-modern.selected { border: 2px solid var(--accent-blue) !important; transform: scale(0.95) !important; }
     
     .quiz-card { padding: 14px 10px !important; }
     .quiz-question-text { font-size: 0.92rem !important; }
@@ -2275,61 +1869,30 @@ body.is-resizing .resizer-handle-pill {
 }
 
 /* ==========================================================================
-   14. IMMERSIVE LANDSCAPE MODE (QUERFORMAT SMARTPHONE)
+   14. IMMERSIVE LANDSCAPE MODE & 15. FLOATING ACTION BUTTON
    ========================================================================== */
 @media screen and (max-height: 600px) and (orientation: landscape) {
-    /* 1. Topbar komplett ausblenden für 100% Fokus auf den klinischen Fall */
-    topbar { 
-        display: none !important; 
-    }
-    
-    /* 2. Tabs und Dropdowns ausblenden */
-    .challenge-nav-bar, 
-    .mc-mobile-picker-wrap { 
-        display: none !important; 
-    }
-
-    /* 3. Padding und Margins drastisch reduzieren, um jeden Pixel zu nutzen */
-    .main-wrapper {
-        padding-bottom: 0 !important;
-    }
-
-    .content-body { 
-        padding: 6px !important; 
-        gap: 6px !important; 
-    }
-
+    topbar { display: none !important; }
+    .challenge-nav-bar, .mc-mobile-picker-wrap { display: none !important; }
+    .main-wrapper { padding-bottom: 0 !important; }
+    .content-body { padding: 6px !important; gap: 6px !important; }
     .panel { 
         padding: 10px 14px !important; 
         border-radius: 10px !important;
-        /* Schatten deaktivieren für bessere Render-Performance beim Scrollen im Querformat */
         box-shadow: none !important; 
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid var(--card-border) !important;
     }
-
-    /* Synapsen-Grid im Querformat maximal komprimieren */
-    .synapses-grid-4x4 { 
-        gap: 4px !important; 
-        margin-bottom: 4px !important; 
-    }
-    
-    .synapse-tile-modern { 
-        min-height: 60px !important; 
-        padding: 10px 2px 2px 2px !important; 
-    }
+    .synapses-grid-4x4 { gap: 4px !important; margin-bottom: 4px !important; }
+    .synapse-tile-modern { min-height: 60px !important; padding: 10px 2px 2px 2px !important; }
 }
 
-/* ==========================================================================
-   15. FLOATING ACTION BUTTON (LANDSCAPE MENU)
-   ========================================================================== */
 .landscape-fab-container {
-    display: none; /* Standardmäßig unsichtbar (wird im Querformat aktiviert) */
+    display: none;
     position: fixed;
     bottom: 20px;
     right: 20px;
     z-index: 9999;
 }
-
 .landscape-fab-btn {
     width: 52px;
     height: 52px;
@@ -2347,14 +1910,11 @@ body.is-resizing .resizer-handle-pill {
     transition: transform 0.3s var(--ease-spring), background 0.3s;
     -webkit-tap-highlight-color: transparent;
 }
-
-/* Wird das Menü geöffnet, dreht sich das "+" zu einem "x" */
 .landscape-fab-btn.active {
     transform: rotate(45deg) scale(0.95);
     background: linear-gradient(135deg, var(--error), #be123c);
     border-color: rgba(255,255,255,0.3);
 }
-
 .landscape-fab-menu {
     position: absolute;
     bottom: 64px;
@@ -2369,19 +1929,17 @@ body.is-resizing .resizer-handle-pill {
     flex-direction: column;
     gap: 6px;
     opacity: 0;
-    pointer-events: none; /* Klicks deaktiviert, wenn unsichtbar */
+    pointer-events: none;
     transform: translateY(15px) scale(0.9);
     transition: all 0.28s var(--ease-spring);
     transform-origin: bottom right;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
-
 .landscape-fab-menu.open {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0) scale(1);
 }
-
 .landscape-fab-menu button {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid transparent;
@@ -2395,14 +1953,11 @@ body.is-resizing .resizer-handle-pill {
     transition: background 0.2s, color 0.2s;
     cursor: pointer;
 }
-
 .landscape-fab-menu button.active {
     background: rgba(56, 189, 248, 0.15);
     border-color: rgba(56, 189, 248, 0.3);
     color: var(--accent-blue);
 }
-
-/* Aktivierung NUR im Querformat und nur wenn der Container per JS auf .visible gesetzt wird */
 @media screen and (max-height: 600px) and (orientation: landscape) {
     .landscape-fab-container.visible {
         display: block;
@@ -2411,794 +1966,18 @@ body.is-resizing .resizer-handle-pill {
 }
 
 /* ==========================================================================
-   16. THEME ENGINE & FARBSCHEMATA
+   16. LERN-DEPOT (KNOWLEDGE VAULT) & KI-QUIZ ARENA
    ========================================================================== */
-
-/* ==========================================================================
-   CLINICAL DAYLIGHT (Warm Paper White, Muted Slate & Nordic Blue)
-   Lückenlose Anpassung für Bookshelf, Sidebar, Reader & ALLE Challenges
-   ========================================================================== */
-/* ==========================================================================
-   DAYLIGHT REFACTOR: BALKEN, AUDIT-TEXT & CHALLENGE-NAVIGATION
-   ========================================================================== */
-/* ==========================================================================
-   CLINICAL DAYLIGHT: SCHRIFTFARBEN-FIX FÜR ÜBERSICHT & CORNELL NOTES
-   ========================================================================== */
-
-[data-theme="daylight"] .cornell-wrapper,
-[data-theme="daylight"] .cornell-container-body,
-[data-theme="daylight"] .cornell-note-col,
-[data-theme="daylight"] .cornell-fragment,
-[data-theme="daylight"] #overview-container {
-    color: #1f2328 !important;
-}
-
-/* Erzwungenes klares Schwarz für alle Textabschnitte in der Übersicht */
-[data-theme="daylight"] .cornell-fragment p,
-[data-theme="daylight"] .cornell-fragment span,
-[data-theme="daylight"] .cornell-fragment div,
-[data-theme="daylight"] .cornell-fragment li,
-[data-theme="daylight"] .cornell-fragment {
-    color: #1f2328 !important;
-}
-
-/* Fettgedruckte Wörter (<b> / <strong>) in der Übersicht konsequent in Schwarz */
-[data-theme="daylight"] .cornell-fragment b,
-[data-theme="daylight"] .cornell-fragment strong,
-[data-theme="daylight"] .cornell-notes b,
-[data-theme="daylight"] .cornell-notes strong,
-[data-theme="daylight"] #overview-container b,
-[data-theme="daylight"] #overview-container strong {
-    color: #111111 !important;
-    font-weight: 700 !important;
-}
-
-/* Linke Spalte (Cues) behält ein ruhiges, gut lesbares Medical Blue */
-[data-theme="daylight"] .cornell-cue-item {
-    background: #e8e2d5 !important;
-    border-left: 3px solid #0369a1 !important;
-    color: #0369a1 !important;
-}
-
-/* 1. Spaced-Repetition-Widget & Tagesfall-Banner im hellen Modus */
-[data-theme="daylight"] .sr-dashboard-card {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .sr-organ-tile {
-    background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .sr-organ-name,
-[data-theme="daylight"] .sr-title,
-[data-theme="daylight"] .sr-flash-info h4,
-[data-theme="daylight"] .sr-flash-info p {
-    color: #2b3037 !important;
-}
-
-/* 2. Segmented Controls (Themenbasiertes Lernen / Fachrichtung) */
-[data-theme="daylight"] .segmented-control {
-    background: #e9e4db !important;
-    border: 1px solid #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .segmented-btn {
-    background: transparent !important;
-    color: #57606a !important;
-}
-
-[data-theme="daylight"] .segmented-btn.active {
-    background: #faf8f3 !important;
-    color: #0369a1 !important;
-    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.08) !important;
-}
-
-/* 3. Taxonomie & Dropdown-Boxen (wie im zweiten Screenshot) */
-[data-theme="daylight"] .player-mode-pane select,
-[data-theme="daylight"] .player-mode-pane .drag-item,
-[data-theme="daylight"] [id^="mode-container-"] .drag-item,
-[data-theme="daylight"] .taxonomie-item,
-[data-theme="daylight"] .category-folder {
-    background-color: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-/* 4. Audit-Modus: Korrektur der Text- und Link-Farben (Schwarzer Text statt hellem Türkis) */
-[data-theme="daylight"] .audit-step-container,
-[data-theme="daylight"] .step-content,
-[data-theme="daylight"] .audit-editorial-body {
-    background-color: #f5f2eb !important;
-    border-color: #d8d0c2 !important;
-    color: #1f2328 !important;
-}
-
-[data-theme="daylight"] .step-content p,
-[data-theme="daylight"] .step-content span,
-[data-theme="daylight"] .step-content div,
-[data-theme="daylight"] .stealth-word,
-[data-theme="daylight"] .stealth-hotspot {
-    color: #1f2328 !important; /* Sauberes, lesefreundliches Dunkelgrau/Schwarz */
-}
-
-/* Hover-Effekte im Audit dezent halten */
-[data-theme="daylight"] .stealth-word:hover,
-[data-theme="daylight"] .stealth-hotspot:hover {
-    background-color: rgba(3, 105, 161, 0.08) !important;
-    color: #0369a1 !important;
-}
-/* 1. Obere Modus-Navigationsleiste (Die dunklen Balken) */
-[data-theme="daylight"] .challenge-nav-bar {
-    background: #e9e4db !important;
-    border: 1px solid #d8d0c2 !important;
-    box-shadow: inset 0 1px 3px rgba(43, 48, 55, 0.06) !important;
-}
-
-/* Einzelne Modus-Buttons im Balken */
-[data-theme="daylight"] .challenge-tab-btn {
-    background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #4b5360 !important;
-}
-
-[data-theme="daylight"] .challenge-tab-btn:hover {
-    background: #fbfaf7 !important;
-    color: #1a1e24 !important;
-}
-
-[data-theme="daylight"] .challenge-tab-btn.active {
-    background: #faf8f3 !important;
-    border-color: #0369a1 !important;
-    color: #0369a1 !important;
-    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.08) !important;
-}
-
-/* Badges/Zähler in den Tabs (0/0 etc.) */
-[data-theme="daylight"] .challenge-tab-btn .tab-badge {
-    background: #e2dbce !important;
-    color: #5c6470 !important;
-}
-
-[data-theme="daylight"] .challenge-tab-btn.active .tab-badge {
-    background: #d8eaf7 !important;
-    color: #0369a1 !important;
-}
-
-/* 2. Sticky-Steuerleiste ganz oben */
-[data-theme="daylight"] .specialty-sticky-bar {
-    background: #faf8f3 !important;
-    border-bottom: 1px solid #d8d0c2 !important;
-    box-shadow: 0 2px 10px rgba(43, 48, 55, 0.05) !important;
-}
-
-/* 3. Lesebereich / Cornell-Notes / Audit-Text (Wie im Screenshot zu sehen) */
-[data-theme="daylight"] .cornell-wrapper {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    box-shadow: 0 2px 8px rgba(43, 48, 55, 0.04) !important;
-}
-
-[data-theme="daylight"] .cornell-header {
-    background: #f4efe4 !important;
-    border-bottom: 2px solid #0369a1 !important;
-    color: #1a1e24 !important;
-}
-
-[data-theme="daylight"] .cornell-header h2 {
-    color: #1a1e24 !important;
-}
-
-/* Cue-Spalte links */
-[data-theme="daylight"] .cornell-cues,
-[data-theme="daylight"] .cornell-cue-col {
-    background: #f7f4ec !important;
-    border-right: 2px solid #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .cornell-cue-item {
-    background: #e8e2d5 !important;
-    border-left: 3px solid #0369a1 !important;
-    color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .cornell-cue-item:hover,
-[data-theme="daylight"] .cornell-cue-item.cue-active-highlight {
-    background: #d8eaf7 !important;
-    color: #0284c7 !important;
-}
-
-/* Notiz- und Fließtext-Bereich rechts */
-[data-theme="daylight"] .cornell-notes,
-[data-theme="daylight"] .cornell-note-col,
-[data-theme="daylight"] .cornell-fragment {
-    color: #2b3037 !important;
-    line-height: 1.7 !important;
-}
-
-[data-theme="daylight"] .cornell-notes strong,
-[data-theme="daylight"] .cornell-fragment strong {
-    color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .cornell-fragment.highlight-target {
-    background-color: rgba(3, 105, 161, 0.08) !important;
-    border-left: 3px solid #0369a1 !important;
-}
-
-/* 4. Audit-Fließtext & Stealth-Klicks */
-[data-theme="daylight"] .audit-step-container {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .step-content {
-    background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .step-content p,
-[data-theme="daylight"] .step-content span,
-[data-theme="daylight"] .step-content div,
-[data-theme="daylight"] .stealth-word {
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .stealth-word:hover,
-[data-theme="daylight"] .stealth-hotspot:hover {
-    background-color: rgba(3, 105, 161, 0.1) !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] {
-    /* 1. Naturpapier-Grundfläche (kein grelles Blendweiß) */
-    --bg-color: #f0ece1 !important;
-    --bg-gradient: linear-gradient(180deg, #f6f3eb 0%, #ebe6dc 100%) !important;
-
-    /* 2. Container & Karten (Ruhiges, warmes Elfenbein) */
-    --sidebar-bg: #f7f4ec !important;
-    --card-bg: #faf8f3 !important;
-    --card-bg-hover: #f0ebe0 !important;
-    --card-border: #d8d0c2 !important;
-    --card-border-hover: #0369a1 !important;
-    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.8) !important;
-
-    /* 3. Textkontrast: Gedämpftes Schiefer-Anthrazit */
-    --text-main: #2b3037 !important;
-    --text-muted: #5c6470 !important;
-    --text-dim: #8b93a0 !important;
-
-    /* 4. Gedämpfte Akzentfarben */
-    --accent-blue: #0369a1 !important;
-    --accent-cyan: #0284c7 !important;
-    --accent-indigo: #4338ca !important;
-
-    /* 5. Harmonische Statusfarben (nicht grell) */
-    --color-risk: #b91c1c !important;
-    --color-lab: #6d28d9 !important;
-    --color-symptom: #047857 !important;
-    --color-treatment: #0369a1 !important;
-    --warning: #b45309 !important;
-    --error: #b91c1c !important;
-
-    --shadow-sm: 0 1px 3px rgba(43, 48, 55, 0.05);
-    --shadow-md: 0 4px 14px -3px rgba(43, 48, 55, 0.08);
-}
-
-/* ==========================================================================
-   A. GLOBALE FLÄCHEN, TOPBAR & PANELS
-   ========================================================================== */
-[data-theme="daylight"] body,
-[data-theme="daylight"] .main-wrapper {
-    background-color: var(--bg-color) !important;
-    color: var(--text-main) !important;
-}
-
-[data-theme="daylight"] topbar,
-[data-theme="daylight"] .panel,
-[data-theme="daylight"] .reveal-card,
-[data-theme="daylight"] .tutor-popup {
-    background: #faf8f3 !important;
-    color: #2b3037 !important;
-    border-color: #d8d0c2 !important;
-    box-shadow: 0 4px 16px rgba(43, 48, 55, 0.06) !important;
-}
-
-[data-theme="daylight"] .hud-stat {
-    background: #f0ebe0 !important;
-    border-color: #d8d0c2 !important;
-    color: #5c6470 !important;
-}
-[data-theme="daylight"] .hud-stat strong {
-    color: #1a1e24 !important;
-}
-
-/* ==========================================================================
-   B. SIDEBAR & BOOKSHELF (VOLLSTÄNDIGER FIX GEGEN SCHWARZE BALKEN)
-   ========================================================================== */
-[data-theme="daylight"] sidebar {
-    background: #f7f4ec !important;
-    border-right-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .nav-item {
-    color: #5c6470 !important;
-}
-[data-theme="daylight"] .nav-item:hover {
-    background: #ede7dc !important;
-    color: #1a1e24 !important;
-}
-[data-theme="daylight"] .nav-item.active {
-    background: #e4dccf !important;
-    color: #0369a1 !important;
-    border-color: #0369a1 !important;
-}
-
-/* Bookshelf Überordner, Ordner & Einzelfälle */
-[data-theme="daylight"] .bookshelf-container,
-[data-theme="daylight"] .bookshelf-super-group,
-[data-theme="daylight"] .bookshelf-super-body {
-    background: transparent !important;
-}
-
-[data-theme="daylight"] .bookshelf-super-header {
-    background: #ede7dc !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #1a1e24 !important;
-}
-
-[data-theme="daylight"] .folder-group {
-    background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .folder-header {
-    background: #faf8f3 !important;
-    color: #2b3037 !important;
-}
-[data-theme="daylight"] .folder-header:hover {
-    background: #f0ebe0 !important;
-}
-
-[data-theme="daylight"] .folder-cases-list {
-    background: #f0ebe0 !important;
-    border-top-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .folder-case-item {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #3e4550 !important;
-}
-[data-theme="daylight"] .folder-case-item:hover {
-    background: #e2f0fb !important;
-    border-color: #0369a1 !important;
-    color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .folder-badge-mini,
-[data-theme="daylight"] .bookshelf-super-badge {
-    background: #e4dccf !important;
-    color: #0369a1 !important;
-}
-
-/* ==========================================================================
-   C. DASHBOARD, SUPER-FOLDER & FALLKARTEN
-   ========================================================================== */
-[data-theme="daylight"] .super-folder {
-    background: #f4efe4 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .super-folder-header {
-    background: #faf8f3 !important;
-    border-bottom-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .category-folder {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .category-header {
-    background: #f4efe4 !important;
-}
-
-[data-theme="daylight"] .case-card,
-[data-theme="daylight"] .specialty-card {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.04) !important;
-}
-[data-theme="daylight"] .case-card:hover,
-[data-theme="daylight"] .specialty-card:hover {
-    background: #ffffff !important;
-    border-color: #0369a1 !important;
-    box-shadow: 0 8px 18px -4px rgba(3, 105, 161, 0.12) !important;
-}
-
-[data-theme="daylight"] .case-card-header,
-[data-theme="daylight"] .case-card h3 {
-    color: #1a1e24 !important;
-}
-
-/* ==========================================================================
-   D. AUDIT & TIMELINE
-   ========================================================================== */
-[data-theme="daylight"] .audit-step-container {
-    background-color: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    box-shadow: 0 2px 8px rgba(43, 48, 55, 0.04) !important;
-}
-
-[data-theme="daylight"] .step-content {
-    background-color: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #1f2328 !important;
-}
-
-[data-theme="daylight"] .step-content p,
-[data-theme="daylight"] .step-content span,
-[data-theme="daylight"] .step-content div,
-[data-theme="daylight"] .stealth-word {
-    color: #1f2328 !important;
-}
-
-[data-theme="daylight"] .stealth-word:hover,
-[data-theme="daylight"] .stealth-hotspot:hover {
-    background-color: rgba(3, 105, 161, 0.1) !important;
-    box-shadow: 0 0 0 2px rgba(3, 105, 161, 0.15) !important;
-    color: #0369a1 !important;
-}
-
-/* ==========================================================================
-   E. CHALLENGE 1: SYNAPSEN-MATRIX (4x4 CONNECTIONS)
-   ========================================================================== */
-[data-theme="daylight"] .synapses-container {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .synapses-legend {
-    background: #f0ebe0 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .synapse-tile-modern {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    box-shadow: 0 2px 6px rgba(43, 48, 55, 0.05) !important;
-}
-
-[data-theme="daylight"] .synapse-tile-modern .syn-tile-text {
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .synapse-tile-modern:hover {
-    background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .synapse-tile-modern.selected {
-    background: #e2f0fb !important;
-    border-color: #0369a1 !important;
-    box-shadow: 0 0 10px rgba(3, 105, 161, 0.3) !important;
-}
-
-/* Kategorie-Nuancen im sanften Tageslicht */
-[data-theme="daylight"] .synapse-tile-modern.category-risk { 
-    background: #fdf5f5 !important; border-color: #fca5a5 !important; 
-}
-[data-theme="daylight"] .synapse-tile-modern.category-lab { 
-    background: #fbf5ff !important; border-color: #d8b4fe !important; 
-}
-[data-theme="daylight"] .synapse-tile-modern.category-symptom { 
-    background: #f2fcf6 !important; border-color: #86efac !important; 
-}
-[data-theme="daylight"] .synapse-tile-modern.category-treatment { 
-    background: #f0f8ff !important; border-color: #93c5fd !important; 
-}
-
-/* ==========================================================================
-   F. CHALLENGE 2: CLINICAL CASCADES (FLOW-CHARTS) & DRAG-ZONES
-   ========================================================================== */
-[data-theme="daylight"] .cascade-disease-container,
-[data-theme="daylight"] #mode-container-cascade > div,
-[data-theme="daylight"] #mode-container-cat > div,
-[data-theme="daylight"] #mode-container-quiz > div,
-[data-theme="daylight"] #mode-container-flashcards > div {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .drag-bank {
-    background: #f4efe4 !important;
-    border: 1px dashed #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .drag-item {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-    box-shadow: 0 2px 5px rgba(43, 48, 55, 0.05) !important;
-}
-[data-theme="daylight"] .drag-item:hover {
-    background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .drop-zone {
-    background: #f0ebe0 !important;
-    border: 2px dashed #d8d0c2 !important;
-}
-[data-theme="daylight"] .drop-zone.drag-over {
-    background: #e2f0fb !important;
-    border-color: #0369a1 !important;
-}
-
-/* ==========================================================================
-   G. CHALLENGE 3: DOCTORDLE, FLASHCARDS & MASTER-QUIZ
-   ========================================================================== */
-/* Doctordle */
-[data-theme="daylight"] .hint-card {
-    background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] #doctordle-input {
-    background: #faf8f3 !important;
-    color: #2b3037 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] #doctordle-autocomplete-list {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-    box-shadow: 0 8px 20px rgba(43, 48, 55, 0.1) !important;
-}
-[data-theme="daylight"] #doctordle-autocomplete-list li {
-    color: #2b3037 !important;
-    border-bottom: 1px solid #ede7dc !important;
-}
-[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
-    background: #e4dccf !important;
-    color: #0369a1 !important;
-}
-
-/* Master-Quiz */
-[data-theme="daylight"] .quiz-card {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .quiz-opt-btn {
-    background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-[data-theme="daylight"] .quiz-opt-btn:hover {
-    background: #ede7dc !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .quiz-opt-btn.selected {
-    background: #e2f0fb !important;
-    border-color: #0369a1 !important;
-    color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .quiz-explanation-box {
-    background: #f0ebe0 !important;
-    border-left-color: #0369a1 !important;
-    color: #3e4550 !important;
-}
-
-/* ==========================================================================
-   H. CORNELL-NOTES, ÜBERSICHT & LERN-DEPOT
-   ========================================================================== */
-[data-theme="daylight"] .cornell-wrapper {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .cornell-header {
-    background: #ede7dc !important;
-    border-bottom-color: #d8d0c2 !important;
-}
-[data-theme="daylight"] .cornell-header h2 {
-    color: #1a1e24 !important;
-}
-
-[data-theme="daylight"] .cornell-cue-col,
-[data-theme="daylight"] .cornell-cues {
-    background: #f4efe4 !important;
-    border-right-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .cornell-cue-item {
-    background: #e8e2d5 !important;
-    border-left-color: #0369a1 !important;
-    color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .cornell-fragment {
-    color: #2b3037 !important;
-}
-
-[data-theme="daylight"] .cornell-summary {
-    background: #f0ebe0 !important;
-    border-top-color: #d8d0c2 !important;
-}
-
-/* Lern-Depot */
-[data-theme="daylight"] .depot-card,
-[data-theme="daylight"] .depot-quiz-arena {
-    background: #faf8f3 !important;
-    border-color: #d8d0c2 !important;
-}
-
-[data-theme="daylight"] .depot-quote-text {
-    background: #f4efe4 !important;
-    border-color: #d8d0c2 !important;
-    color: #2b3037 !important;
-}
-
-/* ==========================================================================
-   I. BUTTONS & STEUERELEMENTE
-   ========================================================================== */
-[data-theme="daylight"] .action-btn,
-[data-theme="daylight"] .btn {
-    background: linear-gradient(135deg, #0369a1, #075985) !important;
-    color: #ffffff !important;
-    border: 1px solid #0369a1 !important;
-    box-shadow: 0 2px 6px rgba(3, 105, 161, 0.2) !important;
-}
-
-[data-theme="daylight"] .action-btn.secondary,
-[data-theme="daylight"] .btn-secondary {
-    background: #f4efe4 !important;
-    color: #3e4550 !important;
-    border: 1px solid #d8d0c2 !important;
-    box-shadow: none !important;
-}
-[data-theme="daylight"] .action-btn.secondary:hover,
-[data-theme="daylight"] .btn-secondary:hover {
-    background: #ede7dc !important;
-    color: #1a1e24 !important;
-}
-
-/* Allgemeine Text-Sicherheit */
-[data-theme="daylight"] h1, [data-theme="daylight"] h2, [data-theme="daylight"] h3,
-[data-theme="daylight"] h4, [data-theme="daylight"] h5, [data-theme="daylight"] h6,
-[data-theme="daylight"] p, [data-theme="daylight"] span, [data-theme="daylight"] label {
-    color: #2b3037 !important;
-}
-/* Theme: Surgical Scrubs (OP-Smaragdgrün) */
-[data-theme="scrubs"] {
-    --bg-color: #04110f;
-    --bg-gradient: 
-        radial-gradient(circle at 12% 18%, rgba(16, 185, 129, 0.12) 0%, transparent 42%),
-        radial-gradient(circle at 88% 12%, rgba(20, 184, 166, 0.1) 0%, transparent 38%),
-        linear-gradient(180deg, #04110f 0%, #020908 100%);
-    --sidebar-bg: rgba(6, 22, 19, 0.86);
-    --card-bg: rgba(9, 30, 26, 0.72);
-    --card-bg-hover: rgba(13, 43, 37, 0.88);
-    --card-border: rgba(52, 211, 153, 0.12);
-    --card-border-hover: rgba(16, 185, 129, 0.5);
-
-    --accent-blue: #10b981;
-    --accent-cyan: #2dd4bf;
-    --accent-indigo: #0d9488;
-}
-
-/* Theme: Neuro Focus (Amethyst / Deep Purple) */
-[data-theme="neuro"] {
-    --bg-color: #090614;
-    --bg-gradient: 
-        radial-gradient(circle at 12% 18%, rgba(192, 132, 252, 0.12) 0%, transparent 42%),
-        radial-gradient(circle at 88% 12%, rgba(244, 114, 182, 0.09) 0%, transparent 38%),
-        linear-gradient(180deg, #090614 0%, #05030a 100%);
-    --sidebar-bg: rgba(14, 10, 28, 0.86);
-    --card-bg: rgba(22, 15, 41, 0.72);
-    --card-bg-hover: rgba(32, 22, 58, 0.88);
-    --card-border: rgba(192, 132, 252, 0.12);
-    --card-border-hover: rgba(192, 132, 252, 0.5);
-
-    --accent-blue: #c084fc;
-    --accent-cyan: #e879f9;
-    --accent-indigo: #9333ea;
-}
-
-/* UI-Karten für die Theme-Auswahl in den Einstellungen */
-.theme-selector-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 14px;
-}
-
-.theme-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px;
-    border-radius: 14px;
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid var(--card-border);
-    cursor: pointer;
-    text-align: left;
-    font-family: inherit;
-    color: var(--text-main);
-    transition: transform 0.2s var(--ease-spring), border-color 0.2s, box-shadow 0.2s;
-}
-
-[data-theme="daylight"] .theme-card {
-    background: rgba(255, 255, 255, 0.8);
-}
-
-.theme-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent-blue);
-}
-
-.theme-card.active {
-    border: 2px solid var(--accent-blue);
-    box-shadow: 0 0 18px rgba(56, 189, 248, 0.2);
-}
-
-.theme-preview {
-    width: 46px;
-    height: 46px;
-    border-radius: 11px;
-    border: 2px solid;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    flex-shrink: 0;
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35);
-}
-
-.theme-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-}
-
-.theme-name {
-    font-size: 0.88rem;
-    font-weight: 800;
-    color: var(--text-main);
-    margin-bottom: 2px;
-}
-
-.theme-desc {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    line-height: 1.3;
-}
-
-/* ==========================================================================
-   17. LERN-DEPOT (KNOWLEDGE VAULT) & TEXT-SELECTION POPOVER
-   ========================================================================== */
-
-/* Dezenter Hinweis in der Übersicht, dass Text markierbar ist */
 #mode-container-overview .cornell-notes,
 #mode-container-overview #overview-container {
     user-select: text !important;
     -webkit-user-select: text !important;
 }
-
 #mode-container-overview ::selection {
     background: rgba(56, 189, 248, 0.32);
     color: #ffffff;
 }
 
-/* Schwebendes Popover über markiertem Text */
 .depot-selection-popover {
     position: fixed;
     z-index: 2000;
@@ -3207,7 +1986,6 @@ body.is-resizing .resizer-handle-pill {
     pointer-events: auto;
     animation: fadeInUp 0.16s var(--ease-spring) both;
 }
-
 .depot-popover-btn {
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
     color: #ffffff;
@@ -3225,12 +2003,8 @@ body.is-resizing .resizer-handle-pill {
     white-space: nowrap;
     transition: transform 0.15s var(--ease-spring);
 }
+.depot-popover-btn:hover { transform: scale(1.06); }
 
-.depot-popover-btn:hover {
-    transform: scale(1.06);
-}
-
-/* Badge in der linken Sidebar */
 .depot-nav-badge {
     margin-left: auto;
     font-size: 0.68rem;
@@ -3243,50 +2017,14 @@ body.is-resizing .resizer-handle-pill {
     border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
-/* Depot Header & Toolbar */
-.depot-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-}
-
-.depot-stats-pills {
-    display: flex;
-    gap: 8px;
-}
-
-.depot-stat-pill {
-    font-size: 0.78rem;
-    font-weight: 700;
-    padding: 6px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--card-border);
-    background: rgba(15, 23, 42, 0.5);
-}
-
+.depot-header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.depot-stats-pills { display: flex; gap: 8px; }
+.depot-stat-pill { font-size: 0.78rem; font-weight: 700; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--card-border); background: rgba(15, 23, 42, 0.5); }
 .depot-stat-pill.open strong { color: var(--warning); font-family: 'JetBrains Mono', monospace; }
 .depot-stat-pill.mastered strong { color: var(--color-symptom); font-family: 'JetBrains Mono', monospace; }
 
-.depot-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-}
-
-.depot-search-wrap {
-    display: flex;
-    gap: 8px;
-    flex: 1;
-    min-width: 260px;
-    justify-content: flex-end;
-}
-
+.depot-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.depot-search-wrap { display: flex; gap: 8px; flex: 1; min-width: 260px; justify-content: flex-end; }
 .depot-select,
 .depot-search-input {
     background: rgba(6, 9, 19, 0.7);
@@ -3298,11 +2036,7 @@ body.is-resizing .resizer-handle-pill {
     font-family: inherit;
     outline: none;
 }
-
-.depot-select:focus,
-.depot-search-input:focus {
-    border-color: var(--accent-blue);
-}
+.depot-select:focus, .depot-search-input:focus { border-color: var(--accent-blue); }
 
 .depot-quick-add {
     display: flex;
@@ -3314,13 +2048,7 @@ body.is-resizing .resizer-handle-pill {
     border-radius: 12px;
 }
 
-/* Depot Karten-Grid */
-.depot-items-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 14px;
-}
-
+.depot-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .depot-card {
     background: rgba(11, 17, 33, 0.72);
     border: 1px solid var(--card-border);
@@ -3334,137 +2062,20 @@ body.is-resizing .resizer-handle-pill {
     box-shadow: var(--surface-highlight), var(--shadow-sm);
     transition: transform 0.2s var(--ease-spring), border-color 0.2s;
 }
-
-.depot-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(56, 189, 248, 0.35);
-}
-
-.depot-card.is-mastered {
-    border-left-color: var(--color-symptom);
-    opacity: 0.78;
-}
-
-.depot-card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.7rem;
-}
-
-.depot-case-Origin {
-    font-weight: 800;
-    color: var(--accent-blue);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.depot-case-Origin:hover {
-    text-decoration: underline;
-}
-
-.depot-cue-tag {
-    display: inline-block;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--accent-cyan);
-    background: rgba(34, 211, 238, 0.1);
-    padding: 3px 8px;
-    border-radius: 6px;
-    margin-bottom: 6px;
-    width: fit-content;
-}
-
-.depot-quote-text {
-    font-size: 0.9rem;
-    line-height: 1.55;
-    color: var(--text-main);
-    background: rgba(6, 9, 19, 0.5);
-    padding: 10px 12px;
-    border-radius: 9px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    overflow-wrap: break-word;
-}
-
-.depot-note-input {
-    width: 100%;
-    background: transparent;
-    border: none;
-    border-bottom: 1px dashed rgba(148, 163, 184, 0.25);
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    padding: 4px 2px;
-    font-family: inherit;
-    outline: none;
-}
-
-.depot-note-input:focus {
-    border-bottom-color: var(--accent-blue);
-    color: var(--text-main);
-}
-
-.depot-card-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.depot-toggle-btn {
-    background: rgba(16, 185, 129, 0.14);
-    border: 1px solid rgba(16, 185, 129, 0.35);
-    color: #a7f3d0;
-    padding: 5px 11px;
-    border-radius: 8px;
-    font-size: 0.74rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.15s;
-}
-
-.depot-toggle-btn:hover {
-    background: rgba(16, 185, 129, 0.28);
-    transform: scale(1.03);
-}
-
-.depot-delete-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-size: 0.82rem;
-    padding: 4px 8px;
-    border-radius: 6px;
-}
-
-.depot-delete-btn:hover {
-    color: var(--error);
-    background: rgba(239, 68, 68, 0.12);
-}
-
-/* Anpassung für Clinical Daylight Theme */
-[data-theme="daylight"] .depot-card,
-[data-theme="daylight"] .depot-quote-text,
-[data-theme="daylight"] .depot-select,
-[data-theme="daylight"] .depot-search-input,
-[data-theme="daylight"] .depot-stat-pill {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-color: rgba(15, 23, 42, 0.12) !important;
-}
-[data-theme="daylight"] .depot-toggle-btn {
-    color: #065f46;
-}
-
-/* ==========================================================================
-   18. DEPOT KI-QUIZ ARENA (ADAPTIVES LÜCKEN-TRAINING)
-   ========================================================================== */
+.depot-card:hover { transform: translateY(-2px); border-color: rgba(56, 189, 248, 0.35); }
+.depot-card.is-mastered { border-left-color: var(--color-symptom); opacity: 0.78; }
+.depot-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.7rem; }
+.depot-case-Origin { font-weight: 800; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.depot-case-Origin:hover { text-decoration: underline; }
+.depot-cue-tag { display: inline-block; font-size: 0.7rem; font-weight: 700; color: var(--accent-cyan); background: rgba(34, 211, 238, 0.1); padding: 3px 8px; border-radius: 6px; margin-bottom: 6px; width: fit-content; }
+.depot-quote-text { font-size: 0.9rem; line-height: 1.55; color: var(--text-main); background: rgba(6, 9, 19, 0.5); padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.05); overflow-wrap: break-word; }
+.depot-note-input { width: 100%; background: transparent; border: none; border-bottom: 1px dashed rgba(148, 163, 184, 0.25); color: var(--text-muted); font-size: 0.78rem; padding: 4px 2px; font-family: inherit; outline: none; }
+.depot-note-input:focus { border-bottom-color: var(--accent-blue); color: var(--text-main); }
+.depot-card-actions { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.depot-toggle-btn { background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.35); color: #a7f3d0; padding: 5px 11px; border-radius: 8px; font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: background 0.2s, transform 0.15s; }
+.depot-toggle-btn:hover { background: rgba(16, 185, 129, 0.28); transform: scale(1.03); }
+.depot-delete-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.82rem; padding: 4px 8px; border-radius: 6px; }
+.depot-delete-btn:hover { color: var(--error); background: rgba(239, 68, 68, 0.12); }
 
 .depot-quiz-arena {
     margin-bottom: 24px;
@@ -3475,812 +2086,137 @@ body.is-resizing .resizer-handle-pill {
     box-shadow: var(--surface-highlight), 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(34, 211, 238, 0.12);
     animation: fadeInUp 0.28s var(--ease-out) both;
 }
+.depot-quiz-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.depot-quiz-body { display: flex; flex-direction: column; gap: 18px; }
+.depot-q-card { background: rgba(6, 9, 19, 0.65); border: 1px solid var(--card-border); border-radius: 13px; padding: 18px; }
+.depot-q-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.72rem; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.04em; }
+.depot-q-stem { font-size: 0.95rem; font-weight: 700; line-height: 1.55; color: var(--text-main); margin-bottom: 14px; }
+.depot-q-options { display: flex; flex-direction: column; gap: 8px; }
+.depot-q-feedback { margin-top: 12px; padding: 12px 14px; border-radius: 10px; font-size: 0.84rem; line-height: 1.5; background: rgba(15, 23, 42, 0.85); border-left: 4px solid var(--accent-blue); color: var(--text-muted); display: none; }
+.depot-mastery-prompt { margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
-.depot-quiz-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding-bottom: 14px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.depot-quiz-body {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.depot-q-card {
-    background: rgba(6, 9, 19, 0.65);
-    border: 1px solid var(--card-border);
-    border-radius: 13px;
-    padding: 18px;
-}
-
-.depot-q-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: var(--accent-cyan);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.depot-q-stem {
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1.55;
-    color: var(--text-main);
-    margin-bottom: 14px;
-}
-
-.depot-q-options {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.depot-q-feedback {
-    margin-top: 12px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 0.84rem;
-    line-height: 1.5;
-    background: rgba(15, 23, 42, 0.85);
-    border-left: 4px solid var(--accent-blue);
-    color: var(--text-muted);
-    display: none;
-}
-
-.depot-mastery-prompt {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-/* Light-Mode Kompatibilität (Clinical Daylight) */
-[data-theme="daylight"] .depot-quiz-arena {
-    background: linear-gradient(160deg, #ffffff, #f1f5f9) !important;
-    border-color: rgba(2, 132, 199, 0.4) !important;
-}
-[data-theme="daylight"] .depot-q-card,
-[data-theme="daylight"] .depot-q-feedback {
-    background: #f8fafc !important;
-    color: #0f172a !important;
-    border-color: rgba(15, 23, 42, 0.12) !important;
-}
 /* ==========================================================================
-   PHARMAKOLOGIE HUB & PHARMA-COMPASS (PFEILTASTEN-SPIEL)
+   17. PHARMAKOLOGIE HUB & PHARMA-COMPASS
    ========================================================================== */
+.pharma-wrapper { max-width: 1100px; margin: 0 auto; padding: 1.5rem; color: var(--text-main); }
+.pharma-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+.pharma-badge { display: inline-block; background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 999px; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.pharma-title { font-size: 1.85rem; font-weight: 800; margin: 0 0 0.4rem 0; color: var(--text-main); }
+.pharma-subtitle { color: var(--text-muted); margin: 0; font-size: 0.95rem; }
 
-.pharma-wrapper {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 1.5rem;
-    color: var(--text-primary, #f8fafc);
-}
+.pharma-modes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2.25rem; }
+.pharma-mode-card { background: var(--card-bg, rgba(30, 41, 59, 0.7)); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.25rem; display: flex; align-items: flex-start; gap: 1rem; position: relative; }
+.pharma-mode-card.active-mode { border-color: rgba(56, 189, 248, 0.45); background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9)); }
+.pharma-mode-icon { font-size: 1.8rem; background: rgba(255, 255, 255, 0.05); padding: 0.75rem; border-radius: 12px; }
+.pharma-mode-info h3 { margin: 0 0 0.35rem 0; font-size: 1.05rem; color: var(--text-main); }
+.pharma-mode-info p { margin: 0; font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; }
+.pharma-mode-tag { position: absolute; top: 1rem; right: 1rem; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.pharma-mode-tag.tag-muted { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); }
 
-.pharma-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-}
+.pharma-section-title { font-size: 1.2rem; margin-bottom: 1rem; color: var(--text-main); }
+.pharma-sets-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.pharma-set-card { background: var(--card-bg, rgba(30, 41, 59, 0.75)); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem; transition: transform 0.15s ease, border-color 0.15s ease; }
+.pharma-set-card:hover { transform: translateY(-2px); border-color: var(--accent-blue); }
+.pharma-set-meta { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.75rem; }
+.pharma-field-pill { background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 0.2rem 0.6rem; border-radius: 6px; font-weight: 600; }
+.pharma-type-pill { color: var(--text-muted); }
 
-.pharma-badge {
-    display: inline-block;
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.25rem 0.65rem;
-    border-radius: 999px;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
-}
+.compass-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+.compass-stats { display: flex; gap: 0.75rem; }
+.stat-pill { background: rgba(30, 41, 59, 0.8); border: 1px solid var(--card-border); padding: 0.4rem 0.85rem; border-radius: 999px; font-size: 0.85rem; color: var(--text-main); }
+.compass-arena { display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 1rem 0; }
+.compass-slot-up, .compass-slot-down { width: 100%; max-width: 340px; }
+.compass-middle-row { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 1rem; width: 100%; align-items: stretch; }
+.compass-center-patient { background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9)); border: 2px solid rgba(56, 189, 248, 0.35); border-radius: 16px; padding: 1.4rem; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.patient-badge { font-size: 0.7rem; font-weight: 800; color: var(--accent-blue); letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+.patient-context-text { font-size: 0.95rem; line-height: 1.55; margin: 0 0 0.85rem 0; color: var(--text-main); }
+.patient-question-prompt { font-weight: 700; font-size: 1rem; color: var(--text-main); padding-top: 0.75rem; border-top: 1px solid rgba(148, 163, 184, 0.15); }
+.keyboard-hint { margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+.keyboard-hint kbd { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 0.1rem 0.4rem; font-family: inherit; font-weight: 700; color: var(--text-main); }
 
-.pharma-title {
-    font-size: 1.85rem;
-    font-weight: 800;
-    margin: 0 0 0.4rem 0;
-}
+.compass-card { background: var(--card-bg, rgba(30, 41, 59, 0.75)); border: 2px solid rgba(148, 163, 184, 0.2); border-radius: 14px; padding: 1.1rem; cursor: pointer; transition: all 0.18s ease; display: flex; flex-direction: column; justify-content: center; min-height: 125px; }
+.compass-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); background: rgba(30, 41, 59, 0.95); }
+.compass-key-badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 800; color: var(--accent-blue); background: rgba(56, 189, 248, 0.12); padding: 0.2rem 0.55rem; border-radius: 6px; align-self: flex-start; margin-bottom: 0.5rem; }
+.compass-drug-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.2rem; color: var(--text-main); }
+.compass-drug-class { font-size: 0.82rem; color: var(--text-muted); }
+.compass-card-feedback { margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.12); font-size: 0.82rem; line-height: 1.4; color: var(--text-main); }
+.compass-card.card-correct { border-color: #22c55e; background: rgba(22, 163, 74, 0.18); }
+.compass-card.card-wrong { border-color: #ef4444; background: rgba(220, 38, 38, 0.18); }
+.compass-card.card-dimmed { opacity: 0.65; }
 
-.pharma-subtitle {
-    color: var(--text-secondary, #94a3b8);
-    margin: 0;
-    font-size: 0.95rem;
-}
+.compass-resolution-panel { margin-top: 1.25rem; background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 14px; padding: 1.2rem; display: flex; justify-content: space-between; align-items: center; gap: 1.25rem; flex-wrap: wrap; color: var(--text-main); }
+.pearl-box { flex: 1; font-size: 0.92rem; line-height: 1.5; }
 
-/* Modi-Übersicht */
-.pharma-modes-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2.25rem;
-}
+.pharma-btn { border: none; border-radius: 10px; padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.15s ease; }
+.pharma-btn-primary { background: var(--accent-blue); color: #ffffff; }
+.pharma-btn-primary:hover { opacity: 0.92; }
+.pharma-btn-secondary { background: rgba(148, 163, 184, 0.15); color: var(--text-main); border: 1px solid rgba(148, 163, 184, 0.25); }
+.pharma-btn-ghost { background: transparent; color: var(--text-muted); padding: 0.4rem 0.75rem; }
+.pharma-btn-ghost:hover { color: var(--text-main); }
 
-.pharma-mode-card {
-    background: var(--card-bg, rgba(30, 41, 59, 0.7));
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    border-radius: 14px;
-    padding: 1.25rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    position: relative;
-}
-
-.pharma-mode-card.active-mode {
-    border-color: rgba(56, 189, 248, 0.45);
-    background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9));
-}
-
-.pharma-mode-icon {
-    font-size: 1.8rem;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 0.75rem;
-    border-radius: 12px;
-}
-
-.pharma-mode-info h3 {
-    margin: 0 0 0.35rem 0;
-    font-size: 1.05rem;
-}
-
-.pharma-mode-info p {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-secondary, #94a3b8);
-    line-height: 1.45;
-}
-
-.pharma-mode-tag {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
-    background: rgba(34, 197, 94, 0.15);
-    color: #4ade80;
-}
-
-.pharma-mode-tag.tag-muted {
-    background: rgba(148, 163, 184, 0.12);
-    color: #94a3b8;
-}
-
-/* Sets-Liste */
-.pharma-section-title {
-    font-size: 1.2rem;
-    margin-bottom: 1rem;
-}
-
-.pharma-sets-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
-}
-
-.pharma-set-card {
-    background: var(--card-bg, rgba(30, 41, 59, 0.75));
-    border: 1px solid rgba(148, 163, 184, 0.15);
-    border-radius: 14px;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 1rem;
-    transition: transform 0.15s ease, border-color 0.15s ease;
-}
-
-.pharma-set-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(56, 189, 248, 0.4);
-}
-
-.pharma-set-meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-}
-
-.pharma-field-pill {
-    background: rgba(99, 102, 241, 0.15);
-    color: #818cf8;
-    padding: 0.2rem 0.6rem;
-    border-radius: 6px;
-    font-weight: 600;
-}
-
-.pharma-type-pill {
-    color: var(--text-secondary, #94a3b8);
-}
-
-/* Kompass-Arena (Das Pfeiltasten-Layout) */
-.compass-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.compass-stats {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.stat-pill {
-    background: rgba(30, 41, 59, 0.8);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    padding: 0.4rem 0.85rem;
-    border-radius: 999px;
-    font-size: 0.85rem;
-}
-
-.compass-arena {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    margin: 1rem 0;
-}
-
-.compass-slot-up,
-.compass-slot-down {
-    width: 100%;
-    max-width: 340px;
-}
-
-.compass-middle-row {
-    display: grid;
-    grid-template-columns: 1fr 1.35fr 1fr;
-    gap: 1rem;
-    width: 100%;
-    align-items: stretch;
-}
-
-.compass-center-patient {
-    background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
-    border: 2px solid rgba(56, 189, 248, 0.35);
-    border-radius: 16px;
-    padding: 1.4rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-}
-
-.patient-badge {
-    font-size: 0.7rem;
-    font-weight: 800;
-    color: #38bdf8;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.5rem;
-}
-
-.patient-context-text {
-    font-size: 0.95rem;
-    line-height: 1.55;
-    margin: 0 0 0.85rem 0;
-}
-
-.patient-question-prompt {
-    font-weight: 700;
-    font-size: 1rem;
-    color: #f8fafc;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.keyboard-hint {
-    margin-top: 1rem;
-    font-size: 0.8rem;
-    color: #94a3b8;
-    text-align: center;
-}
-
-.keyboard-hint kbd {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    padding: 0.1rem 0.4rem;
-    font-family: inherit;
-    font-weight: 700;
-    color: #e2e8f0;
-}
-
-/* Die 4 Medikamenten-Karten */
-.compass-card {
-    background: var(--card-bg, rgba(30, 41, 59, 0.75));
-    border: 2px solid rgba(148, 163, 184, 0.2);
-    border-radius: 14px;
-    padding: 1.1rem;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 125px;
-}
-
-.compass-card:hover {
-    border-color: #38bdf8;
-    transform: translateY(-2px);
-    background: rgba(30, 41, 59, 0.95);
-}
-
-.compass-key-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: #38bdf8;
-    background: rgba(56, 189, 248, 0.12);
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
-    align-self: flex-start;
-    margin-bottom: 0.5rem;
-}
-
-.compass-drug-name {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 0.2rem;
-}
-
-.compass-drug-class {
-    font-size: 0.82rem;
-    color: var(--text-secondary, #94a3b8);
-}
-
-.compass-card-feedback {
-    margin-top: 0.75rem;
-    padding-top: 0.6rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    font-size: 0.82rem;
-    line-height: 1.4;
-}
-
-/* Antwort-Zustände */
-.compass-card.card-correct {
-    border-color: #22c55e;
-    background: rgba(22, 163, 74, 0.18);
-}
-
-.compass-card.card-wrong {
-    border-color: #ef4444;
-    background: rgba(220, 38, 38, 0.18);
-}
-
-.compass-card.card-dimmed {
-    opacity: 0.65;
-}
-
-/* Auflösung & Pearl */
-.compass-resolution-panel {
-    margin-top: 1.25rem;
-    background: rgba(30, 41, 59, 0.85);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    border-radius: 14px;
-    padding: 1.2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-}
-
-.pearl-box {
-    flex: 1;
-    font-size: 0.92rem;
-    line-height: 1.5;
-}
-
-/* Buttons & Importer */
-.pharma-btn {
-    border: none;
-    border-radius: 10px;
-    padding: 0.65rem 1.15rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.pharma-btn-primary {
-    background: #38bdf8;
-    color: #0f172a;
-}
-
-.pharma-btn-primary:hover {
-    background: #7dd3fc;
-}
-
-.pharma-btn-secondary {
-    background: rgba(148, 163, 184, 0.15);
-    color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.pharma-btn-ghost {
-    background: transparent;
-    color: #94a3b8;
-    padding: 0.4rem 0.75rem;
-}
-
-.pharma-btn-ghost:hover {
-    color: #f8fafc;
-}
-
-.pharma-import-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.5rem;
-}
-
-.pharma-import-box {
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 14px;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-}
-
-.pharma-textarea {
-    width: 100%;
-    min-height: 220px;
-    background: rgba(15, 23, 42, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 10px;
-    color: #e2e8f0;
-    padding: 0.8rem;
-    font-family: monospace;
-    font-size: 0.82rem;
-    resize: vertical;
-}
-
-.pharma-error-msg {
-    color: #f87171;
-    font-size: 0.85rem;
-}
+.pharma-import-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+.pharma-import-box { background: rgba(30, 41, 59, 0.7); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; }
+.pharma-textarea { width: 100%; min-height: 220px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 10px; color: var(--text-main); padding: 0.8rem; font-family: monospace; font-size: 0.82rem; resize: vertical; }
+.pharma-error-msg { color: #f87171; font-size: 0.85rem; }
 
 @media (max-width: 850px) {
-    .compass-middle-row {
-        grid-template-columns: 1fr;
-    }
-    .compass-slot-up, .compass-slot-down {
-        max-width: 100%;
-    }
+    .compass-middle-row { grid-template-columns: 1fr; }
+    .compass-slot-up, .compass-slot-down { max-width: 100%; }
 }
+
+.pharma-bank-section { background: rgba(6, 9, 19, 0.7); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: 14px; padding: 16px; margin-bottom: 24px; }
+.bank-title { font-size: 0.75rem; font-weight: 800; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+.pharma-drug-pool { display: flex; flex-wrap: wrap; gap: 10px; min-height: 80px; align-items: center; }
+.pharma-matrix-card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 14px; cursor: grab; user-select: none; font-size: 0.85rem; font-weight: 600; color: var(--text-main); box-shadow: var(--shadow-sm); transition: transform 0.15s var(--ease-spring), border-color 0.15s ease; }
+.pharma-matrix-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+.pharma-matrix-card:active { cursor: grabbing; }
+.pharma-categories-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.pharma-category-column { background: rgba(15, 23, 42, 0.65); border: 1px solid var(--card-border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; min-height: 220px; transition: all 0.2s ease; }
+.pharma-category-column.drag-over { border-color: var(--accent-cyan); background: rgba(34, 211, 238, 0.08); }
+.pharma-cat-header { font-size: 0.92rem; font-weight: 800; color: var(--accent-cyan); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.pharma-cat-dropzone { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 140px; }
 
 /* ==========================================================================
-   PHARMACOLOGY MATRIX STYLING
+   18. SPACED REPETITION, DOCTORDLE & 3D FLASHCARDS
    ========================================================================== */
-.pharma-bank-section {
-    background: rgba(6, 9, 19, 0.7);
-    border: 1px dashed rgba(56, 189, 248, 0.3);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 24px;
-}
+.sr-dashboard-card { background: var(--card-bg, #1e293b); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.5rem; margin: 1.5rem 0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25); }
+.sr-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+.sr-badge { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent-blue); background: rgba(56, 189, 248, 0.12); padding: 0.25rem 0.6rem; border-radius: 999px; }
+.sr-title { margin: 0.35rem 0 0 0; font-size: 1.25rem; color: var(--text-main); }
+.sr-due-count { font-size: 0.85rem; font-weight: 600; padding: 0.4rem 0.85rem; border-radius: 999px; background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
+.sr-due-count.has-due { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
 
-.bank-title {
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: var(--accent-blue);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 12px;
-}
+.sr-flash-banner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.25rem; border-radius: 10px; margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(245, 158, 11, 0.12)); border: 1px solid rgba(245, 158, 11, 0.35); }
+.sr-flash-banner.is-clear { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); }
+.sr-flash-info h4 { margin: 0 0 0.25rem 0; font-size: 1rem; color: var(--text-main); }
+.sr-flash-info p { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
+.sr-module-tag, .sr-ef-tag { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 6px; margin-left: 0.4rem; background: rgba(255, 255, 255, 0.1); }
+.sr-flash-btn { background: #f59e0b; color: #0f172a; border: none; border-radius: 8px; padding: 0.65rem 1.15rem; font-weight: 700; cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; }
+.sr-flash-btn:hover { background: #fbbf24; transform: translateY(-1px); }
 
-.pharma-drug-pool {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    min-height: 80px;
-    align-items: center;
-}
-
-.pharma-matrix-card {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    cursor: grab;
-    user-select: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-main);
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.15s var(--ease-spring), border-color 0.15s ease;
-}
-
-.pharma-matrix-card:hover {
-    border-color: var(--accent-blue);
-    transform: translateY(-2px);
-}
-
-.pharma-matrix-card:active {
-    cursor: grabbing;
-}
-
-.pharma-categories-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-}
-
-.pharma-category-column {
-    background: rgba(15, 23, 42, 0.65);
-    border: 1px solid var(--card-border);
-    border-radius: 14px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    min-height: 220px;
-    transition: all 0.2s ease;
-}
-
-.pharma-category-column.drag-over {
-    border-color: var(--accent-cyan);
-    background: rgba(34, 211, 238, 0.08);
-}
-
-.pharma-cat-header {
-    font-size: 0.92rem;
-    font-weight: 800;
-    color: var(--accent-cyan);
-    margin-bottom: 14px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.pharma-cat-dropzone {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 140px;
-}
-
-
-/* ==========================================================================
-   SPACED REPETITION & CLINICAL ORGAN HEATMAP
-   ========================================================================== */
-
-.sr-dashboard-card {
-    background: var(--card-bg, #1e293b);
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-    border-radius: 14px;
-    padding: 1.5rem;
-    margin: 1.5rem 0;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
-}
-
-.sr-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-}
-
-.sr-badge {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: #38bdf8;
-    background: rgba(56, 189, 248, 0.12);
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-}
-
-.sr-title {
-    margin: 0.35rem 0 0 0;
-    font-size: 1.25rem;
-    color: var(--text-primary, #f8fafc);
-}
-
-.sr-due-count {
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 0.4rem 0.85rem;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.15);
-    color: #cbd5e1;
-}
-
-.sr-due-count.has-due {
-    background: rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-}
-
-/* Daily Flash-Case Banner */
-.sr-flash-banner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(245, 158, 11, 0.12));
-    border: 1px solid rgba(245, 158, 11, 0.35);
-}
-
-.sr-flash-banner.is-clear {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.3);
-}
-
-.sr-flash-info h4 {
-    margin: 0 0 0.25rem 0;
-    font-size: 1rem;
-    color: var(--text-primary, #f8fafc);
-}
-
-.sr-flash-info p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary, #cbd5e1);
-}
-
-.sr-module-tag, .sr-ef-tag {
-    font-size: 0.75rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 6px;
-    margin-left: 0.4rem;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.sr-flash-btn {
-    background: #f59e0b;
-    color: #0f172a;
-    border: none;
-    border-radius: 8px;
-    padding: 0.65rem 1.15rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.15s ease, background 0.15s ease;
-}
-
-.sr-flash-btn:hover {
-    background: #fbbf24;
-    transform: translateY(-1px);
-}
-
-/* Clinical Organ Heatmap Grid */
-.sr-heatmap-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1rem;
-}
-
-.sr-organ-tile {
-    padding: 1rem;
-    border-radius: 10px;
-    background: rgba(15, 23, 42, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: transform 0.15s ease;
-}
-
-.sr-organ-tile:hover {
-    transform: translateY(-2px);
-}
-
-.sr-organ-tile.status-critical {
-    border-left: 4px solid #ef4444;
-    background: linear-gradient(180deg, rgba(239, 68, 68, 0.1), rgba(15, 23, 42, 0.6));
-}
-
-.sr-organ-tile.status-learning {
-    border-left: 4px solid #f59e0b;
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.6));
-}
-
-.sr-organ-tile.status-mastered {
-    border-left: 4px solid #10b981;
-    background: linear-gradient(180deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.6));
-}
-
-.sr-organ-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-
-.sr-organ-name {
-    font-weight: 600;
-    font-size: 0.92rem;
-    color: var(--text-primary, #f8fafc);
-}
-
-.sr-organ-indicator {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #64748b;
-}
-
+.sr-heatmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.sr-organ-tile { padding: 1rem; border-radius: 10px; background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(255, 255, 255, 0.08); transition: transform 0.15s ease; }
+.sr-organ-tile:hover { transform: translateY(-2px); }
+.sr-organ-tile.status-critical { border-left: 4px solid #ef4444; background: linear-gradient(180deg, rgba(239, 68, 68, 0.1), rgba(15, 23, 42, 0.6)); }
+.sr-organ-tile.status-learning { border-left: 4px solid #f59e0b; background: linear-gradient(180deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.6)); }
+.sr-organ-tile.status-mastered { border-left: 4px solid #10b981; background: linear-gradient(180deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.6)); }
+.sr-organ-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.sr-organ-name { font-weight: 600; font-size: 0.92rem; color: var(--text-main); }
+.sr-organ-indicator { width: 10px; height: 10px; border-radius: 50%; background: #64748b; }
 .status-critical .sr-organ-indicator { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
 .status-learning .sr-organ-indicator { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
 .status-mastered .sr-organ-indicator { background: #10b981; box-shadow: 0 0 8px #10b981; }
-
-.sr-mastery-bar {
-    height: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 999px;
-    overflow: hidden;
-    margin-bottom: 0.5rem;
-}
-
-.sr-mastery-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: currentColor;
-}
-
+.sr-mastery-bar { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 999px; overflow: hidden; margin-bottom: 0.5rem; }
+.sr-mastery-fill { height: 100%; border-radius: 999px; background: currentColor; }
 .status-critical .sr-mastery-fill { background: #ef4444; }
 .status-learning .sr-mastery-fill { background: #f59e0b; }
 .status-mastered .sr-mastery-fill { background: #10b981; }
+.sr-organ-meta { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); }
+.sr-organ-empty { font-size: 0.8rem; color: var(--text-dim); font-style: italic; }
+.text-danger { color: #f87171; }
 
-.sr-organ-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.78rem;
-    color: #94a3b8;
-}
-
-.sr-organ-empty {
-    font-size: 0.8rem;
-    color: #64748b;
-    font-style: italic;
-}
-
-.text-danger {
-    color: #f87171;
-}
-
-/* ==========================================================================
-   DOCTORDLE MODERNER EINGABEBEREICH & AUTOCOMPLETE (UI/UX REFACTOR)
-   ========================================================================== */
-
-.doctordle-input-wrapper {
-    position: relative;
-    display: flex;
-    gap: 10px;
-    margin-top: 1.25rem;
-    align-items: center;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-/* Das Textfeld als moderne, saubere Bar */
+/* DOCTORDLE */
+.doctordle-input-wrapper { position: relative; display: flex; gap: 10px; margin-top: 1.25rem; align-items: center; flex-wrap: wrap; width: 100%; }
 #doctordle-input {
     flex: 1;
     min-width: 240px;
@@ -4295,16 +2231,8 @@ body.is-resizing .resizer-handle-pill {
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
     font-family: inherit;
 }
-
-#doctordle-input:focus {
-    border-color: var(--accent-blue, #38bdf8);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-/* Primäre & Sekundäre Doctordle Buttons */
-#doctordle-submit-btn, 
-#doctordle-reveal-btn, 
-#doctordle-next-btn {
+#doctordle-input:focus { border-color: var(--accent-blue, #38bdf8); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.2); }
+#doctordle-submit-btn, #doctordle-reveal-btn, #doctordle-next-btn {
     padding: 0.75rem 1.25rem;
     border-radius: 10px;
     font-weight: 600;
@@ -4314,29 +2242,11 @@ body.is-resizing .resizer-handle-pill {
     font-family: inherit;
     transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
+#doctordle-submit-btn { background: var(--accent-blue, #38bdf8); color: #ffffff; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25); }
+#doctordle-submit-btn:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+#doctordle-reveal-btn { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+#doctordle-reveal-btn:hover:not(:disabled) { background: rgba(239, 68, 68, 0.25); }
 
-#doctordle-submit-btn {
-    background: var(--accent-blue, #38bdf8);
-    color: #0f172a;
-    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
-}
-
-#doctordle-submit-btn:hover:not(:disabled) {
-    background: #7dd3fc;
-    transform: translateY(-1px);
-}
-
-#doctordle-reveal-btn {
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-#doctordle-reveal-btn:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.25);
-}
-
-/* Schickes, modernes Autocomplete-Dropdown */
 #doctordle-autocomplete-list {
     position: absolute;
     top: calc(100% + 6px);
@@ -4353,100 +2263,18 @@ body.is-resizing .resizer-handle-pill {
     overflow-y: auto;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
 }
+#doctordle-autocomplete-list li { padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text-main, #f1f5f9); transition: background 0.15s ease; }
+#doctordle-autocomplete-list li:hover { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); }
 
-#doctordle-autocomplete-list li {
-    padding: 10px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: var(--text-main, #f1f5f9);
-    transition: background 0.15s ease;
-}
-
-#doctordle-autocomplete-list li:hover {
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-}
-
-/* Clinical Daylight (Light-Mode) Unterstützung für Doctordle-Inputs */
-[data-theme="daylight"] #doctordle-input {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #38bdf8 !important;
-}
-
-[data-theme="daylight"] #doctordle-autocomplete-list {
-    background: #ffffff !important;
-    border-color: #38bdf8 !important;
-}
-
-[data-theme="daylight"] #doctordle-autocomplete-list li {
-    color: #0f172a !important;
-}
-
-[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
-    background: #bae6fd !important;
-    color: #000000 !important;
-}
-
-
-/* ==========================================================================
-   FLASH CARDS MODULE (3D FLIP & ACTIVE RECALL QUEUE)
-   ========================================================================== */
-.fc-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 18px;
-    flex-wrap: wrap;
-}
-
-.fc-progress-wrap {
-    flex: 1;
-    min-width: 220px;
-}
-
-.fc-progress-bar {
-    height: 8px;
-    background: rgba(15, 23, 42, 0.7);
-    border-radius: 999px;
-    overflow: hidden;
-    border: 1px solid var(--card-border, rgba(255,255,255,0.08));
-}
-
-.fc-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent-blue, #38bdf8), var(--color-symptom, #10b981));
-    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fc-toolbar-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.fc-stage {
-    perspective: 1200px;
-    width: 100%;
-    min-height: 270px;
-    margin-bottom: 18px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.fc-card-3d {
-    position: relative;
-    width: 100%;
-    min-height: 270px;
-    transform-style: preserve-3d;
-    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.fc-card-3d.is-flipped {
-    transform: rotateY(180deg);
-}
-
+/* FLASHCARDS */
+.fc-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.fc-progress-wrap { flex: 1; min-width: 220px; }
+.fc-progress-bar { height: 8px; background: rgba(15, 23, 42, 0.7); border-radius: 999px; overflow: hidden; border: 1px solid var(--card-border); }
+.fc-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--color-symptom)); transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+.fc-toolbar-actions { display: flex; gap: 8px; }
+.fc-stage { perspective: 1200px; width: 100%; min-height: 270px; margin-bottom: 18px; cursor: pointer; user-select: none; }
+.fc-card-3d { position: relative; width: 100%; min-height: 270px; transform-style: preserve-3d; transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+.fc-card-3d.is-flipped { transform: rotateY(180deg); }
 .fc-face {
     position: absolute;
     inset: 0;
@@ -4461,117 +2289,29 @@ body.is-resizing .resizer-handle-pill {
     border: 1px solid var(--card-border, rgba(56, 189, 248, 0.2));
     box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.45);
 }
-
 .fc-back {
     transform: rotateY(180deg);
     border-color: rgba(16, 185, 129, 0.4);
     background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(6, 78, 59, 0.25));
 }
-
-.fc-card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-}
-
-.fc-diff-pill {
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    padding: 3px 9px;
-    border-radius: 999px;
-    letter-spacing: 0.04em;
-}
-
-.fc-face-label {
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--accent-blue, #38bdf8);
-    text-transform: uppercase;
-    margin-top: 8px;
-}
-
-.fc-main-text {
-    font-size: 1.15rem;
-    font-weight: 600;
-    line-height: 1.55;
-    color: var(--text-main, #f8fafc);
-    margin: auto 0;
-    padding: 14px 0;
-    text-align: center;
-}
-
-.fc-answer-text {
-    color: #ecfdf5;
-}
-
-.fc-mnemonic-box {
-    font-size: 0.82rem;
-    color: var(--text-muted, #94a3b8);
-    background: rgba(0, 0, 0, 0.25);
-    border-left: 3px solid var(--accent-blue, #38bdf8);
-    padding: 8px 12px;
-    border-radius: 6px;
-}
-
-.fc-flip-hint {
-    font-size: 0.75rem;
-    color: var(--text-dim, #64748b);
-    text-align: center;
-}
-
-.fc-depot-pin-btn {
-    background: rgba(56, 189, 248, 0.12);
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    color: var(--text-main, #f8fafc);
-    border-radius: 8px;
-    padding: 4px 10px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.fc-depot-pin-btn:hover {
-    background: rgba(56, 189, 248, 0.25);
-}
-
-.fc-rating-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-}
-
-.fc-rate-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 12px 10px;
-    border-radius: 12px;
-    border: 1px solid var(--card-border, rgba(255,255,255,0.1));
-    background: rgba(15, 23, 42, 0.75);
-    color: var(--text-main, #f8fafc);
-    cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.15s ease;
-}
-
-.fc-rate-btn:hover {
-    transform: translateY(-2px);
-}
-
+.fc-card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.fc-diff-pill { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; letter-spacing: 0.04em; }
+.fc-face-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; color: var(--accent-blue); text-transform: uppercase; margin-top: 8px; }
+.fc-main-text { font-size: 1.15rem; font-weight: 600; line-height: 1.55; color: var(--text-main); margin: auto 0; padding: 14px 0; text-align: center; }
+.fc-answer-text { color: #ecfdf5; }
+.fc-mnemonic-box { font-size: 0.82rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.25); border-left: 3px solid var(--accent-blue); padding: 8px 12px; border-radius: 6px; }
+.fc-flip-hint { font-size: 0.75rem; color: var(--text-dim); text-align: center; }
+.fc-depot-pin-btn { background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: var(--text-main); border-radius: 8px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.fc-depot-pin-btn:hover { background: rgba(56, 189, 248, 0.25); }
+.fc-rating-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.fc-rate-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 10px; border-radius: 12px; border: 1px solid var(--card-border); background: rgba(15, 23, 42, 0.75); color: var(--text-main); cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease; }
+.fc-rate-btn:hover { transform: translateY(-2px); }
 .fc-rate-btn.rate-again:hover { border-color: #ef4444; background: rgba(239, 68, 68, 0.12); }
 .fc-rate-btn.rate-hard:hover  { border-color: #f59e0b; background: rgba(245, 158, 11, 0.12); }
 .fc-rate-btn.rate-good:hover  { border-color: #10b981; background: rgba(16, 185, 129, 0.12); }
-
 .rate-title { font-weight: 700; font-size: 0.88rem; }
-.rate-sub   { font-size: 0.72rem; color: var(--text-dim, #64748b); }
-
-.fc-empty-state, .fc-complete-state {
-    text-align: center;
-    padding: 36px 20px;
-}
+.rate-sub   { font-size: 0.72rem; color: var(--text-dim); }
+.fc-empty-state, .fc-complete-state { text-align: center; padding: 36px 20px; }
 
 kbd {
     background: rgba(255, 255, 255, 0.1);
@@ -4583,98 +2323,1053 @@ kbd {
 }
 
 @media (max-width: 640px) {
-    .fc-rating-grid {
-        grid-template-columns: 1fr;
-    }
+    .fc-rating-grid { grid-template-columns: 1fr; }
 }
 
-/* ====================================================
-   CREATOR HUB & CLOUD STATUS BADGES
-   ==================================================== */
-
-/* Zieh-Feedback für Fallkarten */
-.case-card[draggable="true"] {
-    cursor: grab;
-}
-
-.case-card[draggable="true"]:active {
-    cursor: grabbing;
-}
-
-.case-card-dragging {
-    opacity: 0.45;
-    transform: scale(0.97);
-    border: 1px dashed var(--accent-blue, #38bdf8) !important;
-}
-
-/* Zielzone optisch hervorheben */
-.drop-zone * {
-    pointer-events: none;
-}
-
-.drop-zone.dragover {
-    border-color: #38bdf8 !important;
-    background: rgba(56, 189, 248, 0.15) !important;
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
-}
-
-/* Header & Badges auf den Karten */
-.case-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-}
-
-.case-card-badges {
+/* UI-Karten für die Theme-Auswahl in den Einstellungen */
+.theme-selector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.theme-card {
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.cloud-badge {
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 12px;
-    letter-spacing: 0.02em;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.cloud-badge.is-cloud {
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.35);
-}
-
-.cloud-badge.is-local {
-    background: rgba(148, 163, 184, 0.12);
-    color: #94a3b8;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.case-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.unpublish-case-btn {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    font-size: 0.82rem;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--card-border);
     cursor: pointer;
-    padding: 2px 5px;
-    border-radius: 4px;
-    transition: color 0.15s, background-color 0.15s;
+    text-align: left;
+    font-family: inherit;
+    color: var(--text-main);
+    transition: transform 0.2s var(--ease-spring), border-color 0.2s, box-shadow 0.2s;
+}
+.theme-card:hover { transform: translateY(-2px); border-color: var(--accent-blue); }
+.theme-card.active { border: 2px solid var(--accent-blue); box-shadow: 0 0 18px rgba(56, 189, 248, 0.2); }
+.theme-preview { width: 46px; height: 46px; border-radius: 11px; border: 2px solid; display: flex; align-items: center; justify-content: center; gap: 4px; flex-shrink: 0; box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35); }
+.theme-dot { width: 10px; height: 10px; border-radius: 50%; }
+.theme-name { font-size: 0.88rem; font-weight: 800; color: var(--text-main); margin-bottom: 2px; }
+.theme-desc { font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
+
+/* ==========================================================================
+   19. THEME ENGINE: SURGICAL SCRUBS & NEURO FOCUS
+   ========================================================================== */
+[data-theme="scrubs"] {
+    --bg-color: #04110f;
+    --bg-main: #04110f;
+    --bg-gradient: 
+        radial-gradient(circle at 12% 18%, rgba(16, 185, 129, 0.12) 0%, transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(20, 184, 166, 0.1) 0%, transparent 38%),
+        linear-gradient(180deg, #04110f 0%, #020908 100%);
+    --sidebar-bg: rgba(6, 22, 19, 0.86);
+    --card-bg: rgba(9, 30, 26, 0.72);
+    --card-bg-hover: rgba(13, 43, 37, 0.88);
+    --card-border: rgba(52, 211, 153, 0.12);
+    --card-border-hover: rgba(16, 185, 129, 0.5);
+    --text-main: #f0fdf4;
+    --text-primary: #f0fdf4;
+    --text-muted: #86efac;
+    --text-secondary: #86efac;
+    --accent-blue: #10b981;
+    --accent-cyan: #2dd4bf;
+    --accent-indigo: #0d9488;
 }
 
-.unpublish-case-btn:hover {
-    color: #f87171;
-    background: rgba(239, 68, 68, 0.15);
+[data-theme="neuro"] {
+    --bg-color: #090614;
+    --bg-main: #090614;
+    --bg-gradient: 
+        radial-gradient(circle at 12% 18%, rgba(192, 132, 252, 0.12) 0%, transparent 42%),
+        radial-gradient(circle at 88% 12%, rgba(244, 114, 182, 0.09) 0%, transparent 38%),
+        linear-gradient(180deg, #090614 0%, #05030a 100%);
+    --sidebar-bg: rgba(14, 10, 28, 0.86);
+    --card-bg: rgba(22, 15, 41, 0.72);
+    --card-bg-hover: rgba(32, 22, 58, 0.88);
+    --card-border: rgba(192, 132, 252, 0.12);
+    --card-border-hover: rgba(192, 132, 252, 0.5);
+    --text-main: #faf5ff;
+    --text-primary: #faf5ff;
+    --text-muted: #d8b4fe;
+    --text-secondary: #d8b4fe;
+    --accent-blue: #c084fc;
+    --accent-cyan: #e879f9;
+    --accent-indigo: #9333ea;
+}
+
+/* ==========================================================================
+   20. CLINICAL DAYLIGHT (EVIDENCE-BASED VISUAL ERGONOMICS EDITION)
+   Warm Editorial Paper (#FAF8F3), Low-Glare Alabaster (#F3EFE6),
+   High-Acuity Deep Slate Ink (#1E242B) & Medical Cobalt (#0369A1)
+   Lückenlose Abdeckung aller Module, Buttons & Inline-Styles!
+   ========================================================================== */
+
+[data-theme="daylight"] {
+    /* 1. Blendfreie Warm-Alabaster-Grundfläche (ISO 9241-303 konform) */
+    --bg-color: #f3efe6 !important;
+    --bg-main: #f3efe6 !important;
+    --bg-gradient: linear-gradient(180deg, #f7f4ec 0%, #ede8dc 100%) !important;
+
+    /* 2. Oberflächen & Karten (Warmes Elfenbein-Papier ohne grelles Reinweiß) */
+    --sidebar-bg: #f6f3eb !important;
+    --card-bg: #faf8f3 !important;
+    --card-bg-hover: #ffffff !important;
+    --card-border: #d8d0c2 !important;
+    --card-border-hover: #0369a1 !important;
+    --border-color: #d8d0c2 !important;
+    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+
+    /* 3. Typografie & Lesekontrast (WCAG AAA, kein hartes Flimmer-Schwarz) */
+    --text-main: #1e242b !important;
+    --text-primary: #1e242b !important;
+    --text-muted: #525b66 !important;
+    --text-secondary: #525b66 !important;
+    --text-dim: #76808d !important;
+
+    /* 4. Klinische Leitfarben (für hellen Hintergrund kontrastoptimiert) */
+    --accent-blue: #0369a1 !important;
+    --accent-cyan: #0284c7 !important;
+    --accent-indigo: #4338ca !important;
+
+    /* 5. Semantische Statusfarben (Satt & druckähnlich statt grell-pastellig) */
+    --color-risk: #b91c1c !important;
+    --color-lab: #6d28d9 !important;
+    --color-symptom: #047857 !important;
+    --color-treatment: #0369a1 !important;
+    --warning: #b45309 !important;
+    --error: #b91c1c !important;
+
+    --shadow-sm: 0 2px 5px rgba(30, 36, 43, 0.05) !important;
+    --shadow-md: 0 8px 20px -4px rgba(30, 36, 43, 0.07) !important;
+    --shadow-glow: 0 0 16px rgba(3, 105, 161, 0.14) !important;
+}
+
+/* Custom Scrollbar im Daylight-Modus */
+[data-theme="daylight"] ::-webkit-scrollbar-track { background: #eae4d7; }
+[data-theme="daylight"] ::-webkit-scrollbar-thumb { background: #c5bcad; }
+[data-theme="daylight"] ::-webkit-scrollbar-thumb:hover { background: #0369a1; }
+
+/* A. GLOBALE LAYOUT-CONTAINER, SIDEBAR & TOPBAR */
+[data-theme="daylight"] body,
+[data-theme="daylight"] .main-wrapper {
+    background-color: var(--bg-color) !important;
+    background-image: var(--bg-gradient) !important;
+    color: var(--text-main) !important;
+}
+
+[data-theme="daylight"] sidebar {
+    background: #f6f3eb !important;
+    border-right: 1px solid #d8d0c2 !important;
+    box-shadow: 4px 0 20px rgba(30, 36, 43, 0.05) !important;
+}
+
+[data-theme="daylight"] .brand { color: #1e242b !important; }
+[data-theme="daylight"] .brand-icon-wrap {
+    background: linear-gradient(135deg, rgba(3, 105, 161, 0.14), rgba(67, 56, 202, 0.16)) !important;
+    border-color: rgba(3, 105, 161, 0.35) !important;
+    color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .nav-item { color: #4b545f !important; }
+[data-theme="daylight"] .nav-item:hover {
+    background: #ebe5d9 !important;
+    color: #1e242b !important;
+    border-color: #d8d0c2 !important;
+}
+[data-theme="daylight"] .nav-item.active {
+    background: linear-gradient(90deg, rgba(3, 105, 161, 0.14), rgba(67, 56, 202, 0.08)) !important;
+    color: #0369a1 !important;
+    border-color: rgba(3, 105, 161, 0.4) !important;
+    font-weight: 700 !important;
+}
+[data-theme="daylight"] .nav-item.active span { color: #0369a1 !important; }
+
+[data-theme="daylight"] .sidebar-footer {
+    background: #efeae0 !important;
+    border-color: #d8d0c2 !important;
+    color: #3e4650 !important;
+}
+
+[data-theme="daylight"] .resizer-handle-pill {
+    background: #ebe5d9 !important;
+    border-color: #cfc6b6 !important;
+    color: #525b66 !important;
+}
+[data-theme="daylight"] .sidebar-resizer:hover .resizer-handle-pill {
+    background: #0369a1 !important;
+    color: #ffffff !important;
+}
+
+[data-theme="daylight"] topbar {
+    background: rgba(250, 248, 243, 0.92) !important;
+    border-bottom: 1px solid #d8d0c2 !important;
+    box-shadow: 0 2px 10px rgba(30, 36, 43, 0.04) !important;
+}
+
+[data-theme="daylight"] .topbar-engine-tag {
+    background: #e6f1f8 !important;
+    border-color: #b6d8ee !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .topbar-engine-tag span { color: #0369a1 !important; }
+
+[data-theme="daylight"] .hud-stat {
+    background: #f0ebe0 !important;
+    border-color: #d8d0c2 !important;
+    color: #525b66 !important;
+}
+[data-theme="daylight"] .hud-stat strong { color: #1e242b !important; }
+[data-theme="daylight"] .hud-stat.rank-stat strong { color: #4338ca !important; }
+[data-theme="daylight"] .hud-stat.xp-stat strong { color: #0369a1 !important; }
+
+[data-theme="daylight"] .score-popup.positive { background: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
+[data-theme="daylight"] .score-popup.negative { background: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
+
+/* Skills-Balken in der Sidebar */
+[data-theme="daylight"] #skills-sidebar-container div[style*="background:rgba(6,9,19"] {
+    background: #e2dbce !important;
+}
+
+/* B. BOOKSHELF & ORDNER-BAUM */
+[data-theme="daylight"] .bookshelf-super-group {
+    background: #f2ede2 !important;
+    border: 1px solid #d8d0c2 !important;
+}
+[data-theme="daylight"] .bookshelf-super-header {
+    background: #eae4d7 !important;
+    border-bottom: 1px solid #d8d0c2 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .bookshelf-super-header:hover { background: #e2dbce !important; }
+[data-theme="daylight"] .bookshelf-super-title { color: #1e242b !important; }
+[data-theme="daylight"] .bookshelf-super-badge,
+[data-theme="daylight"] .folder-badge-mini {
+    background: #ddebf5 !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .bookshelf-super-body {
+    background: #f6f3eb !important;
+    border-left-color: rgba(3, 105, 161, 0.35) !important;
+}
+[data-theme="daylight"] .folder-group {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+}
+[data-theme="daylight"] .folder-header {
+    background: #f5f1e8 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .folder-header:hover { background: #ece6d9 !important; }
+[data-theme="daylight"] .folder-title-text { color: #1e242b !important; }
+[data-theme="daylight"] .folder-action-btn { color: #525b66 !important; opacity: 0.75; }
+[data-theme="daylight"] .folder-action-btn:hover { color: #0369a1 !important; opacity: 1; }
+[data-theme="daylight"] .folder-cases-list {
+    background: #f0ebe0 !important;
+    border-top: 1px solid #e0d8c8 !important;
+}
+[data-theme="daylight"] .folder-case-item {
+    background: #faf8f3 !important;
+    border: 1px solid #dbd3c5 !important;
+    color: #2c343e !important;
+}
+[data-theme="daylight"] .folder-case-item:hover {
+    background: #e3f0fa !important;
+    border-color: #0369a1 !important;
+    color: #0369a1 !important;
+}
+
+/* C. DASHBOARD, TOOLBAR, SUPER-FOLDERS, FALLKARTEN & INLINE-STYLES */
+[data-theme="daylight"] .panel {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #1e242b !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="daylight"] .dashboard-folder-toolbar {
+    background: #f2ede2 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #2c343e !important;
+}
+[data-theme="daylight"] .dashboard-folder-toolbar button {
+    background: #faf8f3 !important;
+    color: #0369a1 !important;
+    border: 1px solid #b6d8ee !important;
+}
+[data-theme="daylight"] .dashboard-folder-toolbar button:hover {
+    background: #e3f0fa !important;
+}
+
+[data-theme="daylight"] .super-folder {
+    background: #f3efe6 !important;
+    border: 1px solid #d4cbb9 !important;
+    box-shadow: 0 4px 14px rgba(30, 36, 43, 0.04) !important;
+}
+[data-theme="daylight"] .super-folder-header {
+    background: linear-gradient(90deg, #eae4d7, #f2ede2) !important;
+    border-bottom: 1px solid #d8d0c2 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .super-folder-header:hover {
+    background: linear-gradient(90deg, #e3dccf, #ece6d9) !important;
+}
+[data-theme="daylight"] .super-folder-title,
+[data-theme="daylight"] .super-folder-title span {
+    color: #1e242b !important;
+}
+
+[data-theme="daylight"] .category-folder {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+}
+[data-theme="daylight"] .category-header {
+    background: #f4efe4 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .category-header:hover { background: #ebe5d8 !important; }
+[data-theme="daylight"] .category-title-wrap,
+[data-theme="daylight"] .category-title-wrap span { color: #1e242b !important; }
+[data-theme="daylight"] .category-badge {
+    background: #ddebf5 !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .category-cases-body {
+    background: #f7f4ec !important;
+    border-top-color: #e2dacb !important;
+}
+
+[data-theme="daylight"] .case-card,
+[data-theme="daylight"] .specialty-card {
+    background: #faf8f3 !important;
+    border: 1px solid #d5ccb9 !important;
+    color: #1e242b !important;
+    box-shadow: 0 2px 6px rgba(30, 36, 43, 0.05) !important;
+}
+[data-theme="daylight"] .case-card:hover,
+[data-theme="daylight"] .specialty-card:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 10px 22px -6px rgba(3, 105, 161, 0.16) !important;
+}
+[data-theme="daylight"] .case-card h3,
+[data-theme="daylight"] .specialty-card h3 { color: #1e242b !important; }
+[data-theme="daylight"] .specialty-card p { color: #525b66 !important; }
+
+[data-theme="daylight"] .tag {
+    background: #e3f0fa !important;
+    border-color: #b6d8ee !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .cloud-badge.is-cloud {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+    border-color: #7dd3fc !important;
+}
+[data-theme="daylight"] .cloud-badge.is-local {
+    background: #ebe5d9 !important;
+    color: #525b66 !important;
+    border-color: #cfc6b6 !important;
+}
+[data-theme="daylight"] .delete-case-btn {
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+    color: #b91c1c !important;
+}
+[data-theme="daylight"] .delete-case-btn:hover {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+/* Segmented Control */
+[data-theme="daylight"] .segmented-control {
+    background: #e9e3d6 !important;
+    border: 1px solid #d5ccb9 !important;
+}
+[data-theme="daylight"] .segmented-btn {
+    background: transparent !important;
+    color: #525b66 !important;
+}
+[data-theme="daylight"] .segmented-btn:hover { color: #1e242b !important; }
+[data-theme="daylight"] .segmented-btn.active {
+    background: #faf8f3 !important;
+    color: #0369a1 !important;
+    box-shadow: 0 2px 6px rgba(30, 36, 43, 0.08) !important;
+}
+
+/* D. SPACED REPETITION WIDGET & FORTSCHRITTS-DRAWER (RECHTS) */
+[data-theme="daylight"] .sr-dashboard-card {
+    background: #f6f3eb !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #1e242b !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .sr-title,
+[data-theme="daylight"] .sr-flash-info h4,
+[data-theme="daylight"] .sr-organ-name { color: #1e242b !important; }
+[data-theme="daylight"] .sr-flash-info p,
+[data-theme="daylight"] .sr-organ-meta { color: #525b66 !important; }
+[data-theme="daylight"] .sr-due-count { background: #e6dfd1 !important; color: #3e4650 !important; }
+[data-theme="daylight"] .sr-due-count.has-due { background: #fee2e2 !important; color: #991b1b !important; border-color: #f87171 !important; }
+[data-theme="daylight"] .sr-flash-banner {
+    background: linear-gradient(135deg, #fef3c7, #ffedd5) !important;
+    border-color: #f59e0b !important;
+}
+[data-theme="daylight"] .sr-flash-banner.is-clear {
+    background: #ecfdf5 !important;
+    border-color: #6ee7b7 !important;
+}
+[data-theme="daylight"] .sr-module-tag,
+[data-theme="daylight"] .sr-ef-tag {
+    background: rgba(30, 36, 43, 0.08) !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .sr-organ-tile {
+    background: #faf8f3 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .sr-organ-tile.status-critical { border-left: 4px solid #dc2626 !important; background: #fff8f8 !important; }
+[data-theme="daylight"] .sr-organ-tile.status-learning { border-left: 4px solid #d97706 !important; background: #fffdf5 !important; }
+[data-theme="daylight"] .sr-organ-tile.status-mastered { border-left: 4px solid #059669 !important; background: #f4fdf9 !important; }
+[data-theme="daylight"] .sr-mastery-bar { background: #e2dbce !important; }
+
+/* Progress Drawer rechts (vorher komplett schwarz!) */
+[data-theme="daylight"] .progress-drawer-handle {
+    background: #faf8f3 !important;
+    border-color: #cfc6b6 !important;
+    color: #0369a1 !important;
+    box-shadow: -4px 4px 14px rgba(30, 36, 43, 0.08) !important;
+}
+[data-theme="daylight"] .progress-drawer-handle:hover {
+    background: #e3f0fa !important;
+    color: #0284c7 !important;
+}
+[data-theme="daylight"] .progress-drawer-body {
+    background: #faf8f3 !important;
+    border-color: #cfc6b6 !important;
+    color: #1e242b !important;
+    box-shadow: -8px 8px 28px rgba(30, 36, 43, 0.12) !important;
+}
+[data-theme="daylight"] .progress-drawer-header,
+[data-theme="daylight"] .progress-drawer-legend {
+    border-color: #e2dacb !important;
+    color: #525b66 !important;
+}
+[data-theme="daylight"] .drawer-close-btn { color: #525b66 !important; }
+[data-theme="daylight"] .drawer-close-btn:hover { background: #ebe5d9 !important; color: #1e242b !important; }
+[data-theme="daylight"] .subject-item {
+    background: #f2ede2 !important;
+    border: 1px solid #d8d0c2 !important;
+}
+[data-theme="daylight"] .subject-item:hover {
+    background: #ebe4d6 !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .subject-item-name { color: #1e242b !important; }
+[data-theme="daylight"] .subject-item-stats { color: #3e4650 !important; }
+[data-theme="daylight"] .subject-bar-track { background: #dfd8c8 !important; }
+
+/* E. BUTTONS & NAVIGATION (KEINE SCHWARZEN ODER KONTRASTFREIEN BUTTONS MEHR!) */
+[data-theme="daylight"] .action-btn,
+[data-theme="daylight"] .btn,
+[data-theme="daylight"] .pharma-btn-primary,
+[data-theme="daylight"] #doctordle-submit-btn {
+    background: linear-gradient(135deg, #0369a1, #075985) !important;
+    color: #ffffff !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: 0 3px 10px rgba(3, 105, 161, 0.22) !important;
+}
+/* Garantiert weiße Schrift auch auf verschachtelten Spans in Primärbuttons */
+[data-theme="daylight"] .action-btn *,
+[data-theme="daylight"] .btn:not(.btn-secondary):not(.btn-outline) *,
+[data-theme="daylight"] .depot-popover-btn * {
+    color: #ffffff !important;
+}
+[data-theme="daylight"] .action-btn:hover,
+[data-theme="daylight"] .btn:hover {
+    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+    box-shadow: 0 5px 14px rgba(3, 105, 161, 0.3) !important;
+}
+
+[data-theme="daylight"] .action-btn.secondary,
+[data-theme="daylight"] .btn-secondary,
+[data-theme="daylight"] .pharma-btn-secondary {
+    background: #efeae0 !important;
+    color: #2c343e !important;
+    border: 1px solid #cfc6b6 !important;
+    box-shadow: none !important;
+}
+[data-theme="daylight"] .action-btn.secondary *,
+[data-theme="daylight"] .btn-secondary *,
+[data-theme="daylight"] .pharma-btn-secondary * {
+    color: #2c343e !important;
+}
+[data-theme="daylight"] .action-btn.secondary:hover,
+[data-theme="daylight"] .btn-secondary:hover,
+[data-theme="daylight"] .pharma-btn-secondary:hover {
+    background: #e4ddd0 !important;
+    color: #1e242b !important;
+    border-color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .btn-outline,
+[data-theme="daylight"] .back-btn {
+    background: #f2ede2 !important;
+    border: 1px solid #0369a1 !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .btn-outline *,
+[data-theme="daylight"] .back-btn * {
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .btn-outline:hover,
+[data-theme="daylight"] .back-btn:hover {
+    background: #0369a1 !important;
+    color: #ffffff !important;
+}
+[data-theme="daylight"] .btn-outline:hover *,
+[data-theme="daylight"] .back-btn:hover * {
+    color: #ffffff !important;
+}
+
+/* Challenge Navigation Bar & Mobile Picker */
+[data-theme="daylight"] .challenge-nav-bar {
+    background: #eae4d7 !important;
+    border: 1px solid #d5ccb9 !important;
+    box-shadow: inset 0 1px 3px rgba(30, 36, 43, 0.05) !important;
+}
+[data-theme="daylight"] .challenge-tab-btn {
+    background: #f4efe4 !important;
+    border: 1px solid #d8d0c2 !important;
+    color: #4b545f !important;
+}
+[data-theme="daylight"] .challenge-tab-btn:hover {
+    background: #ffffff !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .challenge-tab-btn.active {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+    color: #0369a1 !important;
+    box-shadow: 0 2px 8px rgba(3, 105, 161, 0.14) !important;
+}
+[data-theme="daylight"] .challenge-tab-btn .tab-badge {
+    background: #e2dbce !important;
+    color: #4b545f !important;
+}
+[data-theme="daylight"] .challenge-tab-btn.active .tab-badge {
+    background: #ddebf5 !important;
+    color: #0369a1 !important;
+}
+
+/* Mobile Challenge Picker & Landscape FAB */
+[data-theme="daylight"] .mc-mobile-picker-inner {
+    background: #f4efe4 !important;
+    border-color: #0369a1 !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .mc-mobile-picker-select {
+    background: #faf8f3 !important;
+    color: #1e242b !important;
+    border-color: #cfc6b6 !important;
+}
+[data-theme="daylight"] .landscape-fab-menu {
+    background: #faf8f3 !important;
+    border-color: #0369a1 !important;
+    box-shadow: 0 10px 30px rgba(30, 36, 43, 0.18) !important;
+}
+[data-theme="daylight"] .landscape-fab-menu button {
+    background: #f2ede2 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .landscape-fab-menu button.active {
+    background: #ddebf5 !important;
+    color: #0369a1 !important;
+    border-color: #0369a1 !important;
+}
+
+/* F. CORNELL NOTES & ÜBERSICHT */
+[data-theme="daylight"] .cornell-wrapper {
+    background: #faf8f3 !important;
+    border: 1px solid #d5ccb9 !important;
+    box-shadow: 0 4px 16px rgba(30, 36, 43, 0.05) !important;
+}
+[data-theme="daylight"] .cornell-header {
+    background: linear-gradient(90deg, #eae4d7, #f3efe6) !important;
+    border-bottom: 2px solid #0369a1 !important;
+}
+[data-theme="daylight"] .cornell-header h2 { color: #1e242b !important; }
+[data-theme="daylight"] .cornell-row-item { border-bottom-color: #e6dfd1 !important; }
+[data-theme="daylight"] .cornell-row-item:hover { background: rgba(3, 105, 161, 0.03) !important; }
+[data-theme="daylight"] .cornell-cue-col {
+    background: #f3efe6 !important;
+    border-right: 1px solid #d8d0c2 !important;
+}
+[data-theme="daylight"] .cornell-cue-item {
+    background: #e8e1d3 !important;
+    border: 1px solid #d0c7b6 !important;
+    border-left: 3px solid #0369a1 !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .cornell-cue-item:hover,
+[data-theme="daylight"] .cornell-cue-item.cue-active-highlight {
+    background: #0369a1 !important;
+    color: #ffffff !important;
+}
+[data-theme="daylight"] .cornell-note-col,
+[data-theme="daylight"] .cornell-fragment,
+[data-theme="daylight"] .cornell-fragment p,
+[data-theme="daylight"] .cornell-fragment li {
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .cornell-fragment b,
+[data-theme="daylight"] .cornell-fragment strong {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+[data-theme="daylight"] .cornell-fragment strong:first-child { color: #0369a1 !important; }
+[data-theme="daylight"] .cornell-fragment.highlight-target {
+    background: #e6f2fa !important;
+    border-left-color: #0369a1 !important;
+    color: #0f172a !important;
+}
+[data-theme="daylight"] .cornell-summary {
+    background: #eee8dc !important;
+    border-top: 1px solid #d5ccb9 !important;
+}
+[data-theme="daylight"] .cornell-summary h4 { color: #0369a1 !important; }
+[data-theme="daylight"] .cornell-summary p { color: #1e242b !important; }
+
+/* G. AUDIT & TIMELINE (EDITORIAL PAPER MODE) */
+[data-theme="daylight"] .audit-step-container {
+    background: #faf8f3 !important;
+    border: 1px solid #d5ccb9 !important;
+    box-shadow: 0 3px 12px rgba(30, 36, 43, 0.04) !important;
+}
+[data-theme="daylight"] .audit-step-header,
+[data-theme="daylight"] .audit-step-footer {
+    border-color: #e4ddd0 !important;
+}
+[data-theme="daylight"] .audit-step-kicker { color: #64707d !important; }
+[data-theme="daylight"] .audit-step-title { color: #1e242b !important; }
+[data-theme="daylight"] .step-content,
+[data-theme="daylight"] .step-content.audit-editorial-body {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .audit-paragraph,
+[data-theme="daylight"] .stealth-word,
+[data-theme="daylight"] .stealth-hotspot {
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .stealth-word:hover,
+[data-theme="daylight"] .stealth-hotspot:hover {
+    background-color: rgba(3, 105, 161, 0.12) !important;
+    box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.12) !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .resolved-signal {
+    background-color: #fee2e2 !important;
+    box-shadow: 0 0 0 2px #fee2e2 !important;
+    border-bottom: 2px solid #b91c1c !important;
+    color: #7f1d1d !important;
+}
+[data-theme="daylight"] .resolved-signal.resolved-corrected {
+    background-color: #d1fae5 !important;
+    box-shadow: 0 0 0 2px #d1fae5 !important;
+    border-bottom: 2px solid #047857 !important;
+    color: #064e3b !important;
+}
+[data-theme="daylight"] .resolved-noise {
+    color: #76808d !important;
+    border-bottom-color: #b8b0a2 !important;
+}
+
+/* Feedback-Boxen im Daylight-Modus (dunkle, satte Schrift statt hellem Pastell!) */
+[data-theme="daylight"] .feedback-success {
+    background: #ecfdf5 !important;
+    border: 1px solid #6ee7b7 !important;
+    border-left: 4px solid #047857 !important;
+    color: #064e3b !important;
+}
+[data-theme="daylight"] .feedback-error {
+    background: #fef2f2 !important;
+    border: 1px solid #fca5a5 !important;
+    border-left: 4px solid #b91c1c !important;
+    color: #7f1d1d !important;
+}
+[data-theme="daylight"] .feedback-neutral {
+    background: #fffbeb !important;
+    border: 1px solid #fcd34d !important;
+    border-left: 4px solid #b45309 !important;
+    color: #78350f !important;
+}
+[data-theme="daylight"] .audit-patient-complete-card {
+    background: #f0fdf4 !important;
+    border-color: #10b981 !important;
+    color: #064e3b !important;
+}
+
+/* H. SYNAPSEN-MATRIX (4x4 CONNECTIONS) & INLINE-STYLE OVERRIDES */
+[data-theme="daylight"] .synapses-container {
+    background: #f6f3eb !important;
+    border: 1px solid #d5ccb9 !important;
+}
+[data-theme="daylight"] .synapses-legend {
+    background: #ece6d9 !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .synapse-tile-modern {
+    background: #faf8f3 !important;
+    border: 1px solid #cfc6b6 !important;
+    box-shadow: 0 2px 5px rgba(30, 36, 43, 0.05) !important;
+}
+[data-theme="daylight"] .synapse-tile-modern .syn-tile-text {
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .synapse-tile-modern:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .synapse-tile-modern.category-risk { background: #fff5f5 !important; border-color: #fca5a5 !important; }
+[data-theme="daylight"] .synapse-tile-modern.category-lab { background: #faf5ff !important; border-color: #d8b4fe !important; }
+[data-theme="daylight"] .synapse-tile-modern.category-symptom { background: #f0fdf4 !important; border-color: #86efac !important; }
+[data-theme="daylight"] .synapse-tile-modern.category-treatment { background: #f0f9ff !important; border-color: #93c5fd !important; }
+
+[data-theme="daylight"] .synapse-tile-modern.selected {
+    background: #ddebf5 !important;
+    border: 2px solid #0369a1 !important;
+    box-shadow: 0 0 12px rgba(3, 105, 161, 0.25) !important;
+}
+[data-theme="daylight"] .synapse-solved-card {
+    background: #ecfdf5 !important;
+    border: 1px solid #34d399 !important;
+    color: #064e3b !important;
+}
+[data-theme="daylight"] .synapse-solved-card div,
+[data-theme="daylight"] .synapse-solved-card p,
+[data-theme="daylight"] .synapse-solved-card strong {
+    color: #064e3b !important;
+}
+
+/* I. CLINICAL CASCADES, TAXONOMIE & MASTER-QUIZ */
+[data-theme="daylight"] .cascade-disease-container,
+[data-theme="daylight"] #mode-container-cascade > div,
+[data-theme="daylight"] #mode-container-cat > div {
+    background: #f6f3eb !important;
+    border: 1px solid #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .disease-title {
+    color: #0369a1 !important;
+    border-bottom-color: #d8d0c2 !important;
+}
+[data-theme="daylight"] .drag-bank {
+    background: #ece6d9 !important;
+    border: 1px dashed #b8b0a2 !important;
+}
+[data-theme="daylight"] .drag-item {
+    background: #faf8f3 !important;
+    border: 1px solid #c8bfb0 !important;
+    color: #1e242b !important;
+    box-shadow: 0 2px 4px rgba(30, 36, 43, 0.05) !important;
+}
+[data-theme="daylight"] .drag-item:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .drop-zone {
+    background: #f2ede2 !important;
+    border: 2px dashed #c5bcad !important;
+}
+[data-theme="daylight"] .drop-zone .drag-item {
+    background: #ffffff !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .drop-zone.correct .drag-item {
+    background: #d1fae5 !important;
+    border-color: #059669 !important;
+    color: #064e3b !important;
+}
+
+/* Master-Quiz */
+[data-theme="daylight"] .quiz-card {
+    background: #f6f3eb !important;
+    border: 1px solid #d5ccb9 !important;
+}
+[data-theme="daylight"] .quiz-question-text { color: #1e242b !important; }
+[data-theme="daylight"] .quiz-opt-btn {
+    background: #faf8f3 !important;
+    border: 1px solid #cfc6b6 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .quiz-opt-btn:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .quiz-opt-btn.selected {
+    background: #ddebf5 !important;
+    border-color: #0369a1 !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .quiz-opt-btn.correct-highlight {
+    background: #d1fae5 !important;
+    border-color: #059669 !important;
+    color: #064e3b !important;
+}
+[data-theme="daylight"] .quiz-opt-btn.correct-highlight * { color: #064e3b !important; }
+[data-theme="daylight"] .quiz-opt-btn.wrong-highlight {
+    background: #fee2e2 !important;
+    border-color: #dc2626 !important;
+    color: #7f1d1d !important;
+}
+[data-theme="daylight"] .quiz-opt-btn.wrong-highlight * { color: #7f1d1d !important; }
+[data-theme="daylight"] .quiz-explanation-box {
+    background: #eee8dc !important;
+    border-left: 4px solid #0369a1 !important;
+    color: #2c343e !important;
+}
+
+/* J. DOCTORDLE & 3D FLASHCARDS (INKL. INLINE-STYLE OVERRIDES AUS DOCTORDLE.JS) */
+[data-theme="daylight"] #doctordle-container div[style*="background:rgba(15, 23, 42"],
+[data-theme="daylight"] #doctordle-container div[style*="background: rgba(15, 23, 42"] {
+    background: #f2ede2 !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] #doctordle-hints-area > div {
+    background: #faf8f3 !important;
+    border: 1px solid #d5ccb9 !important;
+    border-left: 4px solid #0369a1 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] #doctordle-input {
+    background: #faf8f3 !important;
+    color: #1e242b !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: inset 0 1px 3px rgba(30, 36, 43, 0.06) !important;
+}
+[data-theme="daylight"] #doctordle-reveal-btn {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    border: 1px solid #fca5a5 !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list {
+    background: #faf8f3 !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: 0 10px 25px rgba(30, 36, 43, 0.12) !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list li {
+    color: #1e242b !important;
+    border-bottom: 1px solid #ebe5d9 !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
+    background: #ddebf5 !important;
+    color: #0369a1 !important;
+}
+
+/* 3D Flashcards im Daylight-Modus (vorher dunkelblau!) */
+[data-theme="daylight"] .fc-progress-bar { background: #e2dbce !important; }
+[data-theme="daylight"] .fc-face {
+    background: #faf8f3 !important;
+    border: 1px solid #cfc6b6 !important;
+    color: #1e242b !important;
+    box-shadow: 0 10px 24px -8px rgba(30, 36, 43, 0.1) !important;
+}
+[data-theme="daylight"] .fc-back {
+    background: linear-gradient(160deg, #faf8f3, #ecfdf5) !important;
+    border-color: #34d399 !important;
+}
+[data-theme="daylight"] .fc-main-text,
+[data-theme="daylight"] .fc-answer-text {
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .fc-mnemonic-box {
+    background: #eee8dc !important;
+    color: #3e4650 !important;
+    border-left-color: #0369a1 !important;
+}
+[data-theme="daylight"] .fc-depot-pin-btn {
+    background: #e3f0fa !important;
+    border-color: #93c5fd !important;
+    color: #0369a1 !important;
+}
+[data-theme="daylight"] .fc-rate-btn {
+    background: #f4efe4 !important;
+    border: 1px solid #cfc6b6 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .fc-rate-btn.rate-again:hover { background: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
+[data-theme="daylight"] .fc-rate-btn.rate-hard:hover  { background: #fef3c7 !important; border-color: #f59e0b !important; color: #92400e !important; }
+[data-theme="daylight"] .fc-rate-btn.rate-good:hover  { background: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
+
+/* K. PHARMAKOLOGIE HUB, KOMPASS & MATRIX (VORHER SCHWARZ!) */
+[data-theme="daylight"] .pharma-wrapper { color: #1e242b !important; }
+[data-theme="daylight"] .pharma-mode-card,
+[data-theme="daylight"] .pharma-set-card,
+[data-theme="daylight"] .pharma-import-box {
+    background: #faf8f3 !important;
+    border: 1px solid #d5ccb9 !important;
+    color: #1e242b !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .pharma-mode-card.active-mode {
+    background: linear-gradient(145deg, #faf8f3, #e6f2fa) !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .pharma-mode-icon { background: #eae4d7 !important; }
+[data-theme="daylight"] .pharma-mode-tag { background: #d1fae5 !important; color: #065f46 !important; }
+[data-theme="daylight"] .pharma-field-pill { background: #e0e7ff !important; color: #3730a3 !important; }
+
+[data-theme="daylight"] .stat-pill {
+    background: #f2ede2 !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .compass-center-patient {
+    background: linear-gradient(145deg, #faf8f3, #f0ebe0) !important;
+    border: 2px solid #0369a1 !important;
+    color: #1e242b !important;
+    box-shadow: 0 8px 24px rgba(30, 36, 43, 0.08) !important;
+}
+[data-theme="daylight"] .patient-context-text,
+[data-theme="daylight"] .patient-question-prompt {
+    color: #1e242b !important;
+    border-top-color: #d8d0c2 !important;
+}
+[data-theme="daylight"] .compass-card {
+    background: #faf8f3 !important;
+    border: 2px solid #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .compass-card:hover {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .compass-card.card-correct {
+    background: #ecfdf5 !important;
+    border-color: #059669 !important;
+    color: #064e3b !important;
+}
+[data-theme="daylight"] .compass-card.card-wrong {
+    background: #fef2f2 !important;
+    border-color: #dc2626 !important;
+    color: #7f1d1d !important;
+}
+[data-theme="daylight"] .compass-resolution-panel {
+    background: #f2ede2 !important;
+    border-color: #0369a1 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .pharma-bank-section {
+    background: #f2ede2 !important;
+    border-color: #0369a1 !important;
+}
+[data-theme="daylight"] .pharma-matrix-card {
+    background: #faf8f3 !important;
+    border: 1px solid #cfc6b6 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .pharma-category-column {
+    background: #f6f3eb !important;
+    border: 1px solid #d5ccb9 !important;
+}
+[data-theme="daylight"] .pharma-cat-header {
+    color: #0369a1 !important;
+    border-bottom-color: #d8d0c2 !important;
+}
+
+/* L. LERN-DEPOT, FORGE, CREATOR HUB & AUTH INPUTS */
+[data-theme="daylight"] .depot-card,
+[data-theme="daylight"] .depot-stat-pill,
+[data-theme="daylight"] .depot-quick-add {
+    background: #f6f3eb !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .depot-quote-text {
+    background: #faf8f3 !important;
+    border-color: #dfd8c8 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .depot-toggle-btn {
+    background: #d1fae5 !important;
+    border-color: #34d399 !important;
+    color: #065f46 !important;
+}
+[data-theme="daylight"] .depot-quiz-arena {
+    background: #f6f3eb !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: var(--shadow-md) !important;
+}
+[data-theme="daylight"] .depot-q-card {
+    background: #faf8f3 !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .depot-q-feedback {
+    background: #eee8dc !important;
+    color: #1e242b !important;
+}
+
+/* Forge, Creator-Hub & Formularfelder */
+[data-theme="daylight"] .forge-generator-controls,
+[data-theme="daylight"] .creator-upload-card {
+    background: #f2ede2 !important;
+    border: 1px solid #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .creator-upload-card .drop-zone {
+    background: #faf8f3 !important;
+    border: 2px dashed #b8b0a2 !important;
+    color: #2c343e !important;
+}
+[data-theme="daylight"] .creator-upload-card .drop-zone-text { color: #2c343e !important; }
+[data-theme="daylight"] .upload-status-item {
+    background: #faf8f3 !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
+}
+[data-theme="daylight"] .upload-status-item.success { background: #ecfdf5 !important; border-color: #10b981 !important; color: #065f46 !important; }
+[data-theme="daylight"] .upload-status-item.error   { background: #fef2f2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
+
+[data-theme="daylight"] .forge-textarea,
+[data-theme="daylight"] .forge-topic-input,
+[data-theme="daylight"] .pharma-textarea,
+[data-theme="daylight"] .depot-select,
+[data-theme="daylight"] .depot-search-input,
+[data-theme="daylight"] .auth-panel input,
+[data-theme="daylight"] input[type="text"],
+[data-theme="daylight"] input[type="email"],
+[data-theme="daylight"] input[type="password"],
+[data-theme="daylight"] select,
+[data-theme="daylight"] textarea {
+    background: #faf8f3 !important;
+    border: 1px solid #cfc6b6 !important;
+    color: #1e242b !important;
+}
+
+[data-theme="daylight"] kbd {
+    background: #eae4d7 !important;
+    border: 1px solid #c5bcad !important;
+    color: #1e242b !important;
+}
+
+[data-theme="daylight"] .theme-card {
+    background: #f6f3eb !important;
+    border-color: #d5ccb9 !important;
+}
+[data-theme="daylight"] .theme-card.active {
+    background: #ffffff !important;
+    border-color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .specialty-sticky-bar,
+[data-theme="daylight"] .reveal-card,
+[data-theme="daylight"] .modal-card,
+[data-theme="daylight"] .tutor-popup,
+[data-theme="daylight"] .diag-section {
+    background: #faf8f3 !important;
+    border-color: #d5ccb9 !important;
+    color: #1e242b !important;
 }
