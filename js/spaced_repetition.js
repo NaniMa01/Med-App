@@ -396,10 +396,28 @@ const SpacedRepetitionEngine = {
         this.renderDashboardWidget('sr-dashboard-widget', this.activeFilter);
     },
 
-    startReviewCase(caseId) {
+  startReviewCase(caseId, startMode = 'audit') {
         this.closeModal();
+
+        // Sicherheits-Reset direkt vor dem Laden aufrufen
+        if (window.ProgressManager && typeof window.ProgressManager.resetCaseChallengesForReview === 'function') {
+            window.ProgressManager.resetCaseChallengesForReview(caseId);
+        } else {
+            // Fallback, falls ProgressManager global nicht gebunden war
+            try {
+                const allProg = JSON.parse(localStorage.getItem('medcheck_user_progress_v1') || '{}');
+                delete allProg[caseId];
+                localStorage.setItem('medcheck_user_progress_v1', JSON.stringify(allProg));
+                localStorage.removeItem(`doctordle_state_${caseId}`);
+                if (window.doctordleGame) window.doctordleGame.currentCaseId = null;
+            } catch (e) {}
+        }
+
         if (typeof window.loadCaseById === 'function') {
-            window.loadCaseById(caseId);
+            window.loadCaseById(caseId, {
+                resetForReview: true,
+                startMode: startMode
+            });
         }
     },
 
@@ -407,7 +425,7 @@ const SpacedRepetitionEngine = {
         const { dueCases } = this.getEvaluatedCases(this.activeFilter);
         if (dueCases.length > 0) {
             const firstId = dueCases[0].caseData.case_id || dueCases[0].caseData.id;
-            this.startReviewCase(firstId);
+            this.startReviewCase(firstId, 'audit');
         }
     },
 
