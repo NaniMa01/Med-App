@@ -889,7 +889,7 @@ window.switchPlayerMode = function(mode) {
     if (typeof window.checkFinalCompletion === 'function') {
         window.checkFinalCompletion();
     }
-};
+
 
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
