@@ -162,6 +162,20 @@
                 </div>
 
                 <!-- 3. PLAYER VIEW -->
+
+                <!-- 3. PLAYER VIEW -->
+<div class="panel" id="player-view" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+        <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">
+                Aktiver Fall: <span id="player-case-badge-title">Lädt...</span>
+            </div>
+            <button type="button" class="action-btn secondary btn-sm" onclick="window.resetCurrentCaseEntirely()" title="Alle Challenges dieses Falls für eine Wiederholung zurücksetzen" style="padding: 5px 10px; font-size: 0.75rem;">
+                🔄 Fall neu starten
+            </button>
+        </div>
+    </div>
                 <div class="panel" id="player-view" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
                         <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
