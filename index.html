@@ -177,20 +177,11 @@
 
                     <div class="challenge-nav-bar">
                         <button class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')"><span>🧭 Übersicht</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Audit</span><span class="tab-badge" id="badge-mode-audit">0
-                <div class="panel" id="player-view" style="display: none;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
-                        <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
-                        <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56,189,248,0.1);">Aktiver Fall: <span id="player-case-badge-title">Lädt...</span></div>
-                    </div>
-
-                    <div class="challenge-nav-bar">
-                        <button class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')"><span>🧭 Übersicht</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-audit" onclick="switchPlayerMode('audit')"><span>📋 Audit</span><span class="tab-badge" id="badge-mode-audit">0/0</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display:none;"><span>🧠 Synapsen</span><span class="tab-badge" id="badge-mode-synapses">0/4</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display:none;"><span>🔗 Kaskade</span><span class="tab-badge" id="badge-mode-cascade">0/0</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display:none;"><span>🏷️ Taxonomie</span><span class="tab-badge" id="badge-mode-cat">Offen</span></button>
-                        <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/0</span></button>
+                        <button class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display:none;"><span>🎓 Exam</span><span class="tab-badge" id="badge-mode-quiz">0/5</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-doctordle" onclick="switchPlayerMode('doctordle')" style="display:none;"><span>🔍 Doctordle</span><span class="tab-badge" id="badge-mode-doctordle">0/3</span></button>
                         <button class="challenge-tab-btn" id="tab-btn-flashcards" onclick="switchPlayerMode('flashcards')" style="display:none;"><span>🗂️ Flash Cards</span><span class="tab-badge" id="badge-mode-flashcards">0/0</span></button>
                     </div>
@@ -225,6 +216,7 @@
                     <div class="player-mode-pane" id="mode-container-flashcards" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 6px;"><div class="panel-title" style="margin-bottom: 0;">Fakten-Flashcards (Active Recall)</div><button type="button" class="action-btn secondary btn-sm" onclick="resetCurrentChallenge()">↺ Reset</button></div><div class="panel-subtitle">Atomares Faktenwissen (Bloom Stufe 1) – Leertaste zum Aufdecken, 1 / 2 / 3 zum Bewerten.</div><div id="flashcards-wrapper"></div></div></div>
                 </div>
 
+                
                 <!-- 4. FORGE VIEW -->
                 <div class="panel" id="forge-view" style="display: none;">
                     <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
