@@ -2635,13 +2635,15 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
       - Implizites 3-Schritte-Schema (ohne Labels wie "Das Was"): 1. Kern/Definition, 2. Pathophysiologischer Mechanismus/Warum, 3. Klinische Konsequenz/Nutzen.
 
 ## B. AUDIT & TIMELINE (timeline – 9 Schritte)
-  - Struktur: 9 Schritte in 3 Szenarien (patient_1, patient_2, patient_3 à 3 Schritte). Je 70–160 Wörter realistischer Verlaufsbericht mit Vitalparametern/Befunden.
-  - Format: Reiner Plain-Text in content (kein HTML, keine [...]). Keine Vorab-Validierungs-Flags im JSON.
-  - Hotspots (phrase): Exakter, zeichengenauer Substring aus content (zusammenhängender Satzbaustein, 3–8 Wörter).
-  - Fehler ("is_error": true): In 6–7 der 9 Schritte. Benötigen "socratic_trap" (lenkende Frage ohne Lösung) und "correct_pathophysiology" (evidenzbasierte Korrektur).
-  - Anti-Bias / Signalwort-Verbot im Audit: Vermeide im content und in Fehler-Phrasen absolute Signalwörter („nie“, „niemals“, „immer“, „sofort“, „ausnahmslos“), die Fehler trivial verraten. Formuliere Fehler im plausiblen Facharztduktus (subtile Kontraindikationen, falsche Grenzwerte/Prioritäten).
-  - Distraktoren ("is_error": false): Pro Schritt 3–5 täuschend echte, kontraintuitive, aber leitliniengerechte Maßnahmen mit pathophysiologischer Begründung in "feedback".
-
+- STRUKTUR: 9 Schritte in 3 Patientenszenarien (patient_1, patient_2, patient_3 à 3 Schritte, je 70-160 Wörter).
+- LINGUISTIK-REGEL (KEINE ABSOLUTISMEN): Verwende NIEMALS absolute Signalwörter wie "immer", "nie", "ausschließlich", "stets" oder "beweist". Klinische Fallbeschreibungen müssen nuanciert und realistisch bleiben, um "Test-Wiseness" (das einfache Erraten von Fehlern) zu verhindern.
+- HOTSPOTS ("phrase"): Muss ein exakter Substring aus "content" sein (ca. 4-15 Wörter). ZWINGEND: Wähle ausschließlich logische, klinische Sinneinheiten, die zusammengehören (z. B. "sofortige Gabe von 500 mg Ceftriaxon i.v." oder "Verzicht auf die nativradiologische Bildgebung" – niemals nur isolierte Wörter wie "Ceftriaxon").
+- FEHLER-DESIGN ("is_error": true): In 6-7 Schritten existiert genau EIN subtiler klinischer Fehler im Text, der exakt vom Hotspot abgedeckt wird. Dieser Fehler muss knifflig sein, tiefes pathophysiologisches oder pharmakologisches Wissen erfordern (z. B. übersehene relative Kontraindikationen, falsche Dosierung bei Niereninsuffizienz, subtile Leitlinien-Abweichung). Keine offensichtlichen Anfängerfehler!
+- DISTRAKTOREN ("is_error": false): In den restlichen 2-3 Schritten ist der im Hotspot markierte Text klinisch KORREKT, fungiert aber als starker Distraktor. Er muss wie ein typischer Behandlungsfehler oder eine Falle wirken (z. B. eine paradoxe, aber bei genauem Nachdenken leitliniengerechte Maßnahme), um das Selbstvertrauen und die klinische Synthesefähigkeit auf höchstem Niveau zu testen.
+- FEEDBACK & TRAPS: 
+  -> Bei "is_error": true: Generiere einen "socratic_trap" (einen sokratischen Impuls, der den Studierenden durch gezielte Fragen selbst auf den Denkfehler bringt, statt nur die Lösung zu verraten) sowie die "correct_pathophysiology". 
+  -> Bei "is_error": false: Generiere ein präzises "feedback" mit pathophysiologischer Begründung, warum diese auf den ersten Blick fragwürdige Maßnahme korrekt ist.
+  
 ## C. FLASHCARDS (extra_tasks.flashcards – 8 bis 12 Karten)
   - Konzept: Reines deklaratives Faktenwissen (Bloom-Stufe 1: Grenzwerte, Triaden, Goldstandards, Erstlinienmedikamente, Genetik/Antikörper). Minimum Information Principle: Exakt EIN atomarer Fakt pro Karte (keine Fallgeschichten!).
   - Felder: "id" ("fc_01"...), "category", "difficulty" ("basic", "intermediate", "advanced"), "front" (eindeutige Kurzfrage), "back" (max. 1–2 Sätze oder 3–5 Bullets, < 2 Sek. Lesezeit), "mnemonic_or_context" (Merksatz/Pearl, max. 140 Zeichen).
