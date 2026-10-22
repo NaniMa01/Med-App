@@ -11,7 +11,7 @@ let currentActiveChallenge = 'overview';
 const THEME_STORAGE_KEY = 'medcheck_ui_theme';
 const THEME_META_COLORS = {
     midnight: '#060913',
-    daylight: '#f1f5f9',
+    daylight: '#ffffff',
     scrubs:   '#04110f',
     neuro:    '#090614'
 };
