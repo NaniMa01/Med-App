@@ -179,10 +179,14 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
 - summary: Reiner Plain-Text (2-4 Sätze: Kern/Definition, Mechanismus, klinische Konsequenz).
 
 ## B. AUDIT & TIMELINE (timeline – 9 Schritte)
-- 9 Schritte in 3 Patientenszenarien (patient_1, patient_2, patient_3 à 3 Schritte, je 70-160 Wörter).
-- Hotspots (phrase): Exakter Substring aus content (3-8 Wörter).
-- In 6-7 Schritten subtile Fehler ("is_error": true) mit "socratic_trap" und "correct_pathophysiology".
-- Restliche Hotspots ("is_error": false) mit pathophysiologischer Begründung in "feedback".
+- STRUKTUR: 9 Schritte in 3 Patientenszenarien (patient_1, patient_2, patient_3 à 3 Schritte, je 70-160 Wörter).
+- LINGUISTIK-REGEL (KEINE ABSOLUTISMEN): Verwende NIEMALS absolute Signalwörter wie "immer", "nie", "ausschließlich", "stets" oder "beweist". Klinische Fallbeschreibungen müssen nuanciert und realistisch bleiben, um "Test-Wiseness" (das einfache Erraten von Fehlern) zu verhindern.
+- HOTSPOTS ("phrase"): Muss ein exakter Substring aus "content" sein (ca. 4-15 Wörter). ZWINGEND: Wähle ausschließlich logische, klinische Sinneinheiten, die zusammengehören (z. B. "sofortige Gabe von 500 mg Ceftriaxon i.v." oder "Verzicht auf die nativradiologische Bildgebung" – niemals nur isolierte Wörter wie "Ceftriaxon").
+- FEHLER-DESIGN ("is_error": true): In 6-7 Schritten existiert genau EIN subtiler klinischer Fehler im Text, der exakt vom Hotspot abgedeckt wird. Dieser Fehler muss knifflig sein, tiefes pathophysiologisches oder pharmakologisches Wissen erfordern (z. B. übersehene relative Kontraindikationen, falsche Dosierung bei Niereninsuffizienz, subtile Leitlinien-Abweichung). Keine offensichtlichen Anfängerfehler!
+- DISTRAKTOREN ("is_error": false): In den restlichen 2-3 Schritten ist der im Hotspot markierte Text klinisch KORREKT, fungiert aber als starker Distraktor. Er muss wie ein typischer Behandlungsfehler oder eine Falle wirken (z. B. eine paradoxe, aber bei genauem Nachdenken leitliniengerechte Maßnahme), um das Selbstvertrauen und die klinische Synthesefähigkeit auf höchstem Niveau zu testen.
+- FEEDBACK & TRAPS: 
+  -> Bei "is_error": true: Generiere einen "socratic_trap" (einen sokratischen Impuls, der den Studierenden durch gezielte Fragen selbst auf den Denkfehler bringt, statt nur die Lösung zu verraten) sowie die "correct_pathophysiology". 
+  -> Bei "is_error": false: Generiere ein präzises "feedback" mit pathophysiologischer Begründung, warum diese auf den ersten Blick fragwürdige Maßnahme korrekt ist.
 
 ## C. FLASHCARDS (extra_tasks.flashcards – 8 bis 12 Karten)
 - Reines deklaratives Faktenwissen (Bloom-Stufe 1). Atomarer Fakt pro Karte.
