@@ -1,380 +1,447 @@
-/**
- * @file js/spaced_repetition.js
- * @description SM-2 Spaced Repetition Engine mit Überordner-Fokussierung & bereinigtem Case-Launcher
- */
+// ============================================================================
+// SPACED REPETITION ENGINE V6.0 (Compact Preview + Interactive Modal)
+// ============================================================================
 
-export class SpacedRepetitionEngine {
-    static getSupabaseClient() {
-        if (window.supabaseClient) return window.supabaseClient;
-        if (window.sb) return window.sb;
-        if (window.supabase && typeof window.supabase.from === 'function') return window.supabase;
-        return null;
-    }
+const SR_STORAGE_KEY = 'medcheck_sr_schedule_v1';
+// Standard-Intervalle in Tagen nach Leitner/SM-2-Logik (Stufe 0 bis 5)
+const SR_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60];
 
-    static async getCurrentUserId() {
-        const supabase = this.getSupabaseClient();
-        if (!supabase) return null;
+const SpacedRepetitionEngine = {
+    activeFilter: 'ALL',
+    isModalOpen: false,
+
+    // 1. SR-Daten aus LocalStorage laden
+    getScheduleData() {
         try {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            if (error) throw error;
-            return session?.user?.id || null;
-        } catch (err) {
-            console.error('[SpacedRepetition] Session-Fehler:', err.message);
-            return null;
+            return JSON.parse(localStorage.getItem(SR_STORAGE_KEY) || '{}');
+        } catch (e) {
+            console.error('Fehler beim Lesen des SR-Speichers:', e);
+            return {};
         }
-    }
+    },
 
-    static calculateSM2(quality, prevRepetitions = 0, prevEaseFactor = 2.50, prevInterval = 0) {
-        const q = Math.max(0, Math.min(5, Math.round(quality)));
-        let repetition_number = Number(prevRepetitions) || 0;
-        let ease_factor = Number(prevEaseFactor) || 2.50;
-        let interval_days = Number(prevInterval) || 0;
-
-        if (q < 3) {
-            repetition_number = 0;
-            interval_days = 1;
-        } else {
-            if (repetition_number === 0) {
-                interval_days = 1;
-            } else if (repetition_number === 1) {
-                interval_days = 6;
-            } else {
-                interval_days = Math.round(interval_days * ease_factor);
-            }
-            repetition_number += 1;
-        }
-
-        const qDiff = 5 - q;
-        const rawEf = ease_factor + (0.1 - qDiff * (0.08 + qDiff * 0.02));
-        ease_factor = Math.max(1.30, Number(rawEf.toFixed(2)));
-
-        const now = new Date();
-        const nextReview = new Date(now.getTime() + interval_days * 24 * 60 * 60 * 1000);
-
-        return {
-            repetition_number,
-            ease_factor,
-            interval_days,
-            last_quality: q,
-            last_reviewed_at: now.toISOString(),
-            next_review_at: nextReview.toISOString()
-        };
-    }
-
-    static deriveQualityFromMetrics(moduleType, metrics = {}) {
-        if (typeof metrics.quality === 'number') return metrics.quality;
-
-        if (moduleType === 'doctordle') {
-            const attempts = metrics.attempts ?? 6;
-            if (!metrics.won) return 1;
-            if (attempts === 1) return 5;
-            if (attempts === 2) return 4;
-            if (attempts <= 4) return 3;
-            return 2;
-        }
-
-        if (moduleType === 'synapses') {
-            const mistakes = metrics.mistakes ?? 0;
-            if (mistakes === 0) return 5;
-            if (mistakes === 1) return 4;
-            if (mistakes === 2) return 3;
-            return 1;
-        }
-
-        const pct = metrics.scorePercent ?? 0;
-        if (pct >= 90) return 5;
-        if (pct >= 75) return 4;
-        if (pct >= 60) return 3;
-        if (pct >= 40) return 2;
-        if (pct > 0) return 1;
-        return 0;
-    }
-
-    /**
-     * Ermittelt den exakten Überordner eines Falls aus den App-Daten
-     */
-    static resolveFolderForCase(caseId) {
-        if (typeof window.getRegisteredCases === 'function') {
-            const c = window.getRegisteredCases().find(x => x.case_id === caseId);
-            if (c) {
-                return (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-            }
-        }
-        return 'Allgemein';
-    }
-
-    /**
-     * Zerlegt zusammengesetzte IDs (z.B. MYELON_MASTER_001_USB_doctordle_0) wieder in die echte Case-ID
-     */
-    static extractPureCaseId(itemId) {
-        if (!itemId) return '';
-        return itemId
-            .replace(/_doctordle_\d+$/i, '')
-            .replace(/_doctordle$/i, '')
-            .replace(/_quiz$/i, '')
-            .replace(/_synapses$/i, '')
-            .replace(/_cascade$/i, '')
-            .replace(/_audit$/i, '');
-    }
-
-    static async recordReview({ itemId, moduleType, quality, medicalField = null }) {
-        const supabase = this.getSupabaseClient();
-        const userId = await this.getCurrentUserId();
-
-        if (!supabase || !userId || !itemId || !moduleType) return null;
-
-        const pureCaseId = this.extractPureCaseId(itemId);
-        const folder = medicalField || this.resolveFolderForCase(pureCaseId);
-
+    // 2. SR-Daten speichern
+    saveScheduleData(data) {
         try {
-            const { data: existing } = await supabase
-                .from('user_spaced_repetition')
-                .select('repetition_number, ease_factor, interval_days')
-                .eq('user_id', userId)
-                .eq('item_id', itemId)
-                .eq('module_type', moduleType)
-                .maybeSingle();
-
-            const sm2 = this.calculateSM2(
-                quality,
-                existing?.repetition_number ?? 0,
-                existing?.ease_factor ?? 2.50,
-                existing?.interval_days ?? 0
-            );
-
-            const payload = {
-                user_id: userId,
-                item_id: itemId,
-                module_type: moduleType,
-                medical_field: folder,
-                ...sm2
-            };
-
-            const { data, error } = await supabase
-                .from('user_spaced_repetition')
-                .upsert(payload, { onConflict: 'user_id,item_id,module_type' })
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            window.dispatchEvent(new CustomEvent('sr:updated'));
-            return data;
-        } catch (err) {
-            console.error('[SpacedRepetition] Fehler beim Speichern:', err.message);
-            return null;
+            localStorage.setItem(SR_STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.error('Fehler beim Speichern des SR-Speichers:', e);
         }
-    }
+    },
 
-    static async getAllUserItems() {
-        const supabase = this.getSupabaseClient();
-        const userId = await this.getCurrentUserId();
-        if (!supabase || !userId) return [];
+    // 3. Synchronisiert gelöste Fälle & Fortschritt mit dem SR-Planer
+    syncCasesWithSchedule() {
+        const schedule = this.getScheduleData();
+        const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        const allProgress = JSON.parse(localStorage.getItem('medcheck_user_progress_v1') || '{}');
+        const allCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
 
-        try {
-            const { data, error } = await supabase
-                .from('user_spaced_repetition')
-                .select('*')
-                .eq('user_id', userId);
-            if (error) throw error;
-            return data || [];
-        } catch (err) {
-            console.error('[SpacedRepetition] Fehler beim Laden:', err.message);
-            return [];
-        }
-    }
+        let changed = false;
+        const now = Date.now();
+        const DAY_MS = 86400000;
 
-    /**
-     * Liest alle dynamischen Überordner aus der App aus
-     */
-    static getKnownFolders() {
-        const folders = new Set();
-        try {
-            const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-            savedOrder.forEach(f => folders.add(f.trim()));
-        } catch (e) {}
+        allCases.forEach(c => {
+            const caseId = c.case_id || c.id;
+            if (!caseId) return;
 
-        if (typeof window.getRegisteredCases === 'function') {
-            window.getRegisteredCases().forEach(c => {
-                const f = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-                folders.add(f);
-            });
-        }
-        if (folders.size === 0) folders.add('Allgemein');
-        return Array.from(folders);
-    }
+            const isSolved = solvedIds.includes(caseId);
+            const caseProg = allProgress[caseId];
+            const lastUpdated = caseProg?.updatedAt || (isSolved ? now - (4 * DAY_MS) : null);
 
-    /**
-     * Startet den Fall sicher und navigiert zum passenden Modul
-     */
-    static launchReview(rawItemId, moduleType) {
-        const pureCaseId = this.extractPureCaseId(rawItemId);
-
-        if (typeof window.loadCaseById === 'function') {
-            window.loadCaseById(pureCaseId);
-
-            // Nach dem Laden direkt in den passenden Challenge-Tab schalten
-            setTimeout(() => {
-                const modeMap = {
-                    'doctordle': 'doctordle',
-                    'quiz': 'quiz',
-                    'synapses': 'synapses',
-                    'audit': 'audit',
-                    'cascade': 'cascade'
+            // Wenn ein Fall gelöst oder bearbeitet wurde, aber noch keinen SR-Eintrag hat
+            if ((isSolved || caseProg) && !schedule[caseId]) {
+                const initialStage = isSolved ? 1 : 0;
+                const intervalDays = SR_INTERVALS_DAYS[initialStage];
+                schedule[caseId] = {
+                    stage: initialStage,
+                    lastReviewed: lastUpdated || now,
+                    nextDue: (lastUpdated || now) + (intervalDays * DAY_MS),
+                    historyCount: 1
                 };
-                const targetMode = modeMap[moduleType] || 'overview';
-                if (typeof window.switchPlayerMode === 'function') {
-                    window.switchPlayerMode(targetMode);
-                }
-            }, 80);
-        } else {
-            console.error('[SpacedRepetition] window.loadCaseById nicht gefunden.');
-        }
-    }
-
-    /**
-     * Rendert das Dashboard mit Filter nach Überordnern
-     */
-    static async renderDashboardWidget(containerTarget = 'sr-dashboard-widget', selectedFolder = 'ALL') {
-        const container = typeof containerTarget === 'string'
-            ? document.getElementById(containerTarget)
-            : containerTarget;
-        if (!container) return;
-
-        const allItems = await this.getAllUserItems();
-        const now = new Date();
-        const knownFolders = this.getKnownFolders();
-
-        // Items nach Überordner filtern falls gewählt
-        const filteredItems = selectedFolder === 'ALL'
-            ? allItems
-            : allItems.filter(i => (i.medical_field || '').toLowerCase() === selectedFolder.toLowerCase());
-
-        const dueItems = filteredItems
-            .filter(i => new Date(i.next_review_at) <= now)
-            .sort((a, b) => Number(a.ease_factor) - Number(b.ease_factor));
-
-        const topDue = dueItems[0] || null;
-
-        // Ordner-Fortschritt berechnen
-        const folderStats = knownFolders.map(folderName => {
-            const folderItems = allItems.filter(i => (i.medical_field || '').toLowerCase() === folderName.toLowerCase());
-            const dueCount = folderItems.filter(i => new Date(i.next_review_at) <= now).length;
-            const total = folderItems.length;
-
-            let score = 0;
-            if (total > 0) {
-                const sumEf = folderItems.reduce((acc, curr) => acc + Number(curr.ease_factor || 2.5), 0);
-                const avgEf = sumEf / total;
-                score = Math.min(100, Math.round(((avgEf - 1.3) / 1.5) * 100));
+                changed = true;
             }
-
-            let status = 'untracked';
-            if (total > 0) {
-                status = dueCount > 0 ? 'critical' : (score >= 70 ? 'mastered' : 'learning');
-            }
-
-            return { folderName, total, dueCount, score, status };
         });
 
+        if (changed) this.saveScheduleData(schedule);
+        return schedule;
+    },
+
+    // 4. Fall nach Abschluss / Wiederholung hochstufen oder zurücksetzen
+    recordCaseReview(caseId, performanceRating = 'good') {
+        if (!caseId) return;
+        const schedule = this.getScheduleData();
+        const now = Date.now();
+        const DAY_MS = 86400000;
+
+        const current = schedule[caseId] || { stage: 0, historyCount: 0 };
+        let nextStage = current.stage;
+
+        if (performanceRating === 'again') {
+            nextStage = 0; // Morgen wiederholen
+        } else if (performanceRating === 'hard') {
+            nextStage = Math.max(0, current.stage); // Gleiche Stufe behalten
+        } else {
+            nextStage = Math.min(SR_INTERVALS_DAYS.length - 1, current.stage + 1);
+        }
+
+        const intervalDays = SR_INTERVALS_DAYS[nextStage];
+        schedule[caseId] = {
+            stage: nextStage,
+            lastReviewed: now,
+            nextDue: now + (intervalDays * DAY_MS),
+            historyCount: (current.historyCount || 0) + 1
+        };
+
+        this.saveScheduleData(schedule);
+        window.dispatchEvent(new CustomEvent('sr:updated'));
+    },
+
+    // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
+    getEvaluatedCases(filterSuperFolder = 'ALL') {
+        const schedule = this.syncCasesWithSchedule();
+        const allCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
+        const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        const now = Date.now();
+        const DAY_MS = 86400000;
+
+        const dueCases = [];
+        const upcomingCases = [];
+        const unstartedCases = [];
+
+        allCases.forEach(c => {
+            const caseId = c.case_id || c.id;
+            const subFolder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const superFolder = typeof window.getSuperFolderForCategory === 'function'
+                ? window.getSuperFolderForCategory(subFolder)
+                : 'Allgemein';
+
+            if (filterSuperFolder !== 'ALL' && superFolder !== filterSuperFolder) {
+                return;
+            }
+
+            const srEntry = schedule[caseId];
+            const isSolved = solvedIds.includes(caseId);
+
+            if (!srEntry && !isSolved) {
+                unstartedCases.push({ caseData: c, subFolder, superFolder, status: 'new', daysDiff: 0, stage: 0 });
+                return;
+            }
+
+            const dueTime = srEntry ? srEntry.nextDue : now;
+            const diffMs = dueTime - now;
+            const daysDiff = Math.ceil(diffMs / DAY_MS);
+            const stage = srEntry ? srEntry.stage : 1;
+
+            const itemObj = {
+                caseData: c,
+                subFolder,
+                superFolder,
+                stage,
+                lastReviewed: srEntry?.lastReviewed || now,
+                nextDue: dueTime,
+                daysDiff
+            };
+
+            if (diffMs <= 0) {
+                dueCases.push({ ...itemObj, status: 'due', overdueDays: Math.abs(daysDiff) });
+            } else {
+                upcomingCases.push({ ...itemObj, status: 'upcoming' });
+            }
+        });
+
+        // Sortiere fällige Fälle: Am längsten überfällige zuerst
+        dueCases.sort((a, b) => a.nextDue - b.nextDue);
+        // Sortiere kommende Fälle: Bald fällige zuerst
+        upcomingCases.sort((a, b) => a.nextDue - b.nextDue);
+
+        return { dueCases, upcomingCases, unstartedCases };
+    },
+
+    // 6. Rendert NUR DIE KLEINE KOMPAKTE PREVIEW-LEISTE im Dashboard
+    renderDashboardWidget(containerId = 'sr-dashboard-widget', filter = 'ALL') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        this.activeFilter = filter || 'ALL';
+        const { dueCases, upcomingCases } = this.getEvaluatedCases(this.activeFilter);
+
+        const dueCount = dueCases.length;
+        const upcomingCount = upcomingCases.length;
+
+        // Gruppiere fällige Themenbereiche für die Kurz-Vorschau (max. 2 Themen-Pills anzeigen)
+        const dueTopicsMap = {};
+        dueCases.forEach(item => {
+            dueTopicsMap[item.subFolder] = (dueTopicsMap[item.subFolder] || 0) + 1;
+        });
+        const topicKeys = Object.keys(dueTopicsMap);
+        const previewTopicsText = topicKeys.length > 0
+            ? topicKeys.slice(0, 2).join(', ') + (topicKeys.length > 2 ? ` +${topicKeys.length - 2} weitere` : '')
+            : (upcomingCount > 0 ? 'Alles im grünen Bereich – nächste Wiederholung geplant' : 'Löse deinen ersten Fall, um das Intervall-Training zu starten');
+
+        const statusColor = dueCount > 0 ? 'var(--warning, #f59e0b)' : 'var(--color-symptom, #10b981)';
+        const pulseDotClass = dueCount > 0 ? 'sr-pulse-dot due' : 'sr-pulse-dot clear';
+
         container.innerHTML = `
-            <div class="sr-dashboard-card">
-                <div class="sr-header">
-                    <div>
-                        <span class="sr-badge">SPACED REPETITION • ÜBERORDNER-FOKUS</span>
-                        <h3 class="sr-title">Klinische Wiederholungs-Zentrale</h3>
+            <div class="sr-compact-preview-bar" onclick="window.SpacedRepetitionEngine.openModal()" role="button" tabindex="0" title="Klicken, um alle zu wiederholenden Themenbereiche und Fälle zu öffnen">
+                <div class="sr-compact-left">
+                    <div class="sr-compact-icon-wrap" style="border-color: ${statusColor};">
+                        <span>🧠</span>
+                        <span class="${pulseDotClass}"></span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <!-- Filter nach Überordner -->
-                        <select id="sr-folder-filter" class="depot-select" style="font-weight:700;">
-                            <option value="ALL" ${selectedFolder === 'ALL' ? 'selected' : ''}>Alle Überordner (${dueItems.length} fällig)</option>
-                            ${knownFolders.map(f => {
-                                const count = allItems.filter(i => (i.medical_field || '').toLowerCase() === f.toLowerCase() && new Date(i.next_review_at) <= now).length;
-                                return `<option value="${f}" ${selectedFolder === f ? 'selected' : ''}>📁 ${f} (${count} fällig)</option>`;
-                            }).join('')}
-                        </select>
-                    </div>
-                </div>
-
-                <!-- TAGESFALL / DAILY FLASH-CASE -->
-                <div class="sr-flash-banner ${topDue ? 'is-active' : 'is-clear'}">
-                    <div class="sr-flash-info">
-                        <h4>⚡ Fälliger Tagesfall ${selectedFolder !== 'ALL' ? `in „${selectedFolder}“` : ''}</h4>
-                        ${topDue ? `
-                            <p>
-                                Priorität: <strong>${this.extractPureCaseId(topDue.item_id)}</strong>
-                                <span class="sr-module-tag">${topDue.module_type.toUpperCase()}</span>
-                                <span class="sr-ef-tag">EF: ${Number(topDue.ease_factor).toFixed(2)}</span>
-                                <span class="sr-ef-tag">📁 ${topDue.medical_field}</span>
-                            </p>
-                        ` : `
-                            <p>Alle Wiederholungen für diesen Bereich heute abgeschlossen!</p>
-                        `}
-                    </div>
-                    ${topDue ? `
-                        <button type="button" class="sr-flash-btn" id="sr-trigger-flash-btn"
-                            data-item-id="${topDue.item_id}"
-                            data-module-type="${topDue.module_type}">
-                            Fall wiederholen →
-                        </button>
-                    ` : ''}
-                </div>
-
-                <!-- ÜBERORDNER HEATMAP -->
-                <div class="sr-heatmap-grid">
-                    ${folderStats.map(stat => `
-                        <div class="sr-organ-tile status-${stat.status}" 
-                             onclick="window.selectSrFolder('${stat.folderName.replace(/'/g, "\\'")}')" 
-                             style="cursor:pointer;" 
-                             title="Klicken, um Wiederholungen auf diesen Überordner einzugrenzen">
-                            <div class="sr-organ-top">
-                                <span class="sr-organ-name">📁 ${stat.folderName}</span>
-                                <span class="sr-organ-indicator"></span>
-                            </div>
-                            <div class="sr-organ-metrics">
-                                ${stat.total > 0 ? `
-                                    <div class="sr-mastery-bar">
-                                        <div class="sr-mastery-fill" style="width: ${stat.score}%"></div>
-                                    </div>
-                                    <div class="sr-organ-meta">
-                                        <span>Festigung: <strong>${stat.score}%</strong></span>
-                                        <span>${stat.dueCount > 0 ? `<strong class="text-danger">${stat.dueCount} fällig</strong>` : `${stat.total} aktiv`}</span>
-                                    </div>
-                                ` : `
-                                    <div class="sr-organ-empty">Noch keine Wiederholungen hinterlegt</div>
-                                `}
-                            </div>
+                    <div class="sr-compact-info">
+                        <div class="sr-compact-title-row">
+                            <span class="sr-compact-title">Spaced Repetition</span>
+                            ${this.activeFilter !== 'ALL' ? `<span class="sr-filter-tag">${this.escapeHtml(this.activeFilter)}</span>` : ''}
                         </div>
-                    `).join('')}
+                        <div class="sr-compact-subtitle">${this.escapeHtml(previewTopicsText)}</div>
+                    </div>
+                </div>
+
+                <div class="sr-compact-right">
+                    <div class="sr-compact-badges">
+                        <span class="sr-mini-pill ${dueCount > 0 ? 'is-due' : 'is-zero'}">
+                            <strong>${dueCount}</strong> Fällig
+                        </span>
+                        <span class="sr-mini-pill is-upcoming">
+                            <strong>${upcomingCount}</strong> Geplant
+                        </span>
+                    </div>
+                    <button type="button" class="sr-compact-open-btn" onclick="event.stopPropagation(); window.SpacedRepetitionEngine.openModal()">
+                        <span>Öffnen</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
                 </div>
             </div>
         `;
 
-        // 1. Klick auf den Tagesfall-Button
-        const flashBtn = container.querySelector('#sr-trigger-flash-btn');
-        if (flashBtn) {
-            flashBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const { itemId, moduleType } = flashBtn.dataset;
-                this.launchReview(itemId, moduleType);
+        // Falls das Modal gerade offen ist, Inhalt live mitaktualisieren
+        if (this.isModalOpen) {
+            this.renderModalContent();
+        }
+    },
+
+    // 7. Öffnet das Modal-Fenster mit den Themenbereichen & Fällen
+    openModal(optionalFilter = null) {
+        if (optionalFilter) this.activeFilter = optionalFilter;
+        this.isModalOpen = true;
+
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+
+        let modalOverlay = document.getElementById('sr-modal-overlay');
+        if (!modalOverlay) {
+            modalOverlay = document.createElement('div');
+            modalOverlay.id = 'sr-modal-overlay';
+            modalOverlay.className = 'sr-modal-overlay';
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) this.closeModal();
             });
+            document.body.appendChild(modalOverlay);
         }
 
-        // 2. Dropdown-Wechsel für Überordner
-        const filterSelect = container.querySelector('#sr-folder-filter');
-        if (filterSelect) {
-            filterSelect.addEventListener('change', (e) => {
-                this.renderDashboardWidget(containerTarget, e.target.value);
-            });
-        }
-    }
-}
+        this.renderModalContent();
+        modalOverlay.classList.add('active');
+    },
 
-// Global für Klicks auf die Ordnerkacheln verfügbar machen
-window.selectSrFolder = function(folderName) {
-    if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', folderName);
+    // 8. Schliesst das Modal-Fenster
+    closeModal() {
+        this.isModalOpen = false;
+        const modalOverlay = document.getElementById('sr-modal-overlay');
+        if (modalOverlay) {
+            modalOverlay.classList.remove('active');
+        }
+    },
+
+    // 9. Rendert den Inhalt des geöffneten Fensters (gruppiert nach Themenbereichen)
+    renderModalContent() {
+        const modalOverlay = document.getElementById('sr-modal-overlay');
+        if (!modalOverlay) return;
+
+        const { dueCases, upcomingCases } = this.getEvaluatedCases(this.activeFilter);
+        const superFolders = typeof window.getSuperFolderOrder === 'function'
+            ? window.getSuperFolderOrder()
+            : ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'];
+
+        // Gruppierung der fälligen Fälle nach Unterordner (Themenbereich)
+        const groupedDue = {};
+        dueCases.forEach(item => {
+            if (!groupedDue[item.subFolder]) groupedDue[item.subFolder] = [];
+            groupedDue[item.subFolder].push(item);
+        });
+
+        let dueSectionHtml = '';
+        if (dueCases.length === 0) {
+            dueSectionHtml = `
+                <div class="sr-empty-state">
+                    <div style="font-size: 1.8rem; margin-bottom: 6px;">🎉</div>
+                    <div style="font-weight: 700; color: var(--text-main);">Keine offenen Wiederholungen für heute!</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                        Alle gelernten Fälle befinden sich im optimalen Konsolidierungs-Intervall. Du kannst unten trotzdem jederzeit ein freies Review starten.
+                    </div>
+                </div>
+            `;
+        } else {
+            dueSectionHtml = Object.entries(groupedDue).map(([topicName, items]) => `
+                <div class="sr-topic-group">
+                    <div class="sr-topic-header">
+                        <span>📁 ${this.escapeHtml(topicName)}</span>
+                        <span class="sr-topic-count">${items.length} ${items.length === 1 ? 'Fall' : 'Fälle'} fällig</span>
+                    </div>
+                    <div class="sr-cases-list">
+                        ${items.map(item => {
+                            const c = item.caseData;
+                            const cId = c.case_id || c.id;
+                            const title = c.metadata?.title || cId;
+                            const overdueBadge = item.overdueDays > 0
+                                ? `<span class="sr-due-tag overdue">Seit ${item.overdueDays}d fällig</span>`
+                                : `<span class="sr-due-tag today">Heute fällig</span>`;
+
+                            return `
+                                <div class="sr-case-row">
+                                    <div class="sr-case-main" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">
+                                        <div class="sr-case-title">${this.escapeHtml(title)}</div>
+                                        <div class="sr-case-meta">
+                                            ${overdueBadge}
+                                            <span>• Intervall-Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
+                                        </div>
+                                    </div>
+                                    <div class="sr-case-actions">
+                                        <button type="button" class="sr-btn-mark-done" onclick="event.stopPropagation(); window.SpacedRepetitionEngine.quickCompleteReview('${this.escapeHtml(cId)}')" title="Als wiederholt markieren (nächstes Intervall)">✓</button>
+                                        <button type="button" class="sr-btn-start" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Wiederholen ➔</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Geplante / Zukünftige Fälle kompakt darunter
+        let upcomingSectionHtml = '';
+        if (upcomingCases.length > 0) {
+            upcomingSectionHtml = `
+                <details class="sr-upcoming-accordion" ${dueCases.length === 0 ? 'open' : ''}>
+                    <summary class="sr-upcoming-summary">
+                        <span>📅 Geplante Wiederholungen (${upcomingCases.length})</span>
+                        <span style="font-size: 0.75rem; color: var(--text-dim);">Ausklappen</span>
+                    </summary>
+                    <div class="sr-cases-list" style="margin-top: 10px;">
+                        ${upcomingCases.map(item => {
+                            const c = item.caseData;
+                            const cId = c.case_id || c.id;
+                            const title = c.metadata?.title || cId;
+                            return `
+                                <div class="sr-case-row upcoming">
+                                    <div class="sr-case-main" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">
+                                        <div class="sr-case-title">${this.escapeHtml(title)}</div>
+                                        <div class="sr-case-meta">
+                                            <span class="sr-due-tag scheduled">In ${item.daysDiff} Tag${item.daysDiff === 1 ? '' : 'en'}</span>
+                                            <span>• 📁 ${this.escapeHtml(item.subFolder)}</span>
+                                            <span>• Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
+                                        </div>
+                                    </div>
+                                    <div class="sr-case-actions">
+                                        <button type="button" class="sr-btn-start secondary" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Frühzeitig üben</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </details>
+            `;
+        }
+
+        modalOverlay.innerHTML = `
+            <div class="sr-modal-card" role="dialog" aria-modal="true">
+                <div class="sr-modal-header">
+                    <div>
+                        <div class="sr-modal-title-row">
+                            <span style="font-size: 1.25rem;">🧠</span>
+                            <h3>Spaced Repetition Planer</h3>
+                        </div>
+                        <p class="sr-modal-subtitle">Gezielte Langzeit-Konsolidierung deiner bearbeiteten Themenbereiche & Fälle</p>
+                    </div>
+                    <button type="button" class="sr-modal-close" onclick="window.SpacedRepetitionEngine.closeModal()" aria-label="Schließen">✕</button>
+                </div>
+
+                <div class="sr-modal-toolbar">
+                    <div class="sr-filter-group">
+                        <label for="sr-folder-filter">Überordner:</label>
+                        <select id="sr-folder-filter" class="sr-select" onchange="window.SpacedRepetitionEngine.setFilter(this.value)">
+                            <option value="ALL" ${this.activeFilter === 'ALL' ? 'selected' : ''}>Alle Überordner</option>
+                            ${superFolders.map(sf => `
+                                <option value="${this.escapeHtml(sf)}" ${this.activeFilter === sf ? 'selected' : ''}>${this.escapeHtml(sf)}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+
+                    ${dueCases.length > 0 ? `
+                        <button type="button" class="action-btn btn-sm" onclick="window.SpacedRepetitionEngine.startNextDueCase()">
+                            ⚡ Sofort dringendsten Fall starten
+                        </button>
+                    ` : ''}
+                </div>
+
+                <div class="sr-modal-body">
+                    <div class="sr-section-label">🔥 Jetzt zur Wiederholung fällig (${dueCases.length})</div>
+                    ${dueSectionHtml}
+                    ${upcomingSectionHtml}
+                </div>
+            </div>
+        `;
+    },
+
+    setFilter(newFilter) {
+        this.activeFilter = newFilter || 'ALL';
+        this.renderDashboardWidget('sr-dashboard-widget', this.activeFilter);
+    },
+
+    startReviewCase(caseId) {
+        this.closeModal();
+        if (typeof window.loadCaseById === 'function') {
+            window.loadCaseById(caseId);
+        }
+    },
+
+    startNextDueCase() {
+        const { dueCases } = this.getEvaluatedCases(this.activeFilter);
+        if (dueCases.length > 0) {
+            const firstId = dueCases[0].caseData.case_id || dueCases[0].caseData.id;
+            this.startReviewCase(firstId);
+        }
+    },
+
+    quickCompleteReview(caseId) {
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+        this.recordCaseReview(caseId, 'good');
+    },
+
+    escapeHtml(str) {
+        return String(str || '').replace(/[&<>'"]/g, tag => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[tag] || tag));
     }
 };
 
+// Globale Exports für HTML-Handler & Fächer-Drawer
 window.SpacedRepetitionEngine = SpacedRepetitionEngine;
+
+window.selectSrFolder = function(folderName) {
+    SpacedRepetitionEngine.openModal(folderName);
+};
+
+// Direkt initialisieren, falls DOM schon geladen ist
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    });
+} else {
+    SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+}
+
+// Tastatur-Support (ESC schließt das SR-Modal)
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && SpacedRepetitionEngine.isModalOpen) {
+        SpacedRepetitionEngine.closeModal();
+    }
+});
