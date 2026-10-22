@@ -878,6 +878,7 @@ window.switchPlayerMode = function(mode) {
     if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
         window.renderFlashcards();
     }
+};
 
     if ((specialtyMode || opts.resetForReview) && window.doctordleGame) {
         window.doctordleGame.currentCaseId = null;
@@ -2394,8 +2395,6 @@ window.loadCaseById = function(caseId, opts = {}) {
         return; 
     }
 
-    // NEU: Wenn der Fall aus dem Spaced-Repetition-Planer (oder als explizites Review) gestartet wird,
-    // setzen wir vorab alle Teil-Challenges (Audit, Quiz, Synapsen, Doctordle etc.) auf Anfang zurück!
     if (opts.resetForReview) {
         ProgressManager.resetCaseChallengesForReview(caseId);
     }
@@ -2410,13 +2409,16 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
     clearedStepsCount = saved.audit?.clearedStepsCount || 0;
-    selectedSynapses = []; // Auswahl-Puffer leeren
+    selectedSynapses = [];
 
     const badgeAudit = document.getElementById('badge-mode-audit');
     if (badgeAudit) {
         badgeAudit.innerText = `${clearedStepsCount}/${totalStepsCount}`;
         badgeAudit.style.background = '';
     }
+
+    // WICHTIG: tasks definieren, bevor darauf zugegriffen wird!
+    const tasks = activeCaseData.extra_tasks || {};
 
     const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
     const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
@@ -2468,7 +2470,10 @@ window.loadCaseById = function(caseId, opts = {}) {
 
     if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
     window.switchTab('player', document.getElementById('nav-player'));
-    window.switchPlayerMode(specialtyMode ? 'audit' : 'overview');
+    
+    const initialMode = opts.startMode || (specialtyMode ? 'audit' : 'overview');
+    window.switchPlayerMode(initialMode);
+    
     if (typeof window.checkFinalCompletion === 'function') {
         window.checkFinalCompletion();
     }
