@@ -3053,6 +3053,11 @@ window.finishCase = function() {
         applyXpDelta(50, 'Review Bonus');
     }
 
+    // NEU: Spaced Repetition Intervall für diesen Fall aktualisieren
+   if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', window.SpacedRepetitionEngine.activeFilter || 'ALL');
+    }
+
     if (window.isSpecialtyBlindMode) {
         const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
         alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
@@ -3065,7 +3070,6 @@ window.finishCase = function() {
     const navItems = document.querySelectorAll('.nav-item');
     if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
 };
-
 window.resetCurrentChallenge = function() {
     if (!activeCaseData || currentActiveChallenge === 'overview') return;
 
