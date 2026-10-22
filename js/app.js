@@ -2462,18 +2462,6 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
     safely('Flashcards', window.renderFlashcards);
 
-    if ((specialtyMode || opts.resetForReview) && window.doctordleGame) {
-        window.doctordleGame.currentCaseId = null;
-    }
-    
-    window.switchTab('player', document.getElementById('nav-player'));
-    
-    const initialMode = opts.startMode || (specialtyMode ? 'audit' : 'overview');
-    window.switchPlayerMode(initialMode);
-    
-    if (typeof window.checkFinalCompletion === 'function') {
-        window.checkFinalCompletion();
-    }
 };
 
 window.renderOverview = function() {
