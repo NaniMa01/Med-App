@@ -880,17 +880,6 @@ window.switchPlayerMode = function(mode) {
     }
 };
 
-    if ((specialtyMode || opts.resetForReview) && window.doctordleGame) {
-        window.doctordleGame.currentCaseId = null;
-    }
-    window.switchTab('player', document.getElementById('nav-player'));
-    const initialMode = opts.startMode || (specialtyMode ? 'audit' : 'overview');
-    window.switchPlayerMode(initialMode);
-    if (typeof window.checkFinalCompletion === 'function') {
-        window.checkFinalCompletion();
-    }
-
-
 window.showTutorHint = function(taskKey) {
     if (!activeCaseData || !activeCaseData.extra_tasks) return;
     let hint = "Kein spezifischer Hinweis hinterlegt.";
@@ -2417,8 +2406,13 @@ window.loadCaseById = function(caseId, opts = {}) {
         badgeAudit.style.background = '';
     }
 
-    // WICHTIG: tasks definieren, bevor darauf zugegriffen wird!
     const tasks = activeCaseData.extra_tasks || {};
+    
+    // Wichtig: show-Hilfsfunktion definieren!
+    const show = (id, on) => { 
+        const el = document.getElementById(id); 
+        if (el) el.style.display = on ? 'inline-flex' : 'none'; 
+    };
 
     const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
     const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
@@ -2468,7 +2462,10 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
     safely('Flashcards', window.renderFlashcards);
 
-    if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
+    if ((specialtyMode || opts.resetForReview) && window.doctordleGame) {
+        window.doctordleGame.currentCaseId = null;
+    }
+    
     window.switchTab('player', document.getElementById('nav-player'));
     
     const initialMode = opts.startMode || (specialtyMode ? 'audit' : 'overview');
@@ -3094,9 +3091,9 @@ window.finishCase = function() {
         applyXpDelta(50, 'Review Bonus');
     }
 
-    // NEU: Spaced Repetition Intervall für diesen Fall aktualisieren
-   if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', window.SpacedRepetitionEngine.activeFilter || 'ALL');
+    // SR-Engine benachrichtigen, dass der Fall erfolgreich wiederholt wurde
+    if (activeCaseData && window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.recordCaseReview(activeCaseData.case_id, 'good');
     }
 
     if (window.isSpecialtyBlindMode) {
