@@ -979,17 +979,17 @@ topbar {
 .cornell-wrapper {
     display: flex;
     flex-direction: column;
-    background: #0b1121;
-    border: 1px solid rgba(56, 189, 248, 0.2);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    background: var(--bg-surface);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow-md);
     border-radius: 16px;
     overflow: hidden;
     margin-bottom: 2rem;
 }
 
 .cornell-header {
-    background: linear-gradient(90deg, #0f172a, #1e293b);
-    border-bottom: 2px solid var(--accent-blue, #38bdf8);
+    background: var(--bg-surface-elevated);
+    border-bottom: 2px solid var(--accent-blue);
     padding: 20px 24px;
     text-align: left;
     display: flex;
@@ -1001,27 +1001,24 @@ topbar {
     margin: 0; 
     font-size: 1.2rem; 
     font-weight: 700; 
-    color: #f8fafc;
+    color: var(--text-main);
     letter-spacing: -0.01em;
 }
 
-.cornell-row-item {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    transition: background 0.2s ease;
-    align-items: stretch;
-}
-.cornell-row-item:hover { background: rgba(255, 255, 255, 0.02); }
-.cornell-row-item:last-child { border-bottom: none; }
-
 .cornell-cue-col { 
-    background: rgba(15, 23, 42, 0.7);
-    border-right: 1px solid rgba(56, 189, 248, 0.15);
+    background: var(--card-bg);
+    border-right: 1px solid var(--card-border);
     padding: 18px 16px;
     display: flex;
     align-items: flex-start;
 }
+
+.cornell-summary { 
+    background: var(--bg-surface-elevated);
+    border-top: 1px solid var(--card-border);
+    padding: 24px 28px;
+}
+
 
 .cornell-cue-item {
     font-size: 0.82rem;
@@ -1084,10 +1081,13 @@ topbar {
     margin-right: 4px;
 }
 
-.cornell-summary { 
-    background: #0f172a;
-    border-top: 1px solid rgba(56, 189, 248, 0.2);
-    padding: 24px 28px;
+.cornell-summary p { 
+    margin: 0; 
+    font-size: 0.95rem; 
+    font-weight: 500; 
+    color: var(--text-main); 
+    line-height: 1.65; 
+    max-width: 900px;
 }
 
 .cornell-summary h4 { 
@@ -1217,12 +1217,12 @@ topbar {
 /* ==========================================================================
    9. CASCADES, DRAG & DROP & QUIZ
    ========================================================================== */
-.cascade-disease-container {
-    background: rgba(11, 17, 33, 0.6);
+.cascade-disease-container,
+.quiz-card {
+    background: var(--bg-surface);
     border: 1px solid var(--card-border);
     border-radius: 14px;
     padding: 22px;
-    margin-bottom: 28px;
 }
 .disease-title { font-size: 1.1rem; font-weight: 800; color: var(--accent-blue); margin-bottom: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 10px; overflow-wrap: break-word; }
 .drag-bank { display: flex; flex-wrap: wrap; gap: 10px; min-height: 80px; padding: 14px; background: rgba(6, 9, 19, 0.65); border-radius: 12px; border: 1px dashed rgba(255, 255, 255, 0.16); margin-bottom: 20px; }
@@ -1594,13 +1594,13 @@ topbar {
 
 .specialty-hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .specialty-card {
-    background: linear-gradient(160deg, rgba(22, 33, 61, 0.82) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
-    border: 1px solid var(--card-border) !important;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     box-shadow: var(--surface-highlight), var(--shadow-sm);
-    border-radius: 14px !important;
-    padding: 20px !important;
+    border-radius: 14px;
+    padding: 20px;
     cursor: pointer;
-    transition: transform 0.25s var(--ease-spring), border-color 0.2s, box-shadow 0.25s !important;
+    transition: transform 0.25s var(--ease-spring), border-color 0.2s, box-shadow 0.25s;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -2790,37 +2790,41 @@ kbd {
    20. CLINICAL DAYLIGHT (EVIDENCE-BASED VISUAL ERGONOMICS EDITION)
    Warm Editorial Paper (#FAF8F3), Low-Glare Alabaster (#F3EFE6),
    High-Acuity Deep Slate Ink (#1E242B) & Medical Cobalt (#0369A1)
-   Lückenlose Abdeckung aller Module, Buttons & Inline-Styles!
    ========================================================================== */
 
 [data-theme="daylight"] {
-    /* 1. Blendfreie Warm-Alabaster-Grundfläche (ISO 9241-303 konform) */
+    /* 1. Blendfreie Alabaster-Grundfläche */
     --bg-color: #f3efe6 !important;
     --bg-main: #f3efe6 !important;
     --bg-gradient: linear-gradient(180deg, #f7f4ec 0%, #ede8dc 100%) !important;
 
-    /* 2. Oberflächen & Karten (Warmes Elfenbein-Papier ohne grelles Reinweiß) */
+    /* 2. Oberflächen & Karten */
     --sidebar-bg: #f6f3eb !important;
     --card-bg: #faf8f3 !important;
     --card-bg-hover: #ffffff !important;
+    --bg-panel: #faf8f3 !important;
+    --bg-surface: #f6f3eb !important;
+    --bg-surface-elevated: #eae4d7 !important;
+    --bg-input: #ffffff !important;
+
     --card-border: #d8d0c2 !important;
     --card-border-hover: #0369a1 !important;
-    --border-color: #d8d0c2 !important;
+    --border-subtle: #e6dfd1 !important;
     --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
 
-    /* 3. Typografie & Lesekontrast (WCAG AAA, kein hartes Flimmer-Schwarz) */
+    /* 3. Typografie & Lesekontrast */
     --text-main: #1e242b !important;
     --text-primary: #1e242b !important;
     --text-muted: #525b66 !important;
     --text-secondary: #525b66 !important;
     --text-dim: #76808d !important;
 
-    /* 4. Klinische Leitfarben (für hellen Hintergrund kontrastoptimiert) */
+    /* 4. Klinische Akzentfarben */
     --accent-blue: #0369a1 !important;
     --accent-cyan: #0284c7 !important;
     --accent-indigo: #4338ca !important;
 
-    /* 5. Semantische Statusfarben (Satt & druckähnlich statt grell-pastellig) */
+    /* 5. Semantische Statusfarben */
     --color-risk: #b91c1c !important;
     --color-lab: #6d28d9 !important;
     --color-symptom: #047857 !important;
@@ -2828,17 +2832,17 @@ kbd {
     --warning: #b45309 !important;
     --error: #b91c1c !important;
 
-    --shadow-sm: 0 2px 5px rgba(30, 36, 43, 0.05) !important;
-    --shadow-md: 0 8px 20px -4px rgba(30, 36, 43, 0.07) !important;
+    --shadow-sm: 0 2px 6px rgba(30, 36, 43, 0.05) !important;
+    --shadow-md: 0 8px 24px -4px rgba(30, 36, 43, 0.08) !important;
     --shadow-glow: 0 0 16px rgba(3, 105, 161, 0.14) !important;
 }
 
-/* Custom Scrollbar im Daylight-Modus */
+/* Scrollbar */
 [data-theme="daylight"] ::-webkit-scrollbar-track { background: #eae4d7; }
-[data-theme="daylight"] ::-webkit-scrollbar-thumb { background: #c5bcad; }
+[data-theme="daylight"] ::-webkit-scrollbar-thumb { background: #c5bcad; border-radius: 999px; }
 [data-theme="daylight"] ::-webkit-scrollbar-thumb:hover { background: #0369a1; }
 
-/* A. GLOBALE LAYOUT-CONTAINER, SIDEBAR & TOPBAR */
+/* A. Layout, Sidebar & Topbar */
 [data-theme="daylight"] body,
 [data-theme="daylight"] .main-wrapper {
     background-color: var(--bg-color) !important;
@@ -2847,111 +2851,63 @@ kbd {
 }
 
 [data-theme="daylight"] sidebar {
-    background: #f6f3eb !important;
-    border-right: 1px solid #d8d0c2 !important;
+    background: var(--sidebar-bg) !important;
+    border-right: 1px solid var(--card-border) !important;
     box-shadow: 4px 0 20px rgba(30, 36, 43, 0.05) !important;
 }
 
-[data-theme="daylight"] .brand { color: #1e242b !important; }
-[data-theme="daylight"] .brand-icon-wrap {
-    background: linear-gradient(135deg, rgba(3, 105, 161, 0.14), rgba(67, 56, 202, 0.16)) !important;
-    border-color: rgba(3, 105, 161, 0.35) !important;
-    color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .nav-item { color: #4b545f !important; }
+[data-theme="daylight"] .brand { color: var(--text-main) !important; }
+[data-theme="daylight"] .nav-item { color: var(--text-muted) !important; }
 [data-theme="daylight"] .nav-item:hover {
     background: #ebe5d9 !important;
-    color: #1e242b !important;
-    border-color: #d8d0c2 !important;
+    color: var(--text-main) !important;
 }
 [data-theme="daylight"] .nav-item.active {
     background: linear-gradient(90deg, rgba(3, 105, 161, 0.14), rgba(67, 56, 202, 0.08)) !important;
-    color: #0369a1 !important;
+    color: var(--accent-blue) !important;
     border-color: rgba(3, 105, 161, 0.4) !important;
-    font-weight: 700 !important;
-}
-[data-theme="daylight"] .nav-item.active span { color: #0369a1 !important; }
-
-[data-theme="daylight"] .sidebar-footer {
-    background: #efeae0 !important;
-    border-color: #d8d0c2 !important;
-    color: #3e4650 !important;
-}
-
-[data-theme="daylight"] .resizer-handle-pill {
-    background: #ebe5d9 !important;
-    border-color: #cfc6b6 !important;
-    color: #525b66 !important;
-}
-[data-theme="daylight"] .sidebar-resizer:hover .resizer-handle-pill {
-    background: #0369a1 !important;
-    color: #ffffff !important;
 }
 
 [data-theme="daylight"] topbar {
-    background: rgba(250, 248, 243, 0.92) !important;
-    border-bottom: 1px solid #d8d0c2 !important;
+    background: rgba(250, 248, 243, 0.94) !important;
+    border-bottom: 1px solid var(--card-border) !important;
     box-shadow: 0 2px 10px rgba(30, 36, 43, 0.04) !important;
 }
 
 [data-theme="daylight"] .topbar-engine-tag {
     background: #e6f1f8 !important;
     border-color: #b6d8ee !important;
-    color: #0369a1 !important;
+    color: var(--accent-blue) !important;
 }
-[data-theme="daylight"] .topbar-engine-tag span { color: #0369a1 !important; }
 
 [data-theme="daylight"] .hud-stat {
     background: #f0ebe0 !important;
-    border-color: #d8d0c2 !important;
-    color: #525b66 !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-muted) !important;
 }
-[data-theme="daylight"] .hud-stat strong { color: #1e242b !important; }
-[data-theme="daylight"] .hud-stat.rank-stat strong { color: #4338ca !important; }
-[data-theme="daylight"] .hud-stat.xp-stat strong { color: #0369a1 !important; }
+[data-theme="daylight"] .hud-stat strong { color: var(--text-main) !important; }
 
-[data-theme="daylight"] .score-popup.positive { background: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
-[data-theme="daylight"] .score-popup.negative { background: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
-
-/* Skills-Balken in der Sidebar */
-[data-theme="daylight"] #skills-sidebar-container div[style*="background:rgba(6,9,19"] {
-    background: #e2dbce !important;
-}
-
-/* B. BOOKSHELF & ORDNER-BAUM */
-[data-theme="daylight"] .bookshelf-super-group {
-    background: #f2ede2 !important;
-    border: 1px solid #d8d0c2 !important;
-}
-[data-theme="daylight"] .bookshelf-super-header {
-    background: #eae4d7 !important;
-    border-bottom: 1px solid #d8d0c2 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .bookshelf-super-header:hover { background: #e2dbce !important; }
-[data-theme="daylight"] .bookshelf-super-title { color: #1e242b !important; }
-[data-theme="daylight"] .bookshelf-super-badge,
-[data-theme="daylight"] .folder-badge-mini {
-    background: #ddebf5 !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .bookshelf-super-body {
-    background: #f6f3eb !important;
-    border-left-color: rgba(3, 105, 161, 0.35) !important;
-}
+/* B. Bookshelf & Ordnerbaum */
+[data-theme="daylight"] .bookshelf-super-group,
 [data-theme="daylight"] .folder-group {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
 }
+[data-theme="daylight"] .bookshelf-super-header,
 [data-theme="daylight"] .folder-header {
-    background: #f5f1e8 !important;
-    color: #1e242b !important;
+    background: #f4efe4 !important;
+    color: var(--text-main) !important;
 }
-[data-theme="daylight"] .folder-header:hover { background: #ece6d9 !important; }
-[data-theme="daylight"] .folder-title-text { color: #1e242b !important; }
-[data-theme="daylight"] .folder-action-btn { color: #525b66 !important; opacity: 0.75; }
-[data-theme="daylight"] .folder-action-btn:hover { color: #0369a1 !important; opacity: 1; }
+[data-theme="daylight"] .bookshelf-super-header:hover,
+[data-theme="daylight"] .folder-header:hover {
+    background: #ebe5d8 !important;
+}
+[data-theme="daylight"] .bookshelf-super-badge,
+[data-theme="daylight"] .folder-badge-mini,
+[data-theme="daylight"] .category-badge {
+    background: #ddebf5 !important;
+    color: var(--accent-blue) !important;
+}
 [data-theme="daylight"] .folder-cases-list {
     background: #f0ebe0 !important;
     border-top: 1px solid #e0d8c8 !important;
@@ -2959,809 +2915,149 @@ kbd {
 [data-theme="daylight"] .folder-case-item {
     background: #faf8f3 !important;
     border: 1px solid #dbd3c5 !important;
-    color: #2c343e !important;
+    color: var(--text-main) !important;
 }
 [data-theme="daylight"] .folder-case-item:hover {
     background: #e3f0fa !important;
-    border-color: #0369a1 !important;
-    color: #0369a1 !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--accent-blue) !important;
 }
 
-/* C. DASHBOARD, TOOLBAR, SUPER-FOLDERS, FALLKARTEN & INLINE-STYLES */
-[data-theme="daylight"] .panel {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #1e242b !important;
-    box-shadow: var(--shadow-md) !important;
-}
-
-[data-theme="daylight"] .dashboard-folder-toolbar {
-    background: #f2ede2 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #2c343e !important;
-}
-[data-theme="daylight"] .dashboard-folder-toolbar button {
-    background: #faf8f3 !important;
-    color: #0369a1 !important;
-    border: 1px solid #b6d8ee !important;
-}
-[data-theme="daylight"] .dashboard-folder-toolbar button:hover {
-    background: #e3f0fa !important;
-}
-
-[data-theme="daylight"] .super-folder {
-    background: #f3efe6 !important;
-    border: 1px solid #d4cbb9 !important;
-    box-shadow: 0 4px 14px rgba(30, 36, 43, 0.04) !important;
-}
-[data-theme="daylight"] .super-folder-header {
-    background: linear-gradient(90deg, #eae4d7, #f2ede2) !important;
-    border-bottom: 1px solid #d8d0c2 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .super-folder-header:hover {
-    background: linear-gradient(90deg, #e3dccf, #ece6d9) !important;
-}
-[data-theme="daylight"] .super-folder-title,
-[data-theme="daylight"] .super-folder-title span {
-    color: #1e242b !important;
-}
-
-[data-theme="daylight"] .category-folder {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-}
-[data-theme="daylight"] .category-header {
-    background: #f4efe4 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .category-header:hover { background: #ebe5d8 !important; }
-[data-theme="daylight"] .category-title-wrap,
-[data-theme="daylight"] .category-title-wrap span { color: #1e242b !important; }
-[data-theme="daylight"] .category-badge {
-    background: #ddebf5 !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .category-cases-body {
-    background: #f7f4ec !important;
-    border-top-color: #e2dacb !important;
-}
-
+/* C. Panels, Toolbar, Fallkarten */
+[data-theme="daylight"] .panel,
 [data-theme="daylight"] .case-card,
 [data-theme="daylight"] .specialty-card {
-    background: #faf8f3 !important;
-    border: 1px solid #d5ccb9 !important;
-    color: #1e242b !important;
-    box-shadow: 0 2px 6px rgba(30, 36, 43, 0.05) !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-main) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 [data-theme="daylight"] .case-card:hover,
 [data-theme="daylight"] .specialty-card:hover {
     background: #ffffff !important;
-    border-color: #0369a1 !important;
+    border-color: var(--accent-blue) !important;
     box-shadow: 0 10px 22px -6px rgba(3, 105, 161, 0.16) !important;
 }
 [data-theme="daylight"] .case-card h3,
-[data-theme="daylight"] .specialty-card h3 { color: #1e242b !important; }
-[data-theme="daylight"] .specialty-card p { color: #525b66 !important; }
+[data-theme="daylight"] .specialty-card h3 { color: var(--text-main) !important; }
 
-[data-theme="daylight"] .tag {
-    background: #e3f0fa !important;
-    border-color: #b6d8ee !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .cloud-badge.is-cloud {
-    background: #e0f2fe !important;
-    color: #0369a1 !important;
-    border-color: #7dd3fc !important;
-}
-[data-theme="daylight"] .cloud-badge.is-local {
-    background: #ebe5d9 !important;
-    color: #525b66 !important;
-    border-color: #cfc6b6 !important;
-}
-[data-theme="daylight"] .delete-case-btn {
-    background: #fee2e2 !important;
-    border-color: #fca5a5 !important;
-    color: #b91c1c !important;
-}
-[data-theme="daylight"] .delete-case-btn:hover {
-    background: #ef4444 !important;
-    color: #ffffff !important;
-}
-
-/* Segmented Control */
-[data-theme="daylight"] .segmented-control {
-    background: #e9e3d6 !important;
-    border: 1px solid #d5ccb9 !important;
-}
-[data-theme="daylight"] .segmented-btn {
-    background: transparent !important;
-    color: #525b66 !important;
-}
-[data-theme="daylight"] .segmented-btn:hover { color: #1e242b !important; }
-[data-theme="daylight"] .segmented-btn.active {
-    background: #faf8f3 !important;
-    color: #0369a1 !important;
-    box-shadow: 0 2px 6px rgba(30, 36, 43, 0.08) !important;
-}
-
-/* D. SPACED REPETITION WIDGET & FORTSCHRITTS-DRAWER (RECHTS) */
-[data-theme="daylight"] .sr-dashboard-card {
-    background: #f6f3eb !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #1e242b !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .sr-title,
-[data-theme="daylight"] .sr-flash-info h4,
-[data-theme="daylight"] .sr-organ-name { color: #1e242b !important; }
-[data-theme="daylight"] .sr-flash-info p,
-[data-theme="daylight"] .sr-organ-meta { color: #525b66 !important; }
-[data-theme="daylight"] .sr-due-count { background: #e6dfd1 !important; color: #3e4650 !important; }
-[data-theme="daylight"] .sr-due-count.has-due { background: #fee2e2 !important; color: #991b1b !important; border-color: #f87171 !important; }
-[data-theme="daylight"] .sr-flash-banner {
-    background: linear-gradient(135deg, #fef3c7, #ffedd5) !important;
-    border-color: #f59e0b !important;
-}
-[data-theme="daylight"] .sr-flash-banner.is-clear {
-    background: #ecfdf5 !important;
-    border-color: #6ee7b7 !important;
-}
-[data-theme="daylight"] .sr-module-tag,
-[data-theme="daylight"] .sr-ef-tag {
-    background: rgba(30, 36, 43, 0.08) !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .sr-organ-tile {
-    background: #faf8f3 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .sr-organ-tile.status-critical { border-left: 4px solid #dc2626 !important; background: #fff8f8 !important; }
-[data-theme="daylight"] .sr-organ-tile.status-learning { border-left: 4px solid #d97706 !important; background: #fffdf5 !important; }
-[data-theme="daylight"] .sr-organ-tile.status-mastered { border-left: 4px solid #059669 !important; background: #f4fdf9 !important; }
-[data-theme="daylight"] .sr-mastery-bar { background: #e2dbce !important; }
-
-/* Progress Drawer rechts (vorher komplett schwarz!) */
-[data-theme="daylight"] .progress-drawer-handle {
-    background: #faf8f3 !important;
-    border-color: #cfc6b6 !important;
-    color: #0369a1 !important;
-    box-shadow: -4px 4px 14px rgba(30, 36, 43, 0.08) !important;
-}
-[data-theme="daylight"] .progress-drawer-handle:hover {
-    background: #e3f0fa !important;
-    color: #0284c7 !important;
-}
-[data-theme="daylight"] .progress-drawer-body {
-    background: #faf8f3 !important;
-    border-color: #cfc6b6 !important;
-    color: #1e242b !important;
-    box-shadow: -8px 8px 28px rgba(30, 36, 43, 0.12) !important;
-}
-[data-theme="daylight"] .progress-drawer-header,
-[data-theme="daylight"] .progress-drawer-legend {
-    border-color: #e2dacb !important;
-    color: #525b66 !important;
-}
-[data-theme="daylight"] .drawer-close-btn { color: #525b66 !important; }
-[data-theme="daylight"] .drawer-close-btn:hover { background: #ebe5d9 !important; color: #1e242b !important; }
-[data-theme="daylight"] .subject-item {
+[data-theme="daylight"] .dashboard-folder-toolbar {
     background: #f2ede2 !important;
-    border: 1px solid #d8d0c2 !important;
+    border: 1px solid var(--card-border) !important;
 }
-[data-theme="daylight"] .subject-item:hover {
-    background: #ebe4d6 !important;
-    border-color: #0369a1 !important;
+[data-theme="daylight"] .dashboard-folder-toolbar button {
+    background: #faf8f3 !important;
+    color: var(--accent-blue) !important;
+    border: 1px solid #b6d8ee !important;
 }
-[data-theme="daylight"] .subject-item-name { color: #1e242b !important; }
-[data-theme="daylight"] .subject-item-stats { color: #3e4650 !important; }
-[data-theme="daylight"] .subject-bar-track { background: #dfd8c8 !important; }
 
-/* E. BUTTONS & NAVIGATION (KEINE SCHWARZEN ODER KONTRASTFREIEN BUTTONS MEHR!) */
+/* D. Buttons & Tabs */
 [data-theme="daylight"] .action-btn,
 [data-theme="daylight"] .btn,
-[data-theme="daylight"] .pharma-btn-primary,
-[data-theme="daylight"] #doctordle-submit-btn {
+[data-theme="daylight"] #doctordle-submit-btn,
+[data-theme="daylight"] .pharma-btn-primary {
     background: linear-gradient(135deg, #0369a1, #075985) !important;
     color: #ffffff !important;
     border: 1px solid #0369a1 !important;
-    box-shadow: 0 3px 10px rgba(3, 105, 161, 0.22) !important;
 }
-/* Garantiert weiße Schrift auch auf verschachtelten Spans in Primärbuttons */
 [data-theme="daylight"] .action-btn *,
-[data-theme="daylight"] .btn:not(.btn-secondary):not(.btn-outline) *,
-[data-theme="daylight"] .depot-popover-btn * {
+[data-theme="daylight"] .btn * {
     color: #ffffff !important;
-}
-[data-theme="daylight"] .action-btn:hover,
-[data-theme="daylight"] .btn:hover {
-    background: linear-gradient(135deg, #0284c7, #0369a1) !important;
-    box-shadow: 0 5px 14px rgba(3, 105, 161, 0.3) !important;
 }
 
 [data-theme="daylight"] .action-btn.secondary,
 [data-theme="daylight"] .btn-secondary,
 [data-theme="daylight"] .pharma-btn-secondary {
     background: #efeae0 !important;
-    color: #2c343e !important;
+    color: var(--text-main) !important;
     border: 1px solid #cfc6b6 !important;
-    box-shadow: none !important;
 }
 [data-theme="daylight"] .action-btn.secondary *,
-[data-theme="daylight"] .btn-secondary *,
-[data-theme="daylight"] .pharma-btn-secondary * {
-    color: #2c343e !important;
-}
-[data-theme="daylight"] .action-btn.secondary:hover,
-[data-theme="daylight"] .btn-secondary:hover,
-[data-theme="daylight"] .pharma-btn-secondary:hover {
-    background: #e4ddd0 !important;
-    color: #1e242b !important;
-    border-color: #0369a1 !important;
+[data-theme="daylight"] .btn-secondary * {
+    color: var(--text-main) !important;
 }
 
-[data-theme="daylight"] .btn-outline,
-[data-theme="daylight"] .back-btn {
-    background: #f2ede2 !important;
-    border: 1px solid #0369a1 !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .btn-outline *,
-[data-theme="daylight"] .back-btn * {
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .btn-outline:hover,
-[data-theme="daylight"] .back-btn:hover {
-    background: #0369a1 !important;
-    color: #ffffff !important;
-}
-[data-theme="daylight"] .btn-outline:hover *,
-[data-theme="daylight"] .back-btn:hover * {
-    color: #ffffff !important;
-}
-
-/* Challenge Navigation Bar & Mobile Picker */
 [data-theme="daylight"] .challenge-nav-bar {
     background: #eae4d7 !important;
     border: 1px solid #d5ccb9 !important;
-    box-shadow: inset 0 1px 3px rgba(30, 36, 43, 0.05) !important;
 }
 [data-theme="daylight"] .challenge-tab-btn {
     background: #f4efe4 !important;
-    border: 1px solid #d8d0c2 !important;
-    color: #4b545f !important;
-}
-[data-theme="daylight"] .challenge-tab-btn:hover {
-    background: #ffffff !important;
-    color: #1e242b !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-muted) !important;
 }
 [data-theme="daylight"] .challenge-tab-btn.active {
     background: #ffffff !important;
-    border-color: #0369a1 !important;
-    color: #0369a1 !important;
-    box-shadow: 0 2px 8px rgba(3, 105, 161, 0.14) !important;
-}
-[data-theme="daylight"] .challenge-tab-btn .tab-badge {
-    background: #e2dbce !important;
-    color: #4b545f !important;
-}
-[data-theme="daylight"] .challenge-tab-btn.active .tab-badge {
-    background: #ddebf5 !important;
-    color: #0369a1 !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--accent-blue) !important;
 }
 
-/* Mobile Challenge Picker & Landscape FAB */
-[data-theme="daylight"] .mc-mobile-picker-inner {
-    background: #f4efe4 !important;
-    border-color: #0369a1 !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .mc-mobile-picker-select {
-    background: #faf8f3 !important;
-    color: #1e242b !important;
-    border-color: #cfc6b6 !important;
-}
-[data-theme="daylight"] .landscape-fab-menu {
-    background: #faf8f3 !important;
-    border-color: #0369a1 !important;
-    box-shadow: 0 10px 30px rgba(30, 36, 43, 0.18) !important;
-}
-[data-theme="daylight"] .landscape-fab-menu button {
-    background: #f2ede2 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .landscape-fab-menu button.active {
-    background: #ddebf5 !important;
-    color: #0369a1 !important;
-    border-color: #0369a1 !important;
-}
-
-/* F. CORNELL NOTES & ÜBERSICHT */
+/* E. Cornell Notes & Audit */
 [data-theme="daylight"] .cornell-wrapper {
     background: #faf8f3 !important;
-    border: 1px solid #d5ccb9 !important;
-    box-shadow: 0 4px 16px rgba(30, 36, 43, 0.05) !important;
+    border: 1px solid var(--card-border) !important;
 }
 [data-theme="daylight"] .cornell-header {
     background: linear-gradient(90deg, #eae4d7, #f3efe6) !important;
-    border-bottom: 2px solid #0369a1 !important;
+    border-bottom: 2px solid var(--accent-blue) !important;
 }
-[data-theme="daylight"] .cornell-header h2 { color: #1e242b !important; }
-[data-theme="daylight"] .cornell-row-item { border-bottom-color: #e6dfd1 !important; }
-[data-theme="daylight"] .cornell-row-item:hover { background: rgba(3, 105, 161, 0.03) !important; }
 [data-theme="daylight"] .cornell-cue-col {
     background: #f3efe6 !important;
-    border-right: 1px solid #d8d0c2 !important;
+    border-right: 1px solid var(--card-border) !important;
 }
 [data-theme="daylight"] .cornell-cue-item {
     background: #e8e1d3 !important;
     border: 1px solid #d0c7b6 !important;
-    border-left: 3px solid #0369a1 !important;
-    color: #0369a1 !important;
+    border-left: 3px solid var(--accent-blue) !important;
+    color: var(--accent-blue) !important;
 }
-[data-theme="daylight"] .cornell-cue-item:hover,
-[data-theme="daylight"] .cornell-cue-item.cue-active-highlight {
-    background: #0369a1 !important;
-    color: #ffffff !important;
-}
-[data-theme="daylight"] .cornell-note-col,
 [data-theme="daylight"] .cornell-fragment,
-[data-theme="daylight"] .cornell-fragment p,
-[data-theme="daylight"] .cornell-fragment li {
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .cornell-fragment b,
-[data-theme="daylight"] .cornell-fragment strong {
-    color: #0f172a !important;
-    font-weight: 700 !important;
-}
-[data-theme="daylight"] .cornell-fragment strong:first-child { color: #0369a1 !important; }
-[data-theme="daylight"] .cornell-fragment.highlight-target {
-    background: #e6f2fa !important;
-    border-left-color: #0369a1 !important;
-    color: #0f172a !important;
-}
-[data-theme="daylight"] .cornell-summary {
-    background: #eee8dc !important;
-    border-top: 1px solid #d5ccb9 !important;
-}
-[data-theme="daylight"] .cornell-summary h4 { color: #0369a1 !important; }
-[data-theme="daylight"] .cornell-summary p { color: #1e242b !important; }
-
-/* G. AUDIT & TIMELINE (EDITORIAL PAPER MODE) */
-[data-theme="daylight"] .audit-step-container {
-    background: #faf8f3 !important;
-    border: 1px solid #d5ccb9 !important;
-    box-shadow: 0 3px 12px rgba(30, 36, 43, 0.04) !important;
-}
-[data-theme="daylight"] .audit-step-header,
-[data-theme="daylight"] .audit-step-footer {
-    border-color: #e4ddd0 !important;
-}
-[data-theme="daylight"] .audit-step-kicker { color: #64707d !important; }
-[data-theme="daylight"] .audit-step-title { color: #1e242b !important; }
-[data-theme="daylight"] .step-content,
-[data-theme="daylight"] .step-content.audit-editorial-body {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    color: #1e242b !important;
-}
 [data-theme="daylight"] .audit-paragraph,
 [data-theme="daylight"] .stealth-word,
 [data-theme="daylight"] .stealth-hotspot {
-    color: #1e242b !important;
+    color: var(--text-main) !important;
 }
-[data-theme="daylight"] .stealth-word:hover,
-[data-theme="daylight"] .stealth-hotspot:hover {
-    background-color: rgba(3, 105, 161, 0.12) !important;
-    box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.12) !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .resolved-signal {
-    background-color: #fee2e2 !important;
-    box-shadow: 0 0 0 2px #fee2e2 !important;
-    border-bottom: 2px solid #b91c1c !important;
-    color: #7f1d1d !important;
-}
-[data-theme="daylight"] .resolved-signal.resolved-corrected {
-    background-color: #d1fae5 !important;
-    box-shadow: 0 0 0 2px #d1fae5 !important;
-    border-bottom: 2px solid #047857 !important;
-    color: #064e3b !important;
-}
-[data-theme="daylight"] .resolved-noise {
-    color: #76808d !important;
-    border-bottom-color: #b8b0a2 !important;
-}
-
-/* Feedback-Boxen im Daylight-Modus (dunkle, satte Schrift statt hellem Pastell!) */
-[data-theme="daylight"] .feedback-success {
-    background: #ecfdf5 !important;
-    border: 1px solid #6ee7b7 !important;
-    border-left: 4px solid #047857 !important;
-    color: #064e3b !important;
-}
-[data-theme="daylight"] .feedback-error {
-    background: #fef2f2 !important;
-    border: 1px solid #fca5a5 !important;
-    border-left: 4px solid #b91c1c !important;
-    color: #7f1d1d !important;
-}
-[data-theme="daylight"] .feedback-neutral {
-    background: #fffbeb !important;
-    border: 1px solid #fcd34d !important;
-    border-left: 4px solid #b45309 !important;
-    color: #78350f !important;
-}
-[data-theme="daylight"] .audit-patient-complete-card {
-    background: #f0fdf4 !important;
-    border-color: #10b981 !important;
-    color: #064e3b !important;
-}
-
-/* H. SYNAPSEN-MATRIX (4x4 CONNECTIONS) & INLINE-STYLE OVERRIDES */
-[data-theme="daylight"] .synapses-container {
-    background: #f6f3eb !important;
-    border: 1px solid #d5ccb9 !important;
-}
-[data-theme="daylight"] .synapses-legend {
-    background: #ece6d9 !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .synapse-tile-modern {
+[data-theme="daylight"] .audit-step-container {
     background: #faf8f3 !important;
-    border: 1px solid #cfc6b6 !important;
-    box-shadow: 0 2px 5px rgba(30, 36, 43, 0.05) !important;
-}
-[data-theme="daylight"] .synapse-tile-modern .syn-tile-text {
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .synapse-tile-modern:hover {
-    background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .synapse-tile-modern.category-risk { background: #fff5f5 !important; border-color: #fca5a5 !important; }
-[data-theme="daylight"] .synapse-tile-modern.category-lab { background: #faf5ff !important; border-color: #d8b4fe !important; }
-[data-theme="daylight"] .synapse-tile-modern.category-symptom { background: #f0fdf4 !important; border-color: #86efac !important; }
-[data-theme="daylight"] .synapse-tile-modern.category-treatment { background: #f0f9ff !important; border-color: #93c5fd !important; }
-
-[data-theme="daylight"] .synapse-tile-modern.selected {
-    background: #ddebf5 !important;
-    border: 2px solid #0369a1 !important;
-    box-shadow: 0 0 12px rgba(3, 105, 161, 0.25) !important;
-}
-[data-theme="daylight"] .synapse-solved-card {
-    background: #ecfdf5 !important;
-    border: 1px solid #34d399 !important;
-    color: #064e3b !important;
-}
-[data-theme="daylight"] .synapse-solved-card div,
-[data-theme="daylight"] .synapse-solved-card p,
-[data-theme="daylight"] .synapse-solved-card strong {
-    color: #064e3b !important;
+    border: 1px solid var(--card-border) !important;
 }
 
-/* I. CLINICAL CASCADES, TAXONOMIE & MASTER-QUIZ */
+/* F. Synapsen-Matrix, Kaskaden, Quiz & Formulare */
+[data-theme="daylight"] .synapses-container,
 [data-theme="daylight"] .cascade-disease-container,
-[data-theme="daylight"] #mode-container-cascade > div,
-[data-theme="daylight"] #mode-container-cat > div {
-    background: #f6f3eb !important;
-    border: 1px solid #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .disease-title {
-    color: #0369a1 !important;
-    border-bottom-color: #d8d0c2 !important;
-}
-[data-theme="daylight"] .drag-bank {
-    background: #ece6d9 !important;
-    border: 1px dashed #b8b0a2 !important;
-}
-[data-theme="daylight"] .drag-item {
-    background: #faf8f3 !important;
-    border: 1px solid #c8bfb0 !important;
-    color: #1e242b !important;
-    box-shadow: 0 2px 4px rgba(30, 36, 43, 0.05) !important;
-}
-[data-theme="daylight"] .drag-item:hover {
-    background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .drop-zone {
-    background: #f2ede2 !important;
-    border: 2px dashed #c5bcad !important;
-}
-[data-theme="daylight"] .drop-zone .drag-item {
-    background: #ffffff !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .drop-zone.correct .drag-item {
-    background: #d1fae5 !important;
-    border-color: #059669 !important;
-    color: #064e3b !important;
-}
-
-/* Master-Quiz */
-[data-theme="daylight"] .quiz-card {
-    background: #f6f3eb !important;
-    border: 1px solid #d5ccb9 !important;
-}
-[data-theme="daylight"] .quiz-question-text { color: #1e242b !important; }
-[data-theme="daylight"] .quiz-opt-btn {
-    background: #faf8f3 !important;
-    border: 1px solid #cfc6b6 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .quiz-opt-btn:hover {
-    background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .quiz-opt-btn.selected {
-    background: #ddebf5 !important;
-    border-color: #0369a1 !important;
-    color: #0369a1 !important;
-}
-[data-theme="daylight"] .quiz-opt-btn.correct-highlight {
-    background: #d1fae5 !important;
-    border-color: #059669 !important;
-    color: #064e3b !important;
-}
-[data-theme="daylight"] .quiz-opt-btn.correct-highlight * { color: #064e3b !important; }
-[data-theme="daylight"] .quiz-opt-btn.wrong-highlight {
-    background: #fee2e2 !important;
-    border-color: #dc2626 !important;
-    color: #7f1d1d !important;
-}
-[data-theme="daylight"] .quiz-opt-btn.wrong-highlight * { color: #7f1d1d !important; }
-[data-theme="daylight"] .quiz-explanation-box {
-    background: #eee8dc !important;
-    border-left: 4px solid #0369a1 !important;
-    color: #2c343e !important;
-}
-
-/* J. DOCTORDLE & 3D FLASHCARDS (INKL. INLINE-STYLE OVERRIDES AUS DOCTORDLE.JS) */
-[data-theme="daylight"] #doctordle-container div[style*="background:rgba(15, 23, 42"],
-[data-theme="daylight"] #doctordle-container div[style*="background: rgba(15, 23, 42"] {
-    background: #f2ede2 !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] #doctordle-hints-area > div {
-    background: #faf8f3 !important;
-    border: 1px solid #d5ccb9 !important;
-    border-left: 4px solid #0369a1 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] #doctordle-input {
-    background: #faf8f3 !important;
-    color: #1e242b !important;
-    border: 1px solid #0369a1 !important;
-    box-shadow: inset 0 1px 3px rgba(30, 36, 43, 0.06) !important;
-}
-[data-theme="daylight"] #doctordle-reveal-btn {
-    background: #fee2e2 !important;
-    color: #991b1b !important;
-    border: 1px solid #fca5a5 !important;
-}
-[data-theme="daylight"] #doctordle-autocomplete-list {
-    background: #faf8f3 !important;
-    border: 1px solid #0369a1 !important;
-    box-shadow: 0 10px 25px rgba(30, 36, 43, 0.12) !important;
-}
-[data-theme="daylight"] #doctordle-autocomplete-list li {
-    color: #1e242b !important;
-    border-bottom: 1px solid #ebe5d9 !important;
-}
-[data-theme="daylight"] #doctordle-autocomplete-list li:hover {
-    background: #ddebf5 !important;
-    color: #0369a1 !important;
-}
-
-/* 3D Flashcards im Daylight-Modus (vorher dunkelblau!) */
-[data-theme="daylight"] .fc-progress-bar { background: #e2dbce !important; }
+[data-theme="daylight"] .quiz-card,
 [data-theme="daylight"] .fc-face {
     background: #faf8f3 !important;
-    border: 1px solid #cfc6b6 !important;
-    color: #1e242b !important;
-    box-shadow: 0 10px 24px -8px rgba(30, 36, 43, 0.1) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-main) !important;
 }
-[data-theme="daylight"] .fc-back {
-    background: linear-gradient(160deg, #faf8f3, #ecfdf5) !important;
-    border-color: #34d399 !important;
-}
-[data-theme="daylight"] .fc-main-text,
-[data-theme="daylight"] .fc-answer-text {
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .fc-mnemonic-box {
-    background: #eee8dc !important;
-    color: #3e4650 !important;
-    border-left-color: #0369a1 !important;
-}
-[data-theme="daylight"] .fc-depot-pin-btn {
-    background: #e3f0fa !important;
-    border-color: #93c5fd !important;
-    color: #0369a1 !important;
-}
+[data-theme="daylight"] .synapse-tile-modern,
+[data-theme="daylight"] .drag-item,
+[data-theme="daylight"] .quiz-opt-btn,
 [data-theme="daylight"] .fc-rate-btn {
     background: #f4efe4 !important;
     border: 1px solid #cfc6b6 !important;
-    color: #1e242b !important;
+    color: var(--text-main) !important;
 }
-[data-theme="daylight"] .fc-rate-btn.rate-again:hover { background: #fee2e2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
-[data-theme="daylight"] .fc-rate-btn.rate-hard:hover  { background: #fef3c7 !important; border-color: #f59e0b !important; color: #92400e !important; }
-[data-theme="daylight"] .fc-rate-btn.rate-good:hover  { background: #d1fae5 !important; border-color: #10b981 !important; color: #065f46 !important; }
-
-/* K. PHARMAKOLOGIE HUB, KOMPASS & MATRIX (VORHER SCHWARZ!) */
-[data-theme="daylight"] .pharma-wrapper { color: #1e242b !important; }
-[data-theme="daylight"] .pharma-mode-card,
-[data-theme="daylight"] .pharma-set-card,
-[data-theme="daylight"] .pharma-import-box {
-    background: #faf8f3 !important;
-    border: 1px solid #d5ccb9 !important;
-    color: #1e242b !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .pharma-mode-card.active-mode {
-    background: linear-gradient(145deg, #faf8f3, #e6f2fa) !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .pharma-mode-icon { background: #eae4d7 !important; }
-[data-theme="daylight"] .pharma-mode-tag { background: #d1fae5 !important; color: #065f46 !important; }
-[data-theme="daylight"] .pharma-field-pill { background: #e0e7ff !important; color: #3730a3 !important; }
-
-[data-theme="daylight"] .stat-pill {
-    background: #f2ede2 !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .compass-center-patient {
-    background: linear-gradient(145deg, #faf8f3, #f0ebe0) !important;
-    border: 2px solid #0369a1 !important;
-    color: #1e242b !important;
-    box-shadow: 0 8px 24px rgba(30, 36, 43, 0.08) !important;
-}
-[data-theme="daylight"] .patient-context-text,
-[data-theme="daylight"] .patient-question-prompt {
-    color: #1e242b !important;
-    border-top-color: #d8d0c2 !important;
-}
-[data-theme="daylight"] .compass-card {
-    background: #faf8f3 !important;
-    border: 2px solid #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .compass-card:hover {
+[data-theme="daylight"] .synapse-tile-modern:hover,
+[data-theme="daylight"] .drag-item:hover,
+[data-theme="daylight"] .quiz-opt-btn:hover {
     background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .compass-card.card-correct {
-    background: #ecfdf5 !important;
-    border-color: #059669 !important;
-    color: #064e3b !important;
-}
-[data-theme="daylight"] .compass-card.card-wrong {
-    background: #fef2f2 !important;
-    border-color: #dc2626 !important;
-    color: #7f1d1d !important;
-}
-[data-theme="daylight"] .compass-resolution-panel {
-    background: #f2ede2 !important;
-    border-color: #0369a1 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .pharma-bank-section {
-    background: #f2ede2 !important;
-    border-color: #0369a1 !important;
-}
-[data-theme="daylight"] .pharma-matrix-card {
-    background: #faf8f3 !important;
-    border: 1px solid #cfc6b6 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .pharma-category-column {
-    background: #f6f3eb !important;
-    border: 1px solid #d5ccb9 !important;
-}
-[data-theme="daylight"] .pharma-cat-header {
-    color: #0369a1 !important;
-    border-bottom-color: #d8d0c2 !important;
+    border-color: var(--accent-blue) !important;
 }
 
-/* L. LERN-DEPOT, FORGE, CREATOR HUB & AUTH INPUTS */
-[data-theme="daylight"] .depot-card,
-[data-theme="daylight"] .depot-stat-pill,
-[data-theme="daylight"] .depot-quick-add {
-    background: #f6f3eb !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .depot-quote-text {
-    background: #faf8f3 !important;
-    border-color: #dfd8c8 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .depot-toggle-btn {
-    background: #d1fae5 !important;
-    border-color: #34d399 !important;
-    color: #065f46 !important;
-}
-[data-theme="daylight"] .depot-quiz-arena {
-    background: #f6f3eb !important;
-    border: 1px solid #0369a1 !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] .depot-q-card {
-    background: #faf8f3 !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .depot-q-feedback {
-    background: #eee8dc !important;
-    color: #1e242b !important;
-}
-
-/* Forge, Creator-Hub & Formularfelder */
-[data-theme="daylight"] .forge-generator-controls,
-[data-theme="daylight"] .creator-upload-card {
-    background: #f2ede2 !important;
-    border: 1px solid #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .creator-upload-card .drop-zone {
-    background: #faf8f3 !important;
-    border: 2px dashed #b8b0a2 !important;
-    color: #2c343e !important;
-}
-[data-theme="daylight"] .creator-upload-card .drop-zone-text { color: #2c343e !important; }
-[data-theme="daylight"] .upload-status-item {
-    background: #faf8f3 !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
-}
-[data-theme="daylight"] .upload-status-item.success { background: #ecfdf5 !important; border-color: #10b981 !important; color: #065f46 !important; }
-[data-theme="daylight"] .upload-status-item.error   { background: #fef2f2 !important; border-color: #ef4444 !important; color: #991b1b !important; }
-
-[data-theme="daylight"] .forge-textarea,
-[data-theme="daylight"] .forge-topic-input,
-[data-theme="daylight"] .pharma-textarea,
-[data-theme="daylight"] .depot-select,
-[data-theme="daylight"] .depot-search-input,
-[data-theme="daylight"] .auth-panel input,
+/* Eingabefelder im Daylight-Modus */
 [data-theme="daylight"] input[type="text"],
 [data-theme="daylight"] input[type="email"],
 [data-theme="daylight"] input[type="password"],
+[data-theme="daylight"] textarea,
 [data-theme="daylight"] select,
-[data-theme="daylight"] textarea {
-    background: #faf8f3 !important;
-    border: 1px solid #cfc6b6 !important;
-    color: #1e242b !important;
-}
-
-[data-theme="daylight"] kbd {
-    background: #eae4d7 !important;
-    border: 1px solid #c5bcad !important;
-    color: #1e242b !important;
-}
-
-[data-theme="daylight"] .theme-card {
-    background: #f6f3eb !important;
-    border-color: #d5ccb9 !important;
-}
-[data-theme="daylight"] .theme-card.active {
+[data-theme="daylight"] .forge-textarea,
+[data-theme="daylight"] .forge-topic-input,
+[data-theme="daylight"] .pharma-textarea,
+[data-theme="daylight"] .depot-search-input,
+[data-theme="daylight"] #doctordle-input {
     background: #ffffff !important;
-    border-color: #0369a1 !important;
-}
-
-[data-theme="daylight"] .specialty-sticky-bar,
-[data-theme="daylight"] .reveal-card,
-[data-theme="daylight"] .modal-card,
-[data-theme="daylight"] .tutor-popup,
-[data-theme="daylight"] .diag-section {
-    background: #faf8f3 !important;
-    border-color: #d5ccb9 !important;
-    color: #1e242b !important;
+    border: 1px solid #cfc6b6 !important;
+    color: var(--text-main) !important;
 }
