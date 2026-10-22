@@ -230,17 +230,39 @@ const ProgressManager = {
         }
     },
 
+    // NEU: Setzt ALLE interaktiven Challenges (Audit, Quiz, Synapsen, Kaskaden, Doctordle, Flashcards)
+    // für eine Spaced-Repetition-Wiederholung zurück, behält den Fall aber in 'solved_cases'!
+    resetCaseChallengesForReview(caseId) {
+        if (!caseId) return;
+
+        // 1. Haupt-Progress für diesen Fall löschen
+        const all = this.getAll();
+        if (all[caseId]) {
+            delete all[caseId];
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+        }
+
+        // 2. Separaten Doctordle-Speicher für diesen Fall löschen
+        try {
+            localStorage.removeItem(`doctordle_state_${caseId}`);
+        } catch (e) {}
+
+        // 3. Laufende Doctordle-Instanz im RAM zurücksetzen, damit initDoctordle() nicht cached
+        if (window.doctordleGame && window.doctordleGame.currentCaseId === caseId) {
+            window.doctordleGame.currentCaseId = null;
+        }
+    },
+
     resetEntireCase(caseId) {
         if (!caseId || window.isSpecialtyBlindMode) return;
-        const all = this.getAll();
-        delete all[caseId];
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+        this.resetCaseChallengesForReview(caseId);
 
         let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
         solved = solved.filter(id => id !== caseId);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
     }
 };
+window.ProgressManager = ProgressManager;
 
 // ====================================================
 // GLOBALE DD-BIBLIOTHEK
@@ -855,6 +877,16 @@ window.switchPlayerMode = function(mode) {
 
     if (mode === 'flashcards' && typeof window.renderFlashcards === 'function') {
         window.renderFlashcards();
+    }
+
+    if ((specialtyMode || opts.resetForReview) && window.doctordleGame) {
+        window.doctordleGame.currentCaseId = null;
+    }
+    window.switchTab('player', document.getElementById('nav-player'));
+    const initialMode = opts.startMode || (specialtyMode ? 'audit' : 'overview');
+    window.switchPlayerMode(initialMode);
+    if (typeof window.checkFinalCompletion === 'function') {
+        window.checkFinalCompletion();
     }
 };
 
@@ -2362,25 +2394,29 @@ window.loadCaseById = function(caseId, opts = {}) {
         return; 
     }
 
+    // NEU: Wenn der Fall aus dem Spaced-Repetition-Planer (oder als explizites Review) gestartet wird,
+    // setzen wir vorab alle Teil-Challenges (Audit, Quiz, Synapsen, Doctordle etc.) auf Anfang zurück!
+    if (opts.resetForReview) {
+        ProgressManager.resetCaseChallengesForReview(caseId);
+    }
+
     activeCaseData = JSON.parse(JSON.stringify(targetCase));
     window.registerCaseDDs(activeCaseData);
     if (specialtyMode) applySpecialtyFilters(activeCaseData);
-    const saved = specialtyMode ? {} : (ProgressManager.getCaseProgress(caseId) || {});
+    const saved = (specialtyMode || opts.resetForReview) ? {} : (ProgressManager.getCaseProgress(caseId) || {});
 
     window.applyBlindHeader(specialtyMode, activeCaseData);
 
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
     clearedStepsCount = saved.audit?.clearedStepsCount || 0;
+    selectedSynapses = []; // Auswahl-Puffer leeren
 
     const badgeAudit = document.getElementById('badge-mode-audit');
-    if (badgeAudit) badgeAudit.innerText = `${clearedStepsCount}/${totalStepsCount}`;
-
-    const tasks = activeCaseData.extra_tasks || {};
-    const show = (id, on) => { 
-        const el = document.getElementById(id); 
-        if (el) el.style.display = on ? 'inline-flex' : 'none'; 
-    };
+    if (badgeAudit) {
+        badgeAudit.innerText = `${clearedStepsCount}/${totalStepsCount}`;
+        badgeAudit.style.background = '';
+    }
 
     const hasSyn = !!(tasks.synapses_matrix && tasks.synapses_matrix.variables?.length && tasks.synapses_matrix.diseases?.length);
     const hasCas = !!(tasks.clinical_cascades && tasks.clinical_cascades.length);
