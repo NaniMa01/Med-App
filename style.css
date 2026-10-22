@@ -2787,60 +2787,61 @@ kbd {
 }
 
 /* ==========================================================================
-   20. CLINICAL DAYLIGHT (EVIDENCE-BASED VISUAL ERGONOMICS EDITION)
-   Warm Editorial Paper (#FAF8F3), Low-Glare Alabaster (#F3EFE6),
-   High-Acuity Deep Slate Ink (#1E242B) & Medical Cobalt (#0369A1)
+   20. CLINICAL DAYLIGHT (SPRINGER MEDIZIN EDITORIAL EDITION)
+   Klinisch-klares Reinweiß (#FFFFFF), Alabaster-Base (#F8FAFC),
+   Editorial Slate (#0F172A) & Medical Cobalt Blue (#00558F / #0284C7)
    ========================================================================== */
 
 [data-theme="daylight"] {
-    /* 1. Blendfreie Alabaster-Grundfläche */
-    --bg-color: #f3efe6 !important;
-    --bg-main: #f3efe6 !important;
-    --bg-gradient: linear-gradient(180deg, #f7f4ec 0%, #ede8dc 100%) !important;
+    /* 1. Reine, neutrale Flächen */
+    --bg-color: #f8fafc !important;
+    --bg-main: #f8fafc !important;
+    --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%) !important;
 
-    /* 2. Oberflächen & Karten */
-    --sidebar-bg: #f6f3eb !important;
-    --card-bg: #faf8f3 !important;
-    --card-bg-hover: #ffffff !important;
-    --bg-panel: #faf8f3 !important;
-    --bg-surface: #f6f3eb !important;
-    --bg-surface-elevated: #eae4d7 !important;
+    /* 2. Karten & Layer */
+    --sidebar-bg: #ffffff !important;
+    --card-bg: #ffffff !important;
+    --card-bg-hover: #f8fafc !important;
+    --bg-panel: #ffffff !important;
+    --bg-surface: #ffffff !important;
+    --bg-surface-elevated: #f1f5f9 !important;
     --bg-input: #ffffff !important;
 
-    --card-border: #d8d0c2 !important;
-    --card-border-hover: #0369a1 !important;
-    --border-subtle: #e6dfd1 !important;
-    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9) !important;
+    --card-border: #e2e8f0 !important;
+    --card-border-hover: #00558f !important;
+    --border-subtle: #edf2f7 !important;
+    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 1) !important;
 
-    /* 3. Typografie & Lesekontrast */
-    --text-main: #1e242b !important;
-    --text-primary: #1e242b !important;
-    --text-muted: #525b66 !important;
-    --text-secondary: #525b66 !important;
-    --text-dim: #76808d !important;
+    /* 3. Lesetypografie (Editorial Contrast) */
+    --text-main: #0f172a !important;
+    --text-primary: #0f172a !important;
+    --text-muted: #475569 !important;
+    --text-secondary: #475569 !important;
+    --text-dim: #64748b !important;
 
-    /* 4. Klinische Akzentfarben */
-    --accent-blue: #0369a1 !important;
+    /* 4. Klinische Leitfarben */
+    --accent-blue: #00558f !important;
     --accent-cyan: #0284c7 !important;
-    --accent-indigo: #4338ca !important;
+    --accent-indigo: #2563eb !important;
 
-    /* 5. Semantische Statusfarben */
-    --color-risk: #b91c1c !important;
-    --color-lab: #6d28d9 !important;
-    --color-symptom: #047857 !important;
-    --color-treatment: #0369a1 !important;
-    --warning: #b45309 !important;
-    --error: #b91c1c !important;
+    /* 5. Status & Indikatoren */
+    --color-risk: #dc2626 !important;
+    --color-lab: #7c3aed !important;
+    --color-symptom: #059669 !important;
+    --color-treatment: #0284c7 !important;
+    --warning: #d97706 !important;
+    --error: #dc2626 !important;
 
-    --shadow-sm: 0 2px 6px rgba(30, 36, 43, 0.05) !important;
-    --shadow-md: 0 8px 24px -4px rgba(30, 36, 43, 0.08) !important;
-    --shadow-glow: 0 0 16px rgba(3, 105, 161, 0.14) !important;
+    /* 6. Weiche Schatten */
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+    --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04) !important;
+    --shadow-glow: 0 0 14px rgba(0, 85, 143, 0.12) !important;
 }
 
-/* Scrollbar */
-[data-theme="daylight"] ::-webkit-scrollbar-track { background: #eae4d7; }
-[data-theme="daylight"] ::-webkit-scrollbar-thumb { background: #c5bcad; border-radius: 999px; }
-[data-theme="daylight"] ::-webkit-scrollbar-thumb:hover { background: #0369a1; }
+/* Scrollbars im Daylight Modus */
+[data-theme="daylight"] ::-webkit-scrollbar-track { background: #f1f5f9 !important; }
+[data-theme="daylight"] ::-webkit-scrollbar-thumb { background: #cbd5e1 !important; border-radius: 999px !important; }
+[data-theme="daylight"] ::-webkit-scrollbar-thumb:hover { background: #94a3b8 !important; }
 
 /* A. Layout, Sidebar & Topbar */
 [data-theme="daylight"] body,
@@ -2851,202 +2852,313 @@ kbd {
 }
 
 [data-theme="daylight"] sidebar {
-    background: var(--sidebar-bg) !important;
-    border-right: 1px solid var(--card-border) !important;
-    box-shadow: 4px 0 20px rgba(30, 36, 43, 0.05) !important;
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    box-shadow: 2px 0 12px rgba(15, 23, 42, 0.04) !important;
 }
 
-[data-theme="daylight"] .brand { color: var(--text-main) !important; }
-[data-theme="daylight"] .nav-item { color: var(--text-muted) !important; }
+[data-theme="daylight"] .brand { color: #0f172a !important; }
+[data-theme="daylight"] .brand-icon-wrap {
+    background: rgba(0, 85, 143, 0.08) !important;
+    border-color: rgba(0, 85, 143, 0.25) !important;
+    color: #00558f !important;
+}
+
+[data-theme="daylight"] .nav-section-label { color: #64748b !important; }
+[data-theme="daylight"] .nav-item {
+    color: #334155 !important;
+}
 [data-theme="daylight"] .nav-item:hover {
-    background: #ebe5d9 !important;
-    color: var(--text-main) !important;
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
 }
 [data-theme="daylight"] .nav-item.active {
-    background: linear-gradient(90deg, rgba(3, 105, 161, 0.14), rgba(67, 56, 202, 0.08)) !important;
-    color: var(--accent-blue) !important;
-    border-color: rgba(3, 105, 161, 0.4) !important;
+    background: rgba(0, 85, 143, 0.08) !important;
+    color: #00558f !important;
+    border-color: rgba(0, 85, 143, 0.25) !important;
+}
+[data-theme="daylight"] .nav-item.active svg { color: #00558f !important; }
+
+[data-theme="daylight"] .sidebar-footer {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
 }
 
 [data-theme="daylight"] topbar {
-    background: rgba(250, 248, 243, 0.94) !important;
-    border-bottom: 1px solid var(--card-border) !important;
-    box-shadow: 0 2px 10px rgba(30, 36, 43, 0.04) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04) !important;
 }
 
 [data-theme="daylight"] .topbar-engine-tag {
-    background: #e6f1f8 !important;
-    border-color: #b6d8ee !important;
-    color: var(--accent-blue) !important;
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #00558f !important;
 }
-
 [data-theme="daylight"] .hud-stat {
-    background: #f0ebe0 !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-muted) !important;
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #475569 !important;
+    box-shadow: var(--shadow-sm) !important;
 }
-[data-theme="daylight"] .hud-stat strong { color: var(--text-main) !important; }
+[data-theme="daylight"] .hud-stat strong { color: #0f172a !important; }
+[data-theme="daylight"] .hud-stat.xp-stat strong { color: #00558f !important; }
 
-/* B. Bookshelf & Ordnerbaum */
-[data-theme="daylight"] .bookshelf-super-group,
-[data-theme="daylight"] .folder-group {
-    background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-}
-[data-theme="daylight"] .bookshelf-super-header,
-[data-theme="daylight"] .folder-header {
-    background: #f4efe4 !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .bookshelf-super-header:hover,
-[data-theme="daylight"] .folder-header:hover {
-    background: #ebe5d8 !important;
-}
-[data-theme="daylight"] .bookshelf-super-badge,
-[data-theme="daylight"] .folder-badge-mini,
-[data-theme="daylight"] .category-badge {
-    background: #ddebf5 !important;
-    color: var(--accent-blue) !important;
-}
-[data-theme="daylight"] .folder-cases-list {
-    background: #f0ebe0 !important;
-    border-top: 1px solid #e0d8c8 !important;
-}
-[data-theme="daylight"] .folder-case-item {
-    background: #faf8f3 !important;
-    border: 1px solid #dbd3c5 !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .folder-case-item:hover {
-    background: #e3f0fa !important;
-    border-color: var(--accent-blue) !important;
-    color: var(--accent-blue) !important;
+/* B. Dashboard, Panels, Superfolder & Fallkarten */
+[data-theme="daylight"] .panel {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: var(--shadow-sm) !important;
+    color: #0f172a !important;
 }
 
-/* C. Panels, Toolbar, Fallkarten */
-[data-theme="daylight"] .panel,
+[data-theme="daylight"] .panel-title { color: #0f172a !important; }
+[data-theme="daylight"] .panel-subtitle { color: #475569 !important; }
+
+[data-theme="daylight"] .dashboard-folder-toolbar {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+[data-theme="daylight"] .dashboard-folder-toolbar button {
+    background: #ffffff !important;
+    color: #00558f !important;
+    border: 1px solid #cbd5e1 !important;
+}
+[data-theme="daylight"] .dashboard-folder-toolbar button:hover {
+    background: #f1f5f9 !important;
+}
+
+[data-theme="daylight"] .super-folder {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .super-folder-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+[data-theme="daylight"] .super-folder-header:hover { background: #f1f5f9 !important; }
+[data-theme="daylight"] .super-folder-title,
+[data-theme="daylight"] .super-folder-title span { color: #0f172a !important; }
+
+[data-theme="daylight"] .category-folder {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+}
+[data-theme="daylight"] .category-header {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+}
+[data-theme="daylight"] .category-header:hover { background: #f1f5f9 !important; }
+[data-theme="daylight"] .category-title-wrap,
+[data-theme="daylight"] .category-title-wrap span { color: #0f172a !important; }
+
 [data-theme="daylight"] .case-card,
 [data-theme="daylight"] .specialty-card {
-    background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    color: var(--text-main) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
     box-shadow: var(--shadow-sm) !important;
+    color: #0f172a !important;
 }
 [data-theme="daylight"] .case-card:hover,
 [data-theme="daylight"] .specialty-card:hover {
-    background: #ffffff !important;
-    border-color: var(--accent-blue) !important;
-    box-shadow: 0 10px 22px -6px rgba(3, 105, 161, 0.16) !important;
+    border-color: #00558f !important;
+    box-shadow: var(--shadow-md) !important;
+    transform: translateY(-2px) !important;
 }
 [data-theme="daylight"] .case-card h3,
-[data-theme="daylight"] .specialty-card h3 { color: var(--text-main) !important; }
+[data-theme="daylight"] .specialty-card h3 { color: #0f172a !important; }
 
-[data-theme="daylight"] .dashboard-folder-toolbar {
-    background: #f2ede2 !important;
-    border: 1px solid var(--card-border) !important;
+[data-theme="daylight"] .tag {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #00558f !important;
 }
-[data-theme="daylight"] .dashboard-folder-toolbar button {
-    background: #faf8f3 !important;
-    color: var(--accent-blue) !important;
-    border: 1px solid #b6d8ee !important;
+[data-theme="daylight"] .cloud-badge.is-cloud {
+    background: rgba(2, 132, 199, 0.1) !important;
+    border-color: rgba(2, 132, 199, 0.3) !important;
+    color: #0284c7 !important;
+}
+[data-theme="daylight"] .cloud-badge.is-local {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
 }
 
-/* D. Buttons & Tabs */
+/* C. Segmented Controls & Bookshelf */
+[data-theme="daylight"] .segmented-control {
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+}
+[data-theme="daylight"] .segmented-btn {
+    color: #475569 !important;
+}
+[data-theme="daylight"] .segmented-btn.active {
+    background: #ffffff !important;
+    color: #00558f !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme="daylight"] .bookshelf-super-group,
+[data-theme="daylight"] .folder-group {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+}
+[data-theme="daylight"] .bookshelf-super-header,
+[data-theme="daylight"] .folder-header {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+}
+[data-theme="daylight"] .bookshelf-super-header:hover,
+[data-theme="daylight"] .folder-header:hover {
+    background: #f1f5f9 !important;
+}
+[data-theme="daylight"] .folder-case-item {
+    background: #ffffff !important;
+    border: 1px solid #edf2f7 !important;
+    color: #334155 !important;
+}
+[data-theme="daylight"] .folder-case-item:hover {
+    background: #f1f5f9 !important;
+    color: #00558f !important;
+}
+
+/* D. Buttons & Challenge Nav */
 [data-theme="daylight"] .action-btn,
 [data-theme="daylight"] .btn,
 [data-theme="daylight"] #doctordle-submit-btn,
 [data-theme="daylight"] .pharma-btn-primary {
-    background: linear-gradient(135deg, #0369a1, #075985) !important;
+    background: #00558f !important;
     color: #ffffff !important;
-    border: 1px solid #0369a1 !important;
+    border: 1px solid #00558f !important;
+    box-shadow: 0 2px 4px rgba(0, 85, 143, 0.2) !important;
 }
 [data-theme="daylight"] .action-btn *,
-[data-theme="daylight"] .btn * {
-    color: #ffffff !important;
+[data-theme="daylight"] .btn * { color: #ffffff !important; }
+[data-theme="daylight"] .action-btn:hover,
+[data-theme="daylight"] .btn:hover {
+    background: #004370 !important;
 }
 
 [data-theme="daylight"] .action-btn.secondary,
 [data-theme="daylight"] .btn-secondary,
-[data-theme="daylight"] .pharma-btn-secondary {
-    background: #efeae0 !important;
-    color: var(--text-main) !important;
-    border: 1px solid #cfc6b6 !important;
+[data-theme="daylight"] .back-btn {
+    background: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #cbd5e1 !important;
 }
-[data-theme="daylight"] .action-btn.secondary *,
-[data-theme="daylight"] .btn-secondary * {
-    color: var(--text-main) !important;
+[data-theme="daylight"] .back-btn:hover {
+    border-color: #00558f !important;
+    color: #00558f !important;
 }
 
 [data-theme="daylight"] .challenge-nav-bar {
-    background: #eae4d7 !important;
-    border: 1px solid #d5ccb9 !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
 }
 [data-theme="daylight"] .challenge-tab-btn {
-    background: #f4efe4 !important;
-    border: 1px solid var(--card-border) !important;
-    color: var(--text-muted) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #475569 !important;
 }
 [data-theme="daylight"] .challenge-tab-btn.active {
     background: #ffffff !important;
-    border-color: var(--accent-blue) !important;
-    color: var(--accent-blue) !important;
+    border-color: #00558f !important;
+    color: #00558f !important;
+    box-shadow: 0 1px 4px rgba(0, 85, 143, 0.15) !important;
 }
 
-/* E. Cornell Notes & Audit */
+/* E. Cornell Notes & Audit Editorial Layout */
 [data-theme="daylight"] .cornell-wrapper {
-    background: #faf8f3 !important;
-    border: 1px solid var(--card-border) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 [data-theme="daylight"] .cornell-header {
-    background: linear-gradient(90deg, #eae4d7, #f3efe6) !important;
-    border-bottom: 2px solid var(--accent-blue) !important;
+    background: #f8fafc !important;
+    border-bottom: 2px solid #00558f !important;
 }
+[data-theme="daylight"] .cornell-header h2 { color: #0f172a !important; }
 [data-theme="daylight"] .cornell-cue-col {
-    background: #f3efe6 !important;
-    border-right: 1px solid var(--card-border) !important;
+    background: #f8fafc !important;
+    border-right: 1px solid #e2e8f0 !important;
 }
 [data-theme="daylight"] .cornell-cue-item {
-    background: #e8e1d3 !important;
-    border: 1px solid #d0c7b6 !important;
-    border-left: 3px solid var(--accent-blue) !important;
-    color: var(--accent-blue) !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-left: 3px solid #00558f !important;
+    color: #00558f !important;
+}
+[data-theme="daylight"] .cornell-cue-item:hover,
+[data-theme="daylight"] .cornell-cue-item.cue-active-highlight {
+    background: #00558f !important;
+    color: #ffffff !important;
 }
 [data-theme="daylight"] .cornell-fragment,
 [data-theme="daylight"] .audit-paragraph,
 [data-theme="daylight"] .stealth-word,
 [data-theme="daylight"] .stealth-hotspot {
-    color: var(--text-main) !important;
+    color: #0f172a !important;
 }
 [data-theme="daylight"] .audit-step-container {
-    background: #faf8f3 !important;
-    border: 1px solid var(--card-border) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
 }
 
-/* F. Synapsen-Matrix, Kaskaden, Quiz & Formulare */
+/* F. Spaced Repetition Bar & Modal */
+[data-theme="daylight"] .sr-compact-preview-bar {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .sr-compact-preview-bar:hover {
+    border-color: #00558f !important;
+    background: #f8fafc !important;
+}
+[data-theme="daylight"] .sr-compact-title { color: #0f172a !important; }
+[data-theme="daylight"] .sr-modal-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+}
+[data-theme="daylight"] .sr-modal-header,
+[data-theme="daylight"] .sr-modal-toolbar {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
+[data-theme="daylight"] .sr-topic-group {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+}
+[data-theme="daylight"] .sr-topic-header {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+[data-theme="daylight"] .sr-case-title { color: #0f172a !important; }
+
+/* G. Flashcards, Quiz & Synapsen-Matrix */
 [data-theme="daylight"] .synapses-container,
-[data-theme="daylight"] .cascade-disease-container,
 [data-theme="daylight"] .quiz-card,
 [data-theme="daylight"] .fc-face {
-    background: #faf8f3 !important;
-    border: 1px solid var(--card-border) !important;
-    color: var(--text-main) !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
 }
 [data-theme="daylight"] .synapse-tile-modern,
 [data-theme="daylight"] .drag-item,
 [data-theme="daylight"] .quiz-opt-btn,
 [data-theme="daylight"] .fc-rate-btn {
-    background: #f4efe4 !important;
-    border: 1px solid #cfc6b6 !important;
-    color: var(--text-main) !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
 }
 [data-theme="daylight"] .synapse-tile-modern:hover,
-[data-theme="daylight"] .drag-item:hover,
 [data-theme="daylight"] .quiz-opt-btn:hover {
     background: #ffffff !important;
-    border-color: var(--accent-blue) !important;
+    border-color: #00558f !important;
 }
 
-/* Eingabefelder im Daylight-Modus */
+/* H. Eingaben & Formulare */
 [data-theme="daylight"] input[type="text"],
 [data-theme="daylight"] input[type="email"],
 [data-theme="daylight"] input[type="password"],
@@ -3054,10 +3166,13 @@ kbd {
 [data-theme="daylight"] select,
 [data-theme="daylight"] .forge-textarea,
 [data-theme="daylight"] .forge-topic-input,
-[data-theme="daylight"] .pharma-textarea,
-[data-theme="daylight"] .depot-search-input,
 [data-theme="daylight"] #doctordle-input {
     background: #ffffff !important;
-    border: 1px solid #cfc6b6 !important;
-    color: var(--text-main) !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+}
+[data-theme="daylight"] input:focus,
+[data-theme="daylight"] textarea:focus {
+    border-color: #00558f !important;
+    box-shadow: 0 0 0 3px rgba(0, 85, 143, 0.12) !important;
 }
