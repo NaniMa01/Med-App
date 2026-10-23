@@ -314,20 +314,43 @@ class DoctordleController {
             `;
         }
 
+   // Spaced Repetition Engine SM-2 Hook (Defensiv abgesichert)
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
-            const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
-                won: won,
-                attempts: this.currentAttempt + 1
-            });
+            try {
+                let quality = 3;
+                if (typeof window.SpacedRepetitionEngine.deriveQualityFromMetrics === 'function') {
+                    quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
+                        won: won,
+                        attempts: this.currentAttempt + 1,
+                        byReveal: byReveal
+                    });
+                } else {
+                    // Fallback SM-2 Quality (0-5 Scale):
+                    // Aufgedeckt / Verloren = 1-2, Richtig in 1-2 Versuchen = 5, 3-4 = 4, 5-6 = 3
+                    if (byReveal || !won) {
+                        quality = 1;
+                    } else if (this.currentAttempt <= 1) {
+                        quality = 5;
+                    } else if (this.currentAttempt <= 3) {
+                        quality = 4;
+                    } else {
+                        quality = 3;
+                    }
+                }
 
-            const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
+                const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
 
-            window.SpacedRepetitionEngine.recordReview({
-                itemId: itemId,
-                moduleType: 'doctordle',
-                quality: quality,
-                medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
-            }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+                if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
+                    window.SpacedRepetitionEngine.recordReview({
+                        itemId: itemId,
+                        moduleType: 'doctordle',
+                        quality: quality,
+                        medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
+                    }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+                }
+            } catch (srsErr) {
+                console.warn('[Doctordle] SpacedRepetition Soft-Fail:', srsErr);
+            }
         }
 
         // Globalen Callback und Auto-Save triggern
