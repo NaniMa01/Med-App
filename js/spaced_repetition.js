@@ -67,7 +67,7 @@ const SpacedRepetitionEngine = {
     },
 
   
-    // 4. Fall nach Abschluss / Wiederholung hochstufen oder zurücksetzen
+// 4. Fall nach Abschluss / Wiederholung hochstufen oder zurücksetzen
     recordCaseReview(caseId, performanceRating = 'good') {
         if (!caseId) return;
         const schedule = this.getScheduleData();
@@ -75,22 +75,27 @@ const SpacedRepetitionEngine = {
         const DAY_MS = 86400000;
 
         const current = schedule[caseId] || { stage: 0, historyCount: 0 };
-        let nextStage = current.stage;
+        const currentStage = (typeof current.stage === 'number' && !isNaN(current.stage)) ? current.stage : 0;
+        let nextStage = currentStage;
 
         if (performanceRating === 'again') {
-            nextStage = 0; // Morgen wiederholen
+            nextStage = 0; // Sofort wiederholen (Morgen)
         } else if (performanceRating === 'hard') {
-            nextStage = Math.max(0, current.stage); // Gleiche Stufe behalten
+            nextStage = Math.max(0, currentStage); // Stufe konsolidieren / halten
         } else {
-            nextStage = Math.min(SR_INTERVALS_DAYS.length - 1, current.stage + 1);
+            // 'good' / 'easy' -> nächste Stufe nach Leitner/SM-2
+            const maxStage = (Array.isArray(SR_INTERVALS_DAYS) ? SR_INTERVALS_DAYS.length : 6) - 1;
+            nextStage = Math.min(maxStage, currentStage + 1);
         }
 
-        const intervalDays = SR_INTERVALS_DAYS[nextStage];
+        const intervals = Array.isArray(SR_INTERVALS_DAYS) ? SR_INTERVALS_DAYS : [1, 3, 7, 14, 30, 60];
+        const intervalDays = intervals[nextStage] || 1;
+
         schedule[caseId] = {
             stage: nextStage,
             lastReviewed: now,
             nextDue: now + (intervalDays * DAY_MS),
-            historyCount: (current.historyCount || 0) + 1
+            historyCount: (Number(current.historyCount) || 0) + 1
         };
 
         this.saveScheduleData(schedule);
@@ -101,16 +106,16 @@ const SpacedRepetitionEngine = {
     deriveQualityFromMetrics(moduleType, metrics = {}) {
         switch (moduleType) {
             case 'doctordle':
-                // Aufgedeckt oder Fehlversuche
+                // Aufgedeckt oder nicht geschafft -> 1 (Fehlschlag)
                 if (metrics.byReveal || !metrics.won) return 1;
-                // Stufe 1: Sofortige Gestalt-Erkennung (Leitsymptom reicht) -> Max Score
+                // Gestalt-Wahrnehmung: Sofortige Diagnose bei Stufe 1
                 if (metrics.attempts === 1) return 5;
                 if (metrics.attempts === 2) return 4;
                 if (metrics.attempts <= 4) return 3;
-                return 2;
+                return 2; // Später Versuch (Stufe 5-6)
 
             case 'quiz': {
-                const pct = metrics.scorePercent || 0;
+                const pct = typeof metrics.scorePercent === 'number' ? metrics.scorePercent : 0;
                 if (pct >= 0.9) return 5;
                 if (pct >= 0.75) return 4;
                 if (pct >= 0.6) return 3;
@@ -118,37 +123,41 @@ const SpacedRepetitionEngine = {
                 return 1;
             }
 
-            case 'synapses':
-                if (metrics.mistakes === 0) return 5;
-                if (metrics.mistakes <= 2) return 4;
-                if (metrics.mistakes <= 4) return 3;
+            case 'synapses': {
+                const mistakes = Number(metrics.mistakes) || 0;
+                if (mistakes === 0) return 5;
+                if (mistakes <= 2) return 4;
+                if (mistakes <= 4) return 3;
                 return 2;
+            }
 
             default:
-                return metrics.won ? 4 : 2;
+                return metrics.won ? 4 : 1;
         }
     },
 
     // 4b. Submodul-Review (z. B. aus Doctordle, Quiz, Synapsen) verarbeiten
     async recordReview({ itemId, moduleType, quality, medicalField }) {
-        if (!itemId) return;
+        if (!itemId) return { success: false, reason: 'Missing itemId' };
 
-        // Wenn quality < 3 (SM-2 Schwelle für "nicht gewusst/aufgedeckt"), 
-        // stufen wir die Review-Bewertung auf 'again' bzw. 'hard' ein
+        // SM-2 Mapping:
+        // 0-1 = again (Reset)
+        // 2-3 = hard (Halten)
+        // 4-5 = good (Aufsteigen)
         let rating = 'good';
-        if (quality <= 2) {
+        if (quality <= 1) {
             rating = 'again';
-        } else if (quality === 3) {
+        } else if (quality <= 3) {
             rating = 'hard';
         }
 
-        // Extrahiere caseId (z. B. "neuro_cjk_001_doctordle_0" -> "neuro_cjk_001")
-        const baseCaseId = itemId.split('_doctordle_')[0].split('_quiz_')[0];
+        // Schneidet dynamisch alle Submodul-Suffixe ab (z. B. neuro_cjk_001_doctordle_0 -> neuro_cjk_001)
+        const baseCaseId = itemId.replace(/_(doctordle|quiz|synapses|audit|cascade|flashcards)(_.*)?$/, '');
+        
         this.recordCaseReview(baseCaseId, rating);
 
-        return { success: true, quality, rating };
+        return { success: true, baseCaseId, quality, rating };
     },
-
     // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
     getEvaluatedCases(filterSuperFolder = 'ALL') {
 
