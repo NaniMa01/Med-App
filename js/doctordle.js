@@ -45,7 +45,7 @@ class DoctordleController {
             this.revealBtn.onclick = () => this.handleReveal();
         }
         if (this.nextBtn) {
-            this.nextBtn.onclick = () => this.goToNextPuzzle();
+            this.nextBtn.onclick = () => this.handleNextAction();
         }
         
         if (this._outsideClickBound) return;
@@ -72,7 +72,6 @@ class DoctordleController {
     }
 
     initCase(caseData, forceReset = false) {
-        // Sicherstellen, dass DOM-Elemente gebunden sind
         if (!this.container) this.initDOM();
 
         if (!caseData || !caseData.extra_tasks || !caseData.extra_tasks.doctordle) {
@@ -82,7 +81,6 @@ class DoctordleController {
             return;
         }
 
-        // Wenn derselbe Fall nur reaktiviert wird (z. B. nach Tab-Wechsel), Zustand beibehalten
         if (this.currentCaseId === caseData.case_id && !forceReset) {
             return;
         }
@@ -91,11 +89,9 @@ class DoctordleController {
         const raw = caseData.extra_tasks.doctordle;
         this.puzzles = Array.isArray(raw) ? raw : [raw];
 
-        // Gespeicherten Zustand aus dem ProgressManager abrufen
         const saved = window.ProgressManager ? window.ProgressManager.getCaseProgress(caseData.case_id)?.doctordle : null;
         this.solvedPuzzles = saved?.solvedCount || 0;
         
-        // Starte beim ersten ungelösten Rätsel oder bleibe beim letzten
         this.currentPuzzleIndex = Math.min(this.solvedPuzzles, Math.max(0, this.puzzles.length - 1));
         this.loadPuzzle(this.currentPuzzleIndex);
     }
@@ -123,6 +119,7 @@ class DoctordleController {
         if (this.input) {
             this.input.disabled = false;
             this.input.value = '';
+            setTimeout(() => this.input.focus(), 60);
         }
         if (this.submitBtn) this.submitBtn.disabled = false;
         if (this.revealBtn) this.revealBtn.disabled = false;
@@ -178,7 +175,6 @@ class DoctordleController {
             return;
         }
 
-        // Globaler DD-Pool hat Priorität, danach Wörterbuch bzw. lokale Fall-Einträge
         let extra = [];
         if (window.MedicalDictionary && typeof window.MedicalDictionary.getAllDiagnoses === 'function') {
             extra = window.MedicalDictionary.getAllDiagnoses();
@@ -317,14 +313,13 @@ class DoctordleController {
                 Die richtige Diagnose war: <em>${p.target_diagnosis}</em>
             `;
         }
-if (window.SpacedRepetitionEngine && this.currentCaseId) {
-            // Wir nutzen die integrierte Metrik-Ableitung für Doctordle (wertet Versuche & Gewinn aus)
+
+        if (window.SpacedRepetitionEngine && this.currentCaseId) {
             const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
                 won: won,
-                attempts: this.currentAttempt + 1 // 1 bis 6 Versuche
+                attempts: this.currentAttempt + 1
             });
 
-            // Eindeutige Item-ID pro Rätsel innerhalb des Falls generieren
             const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
 
             window.SpacedRepetitionEngine.recordReview({
@@ -334,21 +329,47 @@ if (window.SpacedRepetitionEngine && this.currentCaseId) {
                 medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
             }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
         }
+
         // Globalen Callback und Auto-Save triggern
         if (typeof window.onDoctordlePuzzleSolved === 'function') {
             window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
         }
 
-        if (this.currentPuzzleIndex < this.puzzles.length - 1) {
+        // =========================================================================
+        // DYNAMISCHER BUTTON (Nächstes Rätsel / Nächster Fall / Fall abschließen)
+        // =========================================================================
+        if (this.nextBtn) {
             this.nextBtn.classList.remove('hidden');
             this.nextBtn.style.display = 'block';
+
+            if (this.currentPuzzleIndex < this.puzzles.length - 1) {
+                this.nextBtn.innerText = 'Nächstes Rätsel →';
+            } else if (window.isSpecialtyBlindMode) {
+                this.nextBtn.innerText = 'Nächstes Krankheitsbild ➔';
+            } else {
+                this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
+            }
+        }
+    }
+
+    handleNextAction() {
+        if (this.currentPuzzleIndex < this.puzzles.length - 1) {
+            this.loadPuzzle(this.currentPuzzleIndex + 1);
+        } else if (window.isSpecialtyBlindMode) {
+            if (typeof window.nextSpecialtyCase === 'function') {
+                window.nextSpecialtyCase();
+            }
+        } else {
+            if (typeof window.finishCase === 'function') {
+                window.finishCase();
+            } else {
+                window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+            }
         }
     }
 
     goToNextPuzzle() {
-        if (this.currentPuzzleIndex < this.puzzles.length - 1) {
-            this.loadPuzzle(this.currentPuzzleIndex + 1);
-        }
+        this.handleNextAction();
     }
 
     resetGame() {
