@@ -5,9 +5,6 @@ const CREATOR_EMAIL = 'marco.claudio.nani@gmail.com';
 let activeCaseData = null;
 let currentActiveChallenge = 'overview';
 
-// ==========================================
-// THEME ENGINE KONFIGURATION (TOP-LEVEL TDZ-SAFE)
-// ==========================================
 const THEME_STORAGE_KEY = 'medcheck_ui_theme';
 const THEME_META_COLORS = {
     midnight: '#060913',
@@ -20,10 +17,10 @@ function applyAppTheme(themeName) {
     const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
 
     if (validTheme === 'midnight') {
-        // Entfernt das Attribut -> nutzt exakt die :root-Variablen von Cyber Midnight
+        // Entfernt das data-theme Attribut vollständig
+        // Dadurch gelten 1:1 die exakten :root-Variablen von Cyber Midnight
         document.documentElement.removeAttribute('data-theme');
     } else {
-        // Setzt data-theme="daylight" / scrubs / neuro
         document.documentElement.setAttribute('data-theme', validTheme);
     }
 
