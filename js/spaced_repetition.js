@@ -66,6 +66,7 @@ const SpacedRepetitionEngine = {
         return schedule;
     },
 
+  
     // 4. Fall nach Abschluss / Wiederholung hochstufen oder zurücksetzen
     recordCaseReview(caseId, performanceRating = 'good') {
         if (!caseId) return;
@@ -95,6 +96,61 @@ const SpacedRepetitionEngine = {
         this.saveScheduleData(schedule);
         window.dispatchEvent(new CustomEvent('sr:updated'));
     },
+
+    // 4a. Wandelt Challenge-Metriken in die SM-2-Qualität (0 bis 5) um
+    deriveQualityFromMetrics(moduleType, metrics = {}) {
+        switch (moduleType) {
+            case 'doctordle':
+                // Aufgedeckt oder Fehlversuche
+                if (metrics.byReveal || !metrics.won) return 1;
+                // Stufe 1: Sofortige Gestalt-Erkennung (Leitsymptom reicht) -> Max Score
+                if (metrics.attempts === 1) return 5;
+                if (metrics.attempts === 2) return 4;
+                if (metrics.attempts <= 4) return 3;
+                return 2;
+
+            case 'quiz': {
+                const pct = metrics.scorePercent || 0;
+                if (pct >= 0.9) return 5;
+                if (pct >= 0.75) return 4;
+                if (pct >= 0.6) return 3;
+                if (pct >= 0.4) return 2;
+                return 1;
+            }
+
+            case 'synapses':
+                if (metrics.mistakes === 0) return 5;
+                if (metrics.mistakes <= 2) return 4;
+                if (metrics.mistakes <= 4) return 3;
+                return 2;
+
+            default:
+                return metrics.won ? 4 : 2;
+        }
+    },
+
+    // 4b. Submodul-Review (z. B. aus Doctordle, Quiz, Synapsen) verarbeiten
+    async recordReview({ itemId, moduleType, quality, medicalField }) {
+        if (!itemId) return;
+
+        // Wenn quality < 3 (SM-2 Schwelle für "nicht gewusst/aufgedeckt"), 
+        // stufen wir die Review-Bewertung auf 'again' bzw. 'hard' ein
+        let rating = 'good';
+        if (quality <= 2) {
+            rating = 'again';
+        } else if (quality === 3) {
+            rating = 'hard';
+        }
+
+        // Extrahiere caseId (z. B. "neuro_cjk_001_doctordle_0" -> "neuro_cjk_001")
+        const baseCaseId = itemId.split('_doctordle_')[0].split('_quiz_')[0];
+        this.recordCaseReview(baseCaseId, rating);
+
+        return { success: true, quality, rating };
+    },
+
+    // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
+    getEvaluatedCases(filterSuperFolder = 'ALL') {
 
     // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
     getEvaluatedCases(filterSuperFolder = 'ALL') {
