@@ -17,8 +17,7 @@ const emergencySession = {
 };
 
 const EmergencyManager = {
-    // Filtert alle Fälle heraus, die sich als Notfälle eignen (Schweregrad >= 4 oder Notfall-Keywords)
-    getEmergencyCases() {
+    getEmergencyCases: function() {
         const all = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
         return all.filter(c => {
             const diff = c.metadata?.difficulty || 3;
@@ -28,10 +27,9 @@ const EmergencyManager = {
         });
     },
 
-    startSession() {
+    startSession: function() {
         let cases = this.getEmergencyCases();
         if (cases.length === 0) {
-            // Fallback: Wenn keine expliziten Notfall-Fälle da sind, nimm alle registrierten Fälle
             cases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
         }
 
@@ -40,7 +38,7 @@ const EmergencyManager = {
             return;
         }
 
-        // Zufällig mischen (Fisher-Yates)
+        // Fisher-Yates Shuffle
         const shuffled = [...cases];
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -59,7 +57,7 @@ const EmergencyManager = {
         this.startGlobalTimer();
     },
 
-    loadNextEmergencyCase() {
+    loadNextEmergencyCase: function() {
         if (emergencySession.queue.length === 0) {
             this.finishEmergencyShift();
             return;
@@ -68,16 +66,14 @@ const EmergencyManager = {
         const nextId = emergencySession.queue.shift();
         emergencySession.currentIndex++;
 
-        // Fall in MedCheck laden
         if (typeof window.loadCaseById === 'function') {
             window.loadCaseById(nextId, { specialty: true, startMode: 'audit' });
         }
 
-        // Notaufnahme-Header-Banner injizieren
         setTimeout(renderEmergencyHudOverlay, 100);
     },
 
-    startGlobalTimer() {
+    startGlobalTimer: function() {
         if (emergencySession.timerInterval) clearInterval(emergencySession.timerInterval);
         emergencySession.startTime = Date.now();
         emergencySession.timerInterval = setInterval(() => {
@@ -86,19 +82,19 @@ const EmergencyManager = {
             if (timerEl) {
                 const mins = Math.floor(emergencySession.timeElapsedSeconds / 60);
                 const secs = emergencySession.timeElapsedSeconds % 60;
-                timerEl.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                timerEl.innerText = mins + ':' + (secs < 10 ? '0' : '') + secs;
             }
         }, 1000);
     },
 
-    stopGlobalTimer() {
+    stopGlobalTimer: function() {
         if (emergencySession.timerInterval) {
             clearInterval(emergencySession.timerInterval);
             emergencySession.timerInterval = null;
         }
     },
 
-    finishEmergencyShift() {
+    finishEmergencyShift: function() {
         this.stopGlobalTimer();
         emergencySession.active = false;
         window.isSpecialtyBlindMode = false;
@@ -131,10 +127,12 @@ const EmergencyManager = {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 };
-window.EmergencyManager = EmergencyManager;
-window.startEmergencyMode = () => EmergencyManager.startSession();
 
-// Injiziert ein rotes Notaufnahme-HUD in die Topbar während der Schicht
+window.EmergencyManager = EmergencyManager;
+window.startEmergencyMode = function() {
+    EmergencyManager.startSession();
+};
+
 function renderEmergencyHudOverlay() {
     if (!emergencySession.active) return;
     const badge = document.getElementById('player-case-badge-title');
@@ -143,7 +141,7 @@ function renderEmergencyHudOverlay() {
     const wrap = badge.parentElement;
     if (wrap) {
         wrap.style.display = 'inline-flex';
-        wrap.style.alignItems: 'center';
+        wrap.style.alignItems = 'center';
         wrap.style.gap = '10px';
     }
 
@@ -165,7 +163,7 @@ function renderEmergencyHudOverlay() {
         nextEmBtn.type = 'button';
         nextEmBtn.innerHTML = 'Nächster Notfall ➔';
         nextEmBtn.style.cssText = 'background:#ef4444; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; box-shadow:0 2px 8px rgba(239,68,68,0.4);';
-        nextEmBtn.onclick = (e) => {
+        nextEmBtn.onclick = function(e) {
             e.preventDefault();
             EmergencyManager.loadNextEmergencyCase();
         };
