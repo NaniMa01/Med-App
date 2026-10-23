@@ -2453,6 +2453,46 @@ kbd {
 .theme-name { font-size: 0.88rem; font-weight: 800; color: var(--text-main); margin-bottom: 2px; }
 .theme-desc { font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
 
+/* =================================================================fl
+   SPACED REPETITION MODAL - SCROLLBAR & FLEX FIX
+   ================================================================= */
+.sr-modal-card {
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh; /* Begrenzt die maximale Höhe auf 85% des Bildschirms */
+    overflow: hidden; /* Verhindert, dass der Inhalt aus der Karte bricht */
+}
+
+.sr-modal-header {
+    flex-shrink: 0; /* Bleibt immer in voller Größe oben fixiert */
+}
+
+.sr-modal-toolbar {
+    flex-shrink: 0; /* Toolbar (Filter & Button) scrollt ebenfalls nicht weg */
+}
+
+.sr-modal-body {
+    overflow-y: auto;  /* Aktiviert das vertikale Scrollen, sobald die Liste zu lang wird */
+    flex: 1;           /* Nimmt den restlichen flexiblen Platz ein */
+    padding-right: 6px; /* Etwas Abstand zur Scrollbar */
+}
+
+/* Optionale UI-Idee: Eine moderne, dezente Scrollbar für das Modal */
+.sr-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.sr-modal-body::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 4px;
+}
+.sr-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.3);
+    border-radius: 4px;
+}
+.sr-modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(56, 189, 248, 0.6);
+}
+
 /* ==========================================================================
    19. THEMES: SURGICAL SCRUBS & NEURO FOCUS
    ========================================================================== */
