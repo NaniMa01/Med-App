@@ -148,8 +148,6 @@ const SpacedRepetitionEngine = {
         return { success: true, baseCaseId, quality, rating };
     },
 
-    // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
-    getEvaluatedCases(filterSuperFolder = 'ALL') {
 
     // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
     getEvaluatedCases(filterSuperFolder = 'ALL') {
