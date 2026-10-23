@@ -20,8 +20,10 @@ function applyAppTheme(themeName) {
     const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
 
     if (validTheme === 'midnight') {
+        // Entfernt das Attribut -> nutzt exakt die :root-Variablen von Cyber Midnight
         document.documentElement.removeAttribute('data-theme');
     } else {
+        // Setzt data-theme="daylight" / scrubs / neuro
         document.documentElement.setAttribute('data-theme', validTheme);
     }
 
