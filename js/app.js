@@ -299,6 +299,7 @@ function loadDDLibrary() {
 // ====================================================
 
 function getSuperFolderOrder() {
+    window.getSuperFolderOrder = getSuperFolderOrder;
     try {
         let order = JSON.parse(localStorage.getItem(SUPER_FOLDER_ORDER_KEY) || 'null');
         const legacyCustom = JSON.parse(localStorage.getItem(CUSTOM_SUPERS_LEGACY_KEY) || '[]')
@@ -756,10 +757,9 @@ document.addEventListener('DOMContentLoaded', () => {
             window.applyBlindHeader(false, null);
             window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
         }
-        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
-            const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-            alert(`🔍 Diagnose enthüllt:\n\n${title}`);
-        }
+  if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
+    if (typeof window.revealDiagnosis === 'function') window.revealDiagnosis();
+}
     });
 
     setTimeout(renderSubjectProgressDrawer, 500);
@@ -920,6 +920,7 @@ function saveFolderSuperMapping(mapping) {
 }
 
 function getSuperFolderForCategoryHeuristic(cleanName) {
+    window.getSuperFolderForCategory = getSuperFolderForCategory;
     const lower = (cleanName || '').toLowerCase();
     const availableSupers = getSuperFolderOrder();
 
