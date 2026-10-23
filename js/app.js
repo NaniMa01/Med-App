@@ -2406,7 +2406,7 @@ window.loadCaseById = function(caseId, opts = {}) {
 
     const tasks = activeCaseData.extra_tasks || {};
     
-    // Hilfsfunktion zum Ein-/Ausblenden der Challenge-Tabs
+    // Wichtig: show-Hilfsfunktion definieren!
     const show = (id, on) => { 
         const el = document.getElementById(id); 
         if (el) el.style.display = on ? 'inline-flex' : 'none'; 
@@ -2460,26 +2460,19 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (hasDoctordle && window.initDoctordle) safely('Doctordle', () => window.initDoctordle(activeCaseData));
     safely('Flashcards', window.renderFlashcards);
 
-    if ((specialtyMode || opts.resetForReview) && window.doctordleGame) {
-        window.doctordleGame.currentCaseId = null;
-    }
+    if (specialtyMode && window.doctordleGame) window.doctordleGame.currentCaseId = null;
     
-    // 1. Schaltet den Haupt-Tab auf die Player-Ansicht um
     window.switchTab('player', document.getElementById('nav-player'));
     
-    // 2. Öffnet die gewünschte Challenge (standardmäßig 'overview' oder bei Fachrichtung/Review 'audit')
     const initialMode = opts.startMode || (specialtyMode ? 'audit' : 'overview');
     window.switchPlayerMode(initialMode);
     
-    // 3. Scrollt den Hauptcontainer nach ganz oben, falls man im Dashboard weit unten war
     const mainWrapper = document.querySelector('.main-wrapper');
     if (mainWrapper) mainWrapper.scrollTop = 0;
-    
+
     if (typeof window.checkFinalCompletion === 'function') {
         window.checkFinalCompletion();
     }
-
-
 };
 
 window.renderOverview = function() {
