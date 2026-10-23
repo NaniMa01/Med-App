@@ -81,9 +81,8 @@ const SpacedRepetitionEngine = {
         if (performanceRating === 'again') {
             nextStage = 0; // Sofort wiederholen (Morgen)
         } else if (performanceRating === 'hard') {
-            nextStage = Math.max(0, currentStage); // Stufe konsolidieren / halten
+            nextStage = Math.max(0, currentStage); // Stufe halten
         } else {
-            // 'good' / 'easy' -> nächste Stufe nach Leitner/SM-2
             const maxStage = (Array.isArray(SR_INTERVALS_DAYS) ? SR_INTERVALS_DAYS.length : 6) - 1;
             nextStage = Math.min(maxStage, currentStage + 1);
         }
@@ -106,30 +105,26 @@ const SpacedRepetitionEngine = {
     deriveQualityFromMetrics(moduleType, metrics = {}) {
         switch (moduleType) {
             case 'doctordle':
-                // Aufgedeckt oder nicht geschafft -> 1 (Fehlschlag)
                 if (metrics.byReveal || !metrics.won) return 1;
-                // Gestalt-Wahrnehmung: Sofortige Diagnose bei Stufe 1
                 if (metrics.attempts === 1) return 5;
                 if (metrics.attempts === 2) return 4;
                 if (metrics.attempts <= 4) return 3;
-                return 2; // Später Versuch (Stufe 5-6)
+                return 2;
 
-            case 'quiz': {
+            case 'quiz':
                 const pct = typeof metrics.scorePercent === 'number' ? metrics.scorePercent : 0;
                 if (pct >= 0.9) return 5;
                 if (pct >= 0.75) return 4;
                 if (pct >= 0.6) return 3;
                 if (pct >= 0.4) return 2;
                 return 1;
-            }
 
-            case 'synapses': {
+            case 'synapses':
                 const mistakes = Number(metrics.mistakes) || 0;
                 if (mistakes === 0) return 5;
                 if (mistakes <= 2) return 4;
                 if (mistakes <= 4) return 3;
                 return 2;
-            }
 
             default:
                 return metrics.won ? 4 : 1;
@@ -140,10 +135,6 @@ const SpacedRepetitionEngine = {
     async recordReview({ itemId, moduleType, quality, medicalField }) {
         if (!itemId) return { success: false, reason: 'Missing itemId' };
 
-        // SM-2 Mapping:
-        // 0-1 = again (Reset)
-        // 2-3 = hard (Halten)
-        // 4-5 = good (Aufsteigen)
         let rating = 'good';
         if (quality <= 1) {
             rating = 'again';
@@ -151,13 +142,12 @@ const SpacedRepetitionEngine = {
             rating = 'hard';
         }
 
-        // Schneidet dynamisch alle Submodul-Suffixe ab (z. B. neuro_cjk_001_doctordle_0 -> neuro_cjk_001)
         const baseCaseId = itemId.replace(/_(doctordle|quiz|synapses|audit|cascade|flashcards)(_.*)?$/, '');
-        
         this.recordCaseReview(baseCaseId, rating);
 
         return { success: true, baseCaseId, quality, rating };
     },
+
     // 5. Berechnet alle Fälle & kategorisiert sie in "due" (Heute fällig), "soon" (Bald fällig), "mastered"
     getEvaluatedCases(filterSuperFolder = 'ALL') {
 
