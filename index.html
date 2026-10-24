@@ -89,7 +89,7 @@
                 <div class="topbar-engine-tag"><span class="dot"></span><span class="engine-text">V6.0 Cornell Note Engine</span></div>
             </div>
             <div class="user-hud">
-                <div class="hud-stat streak-stat" title="Täglicher Dienst-Streak (inkl. Dienstfrei-Joker & XP-Multiplikator)"><span>Dienst:</span><strong id="stat-streak">🔥 0d</strong>  </div>
+                <div class="hud-stat streak-stat" title="Täglicher Dienst-Streak (inkl. Dienstfrei-Joker & XP-Multiplikator)"><span>Dienst:</span><strong id="stat-streak">🔥 0d</strong> </div>
                 <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
                 <div id="hud-popup-container"></div>
@@ -139,8 +139,24 @@
                     </section>
                     
                     <div class="panel-title">Klinische Module & Themen-Ordner</div>
-                    <div class="panel-subtitle">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-                 
+                    <div class="panel-subtitle" style="margin-bottom: 14px;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
+
+                    <!-- Notaufnahme-Modus (Exklusiv im Dashboard platziert) -->
+                    <div onclick="window.startEmergencyMode()" role="button" tabindex="0"
+                         style="margin-bottom:18px; padding:18px 22px; border-radius:14px; background:linear-gradient(135deg, rgba(239,68,68,0.22), rgba(220,38,38,0.12)); border:1px solid rgba(239,68,68,0.45); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; cursor:pointer; transition:transform 0.18s ease;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px; color:#fca5a5; font-weight:800; font-size:1.05rem;">
+                                <span>🚨 Notaufnahme-Modus</span>
+                            </div>
+                            <div style="color:#cbd5e1; font-size:0.84rem; margin-top:3px;">
+                                Interdisziplinäres Akut-Training unter echtem Zeitdruck. Triagiere und behandle zeitkritische Notfälle nacheinander.
+                            </div>
+                        </div>
+                        <button type="button" style="background:#ef4444; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; font-size:0.85rem; cursor:pointer; white-space:nowrap; box-shadow:0 4px 12px rgba(239,68,68,0.4);">
+                            Notdienst starten ➔
+                        </button>
+                    </div>
+                   
                     <!-- Spaced Repetition Zentrale -->
                     <section id="sr-dashboard-widget"></section>
                     <div class="segmented-control" role="tablist">
@@ -160,23 +176,8 @@
                         </div>
                     </div>
                 </div>
-<!-- Emergency player  -->
-                <div onclick="window.startEmergencyMode()" role="button" tabindex="0"
-     style="margin-top:15px; margin-bottom:18px; padding:18px 22px; border-radius:14px; background:linear-gradient(135deg, rgba(239,68,68,0.22), rgba(220,38,38,0.12)); border:1px solid rgba(239,68,68,0.45); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; cursor:pointer; transition:transform 0.18s ease;">
-    <div>
-        <div style="display:flex; align-items:center; gap:8px; color:#fca5a5; font-weight:800; font-size:1.05rem;">
-            <span>🚨 Notaufnahme-Modus</span>
-        </div>
-        <div style="color:#cbd5e1; font-size:0.84rem; margin-top:3px;">
-            Interdisziplinäres Akut-Training unter echtem Zeitdruck. Triagiere und behandle zeitkritische Notfälle nacheinander.
-        </div>
-    </div>
-    <button type="button" style="background:#ef4444; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; font-size:0.85rem; cursor:pointer; white-space:nowrap; box-shadow:0 4px 12px rgba(239,68,68,0.4);">
-        Notdienst starten ➔
-    </button>
-</div>
 
-<!-- 3. PLAYER VIEW -->
+                <!-- 3. PLAYER VIEW -->
                 <div class="panel" id="player-view" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
                         <button class="back-btn" onclick="switchTab('dashboard', document.querySelectorAll('.nav-item')[0])">← Zurück</button>
@@ -231,7 +232,6 @@
                     <div class="player-mode-pane" id="mode-container-flashcards" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 6px;"><div class="panel-title" style="margin-bottom: 0;">Fakten-Flashcards (Active Recall)</div><button type="button" class="action-btn secondary btn-sm" onclick="resetCurrentChallenge()">↺ Reset</button></div><div class="panel-subtitle">Atomares Faktenwissen (Bloom Stufe 1) – Leertaste zum Aufdecken, 1 / 2 / 3 zum Bewerten.</div><div id="flashcards-wrapper"></div></div></div>
                 </div>
 
-                
                 <!-- 4. FORGE VIEW -->
                 <div class="panel" id="forge-view" style="display: none;">
                     <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
@@ -242,24 +242,22 @@
                         <button class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
                     </div>
 
-                    <!-- ⚡ NEU: KI-Masterprompt Button -->
-    <div class="forge-prompt-export-card" style="margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: rgba(16, 24, 46, 0.6); border: 1px dashed rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <div style="font-size: 0.86rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
-                <span>📋</span>
-                <span>System-Masterprompt für externe KIs (Gemini, Claude, GPT)</span>
-            </div>
-            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
-                Kopiert die strikten IMPP/NBME-Vorgaben, Cornell Notes, 9-Schritte-Audits, Synapsen und Master-Quiz.
-            </div>
-        </div>
-        <button type="button" class="action-btn secondary btn-sm" id="btn-copy-masterprompt" onclick="copyMasterPromptToClipboard(this)" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue); font-weight: 700;">
-            📋 KI-Prompt zur Fallgenerierung kopieren
-        </button>
-    </div>
-    <!-- ⚡ ENDE NEU -->
+                    <!-- KI-Masterprompt Button -->
+                    <div class="forge-prompt-export-card" style="margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: rgba(16, 24, 46, 0.6); border: 1px dashed rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <div style="font-size: 0.86rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                                <span>📋</span>
+                                <span>System-Masterprompt für externe KIs (Gemini, Claude, GPT)</span>
+                            </div>
+                            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+                                Kopiert die strikten IMPP/NBME-Vorgaben, Cornell Notes, 9-Schritte-Audits, Synapsen und Master-Quiz.
+                            </div>
+                        </div>
+                        <button type="button" class="action-btn secondary btn-sm" id="btn-copy-masterprompt" onclick="copyMasterPromptToClipboard(this)" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue); font-weight: 700;">
+                            📋 KI-Prompt zur Fallgenerierung kopieren
+                        </button>
+                    </div>
 
-    <div class="forge-divider"></div>
                     <div class="forge-divider"></div>
                     <div class="form-group" style="margin-bottom: 14px;">
                         <label for="case-folder-input" class="forge-label">Zielordner (Kategorie):</label>
@@ -469,7 +467,7 @@
             </button>
         </div>
                     
-        <!-- JAVASCRIPT LADEREIHENFOLGE (KEIN type="module" auf app.js!) -->
+        <!-- JAVASCRIPT LADEREIHENFOLGE -->
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="js/auth.js"></script>
         <script src="js/gamification.js"></script>
