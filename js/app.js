@@ -998,6 +998,112 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 };
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
+
+// ====================================================
+// ORDNER VERWALTUNG (UMBENENNEN & LÖSCHEN)
+// ====================================================
+
+window.renameFolder = function(oldName, newName) {
+    if (!oldName || !newName || oldName === newName) return;
+    const cleanOld = oldName.trim();
+    const cleanNew = newName.trim();
+
+    // 1. medcheck_folder_order aktualisieren
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const idx = order.indexOf(cleanOld);
+    if (idx !== -1) {
+        order[idx] = cleanNew;
+    } else {
+        order.push(cleanNew);
+    }
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    // 2. Mapping auf Überordner übernehmen
+    const mapping = getFolderSuperMapping();
+    if (mapping[cleanOld]) {
+        mapping[cleanNew] = mapping[cleanOld];
+        delete mapping[cleanOld];
+        saveFolderSuperMapping(mapping);
+    }
+
+    // 3. Alle Custom Cases aktualisieren
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modified = false;
+    customCases.forEach(c => {
+        const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
+        if (cFolder === cleanOld) {
+            c.folder_name = cleanNew;
+            if (c.metadata) c.metadata.medical_field = cleanNew;
+            modified = true;
+        }
+    });
+    if (modified) {
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    }
+
+    // 4. UI States aktualisieren
+    if (openFolders[cleanOld] !== undefined) {
+        openFolders[cleanNew] = openFolders[cleanOld];
+        delete openFolders[cleanOld];
+    }
+    if (bookshelfFolderState[cleanOld] !== undefined) {
+        bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
+        delete bookshelfFolderState[cleanOld];
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+};
+
+window.deleteFolder = function(folderName, caseCount = 0) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+
+    if (clean === 'Allgemein') {
+        alert('Der Standardordner "Allgemein" kann nicht gelöscht werden.');
+        return;
+    }
+
+    const confirmMsg = caseCount > 0
+        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden sicher in den Ordner "Allgemein" verschoben.`
+        : `Möchtest du den leeren Ordner "${clean}" wirklich löschen?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    // 1. Aus medcheck_folder_order austragen
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    order = order.filter(f => f !== clean);
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    // 2. Aus Mapping entfernen
+    const mapping = getFolderSuperMapping();
+    delete mapping[clean];
+    saveFolderSuperMapping(mapping);
+
+    // 3. Fälle nach "Allgemein" verschieben
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modified = false;
+    customCases.forEach(c => {
+        const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
+        if (cFolder === clean) {
+            c.folder_name = 'Allgemein';
+            if (c.metadata) c.metadata.medical_field = 'Allgemein';
+            modified = true;
+        }
+    });
+    if (modified) {
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    }
+
+    // 4. UI States bereinigen
+    delete openFolders[clean];
+    delete bookshelfFolderState[clean];
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+};
 // ====================================================
 // ZENTRALE FUNKTION ZUM VERSCHIEBEN VON FÄLLEN IN ORDNER
 // ====================================================
@@ -1995,8 +2101,19 @@ function renderBookshelf(casesArray) {
             removeDropIndicator();
             draggedItemState = null;
         });
+row.addEventListener('dragover', (e) => {
+            // A) Wenn ein Fall über den Ordner gezogen wird:
+            const isCaseDrag = draggedItemState?.type === 'case' || e.dataTransfer.types.includes('application/medcheck-case-id');
+            if (isCaseDrag) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                clearRowGlows();
+                row.classList.add('drop-target-active');
+                return;
+            }
 
-        row.addEventListener('dragover', (e) => {
+            // B) Wenn ein Bookshelf-Ordner verschoben wird:
             if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
             if (draggedItemState.name === row.dataset.folderName) return;
 
@@ -2004,14 +2121,10 @@ function renderBookshelf(casesArray) {
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'move';
 
-            // X-Abstand zur linken Kante des Bookshelf-Containers messen
             const containerRect = bookshelfContainer.getBoundingClientRect();
             const mouseXRelative = e.clientX - containerRect.left;
-
-            // Schwellenwert: < 38px = Überordner (links), >= 38px = Unterordner (eingerückt)
             const makeSubfolder = mouseXRelative >= 38;
 
-            // Altes Leuchten bereinigen und auf aktueller Zeile anwenden
             clearRowGlows();
             if (makeSubfolder) {
                 row.classList.add('drop-target-sub-active');
@@ -2043,22 +2156,43 @@ function renderBookshelf(casesArray) {
             }
         });
 
-        row.addEventListener('drop', (e) => {
+    row.addEventListener('drop', async (e) => {
+            clearRowGlows();
+            removeDropIndicator();
+
+            // A) Fallkarte wurde auf diesen Ordner/Überordner fallen gelassen:
+            const droppedCaseId = (draggedItemState?.type === 'case' && draggedItemState.id) 
+                                  || e.dataTransfer.getData('application/medcheck-case-id')
+                                  || e.dataTransfer.getData('text/plain');
+
+            if (draggedItemState?.type === 'case' || e.dataTransfer.types.includes('application/medcheck-case-id')) {
+                e.preventDefault();
+                e.stopPropagation();
+                draggedItemState = null;
+
+                const targetFolderName = row.dataset.folderName;
+                const isSuper = row.dataset.isSuper === 'true';
+
+                if (isSuper) {
+                    await moveCaseToSuperFolder(droppedCaseId, targetFolderName);
+                } else {
+                    await window.moveCaseToFolder(droppedCaseId, targetFolderName);
+                }
+                return;
+            }
+
+            // B) Ordner-Hierarchie-Änderung (Notability Style):
             if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
             e.preventDefault();
             e.stopPropagation();
 
-            clearRowGlows();
             const info = currentDropTargetInfo;
             const dragged = draggedItemState;
-            removeDropIndicator();
 
             if (!info || dragged.name === info.targetName) return;
 
             applyNotabilityFolderHierarchy(dragged, info);
         });
-    });
-
     bookshelfContainer.addEventListener('dragleave', (e) => {
         if (!bookshelfContainer.contains(e.relatedTarget)) {
             clearRowGlows();
