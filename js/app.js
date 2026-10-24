@@ -63,10 +63,10 @@ const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
 
 let openFolders = {};
 let superFolderStates = {
-    'Nervensystem und Sinnesorgane': true,
-    'Psyche / Ethik / Recht': true,
-    'Reproduktion': true,
-    'Allgemein': true
+    'Nervensystem und Sinnesorgane': false,
+    'Psyche / Ethik / Recht': false,
+    'Reproduktion': false,
+    'Allgemein': false
 };
 
 // Klapp-Status für die Überordner im Bookshelf
@@ -74,7 +74,7 @@ let bookshelfSuperFolderState = {
     'Nervensystem und Sinnesorgane': false,
     'Psyche / Ethik / Recht': false,
     'Reproduktion': false,
-    'Allgemein': true
+    'Allgemein': false
 };
 
 let bookshelfFolderState = {};
@@ -364,10 +364,10 @@ function initCustomSuperFoldersState() {
         });
         allSupers.forEach(sName => {
             if (superFolderStates[sName] === undefined) {
-                superFolderStates[sName] = true;
+                superFolderStates[sName] = false;
             }
             if (bookshelfSuperFolderState[sName] === undefined) {
-                bookshelfSuperFolderState[sName] = true;
+                bookshelfSuperFolderState[sName] = false;
             }
         });
     } catch (e) {
@@ -1307,7 +1307,7 @@ function renderDashboardCases() {
     const subFolderOrderList = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
 
     Object.entries(superFolders).forEach(([superTitle, categories], superIdx) => {
-        const isOpen = superFolderStates[superTitle] !== undefined ? superFolderStates[superTitle] : true;
+        const isOpen = !!superFolderStates[superTitle];
         const arrowSymbol = isOpen ? '▼' : '▶';
         const isProtectedDefault = (superTitle === 'Allgemein');
 
@@ -1689,7 +1689,7 @@ function renderBookshelf(casesArray) {
     });
 
     Object.entries(superFolders).forEach(([superTitle, subfolderNames]) => {
-        const isSuperOpen = bookshelfSuperFolderState[superTitle] !== false;
+        const isSuperOpen = !!bookshelfSuperFolderState[superTitle];
         const isProtectedDefault = (superTitle === 'Allgemein');
 
         let totalCasesInSuper = 0;
