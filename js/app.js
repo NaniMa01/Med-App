@@ -2912,8 +2912,10 @@ window.addEventListener("cloudCasesSynced", () => {
     if (typeof window.renderSpecialtyHub === "function") {
         window.renderSpecialtyHub();
     }
+    if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
+        window.PharmacologyModule.syncFromCloud(); // <-- NEU
+    }
 });
-
 // ====================================================
 // SMARTPHONE CHALLENGE-MENÜ
 // ====================================================
@@ -3698,16 +3700,19 @@ async function markDepotMasteredFromQuiz(depotId, btnEl) {
 }
 
 // ====================================================
-// PHARMA-COMPASS & MATRIX CLOUD-SPEICHER-MODULE
+// PHARMA-COMPASS & MATRIX CLOUD-SPEICHER-MODULE (DELEGATOR)
 // ====================================================
-const PHARMA_STORAGE_KEY = 'medcheck_pharma_sets';
-
 window.savePharmaSet = async function(setObj) {
-    if (!setObj || !setObj.set_id) {
-        console.error('Ungültiges Pharma-Set übergeben.');
-        return;
+    if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
+        return await window.PharmacologyModule.syncFromCloud();
     }
+};
 
+window.syncPharmaSetsFromCloud = async function() {
+    if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
+        return await window.PharmacologyModule.syncFromCloud();
+    }
+};
     try {
         let savedSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
         savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
@@ -3952,6 +3957,7 @@ window.addEventListener('drop', (e) => {
 async function initCreatorHubAndCloudCases() {
     const sb = getActiveSupabaseClient();
     await loadCasesFromDatabase();
+    if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud(); // <-- NEU: Beim Start abrufen
 
     if (!sb || !sb.auth) return;
 
@@ -3964,6 +3970,7 @@ async function initCreatorHubAndCloudCases() {
             window.currentSessionUser = session?.user || null;
             setupCreatorHub(window.currentSessionUser);
             loadCasesFromDatabase();
+            if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud(); // <-- NEU: Bei Login/Logout synchronisieren
         });
     } catch (e) {
         console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
