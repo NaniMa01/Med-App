@@ -89,6 +89,7 @@
                 <div class="topbar-engine-tag"><span class="dot"></span><span class="engine-text">V6.0 Cornell Note Engine</span></div>
             </div>
             <div class="user-hud">
+                <div class="hud-stat streak-stat" title="Täglicher Dienst-Streak (inkl. Dienstfrei-Joker & XP-Multiplikator)"><span>Dienst:</span><strong id="stat-streak">🔥 0d</strong>  </div>
                 <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
                 <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
                 <div id="hud-popup-container"></div>
@@ -142,7 +143,7 @@
                  
                     <!-- Spaced Repetition Zentrale -->
                     <section id="sr-dashboard-widget"></section>
-                    
+                    <section id="cognitive-atlas-widget"></section>
                     <div class="segmented-control" role="tablist">
                         <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
                         <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
@@ -472,6 +473,7 @@
         <!-- JAVASCRIPT LADEREIHENFOLGE (KEIN type="module" auf app.js!) -->
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="js/auth.js"></script>
+        <script src="js/gamification.js"></script>
         <script src="js/flashcards.js"></script>
         <script src="js/doctordle.js"></script>
         <script src="js/pharmacology.js"></script>
