@@ -709,6 +709,109 @@ window.saveChallengeProgress = function(challengeKey, data) {
 };
 
 // ====================================================
+// FALL LÖSCHEN & AUSBLENDEN (INKL. CLOUD-PROTECTION)
+// ====================================================
+const HIDDEN_CLOUD_CASES_KEY = 'medcheck_hidden_cloud_cases_v1';
+
+function getHiddenCloudCaseIds() {
+    try {
+        return JSON.parse(localStorage.getItem(HIDDEN_CLOUD_CASES_KEY) || '[]');
+    } catch (_e) {
+        return [];
+    }
+}
+
+function addHiddenCloudCaseId(caseId) {
+    const list = getHiddenCloudCaseIds();
+    if (!list.includes(caseId)) {
+        list.push(caseId);
+        localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(list));
+    }
+}
+
+window.deleteCaseById = async function(caseId) {
+    if (!caseId) return;
+
+    // 1. Schutz für den fest eingebauten System-Demo-Fall
+    if (caseId === BUILTIN_DEMO_CASE.case_id) {
+        alert('Der integrierte System-Demofall kann nicht gelöscht werden.');
+        return;
+    }
+
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
+    const title = targetCase?.metadata?.title || targetCase?.title || caseId;
+    const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(caseId));
+    const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+
+    // 2. Sicherheitsabfrage
+    const confirmMsg = isCloudCase
+        ? `Möchtest du den Fall „${title}“ lokal von diesem Gerät entfernen?\n\n(Hinweis: Da es ein Cloud-Fall ist, wird er für dein lokales Dashboard ausgeblendet.)`
+        : `Möchtest du den lokalen Fall „${title}“ (${caseId}) wirklich löschen?\n\nDein Lernfortschritt für diesen Fall wird dabei ebenfalls zurückgesetzt.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    // 3. Optional für dich als Creator: Direkt fragen, ob er auch komplett aus der Supabase-Cloud gelöscht werden soll
+    if (isCloudCase && isCurrentUserCreator) {
+        const alsoUnpublish = window.confirm(
+            `Creator-Option: Dieser Fall ist in der Supabase-Cloud veröffentlicht.\n\nSoll „${title}“ AUCH komplett aus der Cloud für alle Nutzer gelöscht werden?\n(Klicke „Abbrechen“, um ihn nur lokal bei dir zu löschen.)`
+        );
+        if (alsoUnpublish) {
+            const sb = getActiveSupabaseClient();
+            if (sb) {
+                try {
+                    const { error } = await sb.from('cases').delete().eq('case_id', caseId);
+                    if (error) throw error;
+                    window.cloudCaseIds.delete(caseId);
+                } catch (err) {
+                    console.error('Fehler beim Löschen aus der Cloud:', err);
+                    alert(`Cloud-Löschung fehlgeschlagen: ${err.message}`);
+                }
+            }
+        } else {
+            // Nur lokal ausblenden, damit loadCasesFromDatabase ihn nicht sofort wiederherstellt
+            addHiddenCloudCaseId(caseId);
+        }
+    } else if (isCloudCase) {
+        // Normale Nutzer blenden Cloud-Fälle lokal aus
+        addHiddenCloudCaseId(caseId);
+    }
+
+    // 4. Aus localStorage ('custom_cases') entfernen
+    let customCases = getCustomCases();
+    customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+    // 5. Fortschritt & Challenge-States sauber bereinigen
+    if (ProgressManager && typeof ProgressManager.resetEntireCase === 'function') {
+        ProgressManager.resetEntireCase(caseId);
+    }
+
+    // 6. Falls der gelöschte Fall gerade im Player geöffnet war -> zurück zum Dashboard
+    if (activeCaseData && (activeCaseData.case_id === caseId || activeCaseData.id === caseId)) {
+        activeCaseData = null;
+        const playerView = document.getElementById('player-view');
+        if (playerView && playerView.style.display !== 'none') {
+            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        }
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
+
+    // 7. Alle UI-Komponenten synchron neu rendern
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+    if (typeof window.renderSpecialtyHub === 'function') {
+        window.renderSpecialtyHub();
+    }
+    if (window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.renderDashboardWidget === 'function') {
+        const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
+    }
+};
+// ====================================================
 // INITIALISIERUNG
 // ====================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -4556,14 +4659,18 @@ async function loadCasesFromDatabase() {
 
         window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
 
-        if (data && data.length > 0) {
+      if (data && data.length > 0) {
             let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+            const hiddenCloudIds = getHiddenCloudCaseIds(); // <-- NEU: Ausgeblendete Fälle laden
             let modified = false;
 
             data.forEach(dbCase => {
                 const cloudCase = dbCase.content;
                 if (!cloudCase) return;
-                const idx = customCases.findIndex(c => (c.case_id || c.id) === (cloudCase.case_id || cloudCase.id));
+                const cId = cloudCase.case_id || cloudCase.id;
+                if (hiddenCloudIds.includes(cId)) return; // <-- NEU: Lokal gelöschte Cloud-Fälle überspringen!
+
+                const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
                 if (idx !== -1) {
                     customCases[idx] = cloudCase;
                 } else {
