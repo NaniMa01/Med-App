@@ -36,7 +36,11 @@ class DoctordleController {
             this.input.onkeydown = (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    this.handleGuess();
+                    if (this.isFinishedCurrent) {
+                        this.handleNextAction();
+                    } else {
+                        this.handleGuess();
+                    }
                 }
             };
             this.input.oninput = (e) => this.handleAutocomplete(e.target.value);
@@ -45,7 +49,10 @@ class DoctordleController {
             this.revealBtn.onclick = () => this.handleReveal();
         }
         if (this.nextBtn) {
-            this.nextBtn.onclick = () => this.handleNextAction();
+            this.nextBtn.onclick = (e) => {
+                e.preventDefault();
+                this.handleNextAction();
+            };
         }
         
         if (this._outsideClickBound) return;
@@ -257,7 +264,7 @@ class DoctordleController {
         this.finishCurrentPuzzle(false, true);
     }
 
-finishCurrentPuzzle(won, byReveal = false) {
+    finishCurrentPuzzle(won, byReveal = false) {
         this.isFinishedCurrent = true;
         if (this.input) this.input.disabled = true;
         if (this.submitBtn) this.submitBtn.disabled = true;
@@ -409,98 +416,6 @@ finishCurrentPuzzle(won, byReveal = false) {
 
             if (this.currentPuzzleIndex < this.puzzles.length - 1) {
                 this.nextBtn.innerText = `Nächstes Rätsel (${this.currentPuzzleIndex + 2}/${this.puzzles.length}) →`;
-            } else if (window.isSpecialtyBlindMode) {
-                this.nextBtn.innerText = 'Nächstes Krankheitsbild ➔';
-            } else {
-                this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
-            }
-        }
-    } // Share-Button Listener binden
-            const shareBtn = document.getElementById('doctordle-share-btn');
-            if (shareBtn && window.Gamification) {
-                const shareStr = window.Gamification.generateDoctordleShareString({
-                    caseId: this.currentCaseId,
-                    puzzleIndex: this.currentPuzzleIndex,
-                    totalPuzzles: this.puzzles.length,
-                    attempts: this.currentAttempt + 1,
-                    won: won,
-                    byReveal: byReveal,
-                    earnedXP: finalEarnedXP
-                });
-                shareBtn.onclick = () => window.Gamification.copyShareText(shareStr, shareBtn);
-            }
-        }
-
-        // ====================================================
-        // Spaced Repetition Engine SM-2 Hook (Defensiv & Entkoppelt)
-        // ====================================================
-        if (window.SpacedRepetitionEngine && this.currentCaseId) {
-            try {
-                let quality = 3;
-                if (typeof window.SpacedRepetitionEngine.deriveQualityFromMetrics === 'function') {
-                    quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
-                        won: won,
-                        attempts: this.currentAttempt + 1,
-                        byReveal: byReveal
-                    });
-                } else {
-                    if (byReveal || !won) {
-                        quality = 1;
-                    } else if (this.currentAttempt <= 1) {
-                        quality = 5;
-                    } else if (this.currentAttempt <= 3) {
-                        quality = 4;
-                    } else {
-                        quality = 3;
-                    }
-                }
-
-                const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
-
-                if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
-                    const reviewPromise = window.SpacedRepetitionEngine.recordReview({
-                        itemId: itemId,
-                        moduleType: 'doctordle',
-                        quality: quality,
-                        medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
-                    });
-
-                    if (reviewPromise && typeof reviewPromise.catch === 'function') {
-                        reviewPromise.catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
-                    }
-                }
-            } catch (srsErr) {
-                console.warn('[Doctordle] SRS Engine Soft-Fail:', srsErr);
-            }
-        }
-
-        if (typeof window.onDoctordlePuzzleSolved === 'function') {
-            window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
-        }
-
-        if (!this.nextBtn) this.nextBtn = document.getElementById('doctordle-next-btn');
-        if (this.nextBtn) {
-            this.nextBtn.classList.remove('hidden');
-            this.nextBtn.style.display = 'block';
-
-            if (this.currentPuzzleIndex < this.puzzles.length - 1) {
-                this.nextBtn.innerText = `Nächstes Rätsel (${this.currentPuzzleIndex + 2}/${this.puzzles.length}) →`;
-            } else if (window.isSpecialtyBlindMode) {
-                this.nextBtn.innerText = 'Nächstes Krankheitsbild ➔';
-            } else {
-                this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
-            }
-        }
-    } 
-        // =========================================================================
-        // DYNAMISCHER BUTTON (Nächstes Rätsel / Nächster Fall / Fall abschließen)
-        // =========================================================================
-        if (this.nextBtn) {
-            this.nextBtn.classList.remove('hidden');
-            this.nextBtn.style.display = 'block';
-
-            if (this.currentPuzzleIndex < this.puzzles.length - 1) {
-                this.nextBtn.innerText = 'Nächstes Rätsel →';
             } else if (window.isSpecialtyBlindMode) {
                 this.nextBtn.innerText = 'Nächstes Krankheitsbild ➔';
             } else {
