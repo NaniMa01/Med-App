@@ -2904,7 +2904,7 @@ window.resetCurrentCaseEntirely = function() {
     window.loadCaseById(activeCaseData.case_id, { specialty: blind });
 };
 
-window.addEventListener("cloudCasesSynced", () => {
+window.addEventListener("cloudCasesSynced", async () => {
     getCustomCases().forEach(window.registerCaseDDs);
     if (typeof renderDashboardCases === "function") {
         renderDashboardCases();
@@ -2913,7 +2913,7 @@ window.addEventListener("cloudCasesSynced", () => {
         window.renderSpecialtyHub();
     }
     if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
-        window.PharmacologyModule.syncFromCloud(); // <-- NEU
+        window.PharmacologyModule.syncFromCloud();
     }
 });
 // ====================================================
@@ -3966,7 +3966,7 @@ async function initCreatorHubAndCloudCases() {
         window.currentSessionUser = session?.user || null;
         setupCreatorHub(window.currentSessionUser);
 
-        sb.auth.onAuthStateChange((_event, session) => {
+        sb.auth.onAuthStateChange(async(_event, session) => {
             window.currentSessionUser = session?.user || null;
             setupCreatorHub(window.currentSessionUser);
             loadCasesFromDatabase();
