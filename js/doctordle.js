@@ -415,8 +415,23 @@ finishCurrentPuzzle(won, byReveal = false) {
                 this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
             }
         }
-    } 
-// ====================================================
+    } // Share-Button Listener binden
+            const shareBtn = document.getElementById('doctordle-share-btn');
+            if (shareBtn && window.Gamification) {
+                const shareStr = window.Gamification.generateDoctordleShareString({
+                    caseId: this.currentCaseId,
+                    puzzleIndex: this.currentPuzzleIndex,
+                    totalPuzzles: this.puzzles.length,
+                    attempts: this.currentAttempt + 1,
+                    won: won,
+                    byReveal: byReveal,
+                    earnedXP: finalEarnedXP
+                });
+                shareBtn.onclick = () => window.Gamification.copyShareText(shareStr, shareBtn);
+            }
+        }
+
+        // ====================================================
         // Spaced Repetition Engine SM-2 Hook (Defensiv & Entkoppelt)
         // ====================================================
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
@@ -476,7 +491,7 @@ finishCurrentPuzzle(won, byReveal = false) {
                 this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
             }
         }
-    }
+    } 
         // =========================================================================
         // DYNAMISCHER BUTTON (Nächstes Rätsel / Nächster Fall / Fall abschließen)
         // =========================================================================
