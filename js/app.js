@@ -1236,6 +1236,27 @@ function reorderDashboardFolders(draggedCat, targetCat) {
     renderDashboardCases();
 }
 
+function toggleFolder(category) {
+    if (!category) return;
+    openFolders[category] = !openFolders[category];
+
+    // Schnelles DOM-Toggling ohne kompletten Re-Render:
+    const safeCat = encodeURIComponent(category);
+    const folderEl = document.querySelector(`.category-folder[data-category="${safeCat}"]`);
+    if (folderEl) {
+        const body = folderEl.querySelector('.category-cases-body');
+        const arrow = folderEl.querySelector('.category-arrow');
+        const isNowOpen = !!openFolders[category];
+
+        if (body) body.style.display = isNowOpen ? 'grid' : 'none';
+        if (arrow) arrow.classList.toggle('expanded', isNowOpen);
+    } else {
+        // Fallback: Re-Render, falls das Element nicht direkt selektierbar war
+        renderDashboardCases();
+    }
+}
+window.toggleFolder = toggleFolder;
+
 function renderDashboardCases() {
     initCustomSuperFoldersState();
     ensureBookshelfHeaderButtons();
