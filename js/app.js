@@ -2062,7 +2062,7 @@ function renderBookshelf(casesArray) {
         bookshelfContainer.appendChild(superDiv);
     });
 
-   // ====================================================
+  // ====================================================
     // NOTABILITY-STYLE INTERACTION ENGINE MIT LEUCHT-FEEDBACK
     // ====================================================
     const draggableRows = bookshelfContainer.querySelectorAll('.bookshelf-super-group, .folder-group.is-subfolder');
@@ -2101,7 +2101,8 @@ function renderBookshelf(casesArray) {
             removeDropIndicator();
             draggedItemState = null;
         });
-row.addEventListener('dragover', (e) => {
+
+        row.addEventListener('dragover', (e) => {
             // A) Wenn ein Fall über den Ordner gezogen wird:
             const isCaseDrag = draggedItemState?.type === 'case' || e.dataTransfer.types.includes('application/medcheck-case-id');
             if (isCaseDrag) {
@@ -2149,14 +2150,13 @@ row.addEventListener('dragover', (e) => {
         });
 
         row.addEventListener('dragleave', (e) => {
-            // Nur zurücksetzen, wenn die Maus das Element wirklich verlässt
             if (!row.contains(e.relatedTarget)) {
                 row.classList.remove('drop-target-active');
                 row.classList.remove('drop-target-sub-active');
             }
         });
 
-    row.addEventListener('drop', async (e) => {
+        row.addEventListener('drop', async (e) => {
             clearRowGlows();
             removeDropIndicator();
 
@@ -2193,13 +2193,15 @@ row.addEventListener('dragover', (e) => {
 
             applyNotabilityFolderHierarchy(dragged, info);
         });
+    }); // <-- HIER: Sauberes Schließen von draggableRows.forEach
+
     bookshelfContainer.addEventListener('dragleave', (e) => {
         if (!bookshelfContainer.contains(e.relatedTarget)) {
             clearRowGlows();
             removeDropIndicator();
         }
     });
-}
+} // <-- HIER: Sauberes Schließen von function renderBookshelf()
 /**
  * Wendet die Notability-Hierarchieänderung auf Überordner- und Unterordner-Listen an
  */
