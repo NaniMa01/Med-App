@@ -1,5 +1,6 @@
 /**
- * js/emergency.js - Notaufnahme-Engine mit "Under Pressure" Live-XP-Decay
+ * js/emergency.js - Notaufnahme-Engine mit diskretem "Under Pressure" Live-XP-Decay
+ * Taktung: Alle 5 Sekunden genau -5 XP (bis zum Erreichen des garantierten Minimums).
  */
 
 const emergencySession = {
@@ -12,7 +13,8 @@ const emergencySession = {
     caseElapsedSeconds: 0,
     basePotentialXP: 1000,
     minGuaranteedXP: 250,
-    decayPerSecond: 5,
+    decayIntervalSeconds: 5, // Takt: alle 5 Sekunden
+    decayStepXP: 5,          // Abzug: genau 5 XP pro Block
     currentCaseXPClaimed: false
 };
 
@@ -28,7 +30,9 @@ const EmergencyManager = {
     },
 
     getCurrentPotentialXP: function() {
-        const lost = emergencySession.caseElapsedSeconds * emergencySession.decayPerSecond;
+        // Diskreter Abzug: alle vollendeten 5-Sekunden-Blöcke ziehen jeweils 5 XP ab
+        const intervalsElapsed = Math.floor(emergencySession.caseElapsedSeconds / emergencySession.decayIntervalSeconds);
+        const lost = intervalsElapsed * emergencySession.decayStepXP;
         return Math.max(emergencySession.minGuaranteedXP, emergencySession.basePotentialXP - lost);
     },
 
@@ -98,10 +102,12 @@ const EmergencyManager = {
 
     startGlobalTimer: function() {
         if (emergencySession.timerInterval) clearInterval(emergencySession.timerInterval);
+        
         emergencySession.timerInterval = setInterval(() => {
             emergencySession.timeElapsedSeconds++;
             emergencySession.caseElapsedSeconds++;
 
+            // 1. Schockraum-Timer aktualisieren (mm:ss)
             const timerEl = document.getElementById('em-timer-display');
             if (timerEl) {
                 const mins = Math.floor(emergencySession.caseElapsedSeconds / 60);
@@ -109,11 +115,22 @@ const EmergencyManager = {
                 timerEl.innerText = mins + ':' + (secs < 10 ? '0' : '') + secs;
             }
 
+            // 2. XP-Countdown & subtiler Puls-Effekt genau im Moment des Abzugs
             const xpCountdownEl = document.getElementById('em-xp-countdown');
             if (xpCountdownEl) {
                 const curXP = this.getCurrentPotentialXP();
                 xpCountdownEl.innerText = `+${curXP} XP`;
                 xpCountdownEl.style.color = curXP >= 750 ? '#10b981' : (curXP >= 500 ? '#f59e0b' : '#fca5a5');
+
+                // Feature-Detail: Alle 5 Sekunden bei tatsächlichem Abzug ein kurzer Warn-Flash
+                if (emergencySession.caseElapsedSeconds > 0 && 
+                    emergencySession.caseElapsedSeconds % emergencySession.decayIntervalSeconds === 0 && 
+                    curXP > emergencySession.minGuaranteedXP) {
+                    xpCountdownEl.style.transform = 'scale(1.15)';
+                    setTimeout(() => {
+                        if (xpCountdownEl) xpCountdownEl.style.transform = 'scale(1)';
+                    }, 250);
+                }
             }
         }, 1000);
     },
@@ -191,7 +208,7 @@ function renderEmergencyHudOverlay() {
         timerBadge.innerHTML = `
             <span>⏱️ <span id="em-timer-display">0:00</span></span>
             <span style="opacity:0.4;">|</span>
-            <span title="Sinkt um 5 XP pro Sekunde">⚡ Speed-Bonus: <strong id="em-xp-countdown" style="color:#10b981;">+1000 XP</strong></span>
+            <span title="Sinkt um 5 XP alle 5 Sekunden">⚡ Speed-Bonus: <strong id="em-xp-countdown" style="color:#10b981; transition:transform 0.2s ease;">+1000 XP</strong></span>
         `;
         wrap.appendChild(timerBadge);
     }
