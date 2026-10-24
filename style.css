@@ -2017,10 +2017,6 @@ topbar {
     .quiz-opt-btn { padding: 10px 12px !important; font-size: 0.84rem !important; width: 100% !important; }
     input, textarea, select { font-size: 16px !important; } /* Verhindert automatisches Hereinzoomen unter iOS */
 }
-@media screen and (max-width: 600px) {
-    .body-map-wrapper { flex-direction: column; align-items: center; gap: 25px; padding: 15px; }
-    .delete-case-btn { width: 30px; height: 30px; }
-}
 
 /* ==========================================================================
    14. IMMERSIVE LANDSCAPE MODE & 15. FLOATING ACTION BUTTON
