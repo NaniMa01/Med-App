@@ -1152,7 +1152,20 @@ function updateStatsUI() {
 }
 
 function applyXpDelta(delta, label) {
-    let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + delta);
+    let finalDelta = delta;
+    let multSuffix = '';
+
+    // Positiven XP-Gewinn mit aktivem Dienst-Streak-Multiplikator verrechnen
+    if (delta > 0 && window.Gamification) {
+        window.Gamification.recordActivity('xp_earned');
+        const mult = window.Gamification.getXpMultiplier();
+        if (mult > 1.0) {
+            finalDelta = Math.round(delta * mult);
+            multSuffix = ` 🔥${mult}x`;
+        }
+    }
+
+    let currentXp = Math.max(0, parseInt(localStorage.getItem('user_xp') || '0') + finalDelta);
     localStorage.setItem('user_xp', currentXp);
     updateStatsUI();
     if (window.Cloud) window.Cloud.scheduleProgressSync();
@@ -1160,10 +1173,10 @@ function applyXpDelta(delta, label) {
     const container = document.getElementById('hud-popup-container');
     if (!container) return;
     const popup = document.createElement('div');
-    popup.className = `score-popup ${delta >= 0 ? 'positive' : 'negative'}`;
-    popup.innerText = `${delta >= 0 ? '+' : ''}${delta} XP (${label})`;
+    popup.className = `score-popup ${finalDelta >= 0 ? 'positive' : 'negative'}`;
+    popup.innerText = `${finalDelta >= 0 ? '+' : ''}${finalDelta} XP (${label}${multSuffix})`;
     container.appendChild(popup);
-    setTimeout(() => popup.remove(), 1400);
+    setTimeout(() => popup.remove(), 1500);
 }
 
 function trackSkill(skillTag, isHit) {
@@ -4218,6 +4231,9 @@ async function loadCasesFromDatabase() {
         }
 
         renderDashboardCases();
+        if (window.Gamification && typeof window.Gamification.renderCognitiveAtlas === 'function') {
+        window.Gamification.renderCognitiveAtlas();
+    }
         if (typeof renderSubjectProgressDrawer === 'function') {
             renderSubjectProgressDrawer();
         }
