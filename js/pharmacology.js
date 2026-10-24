@@ -1,10 +1,11 @@
 /**
- * Pharmacology Module - Modular Game & Learning Hub (V2.2)
+ * Pharmacology Module - Modular Game & Learning Hub (V3.0)
  * Unterstützt:
  * 1. Pharma-Compass (Pfeiltasten / WASD)
  * 2. Indikations-Matrix (Drag & Drop + Touch/Click Zuordnung)
  * 3. Separate Pharma-Prompt-Bibliothek zum einfachen Kopieren
- * 4. KI-Prompt-Generator & JSON-Import inkl. Supabase-Sync
+ * 4. Vollautomatische bidirektionale Supabase-Cloud-Synchronisation
+ * 5. Löschen & Status-Badges (Cloud / Lokal) für Custom-Sets
  */
 
 const PharmacologyModule = (() => {
@@ -20,18 +21,17 @@ const PharmacologyModule = (() => {
         streak: 0,
         isAnswered: false,
         selectedDirection: null,
-        // Drag & Drop Matrix State
-        matrixPlacements: {}, // { drugId: categoryId }
+        matrixPlacements: {},
         matrixEvaluated: false,
         selectedDrugForClickMove: null,
-        customSets: []
+        customSets: [],
+        cloudSetIds: new Set()
     };
 
     // =========================================================================
-    // VORINSTALLIERTE STANDARD-SETS (COMPASS & DRAG-MATRIX)
+    // VORINSTALLIERTE STANDARD-SETS
     // =========================================================================
     const defaultSets = [
-        // 1. PFEILTASTEN-SPIEL: Kardiologie
         {
             set_id: "pharma_cardio_001",
             title: "Kardiologie & Elektrolyte",
@@ -76,8 +76,6 @@ const PharmacologyModule = (() => {
                 }
             ]
         },
-
-        // 2. PFEILTASTEN-SPIEL: Antidepressiva & Antipsychotika (10 Fragen)
         {
             set_id: "pharma_psych_compass_002",
             title: "Antidepressiva & Antipsychotika (Kompass)",
@@ -206,8 +204,6 @@ const PharmacologyModule = (() => {
                 }
             ]
         },
-
-        // 3. DRAG & DROP MATRIX 1: Krankheitsbilder & Leitmedikamente
         {
             set_id: "pharma_matrix_psych_001",
             title: "Psychopharmaka: Krankheitsbilder & 1. Wahl",
@@ -231,8 +227,6 @@ const PharmacologyModule = (() => {
                 { id: "m1_d8", name: "Bupropion (Wellbutrin)", subtitle: "NDRI (NET/DAT-Hemmer, Cave: Krampfschwelle)", correct_cat: "cat_adhd_anhedonia" }
             ]
         },
-
-        // 4. DRAG & DROP MATRIX 2: Toxidrome, UAW & Spezifische Gegenmaßnahmen
         {
             set_id: "pharma_matrix_tox_002",
             title: "UAW-Profile, Toxidrome & Notfall-Management",
@@ -259,13 +253,17 @@ const PharmacologyModule = (() => {
     ];
 
     // =========================================================================
-    // SPEICHER- & HILFSFUNKTIONEN
+    // HILFSFUNKTIONEN
     // =========================================================================
     function escapeHtml(str) {
         if (!str) return '';
         return String(str).replace(/[&<>'"]/g, tag => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
         }[tag] || tag));
+    }
+
+    function getSupabase() {
+        return window.supabaseClient || window.supabase || window.sb || null;
     }
 
     function loadSavedSets() {
@@ -276,7 +274,15 @@ const PharmacologyModule = (() => {
                 if (Array.isArray(parsed)) state.customSets = parsed;
             }
         } catch (e) {
-            console.error("Fehler beim Laden der Pharma-Sets:", e);
+            console.error("Fehler beim Laden der lokalen Pharma-Sets:", e);
+        }
+    }
+
+    function saveLocalSets() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.customSets));
+        } catch (e) {
+            console.error("Fehler beim Speichern im LocalStorage:", e);
         }
     }
 
@@ -286,15 +292,149 @@ const PharmacologyModule = (() => {
         return [...defaultSets, ...filteredCustom];
     }
 
-    function init(containerId = 'pharmacology-container') {
-        loadSavedSets();
-        setupKeyboardListener();
-        render(containerId);
+    // =========================================================================
+    // CLOUD-SYNCHRONISATION (ROBUST & BIDIREKTIONAL)
+    // =========================================================================
+    async function syncFromCloud() {
+        const sb = getSupabase();
+        if (!sb || !sb.auth) return;
+
+        try {
+            const { data: sessionData } = await sb.auth.getSession();
+            const user = sessionData?.session?.user;
+            if (!user) return;
+
+            // 1. Alle Sets des Benutzers aus Supabase abrufen
+            const { data, error } = await sb
+                .from('pharma_sets')
+                .select('set_id, content')
+                .eq('user_id', user.id);
+
+            if (error) {
+                console.warn('[Pharmacology] Supabase Sync Hinweis:', error.message);
+                return;
+            }
+
+            loadSavedSets();
+            const setMap = new Map();
+            state.cloudSetIds.clear();
+
+            // Lokale Sets vorhalten
+            state.customSets.forEach(s => {
+                if (s && s.set_id) setMap.set(s.set_id, s);
+            });
+
+            // Cloud-Sets integrieren
+            if (Array.isArray(data)) {
+                data.forEach(row => {
+                    if (row?.content?.set_id) {
+                        setMap.set(row.content.set_id, row.content);
+                        state.cloudSetIds.add(row.content.set_id);
+                    }
+                });
+            }
+
+            state.customSets = Array.from(setMap.values());
+            saveLocalSets();
+
+            // 2. Upstream-Sync: Lokale Sets, die noch nicht in der Cloud sind, hochladen
+            const unuploadedSets = state.customSets.filter(s => !state.cloudSetIds.has(s.set_id));
+            if (unuploadedSets.length > 0) {
+                for (const s of unuploadedSets) {
+                    await uploadSetToSupabase(s, user.id);
+                }
+            }
+
+            // UI aktualisieren, falls der Hub gerade sichtbar ist
+            const container = document.getElementById('pharmacology-container');
+            if (container && state.activeSubView === 'hub') {
+                render('pharmacology-container');
+            }
+        } catch (e) {
+            console.warn('[Pharmacology] Cloud-Sync übersprungen:', e);
+        }
+    }
+
+    async function uploadSetToSupabase(setObj, userId = null) {
+        const sb = getSupabase();
+        if (!sb || !sb.auth || !setObj || !setObj.set_id) return false;
+
+        try {
+            let uid = userId;
+            if (!uid) {
+                const { data: sessionData } = await sb.auth.getSession();
+                uid = sessionData?.session?.user?.id;
+            }
+            if (!uid) return false;
+
+            const { error } = await sb
+                .from('pharma_sets')
+                .upsert({
+                    set_id: setObj.set_id,
+                    user_id: uid,
+                    title: setObj.title || 'Pharmakologie-Set',
+                    medical_field: setObj.medical_field || 'Pharmakologie',
+                    game_type: setObj.game_type || 'arrow_compass',
+                    content: setObj,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id, set_id' });
+
+            if (error) {
+                console.warn('[Pharmacology] Upload-Warnung:', error.message);
+                return false;
+            }
+
+            state.cloudSetIds.add(setObj.set_id);
+            return true;
+        } catch (err) {
+            console.warn('[Pharmacology] Upload fehlgeschlagen:', err);
+            return false;
+        }
+    }
+
+    async function deleteSet(setId) {
+        if (!setId) return;
+        const setObj = state.customSets.find(s => s.set_id === setId);
+        const title = setObj?.title || setId;
+
+        if (!window.confirm(`Möchtest du das Set "${title}" wirklich löschen?`)) return;
+
+        // 1. Lokal löschen
+        state.customSets = state.customSets.filter(s => s.set_id !== setId);
+        state.cloudSetIds.delete(setId);
+        saveLocalSets();
+
+        // 2. In der Cloud löschen (falls eingeloggt)
+        const sb = getSupabase();
+        if (sb && sb.auth) {
+            try {
+                const { data: sessionData } = await sb.auth.getSession();
+                const user = sessionData?.session?.user;
+                if (user) {
+                    await sb
+                        .from('pharma_sets')
+                        .delete()
+                        .eq('set_id', setId)
+                        .eq('user_id', user.id);
+                }
+            } catch (err) {
+                console.warn('[Pharmacology] Fehler beim Löschen in Supabase:', err);
+            }
+        }
+
+        render();
     }
 
     // =========================================================================
-    // KEYBOARD LISTENER (FÜR PHARMA-COMPASS)
+    // INITIALISIERUNG & TASTEN-STEUERUNG
     // =========================================================================
+    function init(containerId = 'pharmacology-container') {
+        loadSavedSets();
+        setupKeyboardListener();
+        syncFromCloud();
+        render(containerId);
+    }
+
     function setupKeyboardListener() {
         window.removeEventListener('keydown', handleKeyDown);
         window.addEventListener('keydown', handleKeyDown);
@@ -324,7 +464,7 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // HAUPT-RENDERER
+    // RENDER-ROUTING
     // =========================================================================
     function render(containerId = 'pharmacology-container') {
         const container = document.getElementById(containerId);
@@ -346,10 +486,11 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 1. HUB ANSICHT (BEIDE SPIELMODI + PROMPTS BUTTON)
+    // 1. HUB ANSICHT (MIT CLOUD-BADGES & LÖSCH-BUTTON)
     // =========================================================================
     function renderHub() {
         const allSets = getAllSets();
+        const defaultIds = new Set(defaultSets.map(s => s.set_id));
         const filteredSets = allSets.filter(s => {
             const type = s.game_type || 'arrow_compass';
             return state.modeFilter === 'all' || type === state.modeFilter;
@@ -364,19 +505,18 @@ const PharmacologyModule = (() => {
                     <div>
                         <span class="pharma-badge">INTERAKTIVES TRAINING</span>
                         <h1 class="pharma-title">💊 Klinische Pharmakologie</h1>
-                        <p class="pharma-subtitle">Wähle deinen Spielmodus oder hole dir direkt die passenden Prompts.</p>
+                        <p class="pharma-subtitle">Wähle deinen Spielmodus oder erstelle eigene Sets per KI-Import.</p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button class="pharma-btn pharma-btn-primary" data-action="open-prompts" style="background:var(--accent-cyan); color:#0f172a; font-weight:700;">
-                            ✨ Pharma-Prompts anzeigen
+                            ✨ Pharma-Prompts
                         </button>
                         <button class="pharma-btn pharma-btn-secondary" data-action="open-import">
-                            <span>+ JSON Importieren</span>
+                            <span>+ Set importieren</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Spielmodi-Karten -->
                 <div class="pharma-modes-grid">
                     <div class="pharma-mode-card ${state.modeFilter === 'arrow_compass' ? 'active-mode' : ''}" data-action="filter-mode" data-mode="arrow_compass" style="cursor:pointer;">
                         <div class="pharma-mode-icon">⌨️</div>
@@ -391,13 +531,12 @@ const PharmacologyModule = (() => {
                         <div class="pharma-mode-icon">🧩</div>
                         <div class="pharma-mode-info">
                             <h3>Indikations-Matrix (Drag & Drop)</h3>
-                            <p>Ziehe Medikamente per Drag & Drop in die zugehörigen Krankheitsbilder.</p>
+                            <p>Ziehe Wirkstoffe per Drag & Drop in die passenden Krankheitsbilder.</p>
                         </div>
                         <span class="pharma-mode-tag">${matrixCount} Sets</span>
                     </div>
                 </div>
 
-                <!-- Filter-Tabs -->
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 1rem;">
                     <h2 class="pharma-section-title" style="margin:0;">Verfügbare Trainings-Sets</h2>
                     <div class="segmented-control" style="margin:0;">
@@ -410,21 +549,38 @@ const PharmacologyModule = (() => {
                 <div class="pharma-sets-list">
                     ${filteredSets.map(set => {
                         const isMatrix = set.game_type === 'drag_matrix';
-                       const countLabel = isMatrix
-    ? `🧩 ${set.drugs?.length || 0} Medikamente → ${set.categories?.length || 0} Krankheiten`
-    : `⌨️ ${set.questions?.length || 0} Szenarien`;
+                        const isCustom = !defaultIds.has(set.set_id);
+                        const isCloud = state.cloudSetIds.has(set.set_id);
+
+                        const countLabel = isMatrix
+                            ? `🧩 ${set.drugs?.length || 0} Medikamente → ${set.categories?.length || 0} Indikationen`
+                            : `⌨️ ${set.questions?.length || 0} Szenarien`;
+
+                        const syncBadge = isCustom
+                            ? `<span class="cloud-badge ${isCloud ? 'is-cloud' : 'is-local'}" style="font-size:0.7rem; padding:2px 8px; border-radius:6px; font-weight:700;">
+                                  ${isCloud ? '☁️ Cloud' : '💾 Lokal'}
+                               </span>`
+                            : `<span style="font-size:0.7rem; padding:2px 8px; border-radius:6px; background:rgba(255,255,255,0.06); color:var(--text-dim); font-weight:600;">Standard</span>`;
+
                         return `
                             <div class="pharma-set-card">
-                                <div>
-                                    <div class="pharma-set-meta" style="margin-bottom: 10px;">
+                                <div style="flex:1; min-width:0;">
+                                    <div class="pharma-set-meta" style="margin-bottom: 8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                         <span class="pharma-field-pill">${escapeHtml(set.medical_field || 'Pharmakologie')}</span>
                                         <span class="pharma-type-pill">${countLabel}</span>
+                                        ${syncBadge}
                                     </div>
-                                    <h3 style="margin: 0 0 6px 0;">${escapeHtml(set.title)}</h3>${set.description ? `<p style="font-size:0.8rem; color:var(--text-muted); margin:0;">${escapeHtml(set.description)}</p>` : ''}
+                                    <h3 style="margin: 0 0 6px 0; font-size:1.05rem;">${escapeHtml(set.title)}</h3>
+                                    ${set.description ? `<p style="font-size:0.8rem; color:var(--text-muted); margin:0;">${escapeHtml(set.description)}</p>` : ''}
                                 </div>
-                                <button class="pharma-btn pharma-btn-primary" data-action="start-set" data-set-id="${escapeHtml(set.set_id)}">
-                                    ${isMatrix ? '🧩 Drag & Drop starten →' : '⌨️ Kompass starten →'}
-                                </button>
+                                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                                    ${isCustom ? `
+                                        <button type="button" class="folder-action-btn delete-folder-btn" data-action="delete-set" data-set-id="${escapeHtml(set.set_id)}" title="Set löschen" style="padding:7px 10px; border-radius:8px;">🗑️</button>
+                                    ` : ''}
+                                    <button class="pharma-btn pharma-btn-primary" data-action="start-set" data-set-id="${escapeHtml(set.set_id)}">
+                                        ${isMatrix ? '🧩 Starten →' : '⌨️ Starten →'}
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
@@ -434,7 +590,7 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 2. SEPARATER PROMPT-BEREICH FÜR PHARMA
+    // 2. SEPARATER PROMPT-BEREICH
     // =========================================================================
     function renderPromptsHub() {
         const compassPromptTemp = `Erstelle ein valides JSON-Objekt für mein Pharmakologie-Spiel "Pharma-Compass" zu folgendem Thema: [HIER THEMA EINFÜGEN].
@@ -459,7 +615,7 @@ Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
     }
   ]
 }
-Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left. Erstelle 5 anspruchsvolle Fragen.`;
+Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left. Erstelle 5-10 anspruchsvolle Fragen.`;
 
         const matrixPromptTemp = `Erstelle ein valides JSON-Objekt für mein Drag-and-Drop Pharmakologie-Spiel "Pharma-Matrix" zu folgendem Thema: [HIER THEMA EINFÜGEN].
 Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
@@ -486,9 +642,9 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
             <div class="pharma-wrapper">
                 <div class="compass-topbar" style="margin-bottom: 1.5rem;">
                     <button class="pharma-btn pharma-btn-ghost" data-action="back-to-hub">← Zurück zum Pharma-Hub</button>
-                    <h2>✨ Separate Pharma-Prompt-Bibliothek</h2>
+                    <h2>✨ Pharma-Prompt-Bibliothek</h2>
                 </div>
-                <p class="pharma-subtitle" style="margin-bottom: 1.5rem;">Kopiere dir hier die passenden KI-Prompts heraus, um sie für neue Pharmakologie-Spiele zu nutzen.</p>
+                <p class="pharma-subtitle" style="margin-bottom: 1.5rem;">Kopiere dir hier die passenden KI-Prompts heraus, um sie in ChatGPT, Claude oder Gemini für neue Sets zu nutzen.</p>
 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
                     <div class="pharma-import-box">
@@ -508,7 +664,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
     }
 
     // =========================================================================
-    // 3. SPIELMODUS A: PFEILTASTEN-SPIEL (ARROW COMPASS)
+    // 3. SPIELMODUS A: PFEILTASTEN-SPIEL
     // =========================================================================
     function renderArrowCompass() {
         const set = state.currentSet;
@@ -605,7 +761,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
     }
 
     // =========================================================================
-    // 4. SPIELMODUS B: DRAG & DROP MATRIX (MEDIKAMENTE -> KRANKHEITSBILDER)
+    // 4. SPIELMODUS B: DRAG & DROP MATRIX
     // =========================================================================
     function renderDragMatrix() {
         const set = state.currentSet;
@@ -664,14 +820,13 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
 
                 <div style="margin-bottom: 1.25rem;">
                     <h2 style="margin: 0 0 4px 0; font-size: 1.4rem;">🧩 ${escapeHtml(set.title)}</h2>
-                    <p class="pharma-subtitle">${escapeHtml(set.description || 'Ziehe jedes Medikament in das passende Krankheitsbild (oder tippe erst ein Medikament und dann die Ziel-Kategorie an).')}</p>
+                    <p class="pharma-subtitle">${escapeHtml(set.description || 'Ziehe jedes Medikament in das passende Krankheitsbild.')}</p>
                 </div>
 
-                <!-- 1. Medikamenten-Wartebereich (Pool) -->
                 <div class="pharma-bank-section" data-drop-target="pool">
                     <div class="bank-title">
                         💊 Verfügbare Medikamente (${unplacedDrugs.length} übrig)
-                        ${state.selectedDrugForClickMove ? '<span style="color:var(--accent-cyan); margin-left:8px;">→ Klicke jetzt unten auf ein Krankheitsbild!</span>' : ''}
+                        ${state.selectedDrugForClickMove ? '<span style="color:var(--accent-cyan); margin-left:8px;">→ Klicke jetzt auf ein Krankheitsbild!</span>' : ''}
                     </div>
                     <div class="pharma-drug-pool" id="pharma-matrix-pool">
                         ${unplacedDrugs.length > 0
@@ -680,7 +835,6 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
                     </div>
                 </div>
 
-                <!-- 2. Krankheitsbilder-Spalten (Drop-Zonen) -->
                 <div class="pharma-categories-grid">
                     ${categories.map(cat => {
                         const drugsInCat = drugs.filter(d => state.matrixPlacements[d.id] === cat.id);
@@ -695,12 +849,11 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
                     }).join('')}
                 </div>
 
-                <!-- 3. Auswertungs-Feedback & Prüf-Button -->
                 ${state.matrixEvaluated ? `
                     <div class="feedback-box ${correctCount === drugs.length ? 'feedback-success' : 'feedback-error'}" style="display:block; margin-top: 18px;">
                         ${correctCount === drugs.length
                             ? `<strong>🎉 Perfekt gelöst!</strong> Alle ${drugs.length} Medikamente wurden dem richtigen Krankheitsbild zugeordnet!`
-                            : `<strong>Fast geschafft:</strong> ${correctCount} von ${drugs.length} Medikamenten liegen richtig (grün). Korrigiere die rot markierten Karten per Drag & Drop!`}
+                            : `<strong>Fast geschafft:</strong> ${correctCount} von ${drugs.length} Medikamenten liegen richtig. Korrigiere die rot markierten Karten!`}
                     </div>
                 ` : ''}
 
@@ -712,7 +865,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
     }
 
     // =========================================================================
-    // 5. KI-PROMPT-GENERATOR & JSON-IMPORTER (BEIDE SPIELTYPEN)
+    // 5. IMPORTER MIT CLOUD-FEEDBACK
     // =========================================================================
     function renderImporter() {
         const isMatrix = state.importType === 'drag_matrix';
@@ -739,7 +892,7 @@ Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
     }
   ]
 }
-Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left. Erstelle 10 anspruchsvolle Fragen.`;
+Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left.`;
 
         const matrixTemplate = `Erstelle ein valides JSON-Objekt für mein Drag-and-Drop Pharmakologie-Spiel "Pharma-Matrix" zu folgendem Thema: [THEMA EINFÜGEN].
 Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
@@ -756,11 +909,11 @@ Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
     { "id": "cat_4", "name": "Krankheitsbild / Indikation 4" }
   ],
   "drugs": [
-    { "id": "d1", "name": "Wirkstoff 1", "subtitle": "Wirkstoffklasse / kurzer Hinweis", "correct_cat": "cat_1" },
-    { "id": "d2", "name": "Wirkstoff 2", "subtitle": "Wirkstoffklasse / kurzer Hinweis", "correct_cat": "cat_2" }
+    { "id": "d1", "name": "Wirkstoff 1", "subtitle": "Wirkstoffklasse", "correct_cat": "cat_1" },
+    { "id": "d2", "name": "Wirkstoff 2", "subtitle": "Wirkstoffklasse", "correct_cat": "cat_2" }
   ]
 }
-Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bis 12 passende Medikamente (drugs).`;
+Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Medikamente (drugs).`;
 
         return `
             <div class="pharma-wrapper">
@@ -786,10 +939,10 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
 
                     <div class="pharma-import-box">
                         <h3>2. JSON-Code hier einfügen</h3>
-                        <p>Füge das generierte JSON ein (wird automatisch lokal und auf deinem Account gespeichert):</p>
+                        <p>Wird automatisch lokal und auf deinem Account synchronisiert:</p>
                         <textarea id="pharma-json-input" placeholder='{"set_id": "...", "title": "...", ...}' class="pharma-textarea"></textarea>
-                        <div id="pharma-import-error" class="pharma-error-msg"></div>
-                        <button class="pharma-btn pharma-btn-primary" data-action="save-json">💾 Set validieren & speichern</button>
+                        <div id="pharma-import-status" style="margin-top:10px; font-size:0.85rem;"></div>
+                        <button class="pharma-btn pharma-btn-primary" data-action="save-json" style="margin-top:10px;">💾 Set validieren & speichern</button>
                     </div>
                 </div>
             </div>
@@ -797,7 +950,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
     }
 
     // =========================================================================
-    // INTERAKTIONS-LOGIK (COMPASS, MATRIX & PROMPTS)
+    // EVENT-DISPATCHER & AKTIONEN
     // =========================================================================
     function selectDirection(dir) {
         if (state.isAnswered) return;
@@ -842,7 +995,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
 
     function attachEvents(container) {
         container.querySelectorAll('[data-action]').forEach(el => {
-            el.addEventListener('click', (e) => {
+            el.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const action = el.getAttribute('data-action');
 
@@ -874,6 +1027,9 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                         state.activeSubView = 'arrow_compass';
                     }
                     render();
+                } else if (action === 'delete-set') {
+                    const setId = el.getAttribute('data-set-id');
+                    await deleteSet(setId);
                 } else if (action === 'select-dir') {
                     selectDirection(el.getAttribute('data-dir'));
                 } else if (action === 'next-question') {
@@ -934,7 +1090,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                     });
                 } else if (action === 'save-json') {
                     const input = document.getElementById('pharma-json-input').value.trim();
-                    const errBox = document.getElementById('pharma-import-error');
+                    const statusBox = document.getElementById('pharma-import-status');
                     try {
                         const cleanInput = input.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
                         const parsed = JSON.parse(cleanInput);
@@ -955,24 +1111,38 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
                             }
                         }
 
+                        // Lokal speichern
                         state.customSets = state.customSets.filter(s => s.set_id !== parsed.set_id);
                         state.customSets.push(parsed);
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.customSets));
+                        saveLocalSets();
 
-                        if (typeof window.savePharmaSet === 'function') {
-                            window.savePharmaSet(parsed);
+                        statusBox.style.color = '#38bdf8';
+                        statusBox.innerHTML = '💾 Lokal gespeichert. Synchronisiere mit Cloud...';
+
+                        // In Supabase Cloud speichern
+                        const uploaded = await uploadSetToSupabase(parsed);
+                        if (uploaded) {
+                            statusBox.style.color = '#10b981';
+                            statusBox.innerHTML = '✓ Erfolgreich auf deinem Account gesichert!';
+                        } else {
+                            statusBox.style.color = '#f59e0b';
+                            statusBox.innerHTML = '💾 Lokal gespeichert (Melde dich an, um es online zu sichern).';
                         }
 
-                        state.activeSubView = 'hub';
-                        render();
+                        setTimeout(() => {
+                            state.activeSubView = 'hub';
+                            render();
+                        }, 1200);
+
                     } catch (err) {
-                        errBox.textContent = "Ungültiges JSON: " + err.message;
+                        statusBox.style.color = '#ef4444';
+                        statusBox.textContent = "Ungültiges JSON: " + err.message;
                     }
                 }
             });
         });
 
-        // 2. HTML5 Drag & Drop Events für die Pharma-Matrix
+        // HTML5 Drag & Drop Events
         if (state.activeSubView === 'drag_matrix') {
             container.querySelectorAll('.pharma-matrix-card[draggable="true"]').forEach(card => {
                 card.addEventListener('dragstart', (e) => {
@@ -1017,7 +1187,9 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 bi
 
     return {
         init,
-        render
+        render,
+        syncFromCloud,
+        deleteSet
     };
 })();
 
