@@ -3713,68 +3713,6 @@ window.syncPharmaSetsFromCloud = async function() {
         return await window.PharmacologyModule.syncFromCloud();
     }
 };
-    try {
-        let savedSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
-        savedSets = savedSets.filter(s => s.set_id !== setObj.set_id);
-        savedSets.push(setObj);
-        localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(savedSets));
-    } catch (e) {
-        console.error('Fehler beim Speichern im LocalStorage:', e);
-    }
-
-    const sb = window.supabaseClient || window.sb || null;
-    if (sb && sb.auth) {
-        try {
-            const { data: sessionData } = await sb.auth.getSession();
-            const user = sessionData?.session?.user;
-            if (user) {
-                const { error } = await sb.from('pharma_sets').upsert([{
-                    set_id: setObj.set_id,
-                    user_id: user.id,
-                    title: setObj.title,
-                    medical_field: setObj.medical_field || 'Pharmakologie',
-                    game_type: setObj.game_type || 'arrow_compass',
-                    content: setObj,
-                    updated_at: new Date().toISOString()
-                }]);
-                if (error) console.warn('Supabase Pharma-Sync Hinweis:', error.message);
-            }
-        } catch (err) {
-            console.warn('Cloud-Sync im Hintergrund fehlgeschlagen (lokal gesichert):', err);
-        }
-    }
-};
-
-window.syncPharmaSetsFromCloud = async function() {
-    const sb = window.supabaseClient || window.sb || null;
-    if (!sb || !sb.auth) return;
-    try {
-        const { data: sessionData } = await sb.auth.getSession();
-        const user = sessionData?.session?.user;
-        if (!user) return;
-
-        const { data, error } = await sb
-            .from('pharma_sets')
-            .select('content')
-            .eq('user_id', user.id);
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-            const localSets = JSON.parse(localStorage.getItem(PHARMA_STORAGE_KEY) || '[]');
-            const mergedMap = new Map();
-            localSets.forEach(s => { if (s?.set_id) mergedMap.set(s.set_id, s); });
-            data.forEach(row => {
-                if (row?.content?.set_id) mergedMap.set(row.content.set_id, row.content);
-            });
-            localStorage.setItem(PHARMA_STORAGE_KEY, JSON.stringify(Array.from(mergedMap.values())));
-        }
-    } catch (e) {
-        console.warn('Pharma Cloud-Abruf übersprungen:', e);
-    }
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.syncPharmaSetsFromCloud();
-});
 
 // ==========================================================================
 // DRAG & DROP AUTO-SCROLL ENGINE (TURBO 60-120 FPS - ULTRA SCHNELL)
