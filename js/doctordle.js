@@ -390,7 +390,9 @@ class DoctordleController {
             }
         }
     }
-  // Spaced Repetition Engine SM-2 Hook (Defensiv abgesichert)
+// ====================================================
+        // Spaced Repetition Engine SM-2 Hook (Defensiv & Crash-Sicher)
+        // ====================================================
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
             try {
                 let quality = 3;
@@ -401,8 +403,6 @@ class DoctordleController {
                         byReveal: byReveal
                     });
                 } else {
-                    // Fallback SM-2 Quality (0-5 Scale):
-                    // Aufgedeckt / Verloren = 1-2, Richtig in 1-2 Versuchen = 5, 3-4 = 4, 5-6 = 3
                     if (byReveal || !won) {
                         quality = 1;
                     } else if (this.currentAttempt <= 1) {
@@ -416,14 +416,19 @@ class DoctordleController {
 
                 const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
                 
-                // KORREKTUR: Kein Semikolon vor .catch() und Typprüfung auf die Methode
+                // Wir speichern das Resultat und fangen Promises sicher ab
                 if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
-                    window.SpacedRepetitionEngine.recordReview({
+                    const reviewResult = window.SpacedRepetitionEngine.recordReview({
                         itemId: itemId,
                         moduleType: 'doctordle',
                         quality: quality,
                         medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
-                    }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+                    });
+
+                    // Prüft zur Laufzeit, ob ein echtes Promise vorliegt, statt ungeprüft zu verketten
+                    if (reviewResult && typeof reviewResult.catch === 'function') {
+                        reviewResult.catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+                    }
                 }
             } catch (srsErr) {
                 console.warn('[Doctordle] SRS Engine Soft-Fail:', srsErr);
