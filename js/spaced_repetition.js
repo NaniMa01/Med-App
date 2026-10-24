@@ -210,7 +210,7 @@ const SpacedRepetitionEngine = {
         return { dueCases, upcomingCases, unstartedCases };
     },
 
-    // 6. Rendert NUR DIE KLEINE KOMPAKTE PREVIEW-LEISTE im Dashboard
+   // 6. Rendert die kompakte Stations-Visite im Dashboard (Loss Aversion Trigger)
     renderDashboardWidget(containerId = 'sr-dashboard-widget', filter = 'ALL') {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -218,56 +218,64 @@ const SpacedRepetitionEngine = {
         this.activeFilter = filter || 'ALL';
         const { dueCases, upcomingCases } = this.getEvaluatedCases(this.activeFilter);
 
-        const dueCount = dueCases.length;
-        const upcomingCount = upcomingCases.length;
+        const decompensatedCount = dueCases.filter(c => c.overdueDays >= 2).length;
+        const monitoringCount = dueCases.length - decompensatedCount;
+        const stableCount = upcomingCases.length;
 
-        // Gruppiere fällige Themenbereiche für die Kurz-Vorschau (max. 2 Themen-Pills anzeigen)
-        const dueTopicsMap = {};
-        dueCases.forEach(item => {
-            dueTopicsMap[item.subFolder] = (dueTopicsMap[item.subFolder] || 0) + 1;
-        });
-        const topicKeys = Object.keys(dueTopicsMap);
-        const previewTopicsText = topicKeys.length > 0
-            ? topicKeys.slice(0, 2).join(', ') + (topicKeys.length > 2 ? ` +${topicKeys.length - 2} weitere` : '')
-            : (upcomingCount > 0 ? 'Alles im grünen Bereich – nächste Wiederholung geplant' : 'Löse deinen ersten Fall, um das Intervall-Training zu starten');
+        let subtitleText = '';
+        if (decompensatedCount > 0) {
+            subtitleText = `🚨 ACHTUNG: ${decompensatedCount} ${decompensatedCount === 1 ? 'Patient dekompensiert' : 'Patienten dekompensieren'} auf deiner Station! Sofortige Visite nötig.`;
+        } else if (monitoringCount > 0) {
+            subtitleText = `⚠️ ${monitoringCount} ${monitoringCount === 1 ? 'Patient benötigt' : 'Patienten benötigen'} heute eine Kontroll-Visite zur Stabilisierung.`;
+        } else if (stableCount > 0) {
+            subtitleText = `🟢 Alle ${stableCount} Stations-Patienten sind vital stabilisiert.`;
+        } else {
+            subtitleText = 'Löse deinen ersten Fall, um Patienten auf deine Station aufzunehmen.';
+        }
 
-        const statusColor = dueCount > 0 ? 'var(--warning, #f59e0b)' : 'var(--color-symptom, #10b981)';
-        const pulseDotClass = dueCount > 0 ? 'sr-pulse-dot due' : 'sr-pulse-dot clear';
+        const statusColor = decompensatedCount > 0 ? '#ef4444' : (monitoringCount > 0 ? '#f59e0b' : '#10b981');
+        const pulseDotClass = dueCases.length > 0 ? 'sr-pulse-dot due' : 'sr-pulse-dot clear';
 
         container.innerHTML = `
-            <div class="sr-compact-preview-bar" onclick="window.SpacedRepetitionEngine.openModal()" role="button" tabindex="0" title="Klicken, um alle zu wiederholenden Themenbereiche und Fälle zu öffnen">
+            <div class="sr-compact-preview-bar" onclick="window.SpacedRepetitionEngine.openModal()" role="button" tabindex="0" style="border-left: 4px solid ${statusColor};">
                 <div class="sr-compact-left">
                     <div class="sr-compact-icon-wrap" style="border-color: ${statusColor};">
-                        <span>🧠</span>
+                        <span>🩺</span>
                         <span class="${pulseDotClass}"></span>
                     </div>
                     <div class="sr-compact-info">
                         <div class="sr-compact-title-row">
-                            <span class="sr-compact-title">Spaced Repetition</span>
+                            <span class="sr-compact-title">Stations-Visite & Patienten-Monitoring (Spaced Repetition)</span>
                             ${this.activeFilter !== 'ALL' ? `<span class="sr-filter-tag">${this.escapeHtml(this.activeFilter)}</span>` : ''}
                         </div>
-                        <div class="sr-compact-subtitle">${this.escapeHtml(previewTopicsText)}</div>
+                        <div class="sr-compact-subtitle" style="color:${decompensatedCount > 0 ? '#fca5a5' : 'var(--text-muted)'}; font-weight:${decompensatedCount > 0 ? '700' : '500'};">
+                            ${this.escapeHtml(subtitleText)}
+                        </div>
                     </div>
                 </div>
 
                 <div class="sr-compact-right">
                     <div class="sr-compact-badges">
-                        <span class="sr-mini-pill ${dueCount > 0 ? 'is-due' : 'is-zero'}">
-                            <strong>${dueCount}</strong> Fällig
+                        ${decompensatedCount > 0 ? `
+                            <span class="sr-mini-pill is-critical" style="background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5;">
+                                🔴 <strong>${decompensatedCount}</strong> Kritisch
+                            </span>
+                        ` : ''}
+                        <span class="sr-mini-pill ${monitoringCount > 0 ? 'is-due' : 'is-zero'}">
+                            🟡 <strong>${monitoringCount}</strong> Überwachung
                         </span>
-                        <span class="sr-mini-pill is-upcoming">
-                            <strong>${upcomingCount}</strong> Geplant
+                        <span class="sr-mini-pill is-upcoming" style="color:#86efac;">
+                            🟢 <strong>${stableCount}</strong> Stabil
                         </span>
                     </div>
                     <button type="button" class="sr-compact-open-btn" onclick="event.stopPropagation(); window.SpacedRepetitionEngine.openModal()">
-                        <span>Öffnen</span>
+                        <span>Visite starten</span>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
                     </button>
                 </div>
             </div>
         `;
 
-        // Falls das Modal gerade offen ist, Inhalt live mitaktualisieren
         if (this.isModalOpen) {
             this.renderModalContent();
         }
@@ -304,7 +312,7 @@ const SpacedRepetitionEngine = {
         }
     },
 
-    // 9. Rendert den Inhalt des geöffneten Fensters (gruppiert nach Themenbereichen)
+   // 9. Rendert das Stations-Visiten-Modal mit Vitalstatus-Badges
     renderModalContent() {
         const modalOverlay = document.getElementById('sr-modal-overlay');
         if (!modalOverlay) return;
@@ -314,7 +322,6 @@ const SpacedRepetitionEngine = {
             ? window.getSuperFolderOrder()
             : ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'];
 
-        // Gruppierung der fälligen Fälle nach Unterordner (Themenbereich)
         const groupedDue = {};
         dueCases.forEach(item => {
             if (!groupedDue[item.subFolder]) groupedDue[item.subFolder] = [];
@@ -325,10 +332,10 @@ const SpacedRepetitionEngine = {
         if (dueCases.length === 0) {
             dueSectionHtml = `
                 <div class="sr-empty-state">
-                    <div style="font-size: 1.8rem; margin-bottom: 6px;">🎉</div>
-                    <div style="font-weight: 700; color: var(--text-main);">Keine offenen Wiederholungen für heute!</div>
+                    <div style="font-size: 1.8rem; margin-bottom: 6px;">🟢</div>
+                    <div style="font-weight: 700; color: var(--text-main);">Alle Patienten auf Station sind vital stabil!</div>
                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                        Alle gelernten Fälle befinden sich im optimalen Konsolidierungs-Intervall. Du kannst unten trotzdem jederzeit ein freies Review starten.
+                        Kein Gedächtnis-Decay aktiv. Du kannst unten jederzeit eine elektive Visite durchführen.
                     </div>
                 </div>
             `;
@@ -336,30 +343,31 @@ const SpacedRepetitionEngine = {
             dueSectionHtml = Object.entries(groupedDue).map(([topicName, items]) => `
                 <div class="sr-topic-group">
                     <div class="sr-topic-header">
-                        <span>📁 ${this.escapeHtml(topicName)}</span>
-                        <span class="sr-topic-count">${items.length} ${items.length === 1 ? 'Fall' : 'Fälle'} fällig</span>
+                        <span>📁 Station: ${this.escapeHtml(topicName)}</span>
+                        <span class="sr-topic-count">${items.length} ${items.length === 1 ? 'Patient' : 'Patienten'} instabil</span>
                     </div>
                     <div class="sr-cases-list">
                         ${items.map(item => {
                             const c = item.caseData;
                             const cId = c.case_id || c.id;
                             const title = c.metadata?.title || cId;
-                            const overdueBadge = item.overdueDays > 0
-                                ? `<span class="sr-due-tag overdue">Seit ${item.overdueDays}d fällig</span>`
-                                : `<span class="sr-due-tag today">Heute fällig</span>`;
+                            const isCritical = item.overdueDays >= 2;
+                            const vitalBadge = isCritical
+                                ? `<span class="sr-due-tag overdue" style="background:rgba(239,68,68,0.25); border:1px solid #ef4444; color:#fca5a5;">🔴 Kritische Dekompensation (seit ${item.overdueDays}d)</span>`
+                                : `<span class="sr-due-tag today" style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#fde68a;">🟡 Überwachungsbedürftig (Heute)</span>`;
 
                             return `
-                                <div class="sr-case-row">
+                                <div class="sr-case-row" style="border-left: 3px solid ${isCritical ? '#ef4444' : '#f59e0b'};">
                                     <div class="sr-case-main" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">
                                         <div class="sr-case-title">${this.escapeHtml(title)}</div>
                                         <div class="sr-case-meta">
-                                            ${overdueBadge}
-                                            <span>• Intervall-Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
+                                            ${vitalBadge}
+                                            <span>• Konsolidierungs-Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
                                         </div>
                                     </div>
                                     <div class="sr-case-actions">
-                                        <button type="button" class="sr-btn-mark-done" onclick="event.stopPropagation(); window.SpacedRepetitionEngine.quickCompleteReview('${this.escapeHtml(cId)}')" title="Als wiederholt markieren (nächstes Intervall)">✓</button>
-                                        <button type="button" class="sr-btn-start" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Wiederholen ➔</button>
+                                        <button type="button" class="sr-btn-mark-done" onclick="event.stopPropagation(); window.SpacedRepetitionEngine.quickCompleteReview('${this.escapeHtml(cId)}')" title="Kurze Kurvenvisite (direkt stabilisieren)">✓</button>
+                                        <button type="button" class="sr-btn-start" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Stabilisieren ➔</button>
                                     </div>
                                 </div>
                             `;
@@ -369,32 +377,32 @@ const SpacedRepetitionEngine = {
             `).join('');
         }
 
-        // Geplante / Zukünftige Fälle kompakt darunter
         let upcomingSectionHtml = '';
         if (upcomingCases.length > 0) {
             upcomingSectionHtml = `
                 <details class="sr-upcoming-accordion" ${dueCases.length === 0 ? 'open' : ''}>
                     <summary class="sr-upcoming-summary">
-                        <span>📅 Geplante Wiederholungen (${upcomingCases.length})</span>
-                        <span style="font-size: 0.75rem; color: var(--text-dim);">Ausklappen</span>
+                        <span>🟢 Vital stabile Patienten (${upcomingCases.length})</span>
+                        <span style="font-size: 0.75rem; color: var(--text-dim);">Station ausklappen</span>
                     </summary>
                     <div class="sr-cases-list" style="margin-top: 10px;">
                         ${upcomingCases.map(item => {
                             const c = item.caseData;
                             const cId = c.case_id || c.id;
                             const title = c.metadata?.title || cId;
+                            const nextDays = SR_INTERVALS_DAYS[Math.min(SR_INTERVALS_DAYS.length - 1, item.stage + 1)];
                             return `
-                                <div class="sr-case-row upcoming">
+                                <div class="sr-case-row upcoming" style="border-left: 3px solid #10b981;">
                                     <div class="sr-case-main" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">
                                         <div class="sr-case-title">${this.escapeHtml(title)}</div>
                                         <div class="sr-case-meta">
-                                            <span class="sr-due-tag scheduled">In ${item.daysDiff} Tag${item.daysDiff === 1 ? '' : 'en'}</span>
+                                            <span class="sr-due-tag scheduled" style="color:#86efac;">🟢 Vital stabil (Nächste Visite in ${item.daysDiff}d)</span>
                                             <span>• 📁 ${this.escapeHtml(item.subFolder)}</span>
-                                            <span>• Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
+                                            <span>• Nächstes Intervall: ${nextDays}d</span>
                                         </div>
                                     </div>
                                     <div class="sr-case-actions">
-                                        <button type="button" class="sr-btn-start secondary" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Frühzeitig üben</button>
+                                        <button type="button" class="sr-btn-start secondary" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Elektive Visite</button>
                                     </div>
                                 </div>
                             `;
@@ -409,19 +417,19 @@ const SpacedRepetitionEngine = {
                 <div class="sr-modal-header">
                     <div>
                         <div class="sr-modal-title-row">
-                            <span style="font-size: 1.25rem;">🧠</span>
-                            <h3>Spaced Repetition Planer</h3>
+                            <span style="font-size: 1.25rem;">🩺</span>
+                            <h3>Klinische Stations-Visite (Dynamic Memory Decay)</h3>
                         </div>
-                        <p class="sr-modal-subtitle">Gezielte Langzeit-Konsolidierung deiner bearbeiteten Themenbereiche & Fälle</p>
+                        <p class="sr-modal-subtitle">Stabilisiere überwachungsbedürftige und dekompensierte Fälle für die nächsten 14 bis 60 Tage.</p>
                     </div>
                     <button type="button" class="sr-modal-close" onclick="window.SpacedRepetitionEngine.closeModal()" aria-label="Schließen">✕</button>
                 </div>
 
                 <div class="sr-modal-toolbar">
                     <div class="sr-filter-group">
-                        <label for="sr-folder-filter">Überordner:</label>
+                        <label for="sr-folder-filter">Abteilung:</label>
                         <select id="sr-folder-filter" class="sr-select" onchange="window.SpacedRepetitionEngine.setFilter(this.value)">
-                            <option value="ALL" ${this.activeFilter === 'ALL' ? 'selected' : ''}>Alle Überordner</option>
+                            <option value="ALL" ${this.activeFilter === 'ALL' ? 'selected' : ''}>Alle Abteilungen</option>
                             ${superFolders.map(sf => `
                                 <option value="${this.escapeHtml(sf)}" ${this.activeFilter === sf ? 'selected' : ''}>${this.escapeHtml(sf)}</option>
                             `).join('')}
@@ -429,14 +437,14 @@ const SpacedRepetitionEngine = {
                     </div>
 
                     ${dueCases.length > 0 ? `
-                        <button type="button" class="action-btn btn-sm" onclick="window.SpacedRepetitionEngine.startNextDueCase()">
-                            ⚡ Sofort dringendsten Fall starten
+                        <button type="button" class="action-btn btn-sm" style="background:#ef4444;" onclick="window.SpacedRepetitionEngine.startNextDueCase()">
+                            🚨 Kritischsten Patienten sofort versorgen
                         </button>
                     ` : ''}
                 </div>
 
                 <div class="sr-modal-body">
-                    <div class="sr-section-label">🔥 Jetzt zur Wiederholung fällig (${dueCases.length})</div>
+                    <div class="sr-section-label">🚨 Akute Visiten-Liste (${dueCases.length})</div>
                     ${dueSectionHtml}
                     ${upcomingSectionHtml}
                 </div>
