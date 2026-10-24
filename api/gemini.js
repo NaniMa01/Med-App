@@ -88,7 +88,55 @@ Format:
 QUELLTEXT / THEMA:
 ${sourceText}`;
 }
+// ==========================================================================
+// 1. NEUER DEDIZIERTER SUPER-PROMPT FÜR DAS LERN-DEPOT QUIZ
+// ==========================================================================
+function buildDepotQuizSuperPrompt(depotNotesContext) {
+    return `# ROLLE & DIDAKTISCHER AUFTRAG
+Du bist ein erfahrener Facharzt, IMPP/NBME-Prüfungsautor und Chefarzt für klinische Ausbildung.
+Deine Aufgabe ist es, aus den markierten Wissenslücken, High-Yield-Passagen und Notizen eines Medizinstudenten (2. Masterjahr / kurz vor Staatsexamen) exakt 4 anspruchsvolle Multiple-Choice-Prüfungsfragen (Typ A, 1 aus 4) zu generieren.
 
+# DIDAKTISCHE ANFORDERUNGEN (BLOOM-STUFE 3–5: ANWENDUNG & ANALYSE)
+
+
+1. ANTI-BIAS-PROTOKOLL & TEST-WISENESS-SCHUTZ:
+   - Längenparität: Alle 4 Antwortoptionen MÜSSEN eine annähernd identische Zeichenlänge haben (maximal 15 % Längenvarianz). Die richtige Antwort darf NIEMALS auffällig länger oder detaillierter formuliert sein!
+   - Homogenität: Alle Optionen müssen grammatikalisch und inhaltlich zum selben Typ gehören (z. B. 4 Wirkstoffe oder 4 diagnostische Verfahren).
+   - Die richtige Antwort muss immer zufällig eine der 4 sein, also bspw. nicht immer "A"
+   - Verbot von Absolutismen: Keine Signalwörter wie "immer", "nie", "stets" oder "ausschließlich".
+ 
+
+2. KLINISCH HOCHWERTIGE DISTRAKTOREN:
+   - Die 3 falschen Optionen müssen plausible Differenzialdiagnosen, typische ärztliche Denkfehler (Cognitive Biases) oder veraltete Leitlinienmaßnahmen darstellen. Keine offensichtlichen Quatsch-Antworten!
+
+3. DIDAKTISCHE EXPLANATION (FEEDBACK):
+   - Begründe kurz und präzise den pathophysiologischen Kern der richtigen Antwort.
+   - Entkräfte kurz, warum die anderen Optionen in diesem spezifischen Szenario kontraindiziert oder falsch sind.
+
+# TECHNISCHE REGELN & OUTPUT-FORMAT
+- Antworte AUSSCHLIESSLICH mit einem validen JSON-Array. Kein Markdown (keine \`\`\`json Blöcke), keine Einleitungstexte.
+- Die "source_depot_id" muss exakt der ID aus dem Eingabetext entsprechen (z. B. "dep_123456").
+
+JSON-SCHEMA:
+[
+  {
+    "source_depot_id": "STRING (Exakte ID aus der Notiz)",
+    "topic": "STRING (z. B. Kardiologie, Neurologie, Notfallmedizin)",
+    "question": "Klinische Patientenvignette (3-5 Sätze) mit konkreter Leitfrage am Ende...",
+    "options": [
+      "Option A (präzise formuliert)",
+      "Option B (gleiche Länge)",
+      "Option C (gleiche Länge)",
+      "Option D (gleiche Länge)"
+    ],
+    "correct_index": 0,
+    "explanation": "Pathophysiologische Begründung der richtigen Option sowie klinische Entkräftung der Distraktoren."
+  }
+]
+
+# ZU VERARBEITENDE LERNLÜCKEN DES MEDIZINSTUDENTEN:
+${depotNotesContext}`;
+}
 async function callGeminiUpstream(apiKey, modelName, instructionText, temperature = 0.4) {
     const selectedModel = (modelName || PRIMARY_MODEL).trim();
     
@@ -149,10 +197,10 @@ module.exports = async function handler(req, res) {
     const requestedMedicalField = typeof parsedBody.medicalField === 'string' ? parsedBody.medicalField.trim() : '';
     const medicalField = requestedMedicalField || 'Allgemein';
 
-    let finalInstruction = '';
+  let finalInstruction = '';
 
     if (mode === 'depot_quiz') {
-        finalInstruction = prompt;
+        finalInstruction = buildDepotQuizSuperPrompt(prompt);
     } else if (mode === 'flashcards_only') {
         finalInstruction = buildUniversalFlashcardPrompt(prompt);
     } else {
