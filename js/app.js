@@ -1647,8 +1647,20 @@ function renderDashboardCases() {
 }
 
 // ====================================================
-// BOOKSHELF & ORDNER-VERWALTUNG (MIT VOLLER SUPER-FOLDER KONTROLLE)
+// NOTABILITY-STYLE BOOKSHELF MIT DYNAMISCHER EINRÜCKUNG
 // ====================================================
+
+let activeDropIndicator = null;
+let currentDropTargetInfo = null;
+
+function removeDropIndicator() {
+    if (activeDropIndicator) {
+        activeDropIndicator.remove();
+        activeDropIndicator = null;
+    }
+    currentDropTargetInfo = null;
+}
+
 function renderBookshelf(casesArray) {
     const bookshelfContainer = document.getElementById('bookshelf-container');
     if (!bookshelfContainer) return;
@@ -1673,12 +1685,9 @@ function renderBookshelf(casesArray) {
 
     localStorage.setItem('medcheck_folder_order', JSON.stringify(savedOrder));
 
-    // Überordner in exakt derselben Reihenfolge wie im Dashboard initialisieren
     const orderedSuperTitles = getSuperFolderOrder();
     const superFolders = {};
-    orderedSuperTitles.forEach(key => {
-        superFolders[key] = [];
-    });
+    orderedSuperTitles.forEach(key => { superFolders[key] = []; });
 
     savedOrder.forEach(folderName => {
         const targetSuper = getSuperFolderForCategory(folderName);
@@ -1700,60 +1709,47 @@ function renderBookshelf(casesArray) {
             solvedCasesInSuper += list.filter(c => solved.includes(c.case_id)).length;
         });
 
+        // ==========================
+        // ÜBERORDNER-ELEMENT (ROOT)
+        // ==========================
         const superDiv = document.createElement('div');
         superDiv.className = 'bookshelf-super-group';
-        superDiv.dataset.superTitle = superTitle;
-        superDiv.dataset.superId = superTitle;
+        superDiv.dataset.folderName = superTitle;
+        superDiv.dataset.isSuper = 'true';
         superDiv.draggable = true;
-
-        const superActionsHtml = !isProtectedDefault
-            ? `
-                <button type="button" class="folder-action-btn add-sub-btn" title="Unterordner hier erstellen">➕</button>
-                <button type="button" class="folder-action-btn edit-super-btn" title="Überordner umbenennen">✏️</button>
-                <button type="button" class="folder-action-btn delete-super-btn" title="Überordner löschen">🗑️</button>
-              `
-            : `
-                <button type="button" class="folder-action-btn add-sub-btn" title="Unterordner hier erstellen">➕</button>
-              `;
 
         const superHeader = document.createElement('div');
         superHeader.className = 'bookshelf-super-header';
         superHeader.innerHTML = `
             <div class="bookshelf-super-title-wrap" style="display:flex; align-items:center; gap:5px; overflow:hidden; flex:1; min-width:0;">
-                <span class="folder-drag-handle super-drag-handle" title="Überordner ziehen zum Umsortieren">⠿</span>
+                <span class="folder-drag-handle super-drag-handle" title="Ziehen zum Umsortieren oder Einrücken">⠿</span>
                 <span class="bookshelf-super-arrow ${isSuperOpen ? 'open' : ''}">▶</span>
                 <span class="bookshelf-super-icon">📂</span>
-                <span class="bookshelf-super-title" title="${escapeHtml(superTitle)}" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(superTitle)}</span>
+                <span class="bookshelf-super-title" title="${escapeHtml(superTitle)}" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700;">${escapeHtml(superTitle)}</span>
             </div>
             <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
                 <span class="bookshelf-super-badge" style="margin-right:2px;">${solvedCasesInSuper}/${totalCasesInSuper}</span>
-                ${superActionsHtml}
+                <button type="button" class="folder-action-btn add-sub-btn" title="Neuen Unterordner erstellen">➕</button>
+                ${!isProtectedDefault ? `
+                    <button type="button" class="folder-action-btn edit-super-btn" title="Überordner umbenennen">✏️</button>
+                    <button type="button" class="folder-action-btn delete-super-btn" title="Überordner löschen">🗑️</button>
+                ` : ''}
             </div>
         `;
 
-        const addSubBtn = superHeader.querySelector('.add-sub-btn');
-        if (addSubBtn) {
-            addSubBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                window.createSubfolderInSuperFolder(superTitle);
-            });
-        }
-
-        const editSuperBtn = superHeader.querySelector('.edit-super-btn');
-        if (editSuperBtn) {
-            editSuperBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                window.renameSuperFolder(superTitle);
-            });
-        }
-
-        const delSuperBtn = superHeader.querySelector('.delete-super-btn');
-        if (delSuperBtn) {
-            delSuperBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                removeCustomSuperFolder(superTitle);
-            });
-        }
+        // Buttons binden
+        superHeader.querySelector('.add-sub-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.createSubfolderInSuperFolder(superTitle);
+        });
+        superHeader.querySelector('.edit-super-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.renameSuperFolder(superTitle);
+        });
+        superHeader.querySelector('.delete-super-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeCustomSuperFolder(superTitle);
+        });
 
         superHeader.addEventListener('click', (e) => {
             if (e.target.closest('.folder-action-btn') || e.target.closest('.super-drag-handle')) return;
@@ -1761,430 +1757,249 @@ function renderBookshelf(casesArray) {
             renderBookshelf(casesArray);
         });
 
-        // Drag-Start für den gesamten Überordner im Bookshelf
-        superDiv.addEventListener('dragstart', (e) => {
-            if (e.target.closest('.folder-group') || e.target.closest('.folder-case-item')) return;
-            draggedSuperFolderTitle = superTitle;
-            draggedItemState = { type: 'super-folder', name: superTitle };
-            superDiv.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', superTitle);
-        });
-
-        superDiv.addEventListener('dragend', () => {
-            superDiv.classList.remove('dragging');
-            draggedSuperFolderTitle = null;
-            if (draggedItemState?.type === 'super-folder') draggedItemState = null;
-            document.querySelectorAll('.bookshelf-super-group').forEach(f => f.classList.remove('bookshelf-super-drag-over'));
-        });
-
-        // Drop-Target für den gesamten Überordner im Bookshelf (nimmt Überordner, Unterordner und Fälle an)
-        superDiv.addEventListener('dragover', (e) => {
-            if (!draggedItemState && !draggedDashboardFolder && !draggedSuperFolderTitle) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            superDiv.classList.add('bookshelf-super-drag-over');
-        });
-
-        superDiv.addEventListener('dragleave', (e) => {
-            if (!superDiv.contains(e.relatedTarget)) {
-                superDiv.classList.remove('bookshelf-super-drag-over');
-            }
-        });
-
-        superDiv.addEventListener('drop', async (e) => {
-            if (e.target.closest('.folder-group') && draggedItemState?.type !== 'super-folder' && !draggedSuperFolderTitle) {
-                superDiv.classList.remove('bookshelf-super-drag-over');
-                return;
-            }
-            e.preventDefault();
-            e.stopPropagation();
-            superDiv.classList.remove('bookshelf-super-drag-over');
-
-            if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') {
-                const sourceSuper = draggedSuperFolderTitle || draggedItemState.name;
-                draggedSuperFolderTitle = null;
-                draggedItemState = null;
-                reorderSuperFolders(sourceSuper, superTitle);
-                return;
-            }
-
-            if (draggedDashboardFolder) {
-                const fName = draggedDashboardFolder;
-                draggedDashboardFolder = null;
-                window.moveFolderToSuperFolder(fName, superTitle);
-                return;
-            }
-
-            if (!draggedItemState) return;
-            if (draggedItemState.type === 'folder') {
-                const fName = draggedItemState.name;
-                draggedItemState = null;
-                window.moveFolderToSuperFolder(fName, superTitle);
-            } else if (draggedItemState.type === 'case') {
-                const cId = draggedItemState.id;
-                draggedItemState = null;
-                await moveCaseToSuperFolder(cId, superTitle);
-            }
-        });
-
+        // ==========================
+        // UNTERORDNER-CONTAINER
+        // ==========================
         const superBody = document.createElement('div');
         superBody.className = `bookshelf-super-body ${isSuperOpen ? '' : 'collapsed'}`;
 
-        if (subfolderNames.length === 0) {
-            const emptyNotice = document.createElement('div');
-            emptyNotice.style.cssText = 'font-size:0.68rem; color:var(--text-dim, #64748b); padding:4px 8px; font-style:italic;';
-            emptyNotice.textContent = 'Ordner/Fall hierher ziehen oder ➕ klicken';
-            superBody.appendChild(emptyNotice);
-        } else {
-            subfolderNames.forEach(folderName => {
-                const casesInFolder = folders[folderName] || [];
-                const isOpen = !!bookshelfFolderState[folderName];
-                const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
+        subfolderNames.forEach(folderName => {
+            const casesInFolder = folders[folderName] || [];
+            const isOpen = !!bookshelfFolderState[folderName];
+            const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
 
-                const folderDiv = document.createElement('div');
-                folderDiv.className = 'folder-group';
-                folderDiv.dataset.folderName = folderName;
-                folderDiv.draggable = true;
+            const folderDiv = document.createElement('div');
+            folderDiv.className = 'folder-group is-subfolder';
+            folderDiv.dataset.folderName = folderName;
+            folderDiv.dataset.parentSuper = superTitle;
+            folderDiv.dataset.isSuper = 'false';
+            folderDiv.draggable = true;
 
-                const header = document.createElement('div');
-                header.className = 'folder-header';
-                header.innerHTML = `
-                    <div class="folder-header-left" style="display:flex; align-items:center; overflow:hidden; gap:5px; flex:1; min-width:0;">
-                        <span class="folder-drag-handle" title="Ordner ziehen zum Verschieben">⠿</span>
-                        <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
-                        <span class="folder-title-text" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
-                        <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan, #38bdf8); margin-left:auto; margin-right:4px; flex-shrink:0;">${solvedCount}/${casesInFolder.length}</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
-                        <button type="button" class="folder-action-btn move-btn" title="Überordner wechseln">⇄</button>
-                        <button type="button" class="folder-action-btn edit-btn" title="Ordner umbenennen">✏️</button>
-                        <button type="button" class="folder-action-btn delete-folder-btn" title="Ordner löschen">🗑️</button>
-                    </div>
-                `;
+            const header = document.createElement('div');
+            header.className = 'folder-header';
+            header.innerHTML = `
+                <div class="folder-header-left" style="display:flex; align-items:center; overflow:hidden; gap:5px; flex:1; min-width:0;">
+                    <span class="folder-drag-handle" title="Ziehen: Ganz links = Überordner, Rechts = Unterordner">⠿</span>
+                    <span class="folder-toggle-arrow ${isOpen ? 'open' : ''}">▶</span>
+                    <span class="folder-title-text" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">📁 ${escapeHtml(folderName)}</span>
+                    <span class="folder-badge-mini" style="font-size:0.65rem; color:var(--accent-cyan, #38bdf8); margin-left:auto; margin-right:4px;">${solvedCount}/${casesInFolder.length}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
+                    <button type="button" class="folder-action-btn edit-btn" title="Unterordner umbenennen">✏️</button>
+                    <button type="button" class="folder-action-btn delete-folder-btn" title="Unterordner löschen">🗑️</button>
+                </div>
+            `;
 
-                const list = document.createElement('ul');
-                list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
-
-                if (casesInFolder.length === 0) {
-                    const emptyLi = document.createElement('li');
-                    emptyLi.style.cssText = 'font-size:0.72rem; color:var(--text-dim, #64748b); padding:4px 6px; font-style:italic;';
-                    emptyLi.textContent = 'Ordner ist leer (Fall hierher ziehen)';
-                    list.appendChild(emptyLi);
-                } else {
-                    casesInFolder.forEach(caseItem => {
-                        const li = document.createElement('li');
-                        const isSolved = solved.includes(caseItem.case_id);
-                        li.className = `folder-case-item ${isSolved ? 'case-solved' : ''}`;
-                        li.textContent = caseItem.metadata?.title || caseItem.case_id;
-                        li.dataset.caseId = caseItem.case_id;
-                        li.draggable = true;
-
-                        li.addEventListener('dragstart', (e) => {
-                            e.stopPropagation();
-                            draggedItemState = { type: 'case', id: caseItem.case_id };
-                            e.dataTransfer.setData('text/plain', caseItem.case_id);
-                            e.dataTransfer.setData('application/medcheck-case-id', caseItem.case_id);
-                            e.dataTransfer.effectAllowed = 'move';
-                        });
-
-                        li.addEventListener('dragend', () => {
-                            if (draggedItemState?.type === 'case') draggedItemState = null;
-                        });
-
-                        li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
-                        list.appendChild(li);
-                    });
+            header.querySelector('.edit-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const newName = window.prompt("Neuer Name für den Ordner:", folderName);
+                if (newName && newName.trim() && newName.trim() !== folderName) {
+                    renameFolder(folderName, newName.trim());
                 }
-
-                header.addEventListener('click', (e) => {
-                    if (e.target.closest('.folder-action-btn') || e.target.closest('.folder-drag-handle')) return;
-                    bookshelfFolderState[folderName] = !isOpen;
-                    renderBookshelf(casesArray);
-                });
-
-                const moveBtn = header.querySelector('.move-btn');
-                if (moveBtn) {
-                    moveBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        window.promptMoveFolderToSuperFolder(folderName);
-                    });
-                }
-
-                const editBtn = header.querySelector('.edit-btn');
-                if (editBtn) {
-                    editBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const newName = window.prompt("Neuer Name für den Ordner:", folderName);
-                        if (newName && newName.trim() && newName.trim() !== folderName) {
-                            renameFolder(folderName, newName.trim());
-                        }
-                    });
-                }
-
-                const deleteFolderBtn = header.querySelector('.delete-folder-btn');
-                if (deleteFolderBtn) {
-                    deleteFolderBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        deleteFolder(folderName, casesInFolder.length);
-                    });
-                }
-
-                folderDiv.addEventListener('dragstart', (e) => {
-                    if (e.target.closest('.folder-case-item')) return;
-                    e.stopPropagation();
-                    draggedItemState = { type: 'folder', name: folderName };
-                    folderDiv.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', folderName);
-                });
-
-                folderDiv.addEventListener('dragend', () => {
-                    folderDiv.classList.remove('dragging');
-                    draggedItemState = null;
-                    document.querySelectorAll('.bookshelf-super-group').forEach(f => f.classList.remove('bookshelf-super-drag-over'));
-                });
-
-                folderDiv.addEventListener('dragover', (e) => {
-                    if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.dataTransfer.dropEffect = 'move';
-                    folderDiv.classList.add('drag-over-folder');
-                });
-
-                folderDiv.addEventListener('dragleave', () => {
-                    folderDiv.classList.remove('drag-over-folder');
-                });
-
-                folderDiv.addEventListener('drop', async (e) => {
-                    if (draggedSuperFolderTitle || draggedItemState?.type === 'super-folder') return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    folderDiv.classList.remove('drag-over-folder');
-
-                    const droppedCaseId = (draggedItemState?.type === 'case' && draggedItemState.id) || e.dataTransfer.getData('application/medcheck-case-id');
-                    if (droppedCaseId) {
-                        draggedItemState = null;
-                        bookshelfFolderState[folderName] = true;
-                        await moveCaseToFolder(droppedCaseId, folderName);
-                        return;
-                    }
-
-                    const draggedFolder = (draggedItemState?.type === 'folder' && draggedItemState.name) || draggedDashboardFolder;
-                    if (draggedFolder && draggedFolder !== folderName) {
-                        draggedItemState = null;
-                        draggedDashboardFolder = null;
-                        const targetSuper = getSuperFolderForCategory(folderName);
-                        window.moveFolderToSuperFolder(draggedFolder, targetSuper);
-                        reorderFolders(draggedFolder, folderName);
-                    }
-                });
-
-                folderDiv.appendChild(header);
-                folderDiv.appendChild(list);
-                superBody.appendChild(folderDiv);
             });
-        }
+
+            header.querySelector('.delete-folder-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteFolder(folderName, casesInFolder.length);
+            });
+
+            header.addEventListener('click', (e) => {
+                if (e.target.closest('.folder-action-btn') || e.target.closest('.folder-drag-handle')) return;
+                bookshelfFolderState[folderName] = !isOpen;
+                renderBookshelf(casesArray);
+            });
+
+            // Fälle innerhalb des Unterordners
+            const list = document.createElement('ul');
+            list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
+            casesInFolder.forEach(caseItem => {
+                const li = document.createElement('li');
+                const isSolved = solved.includes(caseItem.case_id);
+                li.className = `folder-case-item ${isSolved ? 'case-solved' : ''}`;
+                li.textContent = caseItem.metadata?.title || caseItem.case_id;
+                li.dataset.caseId = caseItem.case_id;
+                li.draggable = true;
+
+                li.addEventListener('dragstart', (e) => {
+                    e.stopPropagation();
+                    draggedItemState = { type: 'case', id: caseItem.case_id };
+                    e.dataTransfer.setData('text/plain', caseItem.case_id);
+                    e.dataTransfer.setData('application/medcheck-case-id', caseItem.case_id);
+                });
+                li.addEventListener('click', () => window.loadCaseById(caseItem.case_id));
+                list.appendChild(li);
+            });
+
+            folderDiv.appendChild(header);
+            folderDiv.appendChild(list);
+            superBody.appendChild(folderDiv);
+        });
 
         superDiv.appendChild(superHeader);
         superDiv.appendChild(superBody);
         bookshelfContainer.appendChild(superDiv);
     });
-}
 
-function reorderFolders(draggedName, targetName) {
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    const fromIdx = order.indexOf(draggedName);
-    const toIdx = order.indexOf(targetName);
+    // ====================================================
+    // NOTABILITY-STYLE INTERACTION ENGINE (X-OFFSET DRAG)
+    // ====================================================
+    const draggableRows = bookshelfContainer.querySelectorAll('.bookshelf-super-group, .folder-group.is-subfolder');
 
-    if (fromIdx !== -1 && toIdx !== -1) {
-        order.splice(fromIdx, 1);
-        order.splice(toIdx, 0, draggedName);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-        renderDashboardCases();
-    }
-}
+    draggableRows.forEach(row => {
+        row.addEventListener('dragstart', (e) => {
+            if (e.target.closest('.folder-case-item')) return;
+            e.stopPropagation();
 
-async function renameFolder(oldName, newName) {
-    if (!newName || oldName === newName) return;
+            const name = row.dataset.folderName;
+            const isSuper = row.dataset.isSuper === 'true';
 
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modified = false;
+            draggedItemState = { 
+                type: 'bookshelf-folder', 
+                name: name, 
+                isSuper: isSuper,
+                parentSuper: row.dataset.parentSuper || null 
+            };
 
-    customCases.forEach(c => {
-        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-        if (cur === oldName) {
-            c.folder_name = newName;
-            c.updated_at = new Date().toISOString();
-            modified = true;
-        }
+            row.classList.add('bookshelf-item-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', name);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+        });
+
+        row.addEventListener('dragend', () => {
+            row.classList.remove('bookshelf-item-dragging');
+            removeDropIndicator();
+            draggedItemState = null;
+        });
+
+        row.addEventListener('dragover', (e) => {
+            if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
+            if (draggedItemState.name === row.dataset.folderName) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+
+            // X-Koordinate relativ zum linken Rand des Bookshelf-Containers messen
+            const containerRect = bookshelfContainer.getBoundingClientRect();
+            const mouseXRelative = e.clientX - containerRect.left;
+
+            // SCHWELLENWERT: Links (< 38px) = Überordner, Rechts (>= 38px) = Unterordner
+            const makeSubfolder = mouseXRelative >= 38;
+
+            if (!activeDropIndicator) {
+                activeDropIndicator = document.createElement('div');
+                activeDropIndicator.className = 'bookshelf-drop-indicator';
+            }
+
+            activeDropIndicator.className = `bookshelf-drop-indicator ${makeSubfolder ? 'as-sub' : 'as-super'}`;
+
+            // Indikator unterhalb des aktuellen Eintrags positionieren
+            row.after(activeDropIndicator);
+
+            currentDropTargetInfo = {
+                targetName: row.dataset.folderName,
+                targetIsSuper: row.dataset.isSuper === 'true',
+                targetParentSuper: row.dataset.parentSuper || null,
+                makeSubfolder: makeSubfolder
+            };
+        });
+
+        row.addEventListener('drop', (e) => {
+            if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const info = currentDropTargetInfo;
+            const dragged = draggedItemState;
+            removeDropIndicator();
+
+            if (!info || dragged.name === info.targetName) return;
+
+            applyNotabilityFolderHierarchy(dragged, info);
+        });
     });
 
-    if (modified) {
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
-
-    if (BUILTIN_DEMO_CASE.folder_name === oldName || (!BUILTIN_DEMO_CASE.folder_name && BUILTIN_DEMO_CASE.metadata?.medical_field === oldName)) {
-        BUILTIN_DEMO_CASE.folder_name = newName;
-    }
-
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    const idx = order.indexOf(oldName);
-    if (idx !== -1) order[idx] = newName;
-    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-
-    if (bookshelfFolderState[oldName] !== undefined) {
-        bookshelfFolderState[newName] = bookshelfFolderState[oldName];
-        delete bookshelfFolderState[oldName];
-    }
-    if (openFolders[oldName] !== undefined) {
-        openFolders[newName] = openFolders[oldName];
-        delete openFolders[oldName];
-    }
-
-    if (typeof supabaseClient !== 'undefined' && window.currentSession) {
-        try {
-            await supabaseClient
-                .from('medical_cases')
-                .update({ folder_name: newName, updated_at: new Date().toISOString() })
-                .eq('folder_name', oldName)
-                .eq('user_id', window.currentSession.user.id);
-        } catch (err) {}
-    }
-
-    const mapping = getFolderSuperMapping();
-    if (mapping[oldName]) {
-        mapping[newName] = mapping[oldName];
-        delete mapping[oldName];
-        saveFolderSuperMapping(mapping);
-    }
-    renderDashboardCases();
-}
-
-async function deleteFolder(folderName, caseCount) {
-    const warning = caseCount > 0 
-        ? `Ordner "${folderName}" wirklich löschen?\n\nDie darin enthaltenen ${caseCount} Fälle werden nicht gelöscht, sondern sicher in den Ordner "Allgemein" verschoben.`
-        : `Möchtest du den leeren Ordner "${folderName}" wirklich löschen?`;
-
-    if (!window.confirm(warning)) return;
-
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    order = order.filter(name => name !== folderName);
-
-    if (caseCount > 0 && !order.includes('Allgemein')) {
-        order.push('Allgemein');
-    }
-    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modified = false;
-
-    customCases.forEach(c => {
-        const cur = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-        if (cur === folderName) {
-            c.folder_name = 'Allgemein';
-            c.updated_at = new Date().toISOString();
-            modified = true;
+    bookshelfContainer.addEventListener('dragleave', (e) => {
+        if (!bookshelfContainer.contains(e.relatedTarget)) {
+            removeDropIndicator();
         }
     });
-
-    if (modified) {
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
-
-    if (BUILTIN_DEMO_CASE.folder_name === folderName) {
-        BUILTIN_DEMO_CASE.folder_name = 'Allgemein';
-    }
-
-    delete bookshelfFolderState[folderName];
-    delete openFolders[folderName];
-
-    if (typeof supabaseClient !== 'undefined' && window.currentSession && caseCount > 0) {
-        try {
-            await supabaseClient
-                .from('medical_cases')
-                .update({ folder_name: 'Allgemein', updated_at: new Date().toISOString() })
-                .eq('folder_name', folderName)
-                .eq('user_id', window.currentSession.user.id);
-        } catch (err) {}
-    }
-
-    const mapping = getFolderSuperMapping();
-    if (mapping[folderName]) {
-        delete mapping[folderName];
-        saveFolderSuperMapping(mapping);
-    }
-    renderDashboardCases();
 }
 
-async function moveCaseToFolder(caseId, targetFolder) {
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let targetCase = customCases.find(c => c.case_id === caseId);
+/**
+ * Wendet die Notability-Hierarchieänderung auf Überordner- und Unterordner-Listen an
+ */
+function applyNotabilityFolderHierarchy(dragged, targetInfo) {
+    const draggedName = dragged.name;
+    let superOrder = getSuperFolderOrder();
+    let subOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    let mapping = getFolderSuperMapping();
 
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!order.includes(targetFolder)) {
-        order.push(targetFolder);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-    }
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 
-    if (targetCase) {
-        targetCase.folder_name = targetFolder;
-        targetCase.updated_at = new Date().toISOString();
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-        if (typeof supabaseClient !== 'undefined' && window.currentSession) {
-            try {
-                await supabaseClient
-                    .from('medical_cases')
-                    .update({ folder_name: targetFolder, updated_at: new Date().toISOString() })
-                    .eq('case_id', caseId)
-                    .eq('user_id', window.currentSession.user.id);
-            } catch (err) {}
+    // =========================================================================
+    // FALL 1: NACH LINKS GEDROPPT -> WIRD ZUM ECHTEN ÜBERORDNER
+    // =========================================================================
+    if (!targetInfo.makeSubfolder) {
+        // Falls er vorher ein Unterordner war: Aus dem Mapping entfernen
+        if (mapping[draggedName]) {
+            delete mapping[draggedName];
+            saveFolderSuperMapping(mapping);
         }
-    } else if (caseId === BUILTIN_DEMO_CASE.case_id) {
-        BUILTIN_DEMO_CASE.folder_name = targetFolder;
+
+        // Zu den Überordnern hinzufügen (falls noch nicht drin)
+        if (!superOrder.includes(draggedName)) {
+            const targetIdx = superOrder.indexOf(targetInfo.targetIsSuper ? targetInfo.targetName : targetInfo.targetParentSuper);
+            if (targetIdx !== -1) {
+                superOrder.splice(targetIdx + 1, 0, draggedName);
+            } else {
+                superOrder.push(draggedName);
+            }
+            saveSuperFolderOrder(superOrder);
+        }
+
+        bookshelfSuperFolderState[draggedName] = true;
+        superFolderStates[draggedName] = true;
     }
 
+    // =========================================================================
+    // FALL 2: NACH RECHTS GEDROPPT -> WIRD ZUM UNTERORDNER
+    // =========================================================================
+    else {
+        // Bestimme den übergeordneten Ziel-Überordner
+        const destinationSuper = targetInfo.targetIsSuper ? targetInfo.targetName : targetInfo.targetParentSuper;
+        if (!destinationSuper || destinationSuper === draggedName) return;
+
+        // Falls er vorher ein Überordner war: Aus der Überordnerliste austragen
+        if (superOrder.includes(draggedName) && draggedName !== 'Allgemein') {
+            superOrder = superOrder.filter(s => s !== draggedName);
+            saveSuperFolderOrder(superOrder);
+            delete bookshelfSuperFolderState[draggedName];
+            delete superFolderStates[draggedName];
+        }
+
+        // Sicherstellen, dass er in der Unterordnerliste eingetragen ist
+        if (!subOrder.includes(draggedName)) {
+            subOrder.push(draggedName);
+            localStorage.setItem('medcheck_folder_order', JSON.stringify(subOrder));
+        }
+
+        // Mapping zuweisen
+        mapping[draggedName] = destinationSuper;
+        saveFolderSuperMapping(mapping);
+
+        // Ziel-Überordner aufklappen, damit man das Ergebnis sofort sieht
+        bookshelfSuperFolderState[destinationSuper] = true;
+        superFolderStates[destinationSuper] = true;
+    }
+
+    // UI aktualisieren
     renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
 }
-
-window.deleteCaseById = function(caseId) {
-    if (caseId === BUILTIN_DEMO_CASE.case_id) return;
-
-    let customCases = [];
-    try { customCases = JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { customCases = []; }
-    if (!Array.isArray(customCases)) customCases = [];
-
-    const target = customCases.find(c => c.case_id === caseId);
-    const title = target?.metadata?.title || caseId;
-    if (!window.confirm(`Fall "${title}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) return;
-
-    localStorage.setItem('custom_cases', JSON.stringify(customCases.filter(c => c.case_id !== caseId)));
-
-    let solved = [];
-    try { solved = JSON.parse(localStorage.getItem('solved_cases') || '[]'); } catch (e) { solved = []; }
-    localStorage.setItem('solved_cases', JSON.stringify(solved.filter(id => id !== caseId)));
-
-    if (window.Cloud && window.Cloud.isLoggedIn()) {
-        window.Cloud.deleteCloudCase(caseId)
-            .then(() => window.Cloud.scheduleProgressSync())
-            .catch(err => alert(`Fall wurde lokal gelöscht, aber nicht online: ${err.message}`));
-    }
-
-    if (activeCaseData && activeCaseData.case_id === caseId) {
-        activeCaseData = null;
-        window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-    } else {
-        renderDashboardCases();
-    }
-};
-
-window.toggleFolder = function(category) {
-    openFolders[category] = !openFolders[category];
-    renderDashboardCases();
-};
-
 // ====================================================
 // FALL LADEN & PLAYER LOGIK
 // ====================================================
