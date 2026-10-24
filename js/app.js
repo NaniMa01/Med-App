@@ -2506,6 +2506,10 @@ function applySpecialtyFilters(caseData) {
 }
 window.applySpecialtyFilters = applySpecialtyFilters;
 window.loadCaseById = function(caseId, opts = {}) {
+    // NEU: Wenn ein normaler Fall geladen wird (nicht über Notdienst), Notdienst beenden!
+    if (!opts.isEmergency && window.EmergencyManager && typeof window.EmergencyManager.exitSession === 'function') {
+        window.EmergencyManager.exitSession();
+    }
     const specialtyMode = !!opts.specialty || !!window.isSpecialtyBlindMode;
     window.isSpecialtyBlindMode = specialtyMode;
 
@@ -3444,7 +3448,17 @@ window.addEventListener("cloudCasesSynced", async () => {
 
     const origSwitchTab = window.switchTab;
     if (typeof origSwitchTab === 'function') {
-        window.switchTab = function(tab, el) {
+       window.switchTab = function(tab, el) {
+    window.triggerHaptic(6);
+
+    // NEU: Sobald man den Player verlässt, Notdienst-Session beenden
+    if (tab !== 'player' && window.EmergencyManager && typeof window.EmergencyManager.exitSession === 'function') {
+        window.EmergencyManager.exitSession();
+    }
+
+    if (tab === 'auth') {
+        tab = 'settings';
+    }
             origSwitchTab(tab, el);
             setTimeout(syncMobileChallengePicker, 50);
         };
