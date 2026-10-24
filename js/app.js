@@ -3477,85 +3477,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 // KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
 // ==========================================================================
-let currentDepotQuizQuestions = [];
-
-function closeDepotQuizArena() {
-    const arena = document.getElementById('depot-quiz-arena');
-    if (arena) arena.classList.add('hidden');
-}
-
-async function generateDepotQuizWithAI() {
-    const allItems = getLocalDepot();
-    const categorySelect = document.getElementById('depot-category-select');
-    const selectedCat = categorySelect ? categorySelect.value : 'ALL';
-
-    let targetItems = allItems.filter(item => !item.is_mastered && (selectedCat === 'ALL' || item.category === selectedCat));
-
-    if (targetItems.length === 0) {
-        targetItems = allItems.filter(item => !item.is_mastered);
-    }
-
-    if (targetItems.length === 0) {
-        if (typeof showScorePopup === 'function') {
-            showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
-        } else {
-            alert('Du hast aktuell keine offenen Lernlücken im Depot. Markiere zuerst Textstellen in einer Fall-Übersicht!');
-        }
-        return;
-    }
-
-    const sampledItems = [...targetItems]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 6);
-
-    const arena = document.getElementById('depot-quiz-arena');
-    const body = document.getElementById('depot-quiz-body');
-    const subtitle = document.getElementById('depot-quiz-subtitle');
-    const btn = document.getElementById('btn-generate-depot-quiz');
-
-    if (!arena || !body) return;
-
-    arena.classList.remove('hidden');
-    if (btn) btn.disabled = true;
-    if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken und konstruiere klinische Prüfungsfragen...`;
-
-    body.innerHTML = `
-        <div class="skeleton" style="height: 110px; width: 100%;"></div>
-        <div class="skeleton" style="height: 110px; width: 100%;"></div>
-    `;
-
+// Erstelle den strukturierten Kontext der ausgewählten Lern-Depot-Karten
     const notesContext = sampledItems.map((item) => 
         `[ID: ${item.id}] (Thema: ${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
 
-    const promptText = `
-Du bist ein renommierter Dozent für medizinische Didaktik und Autor für ärztliche Staatsexamensfragen (IMPP-Stil). 
-Deine Aufgabe: Erstelle aus den untenstehenden Lernlücken eines Medizinstudenten exakt ${Math.min(sampledItems.length, 4)} anspruchsvolle Multiple-Choice-Fragen (Single Choice).
-
-STRIKTE REGELN FÜR DIE FRAGEN:
-1. Klinische Vignette: Beginne JEDE Frage mit einer kurzen, realistischen Patientenvignette (Alter, Geschlecht, Leitsymptom/Anamnese, Befund), anstatt nur trockene Fakten abzufragen.
-2. Transferwissen: Frage nach dem nächsten diagnostischen Schritt, der wahrscheinlichsten Diagnose oder dem pathophysiologischen Mechanismus.
-3. Homogene Distraktoren: Die 3 falschen Optionen MÜSSEN klinisch extrem plausibel sein (z.B. Differenzialdiagnosen mit ähnlichen Symptomen). Keine absurden Quatsch-Antworten.
-4. Keine Negativfragen: Nutze niemals "Was ist NICHT richtig?".
-
-LERNLÜCKEN DES STUDENTEN:
-${notesContext}
-
-WICHTIG: Antworte AUSSCHLIESSLICH mit einem validen JSON-Array. Kein Markdown, keine Einleitungstexte, keine \`\`\`json Block-Tags.
-Nutze exakt dieses Format:
-[
-  {
-    "source_depot_id": "Die exakte ID aus [ID: ...]",
-    "topic": "Kurzes medizinisches Fachgebiet",
-    "question": "Klinische Vignette + eigentliche Prüfungsfrage",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_index": 0,
-    "explanation": "Ausführliche Begründung: Erkläre den Mechanismus und warum die richtige Antwort stimmt UND warum die Distraktoren in diesem Fall falsch sind."
-  }
-]`.trim();
-
     try {
-        const questions = await fetchQuizFromGeminiEndpoint(promptText, sampledItems);
+        // ⚡ Übergibt direkt den strukturierten Kontext; api/gemini.js baut den Super-Prompt drumherum!
+        const questions = await fetchQuizFromGeminiEndpoint(notesContext, sampledItems);
         currentDepotQuizQuestions = questions;
         if (subtitle) subtitle.textContent = `${questions.length} klinische Fragen aus deinen offenen Lernlücken bereit:`;
         renderDepotQuizQuestions(questions);
@@ -3568,8 +3497,6 @@ Nutze exakt dieses Format:
     } finally {
         if (btn) btn.disabled = false;
     }
-}
-
 async function fetchQuizFromGeminiEndpoint(promptText) {
     const response = await fetch('/api/gemini', {
         method: 'POST',
