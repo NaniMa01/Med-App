@@ -391,7 +391,7 @@ class DoctordleController {
         }
     }
 // ====================================================
-        // Spaced Repetition Engine SM-2 Hook (Defensiv & Crash-Sicher)
+        // Spaced Repetition Engine SM-2 Hook (Defensiv & Entkoppelt)
         // ====================================================
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
             try {
@@ -415,25 +415,42 @@ class DoctordleController {
                 }
 
                 const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
-                
-                // Wir speichern das Resultat und fangen Promises sicher ab
+
                 if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
-                    const reviewResult = window.SpacedRepetitionEngine.recordReview({
+                    const reviewPromise = window.SpacedRepetitionEngine.recordReview({
                         itemId: itemId,
                         moduleType: 'doctordle',
                         quality: quality,
                         medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
                     });
 
-                    // Prüft zur Laufzeit, ob ein echtes Promise vorliegt, statt ungeprüft zu verketten
-                    if (reviewResult && typeof reviewResult.catch === 'function') {
-                        reviewResult.catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+                    if (reviewPromise && typeof reviewPromise.catch === 'function') {
+                        reviewPromise.catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
                     }
                 }
             } catch (srsErr) {
                 console.warn('[Doctordle] SRS Engine Soft-Fail:', srsErr);
             }
         }
+
+        if (typeof window.onDoctordlePuzzleSolved === 'function') {
+            window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
+        }
+
+        if (!this.nextBtn) this.nextBtn = document.getElementById('doctordle-next-btn');
+        if (this.nextBtn) {
+            this.nextBtn.classList.remove('hidden');
+            this.nextBtn.style.display = 'block';
+
+            if (this.currentPuzzleIndex < this.puzzles.length - 1) {
+                this.nextBtn.innerText = `Nächstes Rätsel (${this.currentPuzzleIndex + 2}/${this.puzzles.length}) →`;
+            } else if (window.isSpecialtyBlindMode) {
+                this.nextBtn.innerText = 'Nächstes Krankheitsbild ➔';
+            } else {
+                this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
+            }
+        }
+    }
         // =========================================================================
         // DYNAMISCHER BUTTON (Nächstes Rätsel / Nächster Fall / Fall abschließen)
         // =========================================================================
