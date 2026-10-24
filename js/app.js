@@ -1949,7 +1949,7 @@ function renderBookshelf(casesArray) {
             removeDropIndicator();
         }
     });
-
+}
 /**
  * Wendet die Notability-Hierarchieänderung auf Überordner- und Unterordner-Listen an
  */
