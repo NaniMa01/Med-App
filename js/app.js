@@ -1840,10 +1840,17 @@ function renderBookshelf(casesArray) {
         bookshelfContainer.appendChild(superDiv);
     });
 
-    // ====================================================
-    // NOTABILITY-STYLE INTERACTION ENGINE (X-OFFSET DRAG)
+   // ====================================================
+    // NOTABILITY-STYLE INTERACTION ENGINE MIT LEUCHT-FEEDBACK
     // ====================================================
     const draggableRows = bookshelfContainer.querySelectorAll('.bookshelf-super-group, .folder-group.is-subfolder');
+
+    function clearRowGlows() {
+        draggableRows.forEach(r => {
+            r.classList.remove('drop-target-active');
+            r.classList.remove('drop-target-sub-active');
+        });
+    }
 
     draggableRows.forEach(row => {
         row.addEventListener('dragstart', (e) => {
@@ -1868,6 +1875,7 @@ function renderBookshelf(casesArray) {
 
         row.addEventListener('dragend', () => {
             row.classList.remove('bookshelf-item-dragging');
+            clearRowGlows();
             removeDropIndicator();
             draggedItemState = null;
         });
@@ -1880,12 +1888,20 @@ function renderBookshelf(casesArray) {
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'move';
 
-            // X-Koordinate relativ zum linken Rand des Bookshelf-Containers messen
+            // X-Abstand zur linken Kante des Bookshelf-Containers messen
             const containerRect = bookshelfContainer.getBoundingClientRect();
             const mouseXRelative = e.clientX - containerRect.left;
 
-            // SCHWELLENWERT: Links (< 38px) = Überordner, Rechts (>= 38px) = Unterordner
+            // Schwellenwert: < 38px = Überordner (links), >= 38px = Unterordner (eingerückt)
             const makeSubfolder = mouseXRelative >= 38;
+
+            // Altes Leuchten bereinigen und auf aktueller Zeile anwenden
+            clearRowGlows();
+            if (makeSubfolder) {
+                row.classList.add('drop-target-sub-active');
+            } else {
+                row.classList.add('drop-target-active');
+            }
 
             if (!activeDropIndicator) {
                 activeDropIndicator = document.createElement('div');
@@ -1893,8 +1909,6 @@ function renderBookshelf(casesArray) {
             }
 
             activeDropIndicator.className = `bookshelf-drop-indicator ${makeSubfolder ? 'as-sub' : 'as-super'}`;
-
-            // Indikator unterhalb des aktuellen Eintrags positionieren
             row.after(activeDropIndicator);
 
             currentDropTargetInfo = {
@@ -1905,11 +1919,20 @@ function renderBookshelf(casesArray) {
             };
         });
 
+        row.addEventListener('dragleave', (e) => {
+            // Nur zurücksetzen, wenn die Maus das Element wirklich verlässt
+            if (!row.contains(e.relatedTarget)) {
+                row.classList.remove('drop-target-active');
+                row.classList.remove('drop-target-sub-active');
+            }
+        });
+
         row.addEventListener('drop', (e) => {
             if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
             e.preventDefault();
             e.stopPropagation();
 
+            clearRowGlows();
             const info = currentDropTargetInfo;
             const dragged = draggedItemState;
             removeDropIndicator();
@@ -1922,10 +1945,10 @@ function renderBookshelf(casesArray) {
 
     bookshelfContainer.addEventListener('dragleave', (e) => {
         if (!bookshelfContainer.contains(e.relatedTarget)) {
+            clearRowGlows();
             removeDropIndicator();
         }
     });
-}
 
 /**
  * Wendet die Notability-Hierarchieänderung auf Überordner- und Unterordner-Listen an
