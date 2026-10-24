@@ -3477,14 +3477,61 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 // KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
 // ==========================================================================
-// Erstelle den strukturierten Kontext der ausgewählten Lern-Depot-Karten
+let currentDepotQuizQuestions = [];
+
+function closeDepotQuizArena() {
+    const arena = document.getElementById('depot-quiz-arena');
+    if (arena) arena.classList.add('hidden');
+}
+
+async function generateDepotQuizWithAI() {
+    const allItems = getLocalDepot();
+    const categorySelect = document.getElementById('depot-category-select');
+    const selectedCat = categorySelect ? categorySelect.value : 'ALL';
+
+    let targetItems = allItems.filter(item => !item.is_mastered && (selectedCat === 'ALL' || item.category === selectedCat));
+
+    if (targetItems.length === 0) {
+        targetItems = allItems.filter(item => !item.is_mastered);
+    }
+
+    if (targetItems.length === 0) {
+        if (typeof showScorePopup === 'function') {
+            showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
+        } else {
+            alert('Du hast aktuell keine offenen Lernlücken im Depot. Markiere zuerst Textstellen in einer Fall-Übersicht!');
+        }
+        return;
+    }
+
+    const sampledItems = [...targetItems]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6);
+
+    const arena = document.getElementById('depot-quiz-arena');
+    const body = document.getElementById('depot-quiz-body');
+    const subtitle = document.getElementById('depot-quiz-subtitle');
+    const btn = document.getElementById('btn-generate-depot-quiz');
+
+    if (!arena || !body) return;
+
+    arena.classList.remove('hidden');
+    if (btn) btn.disabled = true;
+    if (subtitle) subtitle.textContent = `Analysiere ${sampledItems.length} offene Lernlücken und konstruiere klinische Prüfungsfragen...`;
+
+    body.innerHTML = `
+        <div class="skeleton" style="height: 110px; width: 100%;"></div>
+        <div class="skeleton" style="height: 110px; width: 100%;"></div>
+    `;
+
+    // Erstelle den strukturierten Kontext der ausgewählten Lern-Depot-Karten
     const notesContext = sampledItems.map((item) => 
         `[ID: ${item.id}] (Thema: ${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
 
     try {
         // ⚡ Übergibt direkt den strukturierten Kontext; api/gemini.js baut den Super-Prompt drumherum!
-        const questions = await fetchQuizFromGeminiEndpoint(notesContext, sampledItems);
+        const questions = await fetchQuizFromGeminiEndpoint(notesContext);
         currentDepotQuizQuestions = questions;
         if (subtitle) subtitle.textContent = `${questions.length} klinische Fragen aus deinen offenen Lernlücken bereit:`;
         renderDepotQuizQuestions(questions);
@@ -3497,6 +3544,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
         if (btn) btn.disabled = false;
     }
+}
+
 async function fetchQuizFromGeminiEndpoint(promptText) {
     const response = await fetch('/api/gemini', {
         method: 'POST',
