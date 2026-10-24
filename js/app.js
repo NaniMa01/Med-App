@@ -1457,6 +1457,151 @@ function toggleFolder(category) {
     }
 }
 window.toggleFolder = toggleFolder;
+// ====================================================
+// DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
+// ====================================================
+let dashboardSearchQuery = '';
+let dashboardSearchStatusFilter = 'all'; // 'all' | 'open' | 'progress' | 'solved'
+let isDashboardSearchOpen = false;
+
+window.toggleDashboardSearch = function(forceOpen) {
+    const panel = document.getElementById('dashboard-search-panel');
+    const toggleBtn = document.getElementById('dashboard-search-toggle-btn');
+    const input = document.getElementById('dashboard-case-search-input');
+    if (!panel) return;
+
+    isDashboardSearchOpen = typeof forceOpen === 'boolean' ? forceOpen : panel.classList.contains('hidden');
+
+    if (isDashboardSearchOpen) {
+        panel.classList.remove('hidden');
+        if (toggleBtn) toggleBtn.classList.add('active');
+        setTimeout(() => input?.focus(), 40);
+    } else {
+        panel.classList.add('hidden');
+        if (toggleBtn) toggleBtn.classList.remove('active');
+        if (dashboardSearchQuery !== '' || dashboardSearchStatusFilter !== 'all') {
+            window.clearDashboardSearch(true);
+        }
+    }
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+};
+
+window.handleDashboardSearchInput = function(val) {
+    dashboardSearchQuery = (val || '').trim();
+    const clearBtn = document.getElementById('dashboard-search-clear-btn');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', dashboardSearchQuery.length === 0 && dashboardSearchStatusFilter === 'all');
+    }
+    renderDashboardCases();
+};
+
+window.setDashboardSearchStatus = function(statusKey, btnEl) {
+    dashboardSearchStatusFilter = statusKey || 'all';
+    document.querySelectorAll('.search-status-pill').forEach(btn => btn.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    const clearBtn = document.getElementById('dashboard-search-clear-btn');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', dashboardSearchQuery.length === 0 && dashboardSearchStatusFilter === 'all');
+    }
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+    renderDashboardCases();
+};
+
+window.clearDashboardSearch = function(keepClosed = false) {
+    dashboardSearchQuery = '';
+    dashboardSearchStatusFilter = 'all';
+
+    const input = document.getElementById('dashboard-case-search-input');
+    if (input) {
+        input.value = '';
+        if (!keepClosed && isDashboardSearchOpen) input.focus();
+    }
+
+    document.querySelectorAll('.search-status-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-status-filter') === 'all');
+    });
+
+    const clearBtn = document.getElementById('dashboard-search-clear-btn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+
+    const statsEl = document.getElementById('dashboard-search-stats');
+    if (statsEl) statsEl.textContent = '';
+
+    renderDashboardCases();
+};
+
+// Prüft, ob ein Fall zur Suchanfrage + Statusfilter passt, und liefert die genaue Fundstelle zurück
+function evaluateCaseSearchMatch(caseObj, queryLower, statusFilter, solvedList) {
+    const isSolved = solvedList.includes(caseObj.case_id);
+    const savedState = ProgressManager.getCaseProgress(caseObj.case_id);
+    const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+
+    if (statusFilter === 'solved' && !isSolved) return { matches: false, reason: null };
+    if (statusFilter === 'progress' && !inProgress) return { matches: false, reason: null };
+    if (statusFilter === 'open' && (isSolved || inProgress)) return { matches: false, reason: null };
+
+    if (!queryLower) return { matches: true, reason: null };
+
+    const title = (caseObj.metadata?.title || caseObj.case_id || '');
+    const primary = (caseObj.metadata?.primary_disease || '');
+    const folder = (caseObj.folder_name || caseObj.metadata?.medical_field || '');
+    const topic = (caseObj.case_overview?.topic || '');
+    const summary = (caseObj.case_overview?.summary || '');
+
+    if (title.toLowerCase().includes(queryLower)) return { matches: true, reason: 'Falltitel' };
+    if (primary.toLowerCase().includes(queryLower)) return { matches: true, reason: `Leitdiagnose: ${primary}` };
+    if (folder.toLowerCase().includes(queryLower)) return { matches: true, reason: `Ordner: ${folder}` };
+    if (topic.toLowerCase().includes(queryLower)) return { matches: true, reason: `Thema: ${topic}` };
+
+    // Cornell Cues durchsuchen
+    const cornell = Array.isArray(caseObj.case_overview?.cornell_notes) ? caseObj.case_overview.cornell_notes : [];
+    for (const row of cornell) {
+        const hitCue = (row.cues || []).find(cue => String(cue).toLowerCase().includes(queryLower));
+        if (hitCue) return { matches: true, reason: `Cornell-Cue: „${hitCue}“` };
+        const cleanNotes = String(row.notes || '').replace(/<[^>]*>/g, ' ');
+        if (cleanNotes.toLowerCase().includes(queryLower)) {
+            return { matches: true, reason: 'Cornell-Notizen' };
+        }
+    }
+
+    if (summary.toLowerCase().includes(queryLower)) return { matches: true, reason: 'Take-Home Summary' };
+
+    // Differenzialdiagnosen / Doctordle durchsuchen
+    const libEntries = Array.isArray(caseObj.extra_tasks?.library_entries) ? caseObj.extra_tasks.library_entries : [];
+    const hitLib = libEntries.find(e => String(e).toLowerCase().includes(queryLower));
+    if (hitLib) return { matches: true, reason: `DD: ${hitLib}` };
+
+    return { matches: false, reason: null };
+}
+
+function highlightSearchTerm(text, query) {
+    const safeText = escapeHtml(text || '');
+    if (!query || query.length < 2) return safeText;
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return safeText.replace(regex, '<mark class="mc-search-highlight">$1</mark>');
+}
+
+// Tastatur-Shortcuts: Ctrl/Cmd + K zum Öffnen, ESC zum Zurücksetzen
+document.addEventListener('keydown', (e) => {
+    const dashboardView = document.getElementById('dashboard-view');
+    const isDashboardVisible = dashboardView && dashboardView.style.display !== 'none';
+    if (!isDashboardVisible) return;
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        window.toggleDashboardSearch(true);
+    } else if (e.key === 'Escape' && isDashboardSearchOpen) {
+        const input = document.getElementById('dashboard-case-search-input');
+        if (dashboardSearchQuery.length > 0 || dashboardSearchStatusFilter !== 'all') {
+            window.clearDashboardSearch(false);
+        } else {
+            window.toggleDashboardSearch(false);
+            input?.blur();
+        }
+    }
+});
 
 function renderDashboardCases() {
     initCustomSuperFoldersState();
@@ -1479,6 +1624,11 @@ function renderDashboardCases() {
 
     const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
 
+    const queryLower = dashboardSearchQuery.toLowerCase();
+    const isFilteringActive = queryLower.length > 0 || dashboardSearchStatusFilter !== 'all';
+    const caseMatchMap = {};
+    let totalMatchedCasesCount = 0;
+
     // Auch angelegte (noch leere) Unterordner aus medcheck_folder_order berücksichtigen
     const savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     const grouped = {};
@@ -1489,10 +1639,24 @@ function renderDashboardCases() {
     });
 
     allCases.forEach(c => {
+        const matchResult = evaluateCaseSearchMatch(c, queryLower, dashboardSearchStatusFilter, solved);
+        if (!matchResult.matches) return;
+
+        caseMatchMap[c.case_id] = matchResult.reason;
+        totalMatchedCasesCount++;
+
         const cat = (c.folder_name || c.metadata?.medical_field || "Allgemein").trim();
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(c);
     });
+
+    // Treffer-Anzeige in der Suchleiste aktualisieren
+    const statsEl = document.getElementById('dashboard-search-stats');
+    if (statsEl) {
+        statsEl.textContent = isFilteringActive
+            ? `${totalMatchedCasesCount} ${totalMatchedCasesCount === 1 ? 'Treffer' : 'Treffer'}`
+            : '';
+    }
 
     // Überordner in der vom Nutzer sortierten Reihenfolge aufbauen
     const orderedSuperTitles = getSuperFolderOrder();
@@ -1502,6 +1666,10 @@ function renderDashboardCases() {
     });
 
     Object.keys(grouped).forEach(cat => {
+        // Bei aktiver Suche leere Unterordner ausblenden (es sei denn, der Ordnername selbst matcht die Suche)
+        if (isFilteringActive && grouped[cat].length === 0 && (!queryLower || !cat.toLowerCase().includes(queryLower))) {
+            return;
+        }
         const targetSuper = getSuperFolderForCategory(cat);
         if (!superFolders[targetSuper]) superFolders[targetSuper] = [];
         superFolders[targetSuper].push(cat);
@@ -1527,9 +1695,14 @@ function renderDashboardCases() {
     `;
 
     const subFolderOrderList = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    let renderedSuperCount = 0;
 
     Object.entries(superFolders).forEach(([superTitle, categories], superIdx) => {
-        const isOpen = !!superFolderStates[superTitle];
+        if (isFilteringActive && categories.length === 0) return;
+        renderedSuperCount++;
+
+        // Bei aktiver Suche klappen relevante Überordner automatisch auf
+        const isOpen = isFilteringActive ? true : !!superFolderStates[superTitle];
         const arrowSymbol = isOpen ? '▼' : '▶';
         const isProtectedDefault = (superTitle === 'Allgemein');
 
@@ -1549,7 +1722,6 @@ function renderDashboardCases() {
                     <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapeHtml(superTitle).replace(/'/g, "\\'")}')" style="padding:4px 10px; font-style:normal; font-size:0.75rem; border:1px solid rgba(56,189,248,0.3); border-radius:6px; color:var(--accent-blue, #38bdf8);">+ Unterordner</button>
                 </div>`;
         } else {
-            // Sortiere Unterordner anhand der gespeicherten Reihenfolge (falls vorhanden), sonst alphabetisch
             categories.sort((a, b) => {
                 const idxA = subFolderOrderList.indexOf(a);
                 const idxB = subFolderOrderList.indexOf(b);
@@ -1562,7 +1734,7 @@ function renderDashboardCases() {
             categoriesHtml = categories.map((category, catIdx) => {
                 const cases = grouped[category] || [];
                 const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
-                const isExpanded = !!openFolders[category];
+                const isExpanded = isFilteringActive ? true : !!openFolders[category];
 
                 const cardsHtml = cases.length === 0
                     ? `<div style="grid-column: 1 / -1; padding: 12px; color: var(--text-dim, #64748b); font-size: 0.8rem; font-style: italic;">Noch keine Fälle in diesem Ordner (Fallkarte hierher ziehen).</div>`
@@ -1571,6 +1743,7 @@ function renderDashboardCases() {
                         const savedState = ProgressManager.getCaseProgress(c.case_id);
                         const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
                         const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
+                        const matchReason = caseMatchMap[c.case_id];
 
                         const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
                             ? ''
@@ -1578,6 +1751,10 @@ function renderDashboardCases() {
 
                         const unpublishBtn = (isCurrentUserCreator && isCloudCase)
                             ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
+                            : '';
+
+                        const matchBadgeHtml = (queryLower && matchReason && matchReason !== 'Falltitel')
+                            ? `<div class="case-search-match-pill">🎯 Gefunden in: ${escapeHtml(matchReason)}</div>`
                             : '';
 
                         return `
@@ -1600,7 +1777,8 @@ function renderDashboardCases() {
                                 </div>
                             </div>
 
-                            <h3>${escapeHtml(c.metadata?.title || c.case_id)}</h3>
+                            <h3>${highlightSearchTerm(c.metadata?.title || c.case_id, dashboardSearchQuery)}</h3>
+                            ${matchBadgeHtml}
 
                             <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
                                 <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
@@ -1619,7 +1797,7 @@ function renderDashboardCases() {
                             <div class="category-title-wrap">
                                 <span class="category-drag-handle" title="Unterordner ziehen zum Verschieben">⠿</span>
                                 <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
-                                <span>📁 ${escapeHtml(category)}</span>
+                                <span>📁 ${highlightSearchTerm(category, dashboardSearchQuery)}</span>
                             </div>
                             <div style="display:flex; align-items:center; gap:6px;">
                                 <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapedCatJs}')" title="In anderen Überordner verschieben">⇄</button>
@@ -1664,6 +1842,23 @@ function renderDashboardCases() {
             </div>
         `;
     });
+
+    if (isFilteringActive && renderedSuperCount === 0) {
+        superFoldersHtml += `
+            <div class="dashboard-search-empty-state">
+                <div style="font-size: 1.8rem; margin-bottom: 8px;">🔍</div>
+                <div style="font-weight: 800; color: var(--text-main, #f8fafc); font-size: 0.96rem; margin-bottom: 4px;">
+                    Keine passenden Fälle gefunden
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted, #94a3b8); margin-bottom: 14px;">
+                    Für <strong>„${escapeHtml(dashboardSearchQuery)}“</strong> ${dashboardSearchStatusFilter !== 'all' ? '(mit aktivem Status-Filter)' : ''} wurden keine Treffer in Titeln, Cornell Notes oder Diagnosen gefunden.
+                </div>
+                <button type="button" class="action-btn secondary btn-sm" onclick="window.clearDashboardSearch()">
+                    ✕ Suchfilter zurücksetzen
+                </button>
+            </div>
+        `;
+    }
 
     wrapper.innerHTML = superFoldersHtml;
 
