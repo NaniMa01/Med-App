@@ -4231,9 +4231,6 @@ async function loadCasesFromDatabase() {
         }
 
         renderDashboardCases();
-        if (window.Gamification && typeof window.Gamification.renderCognitiveAtlas === 'function') {
-        window.Gamification.renderCognitiveAtlas();
-    }
         if (typeof renderSubjectProgressDrawer === 'function') {
             renderSubjectProgressDrawer();
         }
