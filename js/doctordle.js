@@ -284,7 +284,7 @@ class DoctordleController {
             this.resultBox.style.border = '1px solid #22c55e';
             this.resultBox.style.color = '#86efac';
             this.resultBox.innerHTML = `
-                <strong>Exzellent deduziert!</strong><br>
+                <strong>Exzellent diagnostiziert!</strong><br>
                 Diagnose: <em>${p.target_diagnosis}</em> im ${this.currentAttempt + 1}. Versuch erkannt.<br>
                 <strong>+${earnedXP} XP erhalten.</strong>
                 ${p.learning_pearl ? `<div style="margin-top:8px; font-size:0.85rem; color:#f1f5f9;">💡 ${p.learning_pearl}</div>` : ''}
