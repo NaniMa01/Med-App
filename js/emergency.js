@@ -81,7 +81,7 @@ const EmergencyManager = {
         emergencySession.currentCaseXPClaimed = false;
 
         if (typeof window.loadCaseById === 'function') {
-            window.loadCaseById(nextId, { specialty: true, startMode: 'audit' });
+            window.loadCaseById(nextId, { specialty: true, startMode: 'audit', isEmergency: true });
         }
 
         setTimeout(renderEmergencyHudOverlay, 100);
@@ -122,7 +122,6 @@ const EmergencyManager = {
                 xpCountdownEl.innerText = `+${curXP} XP`;
                 xpCountdownEl.style.color = curXP >= 750 ? '#10b981' : (curXP >= 500 ? '#f59e0b' : '#fca5a5');
 
-                // Feature-Detail: Alle 5 Sekunden bei tatsächlichem Abzug ein kurzer Warn-Flash
                 if (emergencySession.caseElapsedSeconds > 0 && 
                     emergencySession.caseElapsedSeconds % emergencySession.decayIntervalSeconds === 0 && 
                     curXP > emergencySession.minGuaranteedXP) {
@@ -142,10 +141,33 @@ const EmergencyManager = {
         }
     },
 
+    // Beendet die Notdienst-Sitzung sauber und räumt alle DOM-Elemente ab
+    exitSession: function() {
+        this.stopGlobalTimer();
+        emergencySession.active = false;
+        emergencySession.queue = [];
+        emergencySession.currentIndex = 0;
+        emergencySession.currentCaseXPClaimed = false;
+
+        // HUD-Elemente rückstandslos aus dem DOM entfernen
+        const timerBadge = document.getElementById('em-timer-badge');
+        if (timerBadge) timerBadge.remove();
+
+        const nextEmBtn = document.getElementById('btn-emergency-next');
+        if (nextEmBtn) nextEmBtn.remove();
+    },
+
     finishEmergencyShift: function() {
         this.stopGlobalTimer();
         emergencySession.active = false;
         window.isSpecialtyBlindMode = false;
+
+        // UI-Elemente entfernen
+        const timerBadge = document.getElementById('em-timer-badge');
+        if (timerBadge) timerBadge.remove();
+
+        const nextEmBtn = document.getElementById('btn-emergency-next');
+        if (nextEmBtn) nextEmBtn.remove();
 
         if (window.Gamification) {
             window.Gamification.recordActivity('emergency_shift');
@@ -186,7 +208,13 @@ window.startEmergencyMode = function() {
 };
 
 function renderEmergencyHudOverlay() {
-    if (!emergencySession.active) return;
+    // Wenn nicht im Notdienstmodus: sofortige Bereinigung sicherstellen
+    if (!emergencySession.active) {
+        document.getElementById('em-timer-badge')?.remove();
+        document.getElementById('btn-emergency-next')?.remove();
+        return;
+    }
+
     const badge = document.getElementById('player-case-badge-title');
     if (!badge) return;
 
@@ -228,3 +256,4 @@ function renderEmergencyHudOverlay() {
         wrap.appendChild(nextEmBtn);
     }
 }
+window.renderEmergencyHudOverlay = renderEmergencyHudOverlay;
