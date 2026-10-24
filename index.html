@@ -119,7 +119,34 @@
 
                 <!-- 2. DASHBOARD VIEW -->
                 <div class="panel" id="dashboard-view" style="display: block;">
+<div class="dashboard-top-header">
+                        <div>
+                            <div class="panel-title">Klinische Module & Themen-Ordner</div>
+                            <div class="panel-subtitle" style="margin-bottom: 0;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
+                        </div>
+                        <button type="button" id="dashboard-search-toggle-btn" class="dashboard-search-toggle-btn" onclick="window.toggleDashboardSearch()" title="Fälle durchsuchen (Shortcut: Cmd/Ctrl + K)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <span>Fälle suchen</span>
+                            <kbd class="search-kbd-hint">⌘K</kbd>
+                        </button>
+                    </div>
 
+                    <!-- Ausklappbare Echtzeit-Suchleiste -->
+                    <div id="dashboard-search-panel" class="dashboard-search-panel hidden">
+                        <div class="dashboard-search-input-wrap">
+                            <svg class="search-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="dashboard-case-search-input" class="dashboard-case-search-input" placeholder="Suche nach Diagnose, Symptom, Laborwert, Medikament oder Ordner..." autocomplete="off" oninput="window.handleDashboardSearchInput(this.value)">
+                            <span id="dashboard-search-stats" class="dashboard-search-stats"></span>
+                            <button type="button" id="dashboard-search-clear-btn" class="dashboard-search-clear-btn hidden" onclick="window.clearDashboardSearch()" title="Suche zurücksetzen (ESC)">✕</button>
+                        </div>
+                        <div class="dashboard-search-filters">
+                            <span class="search-filter-label">Status-Filter:</span>
+                            <button type="button" class="search-status-pill active" data-status-filter="all" onclick="window.setDashboardSearchStatus('all', this)">Alle Fälle</button>
+                            <button type="button" class="search-status-pill" data-status-filter="open" onclick="window.setDashboardSearchStatus('open', this)">● Noch offen</button>
+                            <button type="button" class="search-status-pill" data-status-filter="progress" onclick="window.setDashboardSearchStatus('progress', this)">↻ In Bearbeitung</button>
+                            <button type="button" class="search-status-pill" data-status-filter="solved" onclick="window.setDashboardSearchStatus('solved', this)">✓ Gelöst</button>
+                        </div>
+                    </div>
                     <!-- Admin Case Upload Dropzone -->
                     <section id="creatorUploadSection" class="creator-upload-section" style="display: none;">
                         <div class="creator-upload-card">
