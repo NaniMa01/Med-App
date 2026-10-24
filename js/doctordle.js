@@ -416,19 +416,15 @@ class DoctordleController {
 
                 const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
 
-                if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
-                    window.SpacedRepetitionEngine.recordReview({
-                        itemId: itemId,
-                        moduleType: 'doctordle',
-                        quality: quality,
-                        medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
-                    }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
-                }
-            } catch (srsErr) {
-                console.warn('[Doctordle] SpacedRepetition Soft-Fail:', srsErr);
-            }
-        }
-
+           
+if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
+    window.SpacedRepetitionEngine.recordReview({
+        itemId: itemId,
+        moduleType: 'doctordle',
+        quality: quality,
+        medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
+    }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+}
         // Globalen Callback und Auto-Save triggern
         if (typeof window.onDoctordlePuzzleSolved === 'function') {
             window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
