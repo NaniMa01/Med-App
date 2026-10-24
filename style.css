@@ -1820,7 +1820,7 @@ topbar {
 .complete-actions { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
 
 /* ==========================================================================
-   13. RESPONSIVE & OPENEVIDENCE SYNAPSES OPTIMIZATION (GRID-BLOWOUT FIX)
+   13. RESPONSIVE & MOBILE PWA STANDALONE FIXES (STANDALONE / SAFE-AREAS)
    ========================================================================== */
 .main-wrapper,
 .content-body,
@@ -1854,19 +1854,27 @@ topbar {
     }
     .sidebar-resizer { display: none !important; }
     .content-body { grid-template-columns: 1fr; padding: 20px; }
+    
     .menu-toggle {
         display: inline-flex !important;
         align-items: center;
         justify-content: center;
-        z-index: 30;
+        z-index: 1001; /* Sicher über Overlay und Topbar */
+        min-width: 44px; /* Apple Human Interface Guideline Mindest-Touch-Target */
+        min-height: 44px;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
     }
+
     sidebar {
         position: fixed;
         left: 0;
         top: 0;
-        height: 100vh;
+        bottom: 0;
+        height: 100dvh;
         transform: translateX(-100%);
         transition: transform 0.32s var(--ease-out);
+        z-index: 1050;
     }
     sidebar.open { transform: translateX(0); }
     .engine-text { display: none; }
@@ -1875,47 +1883,82 @@ topbar {
 }
 
 @media screen and (max-width: 768px) {
-    html, body { 
+    html {
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    body { 
         width: 100vw !important; 
         max-width: 100vw !important; 
         height: 100dvh !important; 
-        overflow-x: clip !important; 
-        overflow-y: hidden !important; 
+        overflow: hidden !important;
+        position: fixed; /* Verhindert das lästige 'Rubberbanding' der gesamten App */
+        inset: 0;
     }
-    @supports(padding: max(0px)) {
-        topbar {
-            padding-top: max(12px, env(safe-area-inset-top)) !important;
-            height: calc(70px + max(12px, env(safe-area-inset-top))) !important;
-        }
-        sidebar {
-            padding-top: max(24px, env(safe-area-inset-top)) !important;
-        }
+
+    /* TOPBAR: Exakte Safe-Area-Berechnung für Home-Screen PWA */
+    topbar {
+        position: sticky;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: calc(58px + env(safe-area-inset-top, 0px)) !important;
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        padding-left: max(12px, env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(12px, env(safe-area-inset-right, 0px)) !important;
+        padding-bottom: 6px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        background: var(--topbar-bg) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        z-index: 1000 !important;
+        box-sizing: border-box !important;
+        flex-shrink: 0;
     }
+
+    /* SIDEBAR: Unter der Statusleiste mit Safe Area */
+    sidebar {
+        padding-top: max(20px, env(safe-area-inset-top, 0px)) !important;
+        padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+        padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
+        height: 100dvh !important;
+    }
+
     .main-wrapper { 
         margin-left: 0 !important;
         width: 100vw !important; 
         max-width: 100vw !important; 
+        height: calc(100dvh - 58px - env(safe-area-inset-top, 0px)) !important;
         overflow-y: auto !important; 
         overflow-x: hidden !important; 
         -webkit-overflow-scrolling: touch; 
-        padding-bottom: 48px !important; 
+        padding-bottom: max(32px, env(safe-area-inset-bottom, 0px)) !important;
+        box-sizing: border-box !important;
     }
+
     .content-body { 
         display: grid !important; 
         grid-template-columns: minmax(0, 1fr) !important; 
-        padding: 10px !important; 
+        padding: 12px 10px !important; 
         gap: 14px !important; 
         width: 100% !important; 
         max-width: 100vw !important; 
         margin: 0 !important; 
     }
+
     .panel { 
-        padding: 14px 10px !important; 
+        padding: 16px 12px !important; 
         border-radius: 14px !important; 
         width: 100% !important; 
         max-width: 100% !important; 
         overflow: hidden !important; 
     }
+
     .super-folder-header { padding: 14px 12px !important; }
     .super-folder-body { padding: 10px 8px !important; gap: 10px !important; }
     .category-header { padding: 12px 10px !important; }
@@ -1925,21 +1968,20 @@ topbar {
         gap: 10px !important; 
     }
     .specialty-hub, .depot-items-grid { grid-template-columns: 1fr !important; }
-    .progress-drawer { top: 64px !important; }
+    .progress-drawer { top: calc(68px + env(safe-area-inset-top, 0px)) !important; }
     .progress-drawer.collapsed .progress-drawer-body { display: none !important; }
     .progress-drawer.collapsed { transform: none !important; right: 0 !important; }
 
     #player-view .panel > div:first-child, .panel-title { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; width: 100% !important; max-width: 100% !important; }
     #player-case-badge-title { white-space: normal !important; word-break: break-word !important; overflow-wrap: anywhere !important; line-height: 1.3 !important; display: inline-block !important; max-width: 100% !important; }
     
-    topbar { padding: 0 10px !important; height: 56px !important; gap: 6px !important; width: 100% !important; max-width: 100vw !important; }
     .topbar-engine-tag span:nth-child(2) { display: none; }
     .hud-stat { padding: 5px 8px !important; font-size: 0.72rem !important; }
     
     .mc-mobile-picker-wrap { display: block !important; }
     .challenge-nav-bar { display: none !important; }
     
-    .player-mode-pane, #overview-container, #timeline-container, .synapses-container, .cascade-disease-container, .quiz-card, .step-content, .cornell-wrapper {
+    .player-mode-pane, #overview-container, #player-container, .synapses-container, .cascade-disease-container, .quiz-card, .step-content, .cornell-wrapper {
         width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding-left: 10px !important; padding-right: 10px !important; margin-left: 0 !important; margin-right: 0 !important; box-sizing: border-box !important;
     }
     
@@ -1948,7 +1990,7 @@ topbar {
     .cornell-notes { width: 100% !important; padding: 14px 12px !important; font-size: 0.88rem !important; }
     
     .step-content { padding: 14px 12px !important; font-size: 0.92rem !important; line-height: 1.65 !important; }
-    .audit-step-container { padding: 20px 18px !important; }
+    .audit-step-container { padding: 20px 14px !important; }
     .step-content.audit-editorial-body { font-size: 0.96rem !important; line-height: 1.75 !important; }
     .audit-step-footer { justify-content: stretch; }
     .audit-clear-btn { width: 100% !important; }
@@ -1973,9 +2015,8 @@ topbar {
     .quiz-card { padding: 14px 10px !important; }
     .quiz-question-text { font-size: 0.92rem !important; }
     .quiz-opt-btn { padding: 10px 12px !important; font-size: 0.84rem !important; width: 100% !important; }
-    input, textarea, select { font-size: 16px !important; }
+    input, textarea, select { font-size: 16px !important; } /* Verhindert automatisches Hereinzoomen unter iOS */
 }
-
 @media screen and (max-width: 600px) {
     .body-map-wrapper { flex-direction: column; align-items: center; gap: 25px; padding: 15px; }
     .delete-case-btn { width: 30px; height: 30px; }
