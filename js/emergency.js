@@ -1,19 +1,19 @@
 /**
- * js/emergency.js - Notaufnahme-Engine für MedCheck V6.0
- * Simuliert interdisziplinäre Notfälle unter Zeit- und Triage-Druck.
+ * js/emergency.js - Notaufnahme-Engine mit "Under Pressure" Live-XP-Decay
  */
-
-const EMERGENCY_STORAGE_KEY = 'medcheck_emergency_progress';
 
 const emergencySession = {
     active: false,
     queue: [],
     currentIndex: 0,
     totalCount: 0,
-    startTime: null,
     timerInterval: null,
     timeElapsedSeconds: 0,
-    triageScore: 0
+    caseElapsedSeconds: 0,
+    basePotentialXP: 1000,
+    minGuaranteedXP: 250,
+    decayPerSecond: 5,
+    currentCaseXPClaimed: false
 };
 
 const EmergencyManager = {
@@ -27,6 +27,11 @@ const EmergencyManager = {
         });
     },
 
+    getCurrentPotentialXP: function() {
+        const lost = emergencySession.caseElapsedSeconds * emergencySession.decayPerSecond;
+        return Math.max(emergencySession.minGuaranteedXP, emergencySession.basePotentialXP - lost);
+    },
+
     startSession: function() {
         let cases = this.getEmergencyCases();
         if (cases.length === 0) {
@@ -38,7 +43,6 @@ const EmergencyManager = {
             return;
         }
 
-        // Fisher-Yates Shuffle
         const shuffled = [...cases];
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -50,7 +54,6 @@ const EmergencyManager = {
         emergencySession.totalCount = emergencySession.queue.length;
         emergencySession.currentIndex = 0;
         emergencySession.timeElapsedSeconds = 0;
-        emergencySession.triageScore = 0;
 
         window.isSpecialtyBlindMode = true;
         this.loadNextEmergencyCase();
@@ -58,6 +61,11 @@ const EmergencyManager = {
     },
 
     loadNextEmergencyCase: function() {
+        // Falls der vorherige Fall bearbeitet wurde, Speed-Bonus gutschreiben
+        if (emergencySession.currentIndex > 0 && !emergencySession.currentCaseXPClaimed) {
+            this.claimCaseSpeedBonus();
+        }
+
         if (emergencySession.queue.length === 0) {
             this.finishEmergencyShift();
             return;
@@ -65,6 +73,8 @@ const EmergencyManager = {
 
         const nextId = emergencySession.queue.shift();
         emergencySession.currentIndex++;
+        emergencySession.caseElapsedSeconds = 0;
+        emergencySession.currentCaseXPClaimed = false;
 
         if (typeof window.loadCaseById === 'function') {
             window.loadCaseById(nextId, { specialty: true, startMode: 'audit' });
@@ -73,16 +83,37 @@ const EmergencyManager = {
         setTimeout(renderEmergencyHudOverlay, 100);
     },
 
+    claimCaseSpeedBonus: function() {
+        if (emergencySession.currentCaseXPClaimed) return;
+        emergencySession.currentCaseXPClaimed = true;
+        const speedXP = this.getCurrentPotentialXP();
+
+        if (typeof window.applyXpDelta === 'function') {
+            window.applyXpDelta(speedXP, '⚡ Schockraum Speed-Triage');
+        }
+        if (window.Gamification && speedXP >= 800) {
+            window.Gamification.triggerCriticalHit(`Schockraum in ${emergencySession.caseElapsedSeconds}s stabilisiert!`);
+        }
+    },
+
     startGlobalTimer: function() {
         if (emergencySession.timerInterval) clearInterval(emergencySession.timerInterval);
-        emergencySession.startTime = Date.now();
         emergencySession.timerInterval = setInterval(() => {
             emergencySession.timeElapsedSeconds++;
+            emergencySession.caseElapsedSeconds++;
+
             const timerEl = document.getElementById('em-timer-display');
             if (timerEl) {
-                const mins = Math.floor(emergencySession.timeElapsedSeconds / 60);
-                const secs = emergencySession.timeElapsedSeconds % 60;
+                const mins = Math.floor(emergencySession.caseElapsedSeconds / 60);
+                const secs = emergencySession.caseElapsedSeconds % 60;
                 timerEl.innerText = mins + ':' + (secs < 10 ? '0' : '') + secs;
+            }
+
+            const xpCountdownEl = document.getElementById('em-xp-countdown');
+            if (xpCountdownEl) {
+                const curXP = this.getCurrentPotentialXP();
+                xpCountdownEl.innerText = `+${curXP} XP`;
+                xpCountdownEl.style.color = curXP >= 750 ? '#10b981' : (curXP >= 500 ? '#f59e0b' : '#fca5a5');
             }
         }, 1000);
     },
@@ -99,6 +130,10 @@ const EmergencyManager = {
         emergencySession.active = false;
         window.isSpecialtyBlindMode = false;
 
+        if (window.Gamification) {
+            window.Gamification.recordActivity('emergency_shift');
+        }
+
         const totalTime = emergencySession.timeElapsedSeconds;
         const mins = Math.floor(totalTime / 60);
         const secs = totalTime % 60;
@@ -109,8 +144,8 @@ const EmergencyManager = {
                     <div style="font-size:2.8rem; margin-bottom:10px;">🚨</div>
                     <h2 style="color:#38bdf8; margin:0 0 10px 0;">Notdienst-Schicht beendet!</h2>
                     <p style="color:#cbd5e1; font-size:0.92rem; line-height:1.5; margin-bottom:18px;">
-                        Du hast alle Notfälle der Schicht erfolgreich triagiert und behandelt.<br>
-                        <strong>Gesamtzeit:</strong> ${mins} Min. ${secs} Sek.
+                        Du hast alle ${emergencySession.totalCount} Notfälle der Schicht unter Zeitdruck versorgt.<br>
+                        <strong>Gesamte Schicht-Zeit:</strong> ${mins} Min. ${secs} Sek.
                     </p>
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button type="button" onclick="window.closeRevealModal(); window.startEmergencyMode();" style="background:#0284c7; color:#fff; border:none; padding:11px; border-radius:8px; cursor:pointer; font-weight:700; font-size:0.9rem;">
@@ -143,16 +178,21 @@ function renderEmergencyHudOverlay() {
         wrap.style.display = 'inline-flex';
         wrap.style.alignItems = 'center';
         wrap.style.gap = '10px';
+        wrap.style.flexWrap = 'wrap';
     }
 
-    badge.innerText = `🚨 Notaufnahme • Fall ${emergencySession.currentIndex}/${emergencySession.totalCount}`;
+    badge.innerText = `🚨 Schockraum ${emergencySession.currentIndex}/${emergencySession.totalCount}`;
 
     let timerBadge = document.getElementById('em-timer-badge');
     if (!timerBadge && wrap) {
         timerBadge = document.createElement('div');
         timerBadge.id = 'em-timer-badge';
-        timerBadge.style.cssText = 'background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5; padding:4px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; font-family:"JetBrains Mono", monospace; display:flex; align-items:center; gap:5px;';
-        timerBadge.innerHTML = `⏱️ Schicht-Zeit: <span id="em-timer-display">0:00</span>`;
+        timerBadge.style.cssText = 'background:rgba(239,68,68,0.18); border:1px solid #ef4444; color:#fca5a5; padding:4px 12px; border-radius:20px; font-size:0.78rem; font-weight:700; font-family:"JetBrains Mono", monospace; display:flex; align-items:center; gap:8px;';
+        timerBadge.innerHTML = `
+            <span>⏱️ <span id="em-timer-display">0:00</span></span>
+            <span style="opacity:0.4;">|</span>
+            <span title="Sinkt um 5 XP pro Sekunde">⚡ Speed-Bonus: <strong id="em-xp-countdown" style="color:#10b981;">+1000 XP</strong></span>
+        `;
         wrap.appendChild(timerBadge);
     }
 
@@ -161,10 +201,11 @@ function renderEmergencyHudOverlay() {
         nextEmBtn = document.createElement('button');
         nextEmBtn.id = 'btn-emergency-next';
         nextEmBtn.type = 'button';
-        nextEmBtn.innerHTML = 'Nächster Notfall ➔';
+        nextEmBtn.innerHTML = 'Patient stabilisiert (XP sichern) ➔';
         nextEmBtn.style.cssText = 'background:#ef4444; color:#fff; border:none; padding:6px 14px; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; box-shadow:0 2px 8px rgba(239,68,68,0.4);';
         nextEmBtn.onclick = function(e) {
             e.preventDefault();
+            EmergencyManager.claimCaseSpeedBonus();
             EmergencyManager.loadNextEmergencyCase();
         };
         wrap.appendChild(nextEmBtn);
