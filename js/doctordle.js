@@ -257,7 +257,7 @@ class DoctordleController {
         this.finishCurrentPuzzle(false, true);
     }
 
-  finishCurrentPuzzle(won, byReveal = false) {
+finishCurrentPuzzle(won, byReveal = false) {
         this.isFinishedCurrent = true;
         if (this.input) this.input.disabled = true;
         if (this.submitBtn) this.submitBtn.disabled = true;
@@ -288,12 +288,12 @@ class DoctordleController {
                 // Critical Hit bei Stufe 1: +100% XP Bonus!
                 if (isFirstTryCrit) {
                     baseXP *= 2;
-                    if (window.Gamification) {
+                    if (window.Gamification && typeof window.Gamification.triggerCriticalHit === 'function') {
                         window.Gamification.triggerCriticalHit('Doctordle auf Stufe 1 geknackt (+100% XP)');
                     }
                 }
 
-                if (window.Gamification) {
+                if (window.Gamification && typeof window.Gamification.recordActivity === 'function') {
                     window.Gamification.recordActivity('doctordle_solved');
                 }
 
@@ -355,21 +355,43 @@ class DoctordleController {
             }
         }
 
+        // Spaced Repetition Engine SM-2 Hook
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
             try {
-                const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
-                    won: won,
-                    attempts: this.currentAttempt + 1,
-                    byReveal: byReveal
-                });
+                let quality = 3;
+                if (typeof window.SpacedRepetitionEngine.deriveQualityFromMetrics === 'function') {
+                    quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
+                        won: won,
+                        attempts: this.currentAttempt + 1,
+                        byReveal: byReveal
+                    });
+                } else {
+                    if (byReveal || !won) {
+                        quality = 1;
+                    } else if (this.currentAttempt <= 1) {
+                        quality = 5;
+                    } else if (this.currentAttempt <= 3) {
+                        quality = 4;
+                    } else {
+                        quality = 3;
+                    }
+                }
+
                 const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
-                window.SpacedRepetitionEngine.recordReview({
-                    itemId: itemId,
-                    moduleType: 'doctordle',
-                    quality: quality,
-                    medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
-                }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
-            } catch (srsErr) {}
+                if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
+                    const reviewPromise = window.SpacedRepetitionEngine.recordReview({
+                        itemId: itemId,
+                        moduleType: 'doctordle',
+                        quality: quality,
+                        medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
+                    });
+                    if (reviewPromise && typeof reviewPromise.catch === 'function') {
+                        reviewPromise.catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+                    }
+                }
+            } catch (srsErr) {
+                console.warn('[Doctordle] SRS Engine Soft-Fail:', srsErr);
+            }
         }
 
         if (typeof window.onDoctordlePuzzleSolved === 'function') {
