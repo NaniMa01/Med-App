@@ -1657,6 +1657,99 @@ topbar {
 .folder-action-btn.move-btn:hover { opacity: 1; transform: scale(1.15); }
 
 /* ==========================================================================
+   BOOKSHELF NOTABILITY DRAG & DROP FEEDBACK & GLOW
+   ========================================================================== */
+
+/* 1. Die dynamische Einfügelinie zwischen den Ordnern */
+.bookshelf-drop-indicator {
+    height: 4px;
+    border-radius: 4px;
+    margin: 4px 6px;
+    pointer-events: none;
+    transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 100;
+}
+
+/* Modus A: Links gedroppt -> Wird Überordner (Neon-Cyan Leuchten) */
+.bookshelf-drop-indicator.as-super {
+    margin-left: 6px;
+    width: calc(100% - 12px);
+    background: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.95), 0 0 4px #38bdf8;
+}
+
+.bookshelf-drop-indicator.as-super::after {
+    content: "Als Überordner einordnen";
+    position: absolute;
+    right: 8px;
+    top: -18px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(6, 9, 19, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    padding: 1px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+}
+
+/* Modus B: Rechts gedroppt -> Wird Unterordner (Smaragdgrün eingerückt) */
+.bookshelf-drop-indicator.as-sub {
+    margin-left: 32px;
+    width: calc(100% - 38px);
+    background: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.95), 0 0 4px #10b981;
+}
+
+.bookshelf-drop-indicator.as-sub::after {
+    content: "↳ Als Unterordner einhängen";
+    position: absolute;
+    right: 8px;
+    top: -18px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #86efac;
+    background: rgba(6, 9, 19, 0.92);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    padding: 1px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+}
+
+/* 2. Aufleuchten des Ziel-Ordners beim Drüberhalten */
+.bookshelf-super-group.drop-target-active,
+.folder-group.is-subfolder.drop-target-active {
+    outline: 2px dashed rgba(56, 189, 248, 0.6) !important;
+    outline-offset: 2px;
+    background: rgba(56, 189, 248, 0.08) !important;
+    box-shadow: inset 0 0 14px rgba(56, 189, 248, 0.15) !important;
+    transition: background 0.15s ease, outline 0.15s ease;
+}
+
+/* 3. Wenn als Unterordner gezielt wird: Grüner Ziel-Glow */
+.bookshelf-super-group.drop-target-sub-active {
+    outline: 2px dashed rgba(16, 185, 129, 0.7) !important;
+    outline-offset: 2px;
+    background: rgba(16, 185, 129, 0.08) !important;
+    box-shadow: inset 0 0 14px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* 4. Das gezogene Element selbst abdunkeln */
+.bookshelf-item-dragging {
+    opacity: 0.3 !important;
+    transform: scale(0.98);
+    filter: grayscale(0.5);
+}
+
+/* 5. Eingerückte Optik für bestehende Unterordner im Bookshelf */
+.folder-group.is-subfolder {
+    margin-left: 18px !important;
+    border-left: 2px solid rgba(56, 189, 248, 0.25) !important;
+    padding-left: 6px !important;
+    margin-bottom: 3px !important;
+}
+/* ==========================================================================
    12. LERNEN NACH FACHRICHTUNG & MODALS
    ========================================================================== */
 .segmented-control { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 18px; background: rgba(11, 17, 33, 0.75); border: 1px solid var(--card-border); border-radius: 12px; flex-wrap: wrap; }
