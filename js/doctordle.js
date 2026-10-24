@@ -257,11 +257,11 @@ class DoctordleController {
         this.finishCurrentPuzzle(false, true);
     }
 
-    finishCurrentPuzzle(won, byReveal = false) {
+  finishCurrentPuzzle(won, byReveal = false) {
         this.isFinishedCurrent = true;
-        this.input.disabled = true;
-        this.submitBtn.disabled = true;
-        this.revealBtn.disabled = true;
+        if (this.input) this.input.disabled = true;
+        if (this.submitBtn) this.submitBtn.disabled = true;
+        if (this.revealBtn) this.revealBtn.disabled = true;
 
         const p = this.puzzles[this.currentPuzzleIndex];
         const hints = p.hints || [];
@@ -274,46 +274,122 @@ class DoctordleController {
             c.innerHTML = `<strong>Stufe ${idx + 1}:</strong> ${hints[idx] ? hints[idx].replace(/^Stufe \d+[^:]*:\s*/i, '') : ''}`;
         });
 
-        this.resultBox.classList.remove('hidden');
-        this.resultBox.style.display = 'block';
+        let finalEarnedXP = 0;
 
-        if (won) {
-            this.solvedPuzzles = Math.max(this.solvedPuzzles, this.currentPuzzleIndex + 1);
-            const earnedXP = this.xpTiers[this.currentAttempt] || 100;
-            this.resultBox.style.background = 'rgba(34, 197, 94, 0.15)';
-            this.resultBox.style.border = '1px solid #22c55e';
-            this.resultBox.style.color = '#86efac';
-            this.resultBox.innerHTML = `
-                <strong>Exzellent diagnostiziert!</strong><br>
-                Diagnose: <em>${p.target_diagnosis}</em> im ${this.currentAttempt + 1}. Versuch erkannt.<br>
-                <strong>+${earnedXP} XP erhalten.</strong>
-                ${p.learning_pearl ? `<div style="margin-top:8px; font-size:0.85rem; color:#f1f5f9;">💡 ${p.learning_pearl}</div>` : ''}
-            `;
-            if (typeof applyXpDelta === 'function') {
-                applyXpDelta(earnedXP, `Doctordle Rätsel ${this.currentPuzzleIndex + 1}`);
+        if (this.resultBox) {
+            this.resultBox.classList.remove('hidden');
+            this.resultBox.style.display = 'block';
+
+            if (won) {
+                this.solvedPuzzles = Math.max(this.solvedPuzzles, this.currentPuzzleIndex + 1);
+                const isFirstTryCrit = (this.currentAttempt === 0);
+                let baseXP = this.xpTiers[this.currentAttempt] || 100;
+
+                // Critical Hit bei Stufe 1: +100% XP Bonus!
+                if (isFirstTryCrit) {
+                    baseXP *= 2;
+                    if (window.Gamification) {
+                        window.Gamification.triggerCriticalHit('Doctordle auf Stufe 1 geknackt (+100% XP)');
+                    }
+                }
+
+                if (window.Gamification) {
+                    window.Gamification.recordActivity('doctordle_solved');
+                }
+
+                finalEarnedXP = baseXP;
+                this.resultBox.style.background = isFirstTryCrit ? 'rgba(234, 179, 8, 0.16)' : 'rgba(34, 197, 94, 0.15)';
+                this.resultBox.style.border = isFirstTryCrit ? '1px solid #facc15' : '1px solid #22c55e';
+                this.resultBox.style.color = isFirstTryCrit ? '#fef08a' : '#86efac';
+
+                this.resultBox.innerHTML = `
+                    <strong>${isFirstTryCrit ? '⚡ CRITICAL HIT – BLITZ-DEDUKTION AUF STUFE 1!' : 'Exzellent diagnostiziert!'}</strong><br>
+                    Diagnose: <em>${p.target_diagnosis}</em> im ${this.currentAttempt + 1}. Versuch erkannt.<br>
+                    <strong>+${finalEarnedXP} XP erhalten ${isFirstTryCrit ? '(inkl. 2x Critical-Hit-Bonus!)' : ''}.</strong>
+                    ${p.learning_pearl ? `<div style="margin-top:8px; font-size:0.85rem; color:#f1f5f9;">💡 ${p.learning_pearl}</div>` : ''}
+                    <div style="margin-top:12px;">
+                        <button type="button" id="doctordle-share-btn" style="background:rgba(56,189,248,0.18); border:1px solid #38bdf8; color:#e0f2fe; padding:7px 14px; border-radius:8px; font-size:0.82rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                            📤 Ergebnis als Emoji-Grid teilen (ohne Spoiler)
+                        </button>
+                    </div>
+                `;
+                if (typeof window.applyXpDelta === 'function') {
+                    window.applyXpDelta(finalEarnedXP, `Doctordle Rätsel ${this.currentPuzzleIndex + 1}`);
+                }
+            } else if (byReveal) {
+                finalEarnedXP = -this.revealPenalty;
+                this.resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                this.resultBox.style.border = '1px solid #ef4444';
+                this.resultBox.style.color = '#fca5a5';
+                this.resultBox.innerHTML = `
+                    <strong>Lösung aufgedeckt:</strong><br>
+                    Gesuchte Entität: <em>${p.target_diagnosis}</em><br>
+                    <strong>-200 XP abgezogen.</strong>
+                `;
+                if (typeof window.applyXpDelta === 'function') {
+                    window.applyXpDelta(-this.revealPenalty, 'Doctordle Aufdecken');
+                }
+            } else {
+                this.resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                this.resultBox.style.border = '1px solid #ef4444';
+                this.resultBox.style.color = '#fca5a5';
+                this.resultBox.innerHTML = `
+                    <strong>6 Fehlversuche erreicht!</strong><br>
+                    Die richtige Diagnose war: <em>${p.target_diagnosis}</em>
+                `;
             }
-        } else if (byReveal) {
-            this.resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
-            this.resultBox.style.border = '1px solid #ef4444';
-            this.resultBox.style.color = '#fca5a5';
-            this.resultBox.innerHTML = `
-                <strong>Lösung aufgedeckt:</strong><br>
-                Gesuchte Entität: <em>${p.target_diagnosis}</em><br>
-                <strong>-200 XP abgezogen.</strong>
-            `;
-            if (typeof applyXpDelta === 'function') {
-                applyXpDelta(-this.revealPenalty, 'Doctordle Aufdecken');
+
+            // Share-Button Listener binden
+            const shareBtn = document.getElementById('doctordle-share-btn');
+            if (shareBtn && window.Gamification) {
+                const shareStr = window.Gamification.generateDoctordleShareString({
+                    caseId: this.currentCaseId,
+                    puzzleIndex: this.currentPuzzleIndex,
+                    totalPuzzles: this.puzzles.length,
+                    attempts: this.currentAttempt + 1,
+                    won: won,
+                    byReveal: byReveal,
+                    earnedXP: finalEarnedXP
+                });
+                shareBtn.onclick = () => window.Gamification.copyShareText(shareStr, shareBtn);
             }
-        } else {
-            this.resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
-            this.resultBox.style.border = '1px solid #ef4444';
-            this.resultBox.style.color = '#fca5a5';
-            this.resultBox.innerHTML = `
-                <strong>6 Fehlversuche erreicht!</strong><br>
-                Die richtige Diagnose war: <em>${p.target_diagnosis}</em>
-            `;
         }
 
+        if (window.SpacedRepetitionEngine && this.currentCaseId) {
+            try {
+                const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('doctordle', {
+                    won: won,
+                    attempts: this.currentAttempt + 1,
+                    byReveal: byReveal
+                });
+                const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
+                window.SpacedRepetitionEngine.recordReview({
+                    itemId: itemId,
+                    moduleType: 'doctordle',
+                    quality: quality,
+                    medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
+                }).catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
+            } catch (srsErr) {}
+        }
+
+        if (typeof window.onDoctordlePuzzleSolved === 'function') {
+            window.onDoctordlePuzzleSolved(this.solvedPuzzles, this.puzzles.length);
+        }
+
+        if (!this.nextBtn) this.nextBtn = document.getElementById('doctordle-next-btn');
+        if (this.nextBtn) {
+            this.nextBtn.classList.remove('hidden');
+            this.nextBtn.style.display = 'block';
+
+            if (this.currentPuzzleIndex < this.puzzles.length - 1) {
+                this.nextBtn.innerText = `Nächstes Rätsel (${this.currentPuzzleIndex + 2}/${this.puzzles.length}) →`;
+            } else if (window.isSpecialtyBlindMode) {
+                this.nextBtn.innerText = 'Nächstes Krankheitsbild ➔';
+            } else {
+                this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
+            }
+        }
+    }
    // Spaced Repetition Engine SM-2 Hook (Defensiv abgesichert)
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
             try {
