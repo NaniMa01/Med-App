@@ -355,7 +355,9 @@ finishCurrentPuzzle(won, byReveal = false) {
             }
         }
 
-        // Spaced Repetition Engine SM-2 Hook
+        // ====================================================
+        // Spaced Repetition Engine SM-2 Hook (Defensiv & Entkoppelt)
+        // ====================================================
         if (window.SpacedRepetitionEngine && this.currentCaseId) {
             try {
                 let quality = 3;
@@ -378,6 +380,7 @@ finishCurrentPuzzle(won, byReveal = false) {
                 }
 
                 const itemId = `${this.currentCaseId}_doctordle_${this.currentPuzzleIndex}`;
+
                 if (typeof window.SpacedRepetitionEngine.recordReview === 'function') {
                     const reviewPromise = window.SpacedRepetitionEngine.recordReview({
                         itemId: itemId,
@@ -385,6 +388,7 @@ finishCurrentPuzzle(won, byReveal = false) {
                         quality: quality,
                         medicalField: window.activeCaseData?.metadata?.medical_field || window.activeCaseData?.folder_name
                     });
+
                     if (reviewPromise && typeof reviewPromise.catch === 'function') {
                         reviewPromise.catch(err => console.warn('[Doctordle] SM-2 Record Warning:', err));
                     }
@@ -411,7 +415,7 @@ finishCurrentPuzzle(won, byReveal = false) {
                 this.nextBtn.innerText = 'Fall abschließen & XP sichern ✓';
             }
         }
-    }
+    } 
 // ====================================================
         // Spaced Repetition Engine SM-2 Hook (Defensiv & Entkoppelt)
         // ====================================================
