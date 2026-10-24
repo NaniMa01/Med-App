@@ -1,10 +1,10 @@
 /**
  * js/gamification.js - Psychologische Motivations- & Belohnungs-Engine für MedCheck V6.0
- * Implementiert:
+ * 
+ * Beinhaltet:
  * 1. Dienst-Streak (Duty Streak) + Dienstfrei-Joker (Shift Swaps) + XP-Multiplikator
- * 2. Wordle-Style Emoji-Share-Generator für Doctordle (Social Proof)
- * 3. Critical-Hit Engine (Gold-Partikel & WebAudio-Harmonie bei Stufe-1-Deduktion)
- * 4. Kognitiver Klinik-Atlas (Topografische Mastery-Visualisierung pro Überordner)
+ * 2. Wordle-Style Emoji-Share-Generator für Doctordle (Social Proof ohne Spoiler)
+ * 3. Critical-Hit Engine (WebAudio-Synthesizer + Gold-Partikel bei Blitz-Deduktion)
  */
 
 const GAMIFICATION_KEY = 'medcheck_gamification_v1';
@@ -21,14 +21,13 @@ class GamificationEngine {
                 current: 0,
                 longest: 0,
                 lastActiveDate: null,
-                jokers: 1 // Startet mit 1 Dienstfrei-Joker (Shift Swap)
+                jokers: 1 // Startet mit 1 Schutz-Joker
             },
             badges: [],
             stats: {
                 criticalHits: 0,
                 casesCompletedTotal: 0,
-                emergencyShiftsCompleted: 0,
-                doctordleFirstTryHits: 0
+                emergencyShiftsCompleted: 0
             }
         };
 
@@ -64,7 +63,6 @@ class GamificationEngine {
         return `${year}-${month}-${day}`;
     }
 
-    // Prüft beim App-Start, ob der Streak aktiv ist oder ein Dienstfrei-Joker einspringen muss
     checkStreakIntegrity() {
         const today = this.getTodayDateStr();
         const last = this.state.streak.lastActiveDate;
@@ -76,10 +74,8 @@ class GamificationEngine {
         const diffDays = Math.round((todayDate - lastDate) / 86400000);
 
         if (diffDays === 1) {
-            // Gestern aktiv gewesen -> Streak bereit für heute
             return;
         } else if (diffDays === 2 && this.state.streak.jokers > 0) {
-            // 1 Tag verpasst -> Dienstfrei-Joker (Shift Swap) rettet automatisch!
             this.state.streak.jokers--;
             const yesterday = new Date(todayDate.getTime() - 86400000);
             const yYear = yesterday.getFullYear();
@@ -92,13 +88,11 @@ class GamificationEngine {
                 this.showFloatingBanner('🛡️ Dienstfrei-Joker eingesetzt! Dein Dienst-Streak wurde gerettet.', 'joker');
             }, 900);
         } else if (diffDays > 1) {
-            // Streak leider gerissen
             this.state.streak.current = 0;
             this.saveState();
         }
     }
 
-    // Wird bei jeder gelösten Challenge / jedem abgeschlossenen Fall getriggert
     recordActivity(activityType = 'general') {
         const today = this.getTodayDateStr();
         let streakIncremented = false;
@@ -112,7 +106,7 @@ class GamificationEngine {
                 this.state.streak.longest = this.state.streak.current;
             }
 
-            // Alle 5 Tage Streak gibt es 1 Dienstfrei-Joker dazu (Maximal 3 auf Lager)
+            // Alle 5 Tage Streak = +1 Dienstfrei-Joker (maximal 3)
             if (this.state.streak.current % 5 === 0 && this.state.streak.jokers < 3) {
                 this.state.streak.jokers++;
                 setTimeout(() => {
@@ -123,7 +117,6 @@ class GamificationEngine {
 
         if (activityType === 'case_completed') {
             this.state.stats.casesCompletedTotal++;
-            // Zusätzlich: Pro 5 gemeisterten Fällen +1 Joker (falls unter 3)
             if (this.state.stats.casesCompletedTotal % 5 === 0 && this.state.streak.jokers < 3) {
                 this.state.streak.jokers++;
                 setTimeout(() => {
@@ -135,11 +128,10 @@ class GamificationEngine {
         this.saveState();
 
         if (streakIncremented) {
-            this.showFloatingBanner(`🔥 Dienst-Streak Tag ${this.state.streak.current}! (${this.getXpMultiplier()}x XP-Boost aktiv)`, 'streak');
+            this.showFloatingBanner(`🔥 Dienst-Streak Tag ${this.state.streak.current}! (${this.getXpMultiplier()}x XP-Boost)`, 'streak');
         }
     }
 
-    // XP-Multiplikator basierend auf dem aktuellen Dienst-Streak
     getXpMultiplier() {
         const s = this.state.streak.current || 0;
         if (s >= 14) return 1.5;
@@ -149,7 +141,7 @@ class GamificationEngine {
     }
 
     // =========================================================================
-    // CRITICAL HIT ENGINE (Für Erstversuch-Deduktionen & fehlerfreie Audits)
+    // CRITICAL HIT ENGINE
     // =========================================================================
     triggerCriticalHit(reasonLabel = 'Blitz-Deduktion Stufe 1') {
         this.state.stats.criticalHits++;
@@ -161,7 +153,7 @@ class GamificationEngine {
 
         this.playCriticalHitSound();
         this.spawnGoldParticles();
-        this.showFloatingBanner(`⚡ CRITICAL HIT: ${reasonLabel}! (Maximale Klinische Präzision)`, 'critical');
+        this.showFloatingBanner(`⚡ CRITICAL HIT: ${reasonLabel}!`, 'critical');
     }
 
     playCriticalHitSound() {
@@ -169,7 +161,7 @@ class GamificationEngine {
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtx) return;
             const ctx = new AudioCtx();
-            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5 - E5 - G5 - C6 Akkord
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C-Dur Akkord
             notes.forEach((freq, idx) => {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
@@ -193,13 +185,13 @@ class GamificationEngine {
         document.body.appendChild(container);
 
         const colors = ['#facc15', '#38bdf8', '#10b981', '#f472b6', '#ffffff'];
-        for (let i = 0; i < 36; i++) {
+        for (let i = 0; i < 32; i++) {
             const p = document.createElement('span');
             p.className = 'crit-particle';
             const angle = Math.random() * Math.PI * 2;
-            const velocity = 90 + Math.random() * 190;
+            const velocity = 80 + Math.random() * 180;
             const tx = Math.cos(angle) * velocity;
-            const ty = Math.sin(angle) * velocity - 60;
+            const ty = Math.sin(angle) * velocity - 50;
             p.style.setProperty('--tx', `${tx}px`);
             p.style.setProperty('--ty', `${ty}px`);
             p.style.background = colors[i % colors.length];
@@ -226,7 +218,7 @@ class GamificationEngine {
     }
 
     // =========================================================================
-    // WORDLE-STYLE EMOJI SHARE GENERATOR FÜR DOCTORDLE (OHNE SPOILER!)
+    // WORDLE-STYLE EMOJI SHARE GENERATOR
     // =========================================================================
     generateDoctordleShareString({ caseId, puzzleIndex, totalPuzzles, attempts, won, byReveal, earnedXP }) {
         let rows = [];
@@ -278,7 +270,7 @@ class GamificationEngine {
         }
         if (btnEl) {
             const old = btnEl.innerHTML;
-            btnEl.innerHTML = ok ? '✓ Emoji-Grid kopiert! (Bereit für WhatsApp)' : '✕ Kopieren fehlgeschlagen';
+            btnEl.innerHTML = ok ? '✓ Emoji-Grid kopiert! (WhatsApp-Bereit)' : '✕ Kopieren fehlgeschlagen';
             btnEl.style.background = ok ? '#10b981' : '#ef4444';
             setTimeout(() => {
                 btnEl.innerHTML = old;
@@ -287,9 +279,6 @@ class GamificationEngine {
         }
     }
 
-    // =========================================================================
-    // TOPBAR & KOGNITIVER ATLAS RENDERING
-    // =========================================================================
     renderStreakUI() {
         const streakEl = document.getElementById('stat-streak');
         if (!streakEl) return;
@@ -300,79 +289,6 @@ class GamificationEngine {
 
         streakEl.innerHTML = `🔥 ${count}d${jokers > 0 ? ` <span class="joker-pill" title="${jokers} Dienstfrei-Joker schützen deinen Streak bei Pause">🛡️${jokers}</span>` : ''}${mult > 1 ? ` <span class="mult-pill">${mult}x</span>` : ''}`;
     }
-
-    // Rendert den visuellen Kognitiven Klinik-Atlas ins Dashboard
-    renderCognitiveAtlas(containerId = 'cognitive-atlas-widget') {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        const allCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
-        const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-        const superOrder = typeof window.getSuperFolderOrder === 'function'
-            ? window.getSuperFolderOrder()
-            : ['Nervensystem und Sinnesorgane', 'Psyche / Ethik / Recht', 'Reproduktion', 'Allgemein'];
-
-        const organMeta = {
-            'Nervensystem und Sinnesorgane': { icon: '🧠', tract: 'Tractus corticospinalis & Cortex', color: '#38bdf8' },
-            'Psyche / Ethik / Recht':        { icon: '⚖️', tract: 'Limbisches System & Präfrontalkortex', color: '#c084fc' },
-            'Reproduktion':                  { icon: '🧬', tract: 'Hypothalamus-Hypophysen-Gonaden-Achse', color: '#f472b6' },
-            'Allgemein':                     { icon: '🫀', tract: 'Kardiopulmonale & Metabolische Achse', color: '#10b981' }
-        };
-
-        const nodesHtml = superOrder.map(superTitle => {
-            const matching = allCases.filter(c => {
-                const sub = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-                const sf = typeof window.getSuperFolderForCategory === 'function' ? window.getSuperFolderForCategory(sub) : 'Allgemein';
-                return sf === superTitle;
-            });
-
-            const total = matching.length;
-            const solved = matching.filter(c => solvedIds.includes(c.case_id)).length;
-            const pct = total > 0 ? Math.round((solved / total) * 100) : 0;
-            const meta = organMeta[superTitle] || { icon: '🩺', tract: 'Klinisches Organsystem', color: '#38bdf8' };
-            const isMastered = total > 0 && pct === 100;
-            const isActive = pct > 0;
-
-            return `
-                <div class="atlas-organ-node ${isActive ? 'is-illuminated' : 'is-dormant'} ${isMastered ? 'is-mastered' : ''}" 
-                     style="--organ-color: ${meta.color};"
-                     onclick="if(typeof window.setLearningMode==='function'){window.setLearningMode('specialty');}"
-                     title="${superTitle}: ${solved}/${total} Krankheitsbilder synaptisch verknüpft">
-                    <div class="atlas-ring-wrap">
-                        <svg class="atlas-progress-ring" width="44" height="44" viewBox="0 0 44 44">
-                            <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3.5"></circle>
-                            <circle cx="22" cy="22" r="18" fill="none" stroke="${meta.color}" stroke-width="3.5"
-                                    stroke-dasharray="113.1" stroke-dashoffset="${113.1 - (113.1 * pct) / 100}"
-                                    stroke-linecap="round"></circle>
-                        </svg>
-                        <span class="atlas-organ-icon">${meta.icon}</span>
-                    </div>
-                    <div class="atlas-organ-info">
-                        <div class="atlas-organ-title">${superTitle}</div>
-                        <div class="atlas-organ-tract">${meta.tract}</div>
-                        <div class="atlas-organ-stats" style="color:${meta.color};">${pct}% synaptisch aktiv (${solved}/${total})</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        container.innerHTML = `
-            <div class="cognitive-atlas-bar">
-                <div class="atlas-header-row">
-                    <div>
-                        <span class="atlas-badge-title">🧬 Kognitiver Klinik-Atlas (Synaptische System-Mastery)</span>
-                        <span class="atlas-badge-sub">Mit jedem gelösten Fall leuchten die zugehörigen Leitungsbahnen & Organsysteme permanent auf.</span>
-                    </div>
-                    <div class="atlas-streak-summary">
-                        <span>⚡ Kritische Treffer: <strong>${this.state.stats.criticalHits}</strong></span>
-                    </div>
-                </div>
-                <div class="atlas-nodes-grid">
-                    ${nodesHtml}
-                </div>
-            </div>
-        `;
-    }
 }
 
 window.Gamification = new GamificationEngine();
@@ -380,6 +296,5 @@ window.Gamification = new GamificationEngine();
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Gamification) {
         window.Gamification.renderStreakUI();
-        window.Gamification.renderCognitiveAtlas();
     }
 });
