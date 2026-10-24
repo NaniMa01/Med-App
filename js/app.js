@@ -10,7 +10,8 @@ const THEME_META_COLORS = {
     midnight: '#060913',
     daylight: '#ffffff',
     scrubs:   '#04110f',
-    neuro:    '#090614'
+    neuro:    '#090614',
+    tropical: '#fff8ed'
 };
 
 function applyAppTheme(themeName) {
