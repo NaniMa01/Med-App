@@ -2905,6 +2905,95 @@ kbd {
 }
 
 /* ==========================================================================
+   THEME: TROPICAL SUNDAY (Warm Sand, Ocean Teal & Sunset Coral)
+   ========================================================================== */
+[data-theme="tropical"] {
+    /* Basis-Hintergründe: Warmer Strandsand & helle Kokos-Karten */
+    --bg-main: #fff8ed;
+    --bg-secondary: #fdf2e2;
+    --bg-elevated: #ffffff;
+    --sidebar-bg: rgba(255, 250, 242, 0.92);
+    --topbar-bg: rgba(255, 248, 237, 0.88);
+
+    /* Karten & Rahmen: Sanfte, sonnige Konturen */
+    --card-bg: rgba(255, 255, 255, 0.88);
+    --card-border: rgba(217, 119, 6, 0.18);
+    --card-hover-border: rgba(13, 148, 136, 0.45);
+    --card-shadow: 0 10px 28px -6px rgba(180, 83, 9, 0.08), 0 4px 12px -2px rgba(13, 148, 136, 0.05);
+
+    /* Typografie: Tiefes Küsten-Schiefergrau für gestochen scharfe Lesbarkeit */
+    --text-main: #132a2e;
+    --text-muted: #4b6a6e;
+    --text-dim: #7c989b;
+
+    /* Akzentfarben: Lagunen-Türkis, Sonnen-Koralle & Mango-Gold */
+    --accent-blue: #0d9488;      /* Lagoon Teal (ersetzt Standard-Blau) */
+    --accent-cyan: #0891b2;      /* Ocean Cyan */
+    --accent-purple: #f97316;    /* Sunset Coral / Orange */
+    --accent-gold: #f59e0b;      /* Sunburst Mango */
+
+    /* Semantische Klinik-Farben: Tropisch frisch, aber klinisch eindeutig */
+    --color-symptom: #059669;    /* Palm Leaf Emerald (Erfolg / Gelöst) */
+    --color-risk: #e11d48;       /* Hibiscus Red (Fehler / Cave) */
+    --color-diag: #0284c7;       /* Sky Lagoon (Diagnostik) */
+    --color-therapy: #d97706;    /* Warm Amber (Therapie) */
+}
+
+/* Sanfter Ferien-Sonnenaufgangs-Verlauf im Hintergrund */
+[data-theme="tropical"] body,
+[data-theme="tropical"] .main-wrapper {
+    background-color: var(--bg-main);
+    background-image: 
+        radial-gradient(circle at 12% 8%, rgba(251, 146, 60, 0.14) 0%, transparent 42%),
+        radial-gradient(circle at 88% 14%, rgba(20, 184, 166, 0.14) 0%, transparent 48%),
+        radial-gradient(circle at 50% 92%, rgba(250, 204, 21, 0.10) 0%, transparent 50%);
+    background-attachment: fixed;
+    color: var(--text-main);
+}
+
+/* Anpassung von hartcodierten dunklen Inline-Styles im Dashboard für Tropical */
+[data-theme="tropical"] .dashboard-folder-toolbar {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(13, 148, 136, 0.25) !important;
+    box-shadow: var(--card-shadow);
+}
+
+[data-theme="tropical"] .super-folder,
+[data-theme="tropical"] .category-folder,
+[data-theme="tropical"] .case-card,
+[data-theme="tropical"] .cornell-wrapper,
+[data-theme="tropical"] .depot-card {
+    background: var(--card-bg);
+    border-color: var(--card-border);
+    box-shadow: var(--card-shadow);
+}
+
+[data-theme="tropical"] .case-card:hover {
+    border-color: var(--accent-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px -8px rgba(13, 148, 136, 0.16);
+}
+
+/* Cornell Notes: Optimale Hervorhebung der <b>-Tags im Tropical-Look */
+[data-theme="tropical"] .cornell-fragment b,
+[data-theme="tropical"] .cornell-fragment strong {
+    color: #0f766e;
+    background: rgba(20, 184, 166, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+[data-theme="tropical"] .cornell-cue-item {
+    background: rgba(254, 243, 199, 0.65);
+    color: #9a3412;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="tropical"] .cornell-cue-item.cue-active-highlight {
+    background: linear-gradient(135deg, #0d9488, #14b8a6);
+    color: #ffffff;
+}
+/* ==========================================================================
    GAMIFICATION V6.0: STREAK, CRITICAL HIT PARTIKEL & KOGNITIVER ATLAS
    ========================================================================== */
 
