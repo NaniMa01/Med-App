@@ -998,7 +998,89 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 };
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
+// ====================================================
+// ZENTRALE FUNKTION ZUM VERSCHIEBEN VON FÄLLEN IN ORDNER
+// ====================================================
+window.moveCaseToFolder = async function(caseId, targetFolder) {
+    if (!caseId || !targetFolder) return;
+    const cleanFolder = targetFolder.trim();
 
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let targetCase = customCases.find(c => c.case_id === caseId);
+
+    // Falls es sich um den Built-in Demo-Fall handelt, kopieren wir ihn als Custom-Fall heraus,
+    // damit der Ordner überschrieben werden kann.
+    if (!targetCase && caseId === BUILTIN_DEMO_CASE.case_id) {
+        targetCase = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE));
+    }
+
+    if (!targetCase) {
+        const allRegistered = window.getRegisteredCases ? window.getRegisteredCases() : [];
+        const found = allRegistered.find(c => c.case_id === caseId);
+        if (found) {
+            targetCase = JSON.parse(JSON.stringify(found));
+        }
+    }
+
+    if (!targetCase) {
+        console.warn("Fall nicht gefunden zum Verschieben:", caseId);
+        return;
+    }
+
+    // Ordner-Eigenschaft aktualisieren
+    targetCase.folder_name = cleanFolder;
+    if (targetCase.metadata) {
+        targetCase.metadata.medical_field = cleanFolder;
+    }
+
+    // Im lokalen Array aktualisieren / einfügen
+    customCases = customCases.filter(c => c.case_id !== caseId);
+    customCases.push(targetCase);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+    // Sicherstellen, dass der Ordner in der Ordnerstruktur registriert ist
+    if (typeof registerDynamicFolder === 'function') {
+        registerDynamicFolder(cleanFolder);
+    }
+
+    // Ordner im UI aufklappen
+    openFolders[cleanFolder] = true;
+
+    // Cloud-Sync (falls der User eingeloggt ist)
+    const sb = getActiveSupabaseClient();
+    if (sb && sb.auth) {
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            const currentUser = session?.user;
+            if (currentUser) {
+                await sb.from('cases').upsert({
+                    case_id: targetCase.case_id,
+                    title: targetCase.metadata?.title || targetCase.case_id,
+                    medical_field: cleanFolder,
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: targetCase
+                }, { onConflict: 'case_id' });
+            }
+        } catch (cloudErr) {
+            console.warn("Cloud-Sync nach Ordnerwechsel im Hintergrund fehlgeschlagen:", cloudErr);
+        }
+    }
+
+    // Dashboard und Bücherregal neu rendern
+    if (typeof renderDashboardCases === 'function') {
+        renderDashboardCases();
+    }
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+
+    // Haptisches Feedback beim erfolgreichen Verschieben
+    if (typeof window.triggerHaptic === 'function') {
+        window.triggerHaptic(14);
+    }
+};
 // Fall direkt auf einen Überordner ziehen
 async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
     if (!caseId || !targetSuperTitle) return;
