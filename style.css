@@ -2598,44 +2598,161 @@ kbd {
 .theme-name { font-size: 0.88rem; font-weight: 800; color: var(--text-main); margin-bottom: 2px; }
 .theme-desc { font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
 
-/* =================================================================fl
-   SPACED REPETITION MODAL - SCROLLBAR & FLEX FIX
-   ================================================================= */
-.sr-modal-card {
-    display: flex;
-    flex-direction: column;
-    max-height: 85vh; /* Begrenzt die maximale Höhe auf 85% des Bildschirms */
-    overflow: hidden; /* Verhindert, dass der Inhalt aus der Karte bricht */
+/* ==========================================================================
+   SPACED REPETITION MODAL - STABILER SCROLL- & LAYOUT-FIX
+   ========================================================================== */
+.sr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 7, 17, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
 }
 
+.sr-modal-overlay.active {
+    display: flex !important;
+}
+
+.sr-modal-card {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    max-width: 720px;
+    height: auto;
+    max-height: 88vh !important; /* Begrenzt die Höhe zuverlässig */
+    border-radius: 16px;
+    background: var(--bg-surface, #0f172a);
+    border: 1px solid var(--card-border, rgba(148, 163, 184, 0.22));
+    box-shadow: 0 24px 55px rgba(0, 0, 0, 0.6);
+    overflow: hidden !important;
+    animation: srModalPop 0.18s ease-out;
+}
+
+/* Header & Toolbar bleiben starr oben */
 .sr-modal-header {
-    flex-shrink: 0; /* Bleibt immer in voller Größe oben fixiert */
+    flex-shrink: 0 !important;
+    padding: 18px 22px 14px 22px;
+    border-bottom: 1px solid var(--card-border, rgba(148, 163, 184, 0.15));
 }
 
 .sr-modal-toolbar {
-    flex-shrink: 0; /* Toolbar (Filter & Button) scrollt ebenfalls nicht weg */
+    flex-shrink: 0 !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 22px;
+    background: var(--surface-secondary, rgba(6, 9, 19, 0.45));
+    border-bottom: 1px solid var(--card-border, rgba(148, 163, 184, 0.12));
 }
 
+/* DER ENTSCHEIDENDE SCROLL-BODY */
 .sr-modal-body {
-    overflow-y: auto;  /* Aktiviert das vertikale Scrollen, sobald die Liste zu lang wird */
-    flex: 1;           /* Nimmt den restlichen flexiblen Platz ein */
-    padding-right: 6px; /* Etwas Abstand zur Scrollbar */
+    flex: 1 1 auto !important;
+    min-height: 0 !important;      /* ERZWINGT, dass der Container innerhalb von Flexbox scrollen darf! */
+    max-height: 100% !important;
+    overflow-y: auto !important;   /* Aktiviert die vertikale Scrollbar */
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 18px 22px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
-/* Optionale UI-Idee: Eine moderne, dezente Scrollbar für das Modal */
+/* Scrollbar-Design für den Visiten-Body */
 .sr-modal-body::-webkit-scrollbar {
-    width: 6px;
+    width: 7px;
 }
 .sr-modal-body::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.4);
+    background: var(--surface-secondary, rgba(15, 23, 42, 0.4));
     border-radius: 4px;
 }
 .sr-modal-body::-webkit-scrollbar-thumb {
-    background: rgba(56, 189, 248, 0.3);
+    background: var(--card-border, rgba(56, 189, 248, 0.3));
     border-radius: 4px;
 }
 .sr-modal-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(56, 189, 248, 0.6);
+    background: var(--accent-blue, #38bdf8);
+}
+
+/* Stationen & Ausklapp-Zeilen */
+.sr-topic-group {
+    background: var(--surface-secondary, rgba(15, 23, 42, 0.55));
+    border: 1px solid var(--card-border, rgba(148, 163, 184, 0.16));
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.sr-topic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 16px;
+    background: var(--surface-elevated, rgba(30, 41, 59, 0.65));
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-main, #0f172a) !important;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sr-topic-count {
+    font-size: 0.74rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.sr-case-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--divider-color, rgba(148, 163, 184, 0.12));
+    background: var(--bg-surface, #ffffff);
+}
+
+.sr-case-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-main, #0f172a) !important;
+    line-height: 1.4;
+}
+
+/* Spezifischer Kontrast-Fix für Clinical Daylight & Tropical Sunday */
+[data-theme="daylight"] .sr-topic-header,
+[data-theme="tropical"] .sr-topic-header {
+    background: var(--surface-elevated, #ffedd5) !important;
+    color: var(--text-main, #132a2e) !important;
+}
+
+[data-theme="daylight"] .sr-topic-count,
+[data-theme="tropical"] .sr-topic-count {
+    color: var(--warning, #d97706) !important;
+}
+
+[data-theme="daylight"] .sr-modal-card,
+[data-theme="tropical"] .sr-modal-card {
+    background: var(--bg-surface, #ffffff) !important;
+    border-color: var(--card-border) !important;
+}
+
+[data-theme="daylight"] .sr-modal-toolbar,
+[data-theme="tropical"] .sr-modal-toolbar {
+    background: var(--surface-secondary, #fffaf2) !important;
+}
+
+[data-theme="daylight"] .sr-case-row,
+[data-theme="tropical"] .sr-case-row {
+    background: var(--bg-surface, #ffffff) !important;
 }
 
 /* ==========================================================================
