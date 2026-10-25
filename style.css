@@ -3567,6 +3567,114 @@ kbd {
     color: var(--text-main) !important;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
+
+/* ==========================================================================
+   DOCTORDLE THEME-FIX (Clinical Daylight & Tropical Sunday)
+   Behebt die weiße Schrift auf hellem Grund bei aufgedeckten & gesperrten Hints
+   ========================================================================== */
+
+/* 1. Aufgedeckte / Aktive Hinweise (Heller Hintergrund mit dunkler, scharfer Schrift) */
+[data-theme="daylight"] #doctordle-hints-container > div,
+[data-theme="tropical"] #doctordle-hints-container > div,
+[data-theme="daylight"] .doctordle-hint,
+[data-theme="tropical"] .doctordle-hint,
+[data-theme="daylight"] .doctordle-hint-card,
+[data-theme="tropical"] .doctordle-hint-card,
+[data-theme="daylight"] .doctordle-hint-revealed,
+[data-theme="tropical"] .doctordle-hint-revealed {
+    background: var(--surface-secondary) !important;
+    border: 1px solid var(--card-border) !important;
+    border-left: 4px solid var(--accent-blue) !important;
+    color: var(--text-main) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+/* Erzwingt, dass ALLE inneren Textknoten, Spans und Absätze die dunkle Hauptschrift nutzen */
+[data-theme="daylight"] #doctordle-hints-container > div *,
+[data-theme="tropical"] #doctordle-hints-container > div *,
+[data-theme="daylight"] .doctordle-hint *,
+[data-theme="tropical"] .doctordle-hint *,
+[data-theme="daylight"] .doctordle-hint-card *,
+[data-theme="tropical"] .doctordle-hint-card * {
+    color: var(--text-main) !important;
+}
+
+/* 2. Gesperrte Hinweise (Locked / Disabled) */
+[data-theme="daylight"] #doctordle-hints-container > div.locked,
+[data-theme="tropical"] #doctordle-hints-container > div.locked,
+[data-theme="daylight"] #doctordle-hints-container > div[style*="opacity"],
+[data-theme="tropical"] #doctordle-hints-container > div[style*="opacity"],
+[data-theme="daylight"] .doctordle-hint-locked,
+[data-theme="tropical"] .doctordle-hint-locked {
+    background: rgba(148, 163, 184, 0.12) !important;
+    border-color: var(--card-border) !important;
+    border-left-color: rgba(148, 163, 184, 0.4) !important;
+    color: var(--text-muted) !important;
+}
+
+[data-theme="daylight"] #doctordle-hints-container > div.locked *,
+[data-theme="tropical"] #doctordle-hints-container > div.locked *,
+[data-theme="daylight"] .doctordle-hint-locked * {
+    color: var(--text-muted) !important;
+}
+
+/* 3. Eingabefeld, Autocomplete & Buttons in Doctordle */
+[data-theme="daylight"] #doctordle-input,
+[data-theme="tropical"] #doctordle-input {
+    background: #ffffff !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-main) !important;
+    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="daylight"] #doctordle-input::placeholder,
+[data-theme="tropical"] #doctordle-input::placeholder {
+    color: var(--text-dim) !important;
+}
+
+[data-theme="daylight"] #doctordle-autocomplete-list,
+[data-theme="tropical"] #doctordle-autocomplete-list {
+    background: #ffffff !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list li,
+[data-theme="tropical"] #doctordle-autocomplete-list li {
+    color: var(--text-main) !important;
+    border-bottom: 1px solid var(--divider-color) !important;
+}
+[data-theme="daylight"] #doctordle-autocomplete-list li:hover,
+[data-theme="tropical"] #doctordle-autocomplete-list li:hover {
+    background: var(--surface-elevated) !important;
+    color: var(--accent-blue) !important;
+}
+
+/* 4. Ergebnis- und Feedback-Boxen (Success, Mistake, Reveal) */
+[data-theme="daylight"] #doctordle-result-box,
+[data-theme="tropical"] #doctordle-result-box,
+[data-theme="daylight"] .doctordle-result,
+[data-theme="tropical"] .doctordle-result {
+    background: var(--surface-secondary) !important;
+    border: 1px solid var(--accent-blue) !important;
+    color: var(--text-main) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] #doctordle-result-box *,
+[data-theme="tropical"] #doctordle-result-box * {
+    color: var(--text-main) !important;
+}
+
+/* Aufdecken-Button sauber kontrastieren */
+[data-theme="daylight"] #doctordle-reveal-btn,
+[data-theme="tropical"] #doctordle-reveal-btn {
+    background: rgba(225, 29, 72, 0.12) !important;
+    color: var(--color-risk) !important;
+    border: 1px solid rgba(225, 29, 72, 0.35) !important;
+}
+[data-theme="daylight"] #doctordle-reveal-btn:hover,
+[data-theme="tropical"] #doctordle-reveal-btn:hover {
+    background: var(--color-risk) !important;
+    color: #ffffff !important;
+}
 /* ==========================================================================
    GAMIFICATION V6.0: STREAK, CRITICAL HIT PARTIKEL & KOGNITIVER ATLAS
    ========================================================================== */
