@@ -3993,42 +3993,7 @@ kbd {
     background: var(--color-risk) !important;
     color: #ffffff !important;
 }
-/* ==========================================================================
-   MINDMAP MODULE - LIGHT THEME CONTRAST ENHANCEMENTS (Daylight & Tropical)
-   ========================================================================== */
 
-html[data-theme="daylight"] .mm-box-header,
-html[data-theme="tropical"] .mm-box-header,
-html[data-theme="daylight"] .mm-box-header span,
-html[data-theme="tropical"] .mm-box-header span,
-html[data-theme="daylight"] .mm-box-header small,
-html[data-theme="tropical"] .mm-box-header small {
-    color: #1e293b !important; /* Satte, kontraststarke Überschriften */
-    font-weight: 700;
-}
-
-html[data-theme="daylight"] .mm-tutor-content,
-html[data-theme="tropical"] .mm-tutor-content,
-html[data-theme="daylight"] .mm-tutor-box span,
-html[data-theme="tropical"] .mm-tutor-box span {
-    color: #334155 !important; /* Deutlich dunklerer Text für den Sokratischen Tutor */
-}
-
-html[data-theme="daylight"] .mm-title-group p,
-html[data-theme="tropical"] .mm-title-group p,
-html[data-theme="daylight"] .mm-slot-hint,
-html[data-theme="tropical"] .mm-slot-hint {
-    color: #475569 !important; /* Höherer Kontrast für Untertitel und Slot-Hinweise */
-    font-weight: 600;
-}
-
-/* Auch das kleine "Ziehen oder Klicken" Label kontraststärker machen */
-html[data-theme="daylight"] .mm-pool-box small,
-html[data-theme="tropical"] .mm-pool-box small,
-html[data-theme="daylight"] .mm-pool-box span[style*="color"],
-html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
-    color: #475569 !important;
-}
 /* ==========================================================================
    GAMIFICATION V6.0: STREAK, CRITICAL HIT PARTIKEL & KOGNITIVER ATLAS
    ========================================================================== */
@@ -4636,7 +4601,7 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 }
 
 /* ==========================================================================
-   MINDMAP MODULE & KLINISCHE FARBKODIERUNG
+   MINDMAP MODULE V2.0 (HIGH-CONTRAST, BOX-CLIPPED EDGES & PAN/ZOOM STAGE)
    ========================================================================== */
 
 :root {
@@ -4645,17 +4610,15 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
     --mm-clinical: #f59e0b;        /* Gelb/Amber: Klinik & Symptome */
     --mm-diagnostics: #8b5cf6;     /* Violett: Diagnostik */
     --mm-therapy: #10b981;         /* Grün: Therapie & Management */
-    --mm-neutral: #64748b;         /* Grau: Blind-Modus (Prüfungsmodus) */
-    --mm-bg-surface: rgba(15, 23, 42, 0.85);
-    --mm-border: rgba(148, 163, 184, 0.2);
+    --mm-neutral: #64748b;         /* Grau: Blind-Modus */
 }
 
 .mindmap-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    padding: 1.25rem;
-    min-height: calc(100vh - 4rem);
+    gap: 1rem;
+    padding: 0.75rem;
+    min-height: calc(100vh - 5rem);
     color: #f8fafc;
 }
 
@@ -4666,16 +4629,16 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    background: var(--mm-bg-surface);
-    border: 1px solid var(--mm-border);
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 14px;
     padding: 1rem 1.25rem;
-    backdrop-filter: blur(12px);
 }
 
 .mm-title-group h2 {
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 1.3rem;
+    color: #f8fafc !important;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -4683,26 +4646,27 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 
 .mm-title-group p {
     margin: 0.25rem 0 0 0;
-    font-size: 0.85rem;
-    color: #94a3b8;
+    font-size: 0.84rem;
+    color: #cbd5e1 !important;
 }
 
 .mm-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.55rem;
 }
 
 .mm-select, .mm-btn {
-    background: rgba(30, 41, 59, 0.9);
-    color: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    padding: 0.5rem 0.85rem;
+    background: #1e293b;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.48rem 0.82rem;
     border-radius: 8px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.18s ease;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -4710,42 +4674,38 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 
 .mm-btn:hover, .mm-select:hover {
     border-color: #38bdf8;
-    background: rgba(51, 65, 85, 0.95);
+    background: #334155;
+}
+
+.mm-btn.active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: #38bdf8;
+    color: #38bdf8 !important;
 }
 
 .mm-btn-primary {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    border-color: #3b82f6;
-    font-weight: 600;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
 }
 
-.mm-btn-primary:hover {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-}
-
-.mm-btn-blind.active {
-    background: rgba(245, 158, 11, 0.2);
-    border-color: #f59e0b;
-    color: #fcd34d;
-}
-
-/* Klinische Legende & Status-Bar */
+/* Statusbar & Legende */
 .mm-statusbar {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid var(--mm-border);
+    gap: 0.8rem;
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 12px;
-    padding: 0.75rem 1.15rem;
+    padding: 0.65rem 1.1rem;
 }
 
 .mm-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.85rem;
+    gap: 0.65rem;
     align-items: center;
 }
 
@@ -4753,12 +4713,13 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.8rem;
-    color: #cbd5e1;
-    padding: 0.2rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #f1f5f9 !important;
+    padding: 0.25rem 0.65rem;
     border-radius: 999px;
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .mm-dot {
@@ -4770,26 +4731,74 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 
 .mm-stats {
     display: flex;
-    gap: 1rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #e2e8f0;
+    gap: 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 700;
 }
 
 .mm-stat-badge {
-    background: rgba(30, 41, 59, 0.9);
+    background: #1e293b;
+    color: #f8fafc !important;
     padding: 0.3rem 0.7rem;
     border-radius: 6px;
-    border: 1px solid var(--mm-border);
+    border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
-/* Workspace: Links Pool + Sokratischer Tutor, Rechts Mindmap-Canvas */
+/* Verbindungs-Inspektor (Baum-Übersicht) */
+.mm-inspector-panel {
+    background: #0f172a;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 12px;
+    padding: 0.9rem 1.15rem;
+}
+
+.mm-inspector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.84rem;
+    color: #38bdf8;
+    margin-bottom: 0.65rem;
+}
+
+.mm-inspector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 0.65rem;
+}
+
+.mm-inspector-branch {
+    background: #1e293b;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+}
+
+.mm-inspector-step, .mm-inspector-substep {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: #cbd5e1;
+}
+
+.mm-inspector-substep {
+    margin-top: 0.45rem;
+    padding-left: 0.65rem;
+    border-left: 2px solid #38bdf8;
+}
+
+.mm-ins-target {
+    color: #f8fafc;
+}
+
+/* Workspace Layout */
 .mm-workspace {
     display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 1.25rem;
+    grid-template-columns: 310px 1fr;
+    gap: 1rem;
     flex: 1;
-    min-height: 680px;
+    min-height: 700px;
 }
 
 @media (max-width: 1100px) {
@@ -4801,84 +4810,110 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 .mm-sidebar-panel {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.9rem;
 }
 
 .mm-pool-box, .mm-tutor-box {
-    background: var(--mm-bg-surface);
-    border: 1px solid var(--mm-border);
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 14px;
-    padding: 1rem;
+    padding: 0.95rem;
     display: flex;
     flex-direction: column;
 }
 
 .mm-pool-box {
     flex: 1;
-    max-height: 440px;
+    max-height: 470px;
     overflow-y: auto;
 }
 
 .mm-box-header {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #e2e8f0;
-    margin-bottom: 0.75rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.mm-box-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #ffffff !important;
+}
+
+.mm-box-sub, .mm-tutor-bloom {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #38bdf8 !important;
 }
 
 .mm-chip-list {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-/* Draggable Begriffs-Chips */
+/* Draggable Chips */
 .mm-chip {
-    padding: 0.5rem 0.75rem;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    background: rgba(30, 41, 59, 0.95);
-    border-left: 4px solid var(--mm-neutral);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    color: #f8fafc;
+    padding: 0.55rem 0.75rem;
+    border-radius: 9px;
+    background: #1e293b;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-left: 5px solid var(--mm-neutral);
+    color: #ffffff !important;
     cursor: grab;
     user-select: none;
     touch-action: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.2s;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .mm-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: translateX(3px);
+    border-color: #38bdf8;
+    background: #26354d;
+}
+
+.mm-chip-cat-tag {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 800;
+    color: var(--cat-color, #94a3b8);
+}
+
+.mm-chip-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff !important;
+    line-height: 1.3;
 }
 
 .mm-chip.selected-chip {
     outline: 2px solid #38bdf8;
-    background: rgba(14, 116, 144, 0.4);
+    background: rgba(14, 116, 144, 0.45) !important;
 }
 
 .mm-chip.dragging {
-    opacity: 0.4;
+    opacity: 0.35;
 }
 
-/* Ghost-Element beim Pointer-Drag */
 .mm-drag-ghost {
     position: fixed;
     pointer-events: none;
     z-index: 9999;
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
-    opacity: 0.95;
+    width: 240px;
+    transform: translate(-50%, -50%) scale(1.04);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55);
+    opacity: 0.96;
 }
 
-/* Kategoriefarben für Chips & Knoten */
+/* Kategoriefarben */
 .cat-etiology { --cat-color: var(--mm-etiology); border-left-color: var(--mm-etiology) !important; }
 .cat-pathophysiology { --cat-color: var(--mm-pathophys); border-left-color: var(--mm-pathophys) !important; }
 .cat-clinical { --cat-color: var(--mm-clinical); border-left-color: var(--mm-clinical) !important; }
@@ -4886,47 +4921,108 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 .cat-therapy { --cat-color: var(--mm-therapy); border-left-color: var(--mm-therapy) !important; }
 .cat-blind { --cat-color: var(--mm-neutral); border-left-color: var(--mm-neutral) !important; }
 
-/* Sokratischer KI-Tutor */
+/* Sokratischer Tutor Box */
 .mm-tutor-box {
     border-left: 4px solid #38bdf8;
-    background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(12, 74, 110, 0.25));
-    min-height: 190px;
+    background: #0f172a;
+    min-height: 185px;
 }
 
 .mm-tutor-content {
-    font-size: 0.85rem;
-    line-height: 1.5;
-    color: #e2e8f0;
-    flex: 1;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: #f1f5f9 !important;
 }
 
-.mm-tutor-thinking {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #38bdf8;
-    font-style: italic;
-}
-
-/* Mindmap Canvas & SVG-Layer */
+/* Pan & Zoom Canvas Viewport */
 .mm-canvas-container {
     position: relative;
-    background: radial-gradient(circle at center, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
-    border: 1px solid var(--mm-border);
+    background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
+    border: 1px solid rgba(148, 163, 184, 0.3);
     border-radius: 16px;
     overflow: hidden;
-    min-height: 680px;
-    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
+    min-height: 700px;
+    cursor: grab;
+    user-select: none;
 }
 
-/* Dezentes Punkt-Raster im Hintergrund */
+.mm-canvas-container.is-panning {
+    cursor: grabbing;
+}
+
 .mm-canvas-container::before {
     content: "";
     position: absolute;
     inset: 0;
-    background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px);
     background-size: 24px 24px;
     pointer-events: none;
+}
+
+/* Zoom HUD & Hilfe-Leiste */
+.mm-canvas-HUD {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 5px 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
+}
+
+.mm-hud-btn {
+    background: #1e293b;
+    color: #f8fafc !important;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mm-hud-btn:hover {
+    border-color: #38bdf8;
+    background: #334155;
+}
+
+.mm-hud-zoom-text {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #38bdf8 !important;
+    min-width: 40px;
+    text-align: center;
+}
+
+.mm-canvas-help-pill {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    color: #cbd5e1 !important;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 999px;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* Transformable Stage */
+.mm-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    will-change: transform;
 }
 
 .mm-svg-layer {
@@ -4935,140 +5031,200 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 1;
+    z-index: 2;
 }
 
 .mm-edge-path {
     fill: none;
-    stroke: rgba(148, 163, 184, 0.35);
-    stroke-width: 2.2px;
-    stroke-dasharray: 6 4;
-    transition: stroke 0.35s ease, stroke-width 0.35s ease, stroke-dasharray 0.35s ease;
+    stroke-width: 2.5px;
+    stroke-dasharray: 7 5;
+    transition: stroke-width 0.2s ease, opacity 0.2s ease;
+    opacity: 0.85;
 }
 
 .mm-edge-path.solved-edge {
     stroke-dasharray: none;
-    stroke-width: 3px;
+    stroke-width: 3.4px;
+    opacity: 1;
+}
+
+.mm-edge-path.hovered-edge {
+    stroke-width: 4.2px;
+    opacity: 1;
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.6));
 }
 
 .mm-edge-label-bg {
-    fill: rgba(15, 23, 42, 0.88);
-    rx: 5px;
-    ry: 5px;
-    stroke: rgba(148, 163, 184, 0.25);
-    stroke-width: 1px;
+    fill: #0f172a;
+    rx: 6px;
+    ry: 6px;
+    stroke-width: 1.4px;
 }
 
 .mm-edge-label-text {
-    fill: #94a3b8;
-    font-size: 10.5px;
-    font-weight: 500;
+    fill: #f8fafc;
+    font-size: 11px;
+    font-weight: 700;
     text-anchor: middle;
     dominant-baseline: central;
 }
 
-/* Knoten auf dem Canvas */
+/* Knoten auf der Stage */
 .mm-nodes-layer {
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 3;
 }
 
 .mm-node {
     position: absolute;
     transform: translate(-50%, -50%);
-    width: 168px;
-    min-height: 54px;
-    padding: 0.55rem 0.7rem;
+    width: 204px;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.2s ease;
 }
 
 /* Zentraler Wurzel-Knoten */
 .mm-node-root {
-    width: 200px;
-    min-height: 72px;
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    border: 2px solid #38bdf8;
-    box-shadow: 0 0 25px rgba(56, 189, 248, 0.25);
-    font-weight: 800;
-    font-size: 0.95rem;
-    color: #f8fafc;
-    z-index: 3;
+    width: 236px;
+    padding: 0.75rem 0.9rem;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border: 2.5px solid #38bdf8;
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.35);
+    text-align: center;
+    z-index: 5;
 }
 
-.mm-node-root .mm-root-badge {
-    font-size: 0.68rem;
+.mm-root-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #38bdf8;
-    margin-bottom: 0.2rem;
+    color: #38bdf8 !important;
+    margin-bottom: 4px;
 }
 
-/* Leere Dropzone */
+.mm-root-title {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: #ffffff !important;
+    line-height: 1.25;
+}
+
+/* NEU: Hochlesbares Beziehungs-Banner oben in jedem Knoten */
+.mm-node-rel-banner {
+    background: rgba(2, 6, 23, 0.85);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    line-height: 1.25;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.mm-rel-origin {
+    color: #94a3b8 !important;
+    font-size: 0.62rem;
+    font-weight: 600;
+}
+
+.mm-rel-verb {
+    color: #38bdf8 !important;
+    font-weight: 800;
+    font-size: 0.72rem;
+}
+
+/* Leere Ziel-Slots */
 .mm-node-slot {
-    background: rgba(15, 23, 42, 0.75);
+    background: rgba(15, 23, 42, 0.92);
     border: 2px dashed var(--cat-color, var(--mm-neutral));
-    color: #94a3b8;
-    font-size: 0.78rem;
     cursor: pointer;
-    backdrop-filter: blur(6px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.mm-slot-inner {
+    padding: 0.55rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 3px;
+}
+
+.mm-slot-hint {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--cat-color, #cbd5e1) !important;
+}
+
+.mm-slot-cta {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #cbd5e1 !important;
 }
 
 .mm-node-slot:hover, .mm-node-slot.drag-over {
     transform: translate(-50%, -50%) scale(1.06);
-    background: rgba(30, 41, 59, 0.92);
-    box-shadow: 0 0 18px var(--cat-color, rgba(56, 189, 248, 0.35));
+    background: #1e293b;
+    border-style: solid;
+    box-shadow: 0 0 22px var(--cat-color, rgba(56, 189, 248, 0.45));
+    z-index: 10;
 }
 
-.mm-slot-hint {
-    font-size: 0.68rem;
-    opacity: 0.75;
-    margin-bottom: 0.15rem;
-    font-weight: 600;
-    color: var(--cat-color, #94a3b8);
-}
-
-/* Gelöster Knoten */
+/* Gelöste Knoten */
 .mm-node-solved {
-    background: rgba(30, 41, 59, 0.95);
-    border: 2px solid var(--cat-color, #10b981);
-    color: #f8fafc;
-    font-weight: 600;
+    background: #1e293b;
+    border: 2.5px solid var(--cat-color, #10b981);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    z-index: 4;
+}
+
+.mm-node-body-solved {
+    padding: 0.55rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 3px;
+}
+
+.mm-solved-cat-pill {
+    font-size: 0.64rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--cat-color, #10b981) !important;
+}
+
+.mm-solved-title {
     font-size: 0.82rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35), 0 0 12px color-mix(in srgb, var(--cat-color) 30%, transparent);
-    animation: mmPopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-weight: 800;
+    color: #ffffff !important;
+    line-height: 1.28;
 }
 
-@keyframes mmPopIn {
-    0% { transform: translate(-50%, -50%) scale(0.8); }
-    100% { transform: translate(-50%, -50%) scale(1); }
-}
-
-/* Fehler-Shake bei falscher Zuordnung */
+/* Fehler-Shake */
 .mm-node-error {
     animation: mmShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
     border-color: #ef4444 !important;
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6) !important;
 }
 
 @keyframes mmShake {
-    10%, 90% { transform: translate(calc(-50% - 3px), -50%); }
-    20%, 80% { transform: translate(calc(-50% + 5px), -50%); }
-    30%, 50%, 70% { transform: translate(calc(-50% - 7px), -50%); }
-    40%, 60% { transform: translate(calc(-50% + 7px), -50%); }
+    10%, 90% { transform: translate(calc(-50% - 4px), -50%); }
+    20%, 80% { transform: translate(calc(-50% + 6px), -50%); }
+    30%, 50%, 70% { transform: translate(calc(-50% - 8px), -50%); }
+    40%, 60% { transform: translate(calc(-50% + 8px), -50%); }
 }
 
-/* Modal für JSON-Import & Prompt-Kopierer */
+/* Modal */
 .mm-modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(2, 6, 23, 0.8);
+    background: rgba(2, 6, 23, 0.82);
     backdrop-filter: blur(6px);
     display: flex;
     justify-content: center;
@@ -5079,13 +5235,12 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
 
 .mm-modal {
     background: #0f172a;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+    border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 16px;
     max-width: 680px;
     width: 100%;
     padding: 1.5rem;
     color: #f8fafc;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
 
 .mm-textarea {
@@ -5093,11 +5248,127 @@ html[data-theme="tropical"] .mm-pool-box span[style*="color"] {
     min-height: 220px;
     background: #020617;
     color: #38bdf8;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+    border: 1px solid rgba(148, 163, 184, 0.35);
     border-radius: 10px;
     padding: 0.85rem;
     font-family: monospace;
     font-size: 0.82rem;
     margin: 0.75rem 0 1rem 0;
-    resize: vertical;
+}
+
+/* ==========================================================================
+   LIGHT THEME OVERRIDES (CLINICAL DAYLIGHT & TROPICAL SUNDAY)
+   ========================================================================== */
+
+html[data-theme="daylight"] .mm-header,
+html[data-theme="daylight"] .mm-statusbar,
+html[data-theme="daylight"] .mm-pool-box,
+html[data-theme="daylight"] .mm-tutor-box,
+html[data-theme="daylight"] .mm-inspector-panel,
+html[data-theme="tropical"] .mm-header,
+html[data-theme="tropical"] .mm-statusbar,
+html[data-theme="tropical"] .mm-pool-box,
+html[data-theme="tropical"] .mm-tutor-box,
+html[data-theme="tropical"] .mm-inspector-panel {
+    background: #ffffff !important;
+    border-color: rgba(100, 116, 139, 0.3) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="daylight"] .mm-title-group h2,
+html[data-theme="daylight"] .mm-box-title,
+html[data-theme="daylight"] .mm-chip-label,
+html[data-theme="daylight"] .mm-root-title,
+html[data-theme="daylight"] .mm-solved-title,
+html[data-theme="daylight"] .mm-ins-target,
+html[data-theme="tropical"] .mm-title-group h2,
+html[data-theme="tropical"] .mm-box-title,
+html[data-theme="tropical"] .mm-chip-label,
+html[data-theme="tropical"] .mm-root-title,
+html[data-theme="tropical"] .mm-solved-title,
+html[data-theme="tropical"] .mm-ins-target {
+    color: #0f172a !important;
+}
+
+html[data-theme="daylight"] .mm-title-group p,
+html[data-theme="daylight"] .mm-tutor-content,
+html[data-theme="daylight"] .mm-slot-cta,
+html[data-theme="tropical"] .mm-title-group p,
+html[data-theme="tropical"] .mm-tutor-content,
+html[data-theme="tropical"] .mm-slot-cta {
+    color: #334155 !important;
+}
+
+html[data-theme="daylight"] .mm-select,
+html[data-theme="daylight"] .mm-btn,
+html[data-theme="daylight"] .mm-legend-item,
+html[data-theme="daylight"] .mm-stat-badge,
+html[data-theme="daylight"] .mm-inspector-branch,
+html[data-theme="tropical"] .mm-select,
+html[data-theme="tropical"] .mm-btn,
+html[data-theme="tropical"] .mm-legend-item,
+html[data-theme="tropical"] .mm-stat-badge,
+html[data-theme="tropical"] .mm-inspector-branch {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border-color: rgba(100, 116, 139, 0.35) !important;
+}
+
+html[data-theme="daylight"] .mm-chip,
+html[data-theme="tropical"] .mm-chip {
+    background: #f8fafc !important;
+    border-color: rgba(100, 116, 139, 0.35) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+html[data-theme="daylight"] .mm-canvas-container,
+html[data-theme="tropical"] .mm-canvas-container {
+    background: radial-gradient(circle at center, #f8fafc 0%, #e2e8f0 100%) !important;
+}
+
+html[data-theme="daylight"] .mm-node-root,
+html[data-theme="tropical"] .mm-node-root {
+    background: #ffffff !important;
+    border-color: #0284c7 !important;
+    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.18);
+}
+
+html[data-theme="daylight"] .mm-node-slot,
+html[data-theme="daylight"] .mm-node-solved,
+html[data-theme="tropical"] .mm-node-slot,
+html[data-theme="tropical"] .mm-node-solved {
+    background: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="daylight"] .mm-node-rel-banner,
+html[data-theme="tropical"] .mm-node-rel-banner {
+    background: #f1f5f9 !important;
+    border-bottom-color: rgba(100, 116, 139, 0.25) !important;
+}
+
+html[data-theme="daylight"] .mm-rel-origin,
+html[data-theme="tropical"] .mm-rel-origin {
+    color: #475569 !important;
+}
+
+html[data-theme="daylight"] .mm-rel-verb,
+html[data-theme="daylight"] .mm-root-badge,
+html[data-theme="daylight"] .mm-box-sub,
+html[data-theme="daylight"] .mm-tutor-bloom,
+html[data-theme="tropical"] .mm-rel-verb,
+html[data-theme="tropical"] .mm-root-badge,
+html[data-theme="tropical"] .mm-box-sub,
+html[data-theme="tropical"] .mm-tutor-bloom {
+    color: #0369a1 !important;
+}
+
+html[data-theme="daylight"] .mm-edge-label-bg,
+html[data-theme="tropical"] .mm-edge-label-bg {
+    fill: #ffffff !important;
+}
+
+html[data-theme="daylight"] .mm-edge-label-text,
+html[data-theme="tropical"] .mm-edge-label-text {
+    fill: #0f172a !important;
 }
