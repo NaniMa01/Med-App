@@ -21,7 +21,7 @@ function sanitizeLightThemeInlineStyles(rootEl = document.body) {
     const elements = rootEl.querySelectorAll('[style]');
     elements.forEach(el => {
         // Theme-Preview-Karten in den Einstellungen nicht verändern
-        if (el.closest('.theme-card')) return;
+        if (el.closest('.theme-card') || el.closest('#mindmap-view')) return;
 
         const styleAttr = el.getAttribute('style') || '';
 
