@@ -1,4 +1,3 @@
-/* ==========================================================================
    1. DESIGN SYSTEM & TOKENS (Cyber Midnight – 1:1 Originalgetreu)
    ========================================================================== */
 :root {
@@ -2690,882 +2689,162 @@ kbd {
 }
 
 /* ==========================================================================
-   20. LIGHT & WARM THEME ENGINE: CLINICAL DAYLIGHT & TROPICAL SUNDAY
-   Vollständiges Token-Mapping + Komponenten-Adaption für alle Module
+   BASIS-KLASSEN FÜR CHALLENGE-STAGE & NOTAUFNAHME-BANNER
    ========================================================================== */
-
-/* --- A) TOKENS: CLINICAL DAYLIGHT (Springer Editorial Stil) --- */
-[data-theme="daylight"] {
-    --bg-color: #f1f5f9;
-    --bg-main: #f1f5f9;
-    --bg-gradient: 
-        radial-gradient(circle at 12% 10%, rgba(2, 132, 199, 0.06) 0%, transparent 40%),
-        radial-gradient(circle at 88% 15%, rgba(37, 99, 235, 0.05) 0%, transparent 38%),
-        linear-gradient(180deg, #f8fafc 0%, #eef2f6 100%);
-    
-    --sidebar-bg: rgba(255, 255, 255, 0.96);
-    --topbar-bg: rgba(255, 255, 255, 0.92);
-    --panel-bg: rgba(255, 255, 255, 0.95);
-    --card-bg: #ffffff;
-    --card-bg-gradient: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
-    --card-bg-hover: linear-gradient(160deg, #ffffff 0%, #f0f9ff 100%);
-    
-    --bg-surface: #ffffff;
-    --bg-surface-elevated: linear-gradient(90deg, #f8fafc, #f1f5f9);
-    --surface-secondary: #f8fafc;
-    --surface-elevated: #f1f5f9;
-    --input-bg: #ffffff;
-
-    --card-border: #cbd5e1;
-    --card-border-hover: #0284c7;
-    --divider-color: #e2e8f0;
-    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 1);
-
-    --text-main: #0f172a;
-    --text-primary: #0f172a;
-    --text-muted: #475569;
-    --text-secondary: #475569;
-    --text-dim: #64748b;
-
-    --accent-blue: #00558f;
-    --accent-cyan: #0284c7;
-    --accent-indigo: #2563eb;
-
-    --color-risk: #dc2626;
-    --color-lab: #7c3aed;
-    --color-symptom: #059669;
-    --color-treatment: #0284c7;
-    --warning: #d97706;
-    --error: #dc2626;
-
-    --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-    --shadow-md: 0 10px 25px -4px rgba(15, 23, 42, 0.07), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
-    --shadow-glow: 0 8px 20px rgba(2, 132, 199, 0.14);
+.challenge-stage-box {
+    background: rgba(11, 17, 33, 0.5);
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    transition: background 0.25s ease, border-color 0.25s ease;
 }
 
-/* --- B) TOKENS: TROPICAL SUNDAY (Warm Sand, Lagoon Teal & Sunset Coral) --- */
-[data-theme="tropical"] {
-    --bg-color: #fff8ed;
-    --bg-main: #fff8ed;
-    --bg-gradient: 
-        radial-gradient(circle at 10% 10%, rgba(251, 146, 60, 0.16) 0%, transparent 45%),
-        radial-gradient(circle at 90% 12%, rgba(13, 148, 136, 0.14) 0%, transparent 45%),
-        radial-gradient(circle at 50% 90%, rgba(245, 158, 11, 0.12) 0%, transparent 50%),
-        linear-gradient(180deg, #fffaf2 0%, #fef3e2 100%);
-
-    --sidebar-bg: rgba(255, 251, 244, 0.94);
-    --topbar-bg: rgba(255, 249, 240, 0.90);
-    --panel-bg: rgba(255, 253, 249, 0.90);
-    --card-bg: #ffffff;
-    --card-bg-gradient: linear-gradient(160deg, #ffffff 0%, #fff9f0 100%);
-    --card-bg-hover: linear-gradient(160deg, #ffffff 0%, #f0fdfa 100%);
-
-    --bg-surface: #ffffff;
-    --bg-surface-elevated: linear-gradient(90deg, #fff7ed, #ffedd5);
-    --surface-secondary: #fffaf2;
-    --surface-elevated: #ffedd5;
-    --input-bg: #ffffff;
-
-    --card-border: rgba(217, 119, 6, 0.24);
-    --card-border-hover: #0d9488;
-    --divider-color: rgba(217, 119, 6, 0.14);
-    --surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
-
-    --text-main: #132a2e;
-    --text-primary: #132a2e;
-    --text-muted: #436165;
-    --text-secondary: #436165;
-    --text-dim: #739094;
-
-    --accent-blue: #0d9488;      /* Lagoon Teal */
-    --accent-cyan: #0891b2;      /* Ocean Cyan */
-    --accent-indigo: #ea580c;    /* Sunset Coral (für warme Button-Verläufe) */
-
-    --color-risk: #e11d48;       /* Hibiscus Red */
-    --color-lab: #9333ea;        /* Orchid Purple */
-    --color-symptom: #059669;    /* Palm Emerald */
-    --color-treatment: #0284c7;  /* Sky Lagoon */
-    --warning: #d97706;          /* Mango Amber */
-    --error: #e11d48;
-
-    --shadow-sm: 0 4px 12px rgba(180, 83, 9, 0.06), 0 1px 3px rgba(13, 148, 136, 0.04);
-    --shadow-md: 0 12px 28px -6px rgba(180, 83, 9, 0.09), 0 4px 12px -2px rgba(13, 148, 136, 0.05);
-    --shadow-glow: 0 8px 22px rgba(13, 148, 136, 0.18);
+.emergency-banner-card {
+    margin-bottom: 18px;
+    padding: 18px 22px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(220, 38, 38, 0.12));
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
+.emergency-banner-card:hover { transform: translateY(-2px); }
+.emergency-banner-title { display: flex; align-items: center; gap: 8px; color: #fca5a5; font-weight: 800; font-size: 1.05rem; }
+.emergency-banner-sub { color: #cbd5e1; font-size: 0.84rem; margin-top: 3px; }
+.emergency-start-btn { background: #ef4444; color: #ffffff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
 
 /* ==========================================================================
-   C) GEMEINSAME LIGHT-ENGINE FÜR DAYLIGHT & TROPICAL
-   Behebt alle hartcodierten Dark-Mode-Selektoren und Kontrast-Probleme
+   DEEP CHALLENGE OVERRIDES FÜR CLINICAL DAYLIGHT & TROPICAL SUNDAY
+   Fängt auch Inline-Styles ab, die von audit.js, doctordle.js, taxonomy.js,
+   cascade.js, synapses.js & quiz.js zur Laufzeit generiert werden!
    ========================================================================== */
 
-/* 1. Scrollbars & Layout-Basis */
-[data-theme="daylight"] ::-webkit-scrollbar-track,
-[data-theme="tropical"] ::-webkit-scrollbar-track { background: var(--surface-secondary); }
-[data-theme="daylight"] ::-webkit-scrollbar-thumb,
-[data-theme="tropical"] ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.3); border-radius: 999px; }
-[data-theme="daylight"] ::-webkit-scrollbar-thumb:hover,
-[data-theme="tropical"] ::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
-
-/* 2. Sidebar, Resizer & Topbar */
-[data-theme="daylight"] sidebar,
-[data-theme="tropical"] sidebar {
-    background: var(--sidebar-bg) !important;
-    border-right: 1px solid var(--card-border) !important;
-    box-shadow: 4px 0 20px rgba(15, 23, 42, 0.05) !important;
-}
-[data-theme="daylight"] .resizer-handle-pill,
-[data-theme="tropical"] .resizer-handle-pill {
+/* 1. Challenge Stage Boxen & Notaufnahme-Banner in Daylight & Tropical */
+[data-theme="daylight"] .challenge-stage-box,
+[data-theme="tropical"] .challenge-stage-box,
+[data-theme="daylight"] .player-mode-pane > div[style*="rgba(11, 17, 33"],
+[data-theme="tropical"] .player-mode-pane > div[style*="rgba(11, 17, 33"] {
     background: var(--bg-surface) !important;
     border-color: var(--card-border) !important;
-    color: var(--text-muted) !important;
-    box-shadow: var(--shadow-sm);
-}
-[data-theme="daylight"] .nav-item,
-[data-theme="tropical"] .nav-item { color: var(--text-muted) !important; }
-[data-theme="daylight"] .nav-item:hover,
-[data-theme="tropical"] .nav-item:hover {
-    background: var(--surface-elevated) !important;
+    box-shadow: var(--shadow-sm) !important;
     color: var(--text-main) !important;
-    border-color: var(--card-border) !important;
-}
-[data-theme="daylight"] .nav-item.active,
-[data-theme="tropical"] .nav-item.active {
-    background: linear-gradient(90deg, rgba(13, 148, 136, 0.12), rgba(2, 132, 199, 0.06)) !important;
-    color: var(--accent-blue) !important;
-    border-color: var(--accent-blue) !important;
-    box-shadow: none !important;
-}
-[data-theme="daylight"] .sidebar-footer,
-[data-theme="tropical"] .sidebar-footer {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-}
-[data-theme="daylight"] .sidebar-footer div,
-[data-theme="tropical"] .sidebar-footer div { color: var(--text-main) !important; }
-
-/* Hardcodierte Skill-Balken in der Sidebar aufhellen */
-[data-theme="daylight"] #skills-sidebar-container div[style*="rgba(6,9,19"],
-[data-theme="tropical"] #skills-sidebar-container div[style*="rgba(6,9,19"] {
-    background: rgba(148, 163, 184, 0.22) !important;
 }
 
-[data-theme="daylight"] topbar,
-[data-theme="tropical"] topbar {
-    background: var(--topbar-bg) !important;
-    border-bottom: 1px solid var(--card-border) !important;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04) !important;
-}
-[data-theme="daylight"] .topbar-engine-tag,
-[data-theme="tropical"] .topbar-engine-tag {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-    color: var(--accent-blue) !important;
-}
-[data-theme="daylight"] .hud-stat,
-[data-theme="tropical"] .hud-stat {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-muted) !important;
+[data-theme="daylight"] .emergency-banner-card,
+[data-theme="tropical"] .emergency-banner-card,
+[data-theme="daylight"] div[onclick*="startEmergencyMode"],
+[data-theme="tropical"] div[onclick*="startEmergencyMode"] {
+    background: linear-gradient(135deg, rgba(254, 226, 226, 0.9), rgba(254, 202, 202, 0.65)) !important;
+    border: 1px solid rgba(220, 38, 38, 0.35) !important;
     box-shadow: var(--shadow-sm) !important;
 }
-[data-theme="daylight"] .hud-stat.rank-stat strong,
-[data-theme="tropical"] .hud-stat.rank-stat strong { color: var(--accent-indigo) !important; }
-
-/* 3. Dashboard, Überordner, Ordner, Bookshelf & Suche */
-[data-theme="daylight"] .dashboard-folder-toolbar,
-[data-theme="tropical"] .dashboard-folder-toolbar,
-[data-theme="daylight"] .forge-generator-controls,
-[data-theme="tropical"] .forge-generator-controls,
-[data-theme="daylight"] .settings-section > div[style*="background"],
-[data-theme="tropical"] .settings-section > div[style*="background"] {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
+[data-theme="daylight"] .emergency-banner-title,
+[data-theme="tropical"] .emergency-banner-title,
+[data-theme="daylight"] div[onclick*="startEmergencyMode"] div[style*="#fca5a5"],
+[data-theme="tropical"] div[onclick*="startEmergencyMode"] div[style*="#fca5a5"] {
+    color: #b91c1c !important;
+}
+[data-theme="daylight"] .emergency-banner-sub,
+[data-theme="tropical"] .emergency-banner-sub,
+[data-theme="daylight"] div[onclick*="startEmergencyMode"] div[style*="#cbd5e1"],
+[data-theme="tropical"] div[onclick*="startEmergencyMode"] div[style*="#cbd5e1"] {
+    color: #450a0a !important;
 }
 
-[data-theme="daylight"] .super-folder,
-[data-theme="tropical"] .super-folder,
-[data-theme="daylight"] .category-folder,
-[data-theme="tropical"] .category-folder,
-[data-theme="daylight"] .bookshelf-super-group,
-[data-theme="tropical"] .bookshelf-super-group,
-[data-theme="daylight"] .folder-group,
-[data-theme="tropical"] .folder-group,
-[data-theme="daylight"] .theme-card,
-[data-theme="tropical"] .theme-card {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
+/* 2. Universeller Schutz für ALLE Buttons innerhalb der Challenges */
+[data-theme="daylight"] .player-mode-pane button:not(.action-btn):not(.btn):not(#doctordle-submit-btn):not(.tutor-btn):not(.quiz-opt-btn):not(.fc-rate-btn):not(.delete-case-btn),
+[data-theme="tropical"] .player-mode-pane button:not(.action-btn):not(.btn):not(#doctordle-submit-btn):not(.tutor-btn):not(.quiz-opt-btn):not(.fc-rate-btn):not(.delete-case-btn) {
+    background-color: var(--surface-secondary) !important;
     color: var(--text-main) !important;
+    border: 1px solid var(--card-border) !important;
     box-shadow: var(--shadow-sm) !important;
 }
-
-[data-theme="daylight"] .super-folder-header,
-[data-theme="tropical"] .super-folder-header {
-    background: var(--bg-surface-elevated) !important;
-    border-bottom: 1px solid var(--card-border) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .category-header,
-[data-theme="tropical"] .category-header,
-[data-theme="daylight"] .bookshelf-super-header,
-[data-theme="tropical"] .bookshelf-super-header,
-[data-theme="daylight"] .folder-header,
-[data-theme="tropical"] .folder-header {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .category-header:hover,
-[data-theme="tropical"] .category-header:hover,
-[data-theme="daylight"] .folder-header:hover,
-[data-theme="tropical"] .folder-header:hover {
-    background: var(--surface-elevated) !important;
-}
-
-[data-theme="daylight"] .folder-cases-list,
-[data-theme="tropical"] .folder-cases-list {
-    background: var(--surface-secondary) !important;
-    border-top-color: var(--card-border) !important;
-}
-[data-theme="daylight"] .folder-case-item,
-[data-theme="tropical"] .folder-case-item {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-muted) !important;
-}
-[data-theme="daylight"] .folder-case-item:hover,
-[data-theme="tropical"] .folder-case-item:hover {
-    background: var(--surface-elevated) !important;
-    color: var(--accent-blue) !important;
+[data-theme="daylight"] .player-mode-pane button:not(.action-btn):not(.btn):not(#doctordle-submit-btn):hover,
+[data-theme="tropical"] .player-mode-pane button:not(.action-btn):not(.btn):not(#doctordle-submit-btn):hover {
     border-color: var(--accent-blue) !important;
 }
-[data-theme="daylight"] .folder-edit-input,
-[data-theme="tropical"] .folder-edit-input {
-    background: #ffffff !important;
-    color: var(--text-main) !important;
-}
 
-[data-theme="daylight"] .case-card,
-[data-theme="tropical"] .case-card,
-[data-theme="daylight"] .specialty-card,
-[data-theme="tropical"] .specialty-card {
-    background: var(--card-bg-gradient) !important;
-    border-color: var(--card-border) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .case-card:hover,
-[data-theme="tropical"] .case-card:hover,
-[data-theme="daylight"] .specialty-card:hover,
-[data-theme="tropical"] .specialty-card:hover {
-    background: var(--card-bg-hover) !important;
-    border-color: var(--card-border-hover) !important;
-    box-shadow: var(--shadow-md), var(--shadow-glow) !important;
-}
-[data-theme="daylight"] .delete-case-btn,
-[data-theme="tropical"] .delete-case-btn {
-    background: rgba(225, 29, 72, 0.1) !important;
-    color: var(--color-risk) !important;
-    border-color: rgba(225, 29, 72, 0.3) !important;
-}
-[data-theme="daylight"] .delete-case-btn:hover,
-[data-theme="tropical"] .delete-case-btn:hover {
-    background: var(--color-risk) !important;
+/* Primäre Action-Buttons in Daylight & Tropical immer mit knackiger weißer Schrift */
+[data-theme="daylight"] .action-btn:not(.secondary),
+[data-theme="tropical"] .action-btn:not(.secondary),
+[data-theme="daylight"] .btn:not(.btn-secondary):not(.btn-outline),
+[data-theme="tropical"] .btn:not(.btn-secondary):not(.btn-outline),
+[data-theme="daylight"] #doctordle-submit-btn,
+[data-theme="tropical"] #doctordle-submit-btn {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)) !important;
     color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25) !important;
 }
 
-/* Dashboard-Suche & Creator Hub */
-[data-theme="daylight"] .dashboard-search-toggle-btn,
-[data-theme="tropical"] .dashboard-search-toggle-btn,
-[data-theme="daylight"] .search-status-pill,
-[data-theme="tropical"] .search-status-pill {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-muted) !important;
-}
-[data-theme="daylight"] .search-status-pill.active,
-[data-theme="tropical"] .search-status-pill.active {
-    background: rgba(13, 148, 136, 0.14) !important;
-    color: var(--accent-blue) !important;
-    border-color: var(--accent-blue) !important;
-}
-[data-theme="daylight"] .dashboard-search-panel,
-[data-theme="tropical"] .dashboard-search-panel,
-[data-theme="daylight"] .dashboard-search-empty-state,
-[data-theme="tropical"] .dashboard-search-empty-state,
-[data-theme="daylight"] .creator-upload-card,
-[data-theme="tropical"] .creator-upload-card {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .dashboard-search-input-wrap,
-[data-theme="tropical"] .dashboard-search-input-wrap,
-[data-theme="daylight"] .upload-status-item,
-[data-theme="tropical"] .upload-status-item {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .mc-search-highlight,
-[data-theme="tropical"] .mc-search-highlight {
-    background: rgba(245, 158, 11, 0.3) !important;
-    color: #78350f !important;
-}
-
-/* 4. Buttons, Challenge-Tabs, Mobile-Picker & Feedback-Boxen */
-[data-theme="daylight"] .action-btn.secondary,
-[data-theme="tropical"] .action-btn.secondary,
-[data-theme="daylight"] .btn-secondary,
-[data-theme="tropical"] .btn-secondary,
-[data-theme="daylight"] .back-btn,
-[data-theme="tropical"] .back-btn {
-    background: var(--bg-surface) !important;
-    color: var(--text-main) !important;
-    border: 1px solid var(--card-border) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .action-btn.secondary:hover,
-[data-theme="tropical"] .action-btn.secondary:hover,
-[data-theme="daylight"] .back-btn:hover,
-[data-theme="tropical"] .back-btn:hover {
-    background: var(--surface-elevated) !important;
-    border-color: var(--accent-blue) !important;
-    color: var(--accent-blue) !important;
-}
-
-[data-theme="daylight"] .challenge-nav-bar,
-[data-theme="tropical"] .challenge-nav-bar,
-[data-theme="daylight"] .segmented-control,
-[data-theme="tropical"] .segmented-control,
-[data-theme="daylight"] .skill-scope-toggle,
-[data-theme="tropical"] .skill-scope-toggle {
+/* 3. Doctordle Hints & Result-Boxen (überschreibt dunkle JS-Inline-Styles aus doctordle.js) */
+[data-theme="daylight"] #doctordle-hints-container > div,
+[data-theme="tropical"] #doctordle-hints-container > div {
     background: var(--surface-secondary) !important;
     border: 1px solid var(--card-border) !important;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05) !important;
-}
-[data-theme="daylight"] .challenge-tab-btn,
-[data-theme="tropical"] .challenge-tab-btn {
-    background: transparent !important;
-    border-color: transparent !important;
-    color: var(--text-muted) !important;
-}
-[data-theme="daylight"] .challenge-tab-btn:hover,
-[data-theme="tropical"] .challenge-tab-btn:hover {
-    background: rgba(255, 255, 255, 0.7) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .challenge-tab-btn.active,
-[data-theme="tropical"] .challenge-tab-btn.active,
-[data-theme="daylight"] .segmented-btn.active,
-[data-theme="tropical"] .segmented-btn.active,
-[data-theme="daylight"] .skill-scope-btn.active,
-[data-theme="tropical"] .skill-scope-btn.active {
-    background: var(--bg-surface) !important;
-    color: var(--accent-blue) !important;
-    border: 1px solid var(--accent-blue) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .challenge-tab-btn .tab-badge,
-[data-theme="tropical"] .challenge-tab-btn .tab-badge {
-    background: rgba(100, 116, 139, 0.14) !important;
-    color: var(--text-muted) !important;
-}
-[data-theme="daylight"] .challenge-tab-btn.active .tab-badge,
-[data-theme="tropical"] .challenge-tab-btn.active .tab-badge {
-    background: var(--accent-blue) !important;
-    color: #ffffff !important;
-}
-
-/* Mobile Challenge Picker & Landscape FAB */
-[data-theme="daylight"] .mc-mobile-picker-inner,
-[data-theme="tropical"] .mc-mobile-picker-inner,
-[data-theme="daylight"] .landscape-fab-menu,
-[data-theme="tropical"] .landscape-fab-menu {
-    background: var(--bg-surface) !important;
-    border-color: var(--accent-blue) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] .mc-mobile-picker-select,
-[data-theme="tropical"] .mc-mobile-picker-select {
-    background: var(--surface-secondary) !important;
-    color: var(--text-main) !important;
-    border-color: var(--card-border) !important;
-}
-
-/* Feedback-Boxen & Popups: Starker Kontrast statt Pastell-Schrift */
-[data-theme="daylight"] .feedback-success,
-[data-theme="tropical"] .feedback-success,
-[data-theme="daylight"] .score-popup.positive,
-[data-theme="tropical"] .score-popup.positive {
-    background: rgba(16, 185, 129, 0.14) !important;
-    border-color: rgba(5, 150, 105, 0.4) !important;
-    color: #065f46 !important;
-}
-[data-theme="daylight"] .feedback-error,
-[data-theme="tropical"] .feedback-error,
-[data-theme="daylight"] .score-popup.negative,
-[data-theme="tropical"] .score-popup.negative {
-    background: rgba(239, 68, 68, 0.14) !important;
-    border-color: rgba(220, 38, 38, 0.4) !important;
-    color: #991b1b !important;
-}
-[data-theme="daylight"] .feedback-neutral,
-[data-theme="tropical"] .feedback-neutral {
-    background: rgba(245, 158, 11, 0.15) !important;
-    border-color: rgba(217, 119, 6, 0.4) !important;
-    color: #92400e !important;
-}
-
-/* 5. Cornell Notes (Editorial Lesbarkeit) */
-[data-theme="daylight"] .cornell-wrapper,
-[data-theme="tropical"] .cornell-wrapper {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] .cornell-header,
-[data-theme="tropical"] .cornell-header,
-[data-theme="daylight"] .cornell-summary,
-[data-theme="tropical"] .cornell-summary {
-    background: var(--bg-surface-elevated) !important;
-    border-color: var(--card-border) !important;
-}
-[data-theme="daylight"] .cornell-row-item,
-[data-theme="tropical"] .cornell-row-item {
-    border-bottom: 1px solid var(--divider-color) !important;
-}
-[data-theme="daylight"] .cornell-row-item:hover,
-[data-theme="tropical"] .cornell-row-item:hover {
-    background: var(--surface-secondary) !important;
-}
-[data-theme="daylight"] .cornell-cue-col,
-[data-theme="tropical"] .cornell-cue-col {
-    background: var(--surface-secondary) !important;
-    border-right: 1px solid var(--divider-color) !important;
-}
-[data-theme="daylight"] .cornell-fragment,
-[data-theme="tropical"] .cornell-fragment,
-[data-theme="daylight"] .cornell-summary p,
-[data-theme="tropical"] .cornell-summary p {
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .cornell-cue-item {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    border-left: 3px solid var(--accent-blue) !important;
-    color: var(--accent-blue) !important;
-}
-[data-theme="tropical"] .cornell-cue-item {
-    background: #fffbeb !important;
-    border: 1px solid rgba(217, 119, 6, 0.3) !important;
-    border-left: 3px solid var(--accent-indigo) !important;
-    color: #9a3412 !important;
-}
-[data-theme="daylight"] .cornell-cue-item:hover,
-[data-theme="daylight"] .cornell-cue-item.cue-active-highlight,
-[data-theme="tropical"] .cornell-cue-item:hover,
-[data-theme="tropical"] .cornell-cue-item.cue-active-highlight {
-    background: var(--accent-blue) !important;
-    border-color: var(--accent-blue) !important;
-    color: #ffffff !important;
-}
-[data-theme="daylight"] .cornell-fragment b,
-[data-theme="daylight"] .cornell-fragment strong {
-    color: #004270 !important;
-    background: rgba(2, 132, 199, 0.08);
-    padding: 0 4px;
-    border-radius: 4px;
-}
-[data-theme="tropical"] .cornell-fragment b,
-[data-theme="tropical"] .cornell-fragment strong {
-    color: #0f766e !important;
-    background: rgba(20, 184, 166, 0.13);
-    padding: 0 4px;
-    border-radius: 4px;
-}
-
-/* 6. Audit-Timeline & Stealth-Hotspots (Behebt den weißen Hover-Bug!) */
-[data-theme="daylight"] .audit-step-container,
-[data-theme="tropical"] .audit-step-container,
-[data-theme="daylight"] .step-content:not(.audit-editorial-body),
-[data-theme="tropical"] .step-content:not(.audit-editorial-body),
-[data-theme="daylight"] .audit-patient-complete-card,
-[data-theme="tropical"] .audit-patient-complete-card {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .audit-step-header,
-[data-theme="tropical"] .audit-step-header,
-[data-theme="daylight"] .audit-step-footer,
-[data-theme="tropical"] .audit-step-footer {
-    border-color: var(--divider-color) !important;
-}
-[data-theme="daylight"] .stealth-word:hover,
-[data-theme="daylight"] .stealth-hotspot:hover,
-[data-theme="tropical"] .stealth-word:hover,
-[data-theme="tropical"] .stealth-hotspot:hover {
-    background-color: rgba(13, 148, 136, 0.15) !important;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .resolved-signal,
-[data-theme="tropical"] .resolved-signal {
-    background-color: rgba(239, 68, 68, 0.15) !important;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
-    border-bottom: 2px solid #dc2626 !important;
-    color: #991b1b !important;
-    font-weight: 600;
-}
-[data-theme="daylight"] .resolved-signal.resolved-corrected,
-[data-theme="tropical"] .resolved-signal.resolved-corrected {
-    background-color: rgba(16, 185, 129, 0.15) !important;
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15) !important;
-    border-bottom: 2px solid #059669 !important;
-    color: #065f46 !important;
-    font-weight: 600;
-}
-
-/* 7. Synapsen-Matrix (Erhält die 4 Kategoriefarben im Light-Mode!) */
-[data-theme="daylight"] .synapses-container,
-[data-theme="tropical"] .synapses-container {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .synapses-legend,
-[data-theme="tropical"] .synapses-legend {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-}
-[data-theme="daylight"] .synapse-tile-modern,
-[data-theme="tropical"] .synapse-tile-modern {
-    background: var(--surface-secondary) !important;
-    border: 1px solid var(--card-border) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .synapse-tile-modern.category-risk,
-[data-theme="tropical"] .synapse-tile-modern.category-risk {
-    border-color: rgba(225, 29, 72, 0.35) !important;
-    background: linear-gradient(145deg, rgba(244, 63, 94, 0.10), #ffffff) !important;
-}
-[data-theme="daylight"] .synapse-tile-modern.category-lab,
-[data-theme="tropical"] .synapse-tile-modern.category-lab {
-    border-color: rgba(147, 51, 234, 0.35) !important;
-    background: linear-gradient(145deg, rgba(168, 85, 247, 0.10), #ffffff) !important;
-}
-[data-theme="daylight"] .synapse-tile-modern.category-symptom,
-[data-theme="tropical"] .synapse-tile-modern.category-symptom {
-    border-color: rgba(5, 150, 105, 0.35) !important;
-    background: linear-gradient(145deg, rgba(16, 185, 129, 0.10), #ffffff) !important;
-}
-[data-theme="daylight"] .synapse-tile-modern.category-treatment,
-[data-theme="tropical"] .synapse-tile-modern.category-treatment {
-    border-color: rgba(2, 132, 199, 0.35) !important;
-    background: linear-gradient(145deg, rgba(56, 189, 248, 0.10), #ffffff) !important;
-}
-[data-theme="daylight"] .synapse-solved-card,
-[data-theme="tropical"] .synapse-solved-card {
-    background: rgba(16, 185, 129, 0.14) !important;
-    border-color: rgba(5, 150, 105, 0.4) !important;
-    color: #065f46 !important;
-}
-
-/* 8. Kaskaden, Taxonomie & Master-Quiz */
-[data-theme="daylight"] .cascade-disease-container,
-[data-theme="tropical"] .cascade-disease-container,
-[data-theme="daylight"] .quiz-card,
-[data-theme="tropical"] .quiz-card {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .disease-title,
-[data-theme="tropical"] .disease-title {
-    border-bottom-color: var(--divider-color) !important;
-}
-[data-theme="daylight"] .drag-bank,
-[data-theme="tropical"] .drag-bank,
-[data-theme="daylight"] .drop-zone,
-[data-theme="tropical"] .drop-zone {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-}
-[data-theme="daylight"] .drag-item,
-[data-theme="tropical"] .drag-item,
-[data-theme="daylight"] .drop-zone .drag-item,
-[data-theme="tropical"] .drop-zone .drag-item,
-[data-theme="daylight"] .quiz-opt-btn,
-[data-theme="tropical"] .quiz-opt-btn {
-    background: #ffffff !important;
-    border: 1px solid var(--card-border) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-[data-theme="daylight"] .drag-item:hover,
-[data-theme="tropical"] .drag-item:hover,
-[data-theme="daylight"] .quiz-opt-btn:hover,
-[data-theme="tropical"] .quiz-opt-btn:hover {
-    background: var(--surface-secondary) !important;
-    border-color: var(--accent-blue) !important;
-}
-[data-theme="daylight"] .drop-zone.correct .drag-item,
-[data-theme="tropical"] .drop-zone.correct .drag-item,
-[data-theme="daylight"] .quiz-opt-btn.correct-highlight,
-[data-theme="tropical"] .quiz-opt-btn.correct-highlight {
-    background: rgba(16, 185, 129, 0.16) !important;
-    border-color: #059669 !important;
-    color: #065f46 !important;
-}
-[data-theme="daylight"] .quiz-opt-btn.wrong-highlight,
-[data-theme="tropical"] .quiz-opt-btn.wrong-highlight {
-    background: rgba(239, 68, 68, 0.16) !important;
-    border-color: #dc2626 !important;
-    color: #991b1b !important;
-}
-[data-theme="daylight"] .quiz-explanation-box,
-[data-theme="tropical"] .quiz-explanation-box {
-    background: var(--surface-secondary) !important;
-    color: var(--text-main) !important;
-    border: 1px solid var(--card-border);
     border-left: 4px solid var(--accent-blue) !important;
-}
-
-/* 9. Doctordle & 3D Flashcards (Behebt die weiße Schrift auf der Rückseite!) */
-[data-theme="daylight"] #doctordle-autocomplete-list,
-[data-theme="tropical"] #doctordle-autocomplete-list {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] #doctordle-reveal-btn,
-[data-theme="tropical"] #doctordle-reveal-btn {
-    background: rgba(225, 29, 72, 0.1) !important;
-    color: var(--color-risk) !important;
-    border-color: rgba(225, 29, 72, 0.3) !important;
-}
-[data-theme="daylight"] .fc-progress-bar,
-[data-theme="tropical"] .fc-progress-bar {
-    background: var(--surface-elevated) !important;
-}
-[data-theme="daylight"] .fc-face,
-[data-theme="tropical"] .fc-face {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] .fc-back,
-[data-theme="tropical"] .fc-back {
-    background: linear-gradient(160deg, #ffffff 0%, #ecfdf5 100%) !important;
-    border-color: rgba(5, 150, 105, 0.45) !important;
-}
-[data-theme="daylight"] .fc-answer-text,
-[data-theme="tropical"] .fc-answer-text {
-    color: #064e3b !important;
-}
-[data-theme="daylight"] .fc-mnemonic-box,
-[data-theme="tropical"] .fc-mnemonic-box {
-    background: var(--surface-secondary) !important;
-    color: var(--text-muted) !important;
-}
-[data-theme="daylight"] .fc-rate-btn,
-[data-theme="tropical"] .fc-rate-btn {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
     color: var(--text-main) !important;
     box-shadow: var(--shadow-sm) !important;
 }
-[data-theme="daylight"] kbd,
-[data-theme="tropical"] kbd {
+[data-theme="daylight"] #doctordle-hints-container > div *,
+[data-theme="tropical"] #doctordle-hints-container > div * {
+    color: var(--text-main) !important;
+}
+[data-theme="daylight"] #doctordle-result-box,
+[data-theme="tropical"] #doctordle-result-box {
     background: var(--surface-elevated) !important;
-    border-color: var(--card-border) !important;
+    border: 1px solid var(--accent-blue) !important;
+    color: var(--text-main) !important;
+}
+[data-theme="daylight"] #doctordle-result-box *,
+[data-theme="tropical"] #doctordle-result-box * {
     color: var(--text-main) !important;
 }
 
-/* 10. Pharmakologie Hub & Pharma-Kompass */
-[data-theme="daylight"] .pharma-mode-card,
-[data-theme="tropical"] .pharma-mode-card,
-[data-theme="daylight"] .pharma-set-card,
-[data-theme="tropical"] .pharma-set-card,
-[data-theme="daylight"] .pharma-import-box,
-[data-theme="tropical"] .pharma-import-box,
-[data-theme="daylight"] .pharma-category-column,
-[data-theme="tropical"] .pharma-category-column,
-[data-theme="daylight"] .compass-card,
-[data-theme="tropical"] .compass-card,
-[data-theme="daylight"] .compass-resolution-panel,
-[data-theme="tropical"] .compass-resolution-panel,
-[data-theme="daylight"] .stat-pill,
-[data-theme="tropical"] .stat-pill {
-    background: var(--bg-surface) !important;
+/* 4. Taxonomie (categorization-task aus taxonomy.js) & Kaskaden (cascade.js) */
+[data-theme="daylight"] #categorization-task div[style*="background"],
+[data-theme="tropical"] #categorization-task div[style*="background"],
+[data-theme="daylight"] #cascades-wrapper div[style*="background"],
+[data-theme="tropical"] #cascades-wrapper div[style*="background"] {
+    background: var(--surface-secondary) !important;
     border-color: var(--card-border) !important;
     color: var(--text-main) !important;
-    box-shadow: var(--shadow-sm) !important;
 }
-[data-theme="daylight"] .pharma-mode-card.active-mode,
-[data-theme="tropical"] .pharma-mode-card.active-mode,
-[data-theme="daylight"] .compass-center-patient,
-[data-theme="tropical"] .compass-center-patient {
-    background: var(--card-bg-hover) !important;
-    border-color: var(--accent-blue) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] .pharma-bank-section,
-[data-theme="tropical"] .pharma-bank-section {
-    background: var(--surface-secondary) !important;
-    border-color: var(--accent-blue) !important;
-}
-[data-theme="daylight"] .pharma-matrix-card,
-[data-theme="tropical"] .pharma-matrix-card {
+[data-theme="daylight"] #categorization-task select,
+[data-theme="tropical"] #categorization-task select {
     background: #ffffff !important;
-    border-color: var(--card-border) !important;
     color: var(--text-main) !important;
-}
-[data-theme="daylight"] .pharma-cat-header,
-[data-theme="tropical"] .pharma-cat-header {
-    border-bottom-color: var(--divider-color) !important;
-}
-
-/* 11. Lern-Depot, Spaced Repetition & Progress Drawer */
-[data-theme="daylight"] .progress-drawer-body,
-[data-theme="tropical"] .progress-drawer-body,
-[data-theme="daylight"] .progress-drawer-handle,
-[data-theme="tropical"] .progress-drawer-handle,
-[data-theme="daylight"] .depot-card,
-[data-theme="tropical"] .depot-card,
-[data-theme="daylight"] .depot-stat-pill,
-[data-theme="tropical"] .depot-stat-pill,
-[data-theme="daylight"] .depot-quiz-arena,
-[data-theme="tropical"] .depot-quiz-arena,
-[data-theme="daylight"] .sr-dashboard-card,
-[data-theme="tropical"] .sr-dashboard-card,
-[data-theme="daylight"] .sr-compact-preview-bar,
-[data-theme="tropical"] .sr-compact-preview-bar,
-[data-theme="daylight"] .sr-modal-card,
-[data-theme="tropical"] .sr-modal-card,
-[data-theme="daylight"] .reveal-card,
-[data-theme="tropical"] .reveal-card,
-[data-theme="daylight"] .modal-card,
-[data-theme="tropical"] .modal-card,
-[data-theme="daylight"] .tutor-popup,
-[data-theme="tropical"] .tutor-popup,
-[data-theme="daylight"] .specialty-sticky-bar,
-[data-theme="tropical"] .specialty-sticky-bar {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-[data-theme="daylight"] .subject-item,
-[data-theme="tropical"] .subject-item,
-[data-theme="daylight"] .depot-quick-add,
-[data-theme="tropical"] .depot-quick-add,
-[data-theme="daylight"] .depot-quote-text,
-[data-theme="tropical"] .depot-quote-text,
-[data-theme="daylight"] .depot-q-card,
-[data-theme="tropical"] .depot-q-card,
-[data-theme="daylight"] .depot-q-feedback,
-[data-theme="tropical"] .depot-q-feedback,
-[data-theme="daylight"] .sr-organ-tile,
-[data-theme="tropical"] .sr-organ-tile,
-[data-theme="daylight"] .sr-modal-toolbar,
-[data-theme="tropical"] .sr-modal-toolbar,
-[data-theme="daylight"] .sr-topic-group,
-[data-theme="tropical"] .sr-topic-group,
-[data-theme="daylight"] .sr-upcoming-accordion,
-[data-theme="tropical"] .sr-upcoming-accordion,
-[data-theme="daylight"] .diag-section,
-[data-theme="tropical"] .diag-section {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .sr-topic-header,
-[data-theme="tropical"] .sr-topic-header {
-    background: var(--surface-elevated) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .subject-bar-track,
-[data-theme="tropical"] .subject-bar-track {
-    background: rgba(100, 116, 139, 0.18) !important;
-}
-[data-theme="daylight"] .depot-toggle-btn,
-[data-theme="tropical"] .depot-toggle-btn {
-    background: rgba(16, 185, 129, 0.15) !important;
-    color: #065f46 !important;
-    border-color: rgba(5, 150, 105, 0.4) !important;
-}
-[data-theme="daylight"] .sr-mini-pill.is-due,
-[data-theme="tropical"] .sr-mini-pill.is-due,
-[data-theme="daylight"] .sr-due-tag.today,
-[data-theme="tropical"] .sr-due-tag.today {
-    color: #92400e !important;
-    background: rgba(245, 158, 11, 0.2) !important;
-}
-[data-theme="daylight"] .sr-mini-pill.is-zero,
-[data-theme="tropical"] .sr-mini-pill.is-zero {
-    color: #065f46 !important;
-    background: rgba(16, 185, 129, 0.18) !important;
-}
-[data-theme="daylight"] .sr-due-tag.overdue,
-[data-theme="tropical"] .sr-due-tag.overdue,
-[data-theme="daylight"] .sr-due-count.has-due,
-[data-theme="tropical"] .sr-due-count.has-due {
-    color: #991b1b !important;
-    background: rgba(239, 68, 68, 0.18) !important;
-}
-
-/* 12. Klinisches Konsil (Kommentare) & Alle Formularfelder */
-[data-theme="daylight"] .mc-comments-wrapper,
-[data-theme="tropical"] .mc-comments-wrapper,
-[data-theme="daylight"] .mc-comment-card,
-[data-theme="tropical"] .mc-comment-card {
-    background: var(--bg-surface) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-main) !important;
-}
-[data-theme="daylight"] .mc-comments-header,
-[data-theme="tropical"] .mc-comments-header,
-[data-theme="daylight"] .mc-comments-form,
-[data-theme="tropical"] .mc-comments-form,
-[data-theme="daylight"] .mc-filter-pill,
-[data-theme="tropical"] .mc-filter-pill,
-[data-theme="daylight"] .mc-upvote-btn,
-[data-theme="tropical"] .mc-upvote-btn,
-[data-theme="daylight"] .mc-resolve-btn,
-[data-theme="tropical"] .mc-resolve-btn,
-[data-theme="daylight"] .mc-delete-btn,
-[data-theme="tropical"] .mc-delete-btn {
-    background: var(--surface-secondary) !important;
-    border-color: var(--card-border) !important;
-    color: var(--text-muted) !important;
-}
-
-[data-theme="daylight"] input[type="text"],
-[data-theme="tropical"] input[type="text"],
-[data-theme="daylight"] input[type="email"],
-[data-theme="tropical"] input[type="email"],
-[data-theme="daylight"] input[type="password"],
-[data-theme="tropical"] input[type="password"],
-[data-theme="daylight"] textarea,
-[data-theme="tropical"] textarea,
-[data-theme="daylight"] select,
-[data-theme="tropical"] select,
-[data-theme="daylight"] .forge-textarea,
-[data-theme="tropical"] .forge-textarea,
-[data-theme="daylight"] .forge-topic-input,
-[data-theme="tropical"] .forge-topic-input,
-[data-theme="daylight"] #doctordle-input,
-[data-theme="tropical"] #doctordle-input {
-    background: #ffffff !important;
     border: 1px solid var(--card-border) !important;
+}
+
+/* 5. Audit-Timeline Sokratische Boxen & Inline-Cards (aus audit.js) */
+[data-theme="daylight"] #player-container div[style*="rgba(15, 23, 42"],
+[data-theme="tropical"] #player-container div[style*="rgba(15, 23, 42"],
+[data-theme="daylight"] #player-container div[style*="rgba(6, 9, 19"],
+[data-theme="tropical"] #player-container div[style*="rgba(6, 9, 19"],
+[data-theme="daylight"] #player-container div[style*="#0f172a"],
+[data-theme="tropical"] #player-container div[style*="#0f172a"],
+[data-theme="daylight"] #player-container div[style*="#1e293b"],
+[data-theme="tropical"] #player-container div[style*="#1e293b"] {
+    background: var(--surface-secondary) !important;
+    border-color: var(--card-border) !important;
     color: var(--text-main) !important;
-    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+/* 6. Forge Prompt-Export-Card & Tutor-Modal-Button */
+[data-theme="daylight"] .forge-prompt-export-card,
+[data-theme="tropical"] .forge-prompt-export-card {
+    background: var(--surface-secondary) !important;
+    border-color: var(--accent-blue) !important;
+}
+[data-theme="daylight"] .forge-prompt-export-card div[style*="#f8fafc"],
+[data-theme="tropical"] .forge-prompt-export-card div[style*="#f8fafc"] {
+    color: var(--text-main) !important;
 }
 /* ==========================================================================
    GAMIFICATION V6.0: STREAK, CRITICAL HIT PARTIKEL & KOGNITIVER ATLAS
