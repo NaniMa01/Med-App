@@ -3994,6 +3994,131 @@ kbd {
     color: #ffffff !important;
 }
 /* ==========================================================================
+   MINDMAP MODULE - LIGHT THEME OVERRIDES (Daylight & Tropical Sunday)
+   ========================================================================== */
+
+html[data-theme="daylight"] .mindmap-wrapper,
+html[data-theme="tropical"] .mindmap-wrapper {
+    color: #0f172a;
+}
+
+/* Header, Statusbar & Panels */
+html[data-theme="daylight"] .mm-header,
+html[data-theme="daylight"] .mm-statusbar,
+html[data-theme="daylight"] .mm-pool-box,
+html[data-theme="daylight"] .mm-tutor-box {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    color: #0f172a !important;
+    backdrop-filter: blur(12px);
+}
+
+html[data-theme="tropical"] .mm-header,
+html[data-theme="tropical"] .mm-statusbar,
+html[data-theme="tropical"] .mm-pool-box,
+html[data-theme="tropical"] .mm-tutor-box {
+    background: rgba(255, 248, 237, 0.94) !important;
+    border-color: rgba(217, 119, 6, 0.25) !important;
+    color: #1e293b !important;
+    backdrop-filter: blur(12px);
+}
+
+/* Buttons & Selects */
+html[data-theme="daylight"] .mm-select, 
+html[data-theme="daylight"] .mm-btn,
+html[data-theme="tropical"] .mm-select, 
+html[data-theme="tropical"] .mm-btn {
+    background: rgba(241, 245, 249, 0.9) !important;
+    color: #1e293b !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+}
+
+html[data-theme="daylight"] .mm-btn:hover, 
+html[data-theme="daylight"] .mm-select:hover,
+html[data-theme="tropical"] .mm-btn:hover, 
+html[data-theme="tropical"] .mm-select:hover {
+    background: rgba(226, 232, 240, 0.95) !important;
+    border-color: #0284c7;
+}
+
+/* Draggable Chips */
+html[data-theme="daylight"] .mm-chip,
+html[data-theme="tropical"] .mm-chip {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+html[data-theme="daylight"] .mm-chip.selected-chip,
+html[data-theme="tropical"] .mm-chip.selected-chip {
+    background: rgba(2, 132, 199, 0.12) !important;
+    border-color: #0284c7;
+}
+
+/* Canvas & Dot-Grid */
+html[data-theme="daylight"] .mm-canvas-container,
+html[data-theme="tropical"] .mm-canvas-container {
+    background: radial-gradient(circle at center, rgba(241, 245, 249, 0.95) 0%, rgba(226, 232, 240, 0.98) 100%) !important;
+    box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.04);
+}
+
+html[data-theme="daylight"] .mm-canvas-container::before,
+html[data-theme="tropical"] .mm-canvas-container::before {
+    background-image: radial-gradient(rgba(100, 116, 139, 0.22) 1px, transparent 1px);
+}
+
+/* Root & Slot Nodes */
+html[data-theme="daylight"] .mm-node-root,
+html[data-theme="tropical"] .mm-node-root {
+    background: linear-gradient(135deg, #ffffff, #f1f5f9) !important;
+    color: #0f172a !important;
+    border: 2px solid #0284c7 !important;
+    box-shadow: 0 4px 18px rgba(2, 132, 199, 0.22);
+}
+
+html[data-theme="daylight"] .mm-node-slot,
+html[data-theme="tropical"] .mm-node-slot {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: #475569 !important;
+}
+
+html[data-theme="daylight"] .mm-node-slot:hover,
+html[data-theme="tropical"] .mm-node-slot:hover {
+    background: #ffffff !important;
+    box-shadow: 0 0 16px var(--cat-color, rgba(2, 132, 199, 0.3));
+}
+
+html[data-theme="daylight"] .mm-node-solved,
+html[data-theme="tropical"] .mm-node-solved {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08), 0 0 10px color-mix(in srgb, var(--cat-color) 25%, transparent);
+}
+
+/* SVG Edge Labels */
+html[data-theme="daylight"] .mm-edge-label-bg,
+html[data-theme="tropical"] .mm-edge-label-bg {
+    fill: rgba(255, 255, 255, 0.94) !important;
+    stroke: rgba(148, 163, 184, 0.4) !important;
+}
+
+html[data-theme="daylight"] .mm-edge-label-text,
+html[data-theme="tropical"] .mm-edge-label-text {
+    fill: #334155 !important;
+}
+
+/* Socratic Tutor Box Gradient */
+html[data-theme="daylight"] .mm-tutor-box {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(224, 242, 254, 0.45)) !important;
+    border-left: 4px solid #0284c7;
+}
+
+html[data-theme="tropical"] .mm-tutor-box {
+    background: linear-gradient(145deg, rgba(255, 248, 237, 0.98), rgba(254, 243, 199, 0.45)) !important;
+    border-left: 4px solid #d97706;
+}
+/* ==========================================================================
    GAMIFICATION V6.0: STREAK, CRITICAL HIT PARTIKEL & KOGNITIVER ATLAS
    ========================================================================== */
 
