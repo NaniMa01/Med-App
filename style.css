@@ -2859,6 +2859,170 @@ kbd {
 }
 
 /* ==========================================================================
+   SPACED REPETITION MODAL - KLICKBARKEIT & ELASTISCHES ZEILEN-LAYOUT
+   ========================================================================== */
+
+/* Klick-Blockaden aufheben */
+.sr-modal-overlay,
+.sr-modal-card,
+.sr-modal-body,
+.sr-case-row,
+.sr-case-main,
+.sr-btn-start,
+.sr-btn-mark-done {
+    pointer-events: auto !important;
+}
+
+/* Modal-Körper darf scrollen und schneidet Buttons nicht ab */
+.sr-modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 16px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+}
+
+/* Patienten-Zeile: Elastische Box, die niemals gequetscht wird */
+.sr-case-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 12px 16px !important;
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--divider-color, rgba(148, 163, 184, 0.12)) !important;
+    background: var(--bg-surface, #ffffff) !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    position: relative !important;
+    z-index: 1 !important;
+    min-height: 64px !important;
+}
+
+.sr-case-row:hover {
+    background: var(--surface-secondary, rgba(241, 245, 249, 0.8)) !important;
+}
+
+/* Linker Infobereich (Titel & Tags) */
+.sr-case-main {
+    flex: 1 1 320px !important;
+    min-width: 0 !important;
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+.sr-case-title {
+    font-size: 0.92rem !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    color: var(--text-main, #0f172a) !important;
+    margin-bottom: 5px !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+}
+
+.sr-case-meta {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 6px 10px !important;
+    font-size: 0.74rem !important;
+    color: var(--text-muted, #475569) !important;
+}
+
+/* Rechter Aktionsbereich: Haken & Stabilisieren-Button */
+.sr-case-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 5 !important;
+}
+
+/* Buttons erhalten echte Klickbarkeit & Hover-Effekte */
+.sr-btn-start {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 36px !important;
+    padding: 0 16px !important;
+    border-radius: 8px !important;
+    background: linear-gradient(135deg, var(--accent-blue, #0284c7), var(--accent-cyan, #0891b2)) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3) !important;
+    transition: transform 0.15s ease, opacity 0.15s ease !important;
+}
+.sr-btn-start:hover {
+    transform: translateY(-1px) scale(1.02) !important;
+    opacity: 0.95 !important;
+}
+.sr-btn-start:active {
+    transform: translateY(0) scale(0.98) !important;
+}
+
+.sr-btn-mark-done {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: var(--color-symptom, #059669) !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+.sr-btn-mark-done:hover {
+    background: rgba(16, 185, 129, 0.25) !important;
+    transform: scale(1.06) !important;
+}
+
+/* Badges im Light- & Dark-Mode sauber lesbar */
+.sr-due-tag {
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+}
+.sr-due-tag.overdue {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #dc2626 !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+.sr-due-tag.today {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #d97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+.sr-due-tag.scheduled {
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: #059669 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Theme-spezifischer Text-Kontrast */
+[data-theme="midnight"] .sr-case-row,
+:root:not([data-theme]) .sr-case-row {
+    background: rgba(15, 23, 42, 0.8) !important;
+}
+[data-theme="midnight"] .sr-case-title,
+:root:not([data-theme]) .sr-case-title {
+    color: #f8fafc !important;
+}
+/* ==========================================================================
    KONTRAST-FIX FÜR CLINICAL DAYLIGHT & TROPICAL SUNDAY
    ========================================================================== */
 [data-theme="daylight"] .sr-modal-card,
