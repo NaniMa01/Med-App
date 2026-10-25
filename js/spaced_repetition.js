@@ -312,7 +312,7 @@ const SpacedRepetitionEngine = {
         }
     },
 
-   // 9. Rendert das Stations-Visiten-Modal mit Vitalstatus-Badges
+ // 9. Rendert das Stations-Visiten-Modal mit klickbaren Patienten & sauberen Buttons
     renderModalContent() {
         const modalOverlay = document.getElementById('sr-modal-overlay');
         if (!modalOverlay) return;
@@ -342,32 +342,35 @@ const SpacedRepetitionEngine = {
         } else {
             dueSectionHtml = Object.entries(groupedDue).map(([topicName, items]) => `
                 <div class="sr-topic-group">
-                    <div class="sr-topic-header">
+                    <div class="sr-topic-header" onclick="window.toggleSrTopicAccordion(this)">
                         <span>📁 Station: ${this.escapeHtml(topicName)}</span>
                         <span class="sr-topic-count">${items.length} ${items.length === 1 ? 'Patient' : 'Patienten'} instabil</span>
                     </div>
                     <div class="sr-cases-list">
                         ${items.map(item => {
                             const c = item.caseData;
-                            const cId = c.case_id || c.id;
+                            const cId = String(c.case_id || c.id || '').trim();
                             const title = c.metadata?.title || cId;
                             const isCritical = item.overdueDays >= 2;
                             const vitalBadge = isCritical
-                                ? `<span class="sr-due-tag overdue" style="background:rgba(239,68,68,0.25); border:1px solid #ef4444; color:#fca5a5;">🔴 Kritische Dekompensation (seit ${item.overdueDays}d)</span>`
-                                : `<span class="sr-due-tag today" style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#fde68a;">🟡 Überwachungsbedürftig (Heute)</span>`;
+                                ? `<span class="sr-due-tag overdue">🔴 Kritisch (seit ${item.overdueDays}d)</span>`
+                                : `<span class="sr-due-tag today">🟡 Heute fällig</span>`;
+
+                            // data-case-id wird sicher mit encodeURIComponent übergeben
+                            const safeIdAttr = encodeURIComponent(cId);
 
                             return `
-                                <div class="sr-case-row" style="border-left: 3px solid ${isCritical ? '#ef4444' : '#f59e0b'};">
-                                    <div class="sr-case-main" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">
+                                <div class="sr-case-row" data-case-id="${safeIdAttr}" style="border-left: 3px solid ${isCritical ? '#ef4444' : '#f59e0b'};">
+                                    <div class="sr-case-main" onclick="window.startCaseReview('${safeIdAttr}')">
                                         <div class="sr-case-title">${this.escapeHtml(title)}</div>
                                         <div class="sr-case-meta">
                                             ${vitalBadge}
-                                            <span>• Konsolidierungs-Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
+                                            <span>• Stufe ${item.stage + 1}/${SR_INTERVALS_DAYS.length}</span>
                                         </div>
                                     </div>
                                     <div class="sr-case-actions">
-                                        <button type="button" class="sr-btn-mark-done" onclick="event.stopPropagation(); window.SpacedRepetitionEngine.quickCompleteReview('${this.escapeHtml(cId)}')" title="Kurze Kurvenvisite (direkt stabilisieren)">✓</button>
-                                        <button type="button" class="sr-btn-start" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Stabilisieren ➔</button>
+                                        <button type="button" class="sr-btn-mark-done" onclick="window.markCaseStabilizedManual('${safeIdAttr}', event)" title="Als stabil abhaken">✓</button>
+                                        <button type="button" class="sr-btn-start" onclick="window.startCaseReview('${safeIdAttr}', event)">Stabilisieren ➔</button>
                                     </div>
                                 </div>
                             `;
@@ -380,7 +383,7 @@ const SpacedRepetitionEngine = {
         let upcomingSectionHtml = '';
         if (upcomingCases.length > 0) {
             upcomingSectionHtml = `
-                <details class="sr-upcoming-accordion" ${dueCases.length === 0 ? 'open' : ''}>
+                <details class="sr-upcoming-accordion" ${dueCases.length === 0 ? 'open' : ''} style="margin-top: 14px;">
                     <summary class="sr-upcoming-summary">
                         <span>🟢 Vital stabile Patienten (${upcomingCases.length})</span>
                         <span style="font-size: 0.75rem; color: var(--text-dim);">Station ausklappen</span>
@@ -388,21 +391,23 @@ const SpacedRepetitionEngine = {
                     <div class="sr-cases-list" style="margin-top: 10px;">
                         ${upcomingCases.map(item => {
                             const c = item.caseData;
-                            const cId = c.case_id || c.id;
+                            const cId = String(c.case_id || c.id || '').trim();
                             const title = c.metadata?.title || cId;
                             const nextDays = SR_INTERVALS_DAYS[Math.min(SR_INTERVALS_DAYS.length - 1, item.stage + 1)];
+                            const safeIdAttr = encodeURIComponent(cId);
+
                             return `
-                                <div class="sr-case-row upcoming" style="border-left: 3px solid #10b981;">
-                                    <div class="sr-case-main" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">
+                                <div class="sr-case-row upcoming" data-case-id="${safeIdAttr}" style="border-left: 3px solid #10b981;">
+                                    <div class="sr-case-main" onclick="window.startCaseReview('${safeIdAttr}')">
                                         <div class="sr-case-title">${this.escapeHtml(title)}</div>
                                         <div class="sr-case-meta">
-                                            <span class="sr-due-tag scheduled" style="color:#86efac;">🟢 Vital stabil (Nächste Visite in ${item.daysDiff}d)</span>
+                                            <span class="sr-due-tag scheduled">🟢 Nächste Visite in ${item.daysDiff}d</span>
                                             <span>• 📁 ${this.escapeHtml(item.subFolder)}</span>
-                                            <span>• Nächstes Intervall: ${nextDays}d</span>
+                                            <span>• Intervall: ${nextDays}d</span>
                                         </div>
                                     </div>
                                     <div class="sr-case-actions">
-                                        <button type="button" class="sr-btn-start secondary" onclick="window.SpacedRepetitionEngine.startReviewCase('${this.escapeHtml(cId)}')">Elektive Visite</button>
+                                        <button type="button" class="sr-btn-start secondary" onclick="window.startCaseReview('${safeIdAttr}', event)">Elektive Visite</button>
                                     </div>
                                 </div>
                             `;
@@ -451,7 +456,6 @@ const SpacedRepetitionEngine = {
             </div>
         `;
     },
-
     setFilter(newFilter) {
         this.activeFilter = newFilter || 'ALL';
         this.renderDashboardWidget('sr-dashboard-widget', this.activeFilter);
@@ -527,49 +531,48 @@ document.addEventListener('keydown', (e) => {
 // ====================================================
 // GLOBALE WINDOW-EXPORTE FÜR DAS VISUAL-MODAL
 // ====================================================
-window.startCaseReview = function(caseId) {
-    if (!caseId) return;
-    
-    // Modal schließen
-    const overlay = document.getElementById('sr-modal-overlay');
-    if (overlay) overlay.classList.remove('active');
+window.startCaseReview = function(rawCaseId, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    if (!rawCaseId) return;
 
-    // Fall über app.js im Review-Modus laden (resettet Challenges für den Durchlauf)
+    // Sichere Dekodierung der ID (fängt Sonderzeichen sauber ab)
+    const caseId = decodeURIComponent(rawCaseId);
+
+    // 1. Modal sofort schließen
+    if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.closeModal();
+    } else {
+        const overlay = document.getElementById('sr-modal-overlay');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    // 2. Fall direkt über app.js laden
     if (typeof window.loadCaseById === 'function') {
         window.loadCaseById(caseId, { resetForReview: true, startMode: 'audit' });
+    } else {
+        console.error("loadCaseById nicht gefunden für ID:", caseId);
     }
 };
 
-window.toggleSrTopicAccordion = function(headerEl) {
-    if (!headerEl) return;
-    const group = headerEl.closest('.sr-topic-group');
-    if (!group) return;
-    const list = group.querySelector('.sr-cases-list');
-    if (!list) return;
-
-    const isCollapsed = list.style.display === 'none';
-    list.style.display = isCollapsed ? 'flex' : 'none';
-    
-    const countEl = headerEl.querySelector('.sr-topic-count');
-    if (countEl) {
-        countEl.textContent = isCollapsed ? '▲ Einklappen' : '▼ Ausklappen';
-    }
-};
-
-window.markCaseStabilizedManual = function(caseId, event) {
+window.markCaseStabilizedManual = function(rawCaseId, event) {
     if (event) {
-        event.preventDefault();
         event.stopPropagation();
+        event.preventDefault();
     }
-    if (!caseId || !window.SpacedRepetitionEngine) return;
+    if (!rawCaseId || !window.SpacedRepetitionEngine) return;
 
+    const caseId = decodeURIComponent(rawCaseId);
     window.SpacedRepetitionEngine.recordCaseReview(caseId, 'good');
 
-    // Zeile im Modal sofort als erledigt markieren oder ausblenden
-    const row = document.querySelector(`.sr-case-row[data-case-id="${caseId}"]`);
+    // UI-Rückmeldung in der Zeile
+    const safeAttr = encodeURIComponent(caseId);
+    const row = document.querySelector(`.sr-case-row[data-case-id="${safeAttr}"]`);
     if (row) {
         row.style.transition = 'all 0.3s ease';
-        row.style.opacity = '0.4';
+        row.style.opacity = '0.35';
         row.style.pointerEvents = 'none';
         const badge = row.querySelector('.sr-due-tag');
         if (badge) {
@@ -579,4 +582,15 @@ window.markCaseStabilizedManual = function(caseId, event) {
     }
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 30]);
+};
+
+window.toggleSrTopicAccordion = function(headerEl) {
+    if (!headerEl) return;
+    const group = headerEl.closest('.sr-topic-group');
+    if (!group) return;
+    const list = group.querySelector('.sr-cases-list');
+    if (!list) return;
+
+    const isCurrentlyHidden = (list.style.display === 'none' || getComputedStyle(list).display === 'none');
+    list.style.display = isCurrentlyHidden ? 'flex' : 'none';
 };
