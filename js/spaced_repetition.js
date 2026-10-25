@@ -524,3 +524,59 @@ document.addEventListener('keydown', (e) => {
         SpacedRepetitionEngine.closeModal();
     }
 });
+// ====================================================
+// GLOBALE WINDOW-EXPORTE FÜR DAS VISUAL-MODAL
+// ====================================================
+window.startCaseReview = function(caseId) {
+    if (!caseId) return;
+    
+    // Modal schließen
+    const overlay = document.getElementById('sr-modal-overlay');
+    if (overlay) overlay.classList.remove('active');
+
+    // Fall über app.js im Review-Modus laden (resettet Challenges für den Durchlauf)
+    if (typeof window.loadCaseById === 'function') {
+        window.loadCaseById(caseId, { resetForReview: true, startMode: 'audit' });
+    }
+};
+
+window.toggleSrTopicAccordion = function(headerEl) {
+    if (!headerEl) return;
+    const group = headerEl.closest('.sr-topic-group');
+    if (!group) return;
+    const list = group.querySelector('.sr-cases-list');
+    if (!list) return;
+
+    const isCollapsed = list.style.display === 'none';
+    list.style.display = isCollapsed ? 'flex' : 'none';
+    
+    const countEl = headerEl.querySelector('.sr-topic-count');
+    if (countEl) {
+        countEl.textContent = isCollapsed ? '▲ Einklappen' : '▼ Ausklappen';
+    }
+};
+
+window.markCaseStabilizedManual = function(caseId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    if (!caseId || !window.SpacedRepetitionEngine) return;
+
+    window.SpacedRepetitionEngine.recordCaseReview(caseId, 'good');
+
+    // Zeile im Modal sofort als erledigt markieren oder ausblenden
+    const row = document.querySelector(`.sr-case-row[data-case-id="${caseId}"]`);
+    if (row) {
+        row.style.transition = 'all 0.3s ease';
+        row.style.opacity = '0.4';
+        row.style.pointerEvents = 'none';
+        const badge = row.querySelector('.sr-due-tag');
+        if (badge) {
+            badge.className = 'sr-due-tag scheduled';
+            badge.textContent = 'Stabilisiert ✓';
+        }
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 30]);
+};
