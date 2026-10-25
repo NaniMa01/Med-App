@@ -313,6 +313,7 @@ const SpacedRepetitionEngine = {
     },
 
  // 9. Rendert das Stations-Visiten-Modal mit klickbaren Patienten & sauberen Buttons
+  // 9. Rendert das Stations-Visiten-Modal als echte, saubere Akkordeons
     renderModalContent() {
         const modalOverlay = document.getElementById('sr-modal-overlay');
         if (!modalOverlay) return;
@@ -324,8 +325,9 @@ const SpacedRepetitionEngine = {
 
         const groupedDue = {};
         dueCases.forEach(item => {
-            if (!groupedDue[item.subFolder]) groupedDue[item.subFolder] = [];
-            groupedDue[item.subFolder].push(item);
+            const folderName = item.subFolder || 'Allgemein';
+            if (!groupedDue[folderName]) groupedDue[folderName] = [];
+            groupedDue[folderName].push(item);
         });
 
         let dueSectionHtml = '';
@@ -340,12 +342,16 @@ const SpacedRepetitionEngine = {
                 </div>
             `;
         } else {
-            dueSectionHtml = Object.entries(groupedDue).map(([topicName, items]) => `
-                <div class="sr-topic-group">
-                    <div class="sr-topic-header" onclick="window.toggleSrTopicAccordion(this)">
-                        <span>📁 Station: ${this.escapeHtml(topicName)}</span>
+            // ECHTE HTML5 <details>-Akkordeons: Klappen nativ auf/zu, 100% bugfrei!
+            dueSectionHtml = Object.entries(groupedDue).map(([topicName, items], idx) => `
+                <details class="sr-topic-group" ${idx === 0 ? 'open' : ''}>
+                    <summary class="sr-topic-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="sr-topic-arrow">▶</span>
+                            <span>📁 Station: <strong>${this.escapeHtml(topicName)}</strong></span>
+                        </div>
                         <span class="sr-topic-count">${items.length} ${items.length === 1 ? 'Patient' : 'Patienten'} instabil</span>
-                    </div>
+                    </summary>
                     <div class="sr-cases-list">
                         ${items.map(item => {
                             const c = item.caseData;
@@ -354,14 +360,13 @@ const SpacedRepetitionEngine = {
                             const isCritical = item.overdueDays >= 2;
                             const vitalBadge = isCritical
                                 ? `<span class="sr-due-tag overdue">🔴 Kritisch (seit ${item.overdueDays}d)</span>`
-                                : `<span class="sr-due-tag today">🟡 Heute fällig</span>`;
+                                : `<span class="sr-due-tag today">🟡 Überwachungsbedürftig</span>`;
 
-                            // data-case-id wird sicher mit encodeURIComponent übergeben
-                            const safeIdAttr = encodeURIComponent(cId);
+                            const safeId = encodeURIComponent(cId);
 
                             return `
-                                <div class="sr-case-row" data-case-id="${safeIdAttr}" style="border-left: 3px solid ${isCritical ? '#ef4444' : '#f59e0b'};">
-                                    <div class="sr-case-main" onclick="window.startCaseReview('${safeIdAttr}')">
+                                <div class="sr-case-row ${isCritical ? 'is-critical-case' : 'is-warning-case'}" data-case-id="${safeId}">
+                                    <div class="sr-case-main" onclick="window.startCaseReview('${safeId}', event)">
                                         <div class="sr-case-title">${this.escapeHtml(title)}</div>
                                         <div class="sr-case-meta">
                                             ${vitalBadge}
@@ -369,36 +374,39 @@ const SpacedRepetitionEngine = {
                                         </div>
                                     </div>
                                     <div class="sr-case-actions">
-                                        <button type="button" class="sr-btn-mark-done" onclick="window.markCaseStabilizedManual('${safeIdAttr}', event)" title="Als stabil abhaken">✓</button>
-                                        <button type="button" class="sr-btn-start" onclick="window.startCaseReview('${safeIdAttr}', event)">Stabilisieren ➔</button>
+                                        <button type="button" class="sr-btn-mark-done" onclick="window.markCaseStabilizedManual('${safeId}', event)" title="Direkt stabilisieren">✓</button>
+                                        <button type="button" class="sr-btn-start" onclick="window.startCaseReview('${safeId}', event)">Stabilisieren ➔</button>
                                     </div>
                                 </div>
                             `;
                         }).join('')}
                     </div>
-                </div>
+                </details>
             `).join('');
         }
 
         let upcomingSectionHtml = '';
         if (upcomingCases.length > 0) {
             upcomingSectionHtml = `
-                <details class="sr-upcoming-accordion" ${dueCases.length === 0 ? 'open' : ''} style="margin-top: 14px;">
-                    <summary class="sr-upcoming-summary">
-                        <span>🟢 Vital stabile Patienten (${upcomingCases.length})</span>
+                <details class="sr-topic-group sr-upcoming-group" ${dueCases.length === 0 ? 'open' : ''} style="margin-top: 14px;">
+                    <summary class="sr-topic-header sr-upcoming-header">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="sr-topic-arrow">▶</span>
+                            <span>🟢 Vital stabile Patienten (${upcomingCases.length})</span>
+                        </div>
                         <span style="font-size: 0.75rem; color: var(--text-dim);">Station ausklappen</span>
                     </summary>
-                    <div class="sr-cases-list" style="margin-top: 10px;">
+                    <div class="sr-cases-list">
                         ${upcomingCases.map(item => {
                             const c = item.caseData;
                             const cId = String(c.case_id || c.id || '').trim();
                             const title = c.metadata?.title || cId;
                             const nextDays = SR_INTERVALS_DAYS[Math.min(SR_INTERVALS_DAYS.length - 1, item.stage + 1)];
-                            const safeIdAttr = encodeURIComponent(cId);
+                            const safeId = encodeURIComponent(cId);
 
                             return `
-                                <div class="sr-case-row upcoming" data-case-id="${safeIdAttr}" style="border-left: 3px solid #10b981;">
-                                    <div class="sr-case-main" onclick="window.startCaseReview('${safeIdAttr}')">
+                                <div class="sr-case-row is-stable-case" data-case-id="${safeId}">
+                                    <div class="sr-case-main" onclick="window.startCaseReview('${safeId}', event)">
                                         <div class="sr-case-title">${this.escapeHtml(title)}</div>
                                         <div class="sr-case-meta">
                                             <span class="sr-due-tag scheduled">🟢 Nächste Visite in ${item.daysDiff}d</span>
@@ -407,7 +415,7 @@ const SpacedRepetitionEngine = {
                                         </div>
                                     </div>
                                     <div class="sr-case-actions">
-                                        <button type="button" class="sr-btn-start secondary" onclick="window.startCaseReview('${safeIdAttr}', event)">Elektive Visite</button>
+                                        <button type="button" class="sr-btn-start secondary" onclick="window.startCaseReview('${safeId}', event)">Elektive Visite</button>
                                     </div>
                                 </div>
                             `;
@@ -456,47 +464,26 @@ const SpacedRepetitionEngine = {
             </div>
         `;
     },
+
     setFilter(newFilter) {
         this.activeFilter = newFilter || 'ALL';
         this.renderDashboardWidget('sr-dashboard-widget', this.activeFilter);
     },
 
-  startReviewCase(caseId, startMode = 'audit') {
-        this.closeModal();
-
-        // Sicherheits-Reset direkt vor dem Laden aufrufen
-        if (window.ProgressManager && typeof window.ProgressManager.resetCaseChallengesForReview === 'function') {
-            window.ProgressManager.resetCaseChallengesForReview(caseId);
-        } else {
-            // Fallback, falls ProgressManager global nicht gebunden war
-            try {
-                const allProg = JSON.parse(localStorage.getItem('medcheck_user_progress_v1') || '{}');
-                delete allProg[caseId];
-                localStorage.setItem('medcheck_user_progress_v1', JSON.stringify(allProg));
-                localStorage.removeItem(`doctordle_state_${caseId}`);
-                if (window.doctordleGame) window.doctordleGame.currentCaseId = null;
-            } catch (e) {}
-        }
-
-        if (typeof window.loadCaseById === 'function') {
-            window.loadCaseById(caseId, {
-                resetForReview: true,
-                startMode: startMode
-            });
-        }
+    startReviewCase(caseId, startMode = 'audit') {
+        window.startCaseReview(caseId, null, startMode);
     },
 
     startNextDueCase() {
         const { dueCases } = this.getEvaluatedCases(this.activeFilter);
         if (dueCases.length > 0) {
             const firstId = dueCases[0].caseData.case_id || dueCases[0].caseData.id;
-            this.startReviewCase(firstId, 'audit');
+            window.startCaseReview(encodeURIComponent(firstId), null, 'audit');
         }
     },
 
     quickCompleteReview(caseId) {
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
-        this.recordCaseReview(caseId, 'good');
+        window.markCaseStabilizedManual(encodeURIComponent(caseId), null);
     },
 
     escapeHtml(str) {
@@ -506,21 +493,68 @@ const SpacedRepetitionEngine = {
     }
 };
 
-// Globale Exports für HTML-Handler & Fächer-Drawer
+// ====================================================
+// GLOBALE WINDOW-FUNKTIONEN (GARANTIERT KLICKBAR!)
+// ====================================================
 window.SpacedRepetitionEngine = SpacedRepetitionEngine;
 
 window.selectSrFolder = function(folderName) {
     SpacedRepetitionEngine.openModal(folderName);
 };
 
-// Direkt initialisieren, falls DOM schon geladen ist
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
-    });
-} else {
-    SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
-}
+window.startCaseReview = function(safeId, event, forceMode = 'audit') {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    if (!safeId) return;
+
+    const caseId = decodeURIComponent(safeId);
+
+    // 1. Modal sofort schließen
+    SpacedRepetitionEngine.closeModal();
+
+    // 2. Fall-Reset für den Durchlauf
+    if (window.ProgressManager && typeof window.ProgressManager.resetCaseChallengesForReview === 'function') {
+        window.ProgressManager.resetCaseChallengesForReview(caseId);
+    }
+
+    // 3. Fall über app.js laden
+    if (typeof window.loadCaseById === 'function') {
+        window.loadCaseById(caseId, {
+            resetForReview: true,
+            startMode: forceMode
+        });
+    } else {
+        alert(`Fehler: Fall ${caseId} konnte nicht geladen werden.`);
+    }
+};
+
+window.markCaseStabilizedManual = function(safeId, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    if (!safeId) return;
+
+    const caseId = decodeURIComponent(safeId);
+    SpacedRepetitionEngine.recordCaseReview(caseId, 'good');
+
+    // Visuelles Feedback direkt in der Zeile
+    const row = document.querySelector(`.sr-case-row[data-case-id="${safeId}"]`);
+    if (row) {
+        row.style.transition = 'all 0.3s ease';
+        row.style.opacity = '0.35';
+        row.style.pointerEvents = 'none';
+        const badge = row.querySelector('.sr-due-tag');
+        if (badge) {
+            badge.className = 'sr-due-tag scheduled';
+            badge.textContent = 'Stabilisiert ✓';
+        }
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 30]);
+};
 
 // Tastatur-Support (ESC schließt das SR-Modal)
 document.addEventListener('keydown', (e) => {
@@ -528,6 +562,15 @@ document.addEventListener('keydown', (e) => {
         SpacedRepetitionEngine.closeModal();
     }
 });
+
+// Direkt initialisieren
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    });
+} else {
+    SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+}
 // ====================================================
 // GLOBALE WINDOW-EXPORTE FÜR DAS VISUAL-MODAL
 // ====================================================
