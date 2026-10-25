@@ -4598,3 +4598,470 @@ kbd {
     background: rgba(15, 23, 42, 0.45);
     border: 1px dashed var(--card-border, rgba(148, 163, 184, 0.25));
 }
+
+/* ==========================================================================
+   MINDMAP MODULE & KLINISCHE FARBKODIERUNG
+   ========================================================================== */
+
+:root {
+    --mm-etiology: #3b82f6;        /* Blau: Ätiologie & Risikofaktoren */
+    --mm-pathophys: #ef4444;       /* Rot: Pathophysiologie */
+    --mm-clinical: #f59e0b;        /* Gelb/Amber: Klinik & Symptome */
+    --mm-diagnostics: #8b5cf6;     /* Violett: Diagnostik */
+    --mm-therapy: #10b981;         /* Grün: Therapie & Management */
+    --mm-neutral: #64748b;         /* Grau: Blind-Modus (Prüfungsmodus) */
+    --mm-bg-surface: rgba(15, 23, 42, 0.85);
+    --mm-border: rgba(148, 163, 184, 0.2);
+}
+
+.mindmap-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    min-height: calc(100vh - 4rem);
+    color: #f8fafc;
+}
+
+/* Header & Toolbar */
+.mm-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    background: var(--mm-bg-surface);
+    border: 1px solid var(--mm-border);
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    backdrop-filter: blur(12px);
+}
+
+.mm-title-group h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mm-title-group p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.mm-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.mm-select, .mm-btn {
+    background: rgba(30, 41, 59, 0.9);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 0.5rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.mm-btn:hover, .mm-select:hover {
+    border-color: #38bdf8;
+    background: rgba(51, 65, 85, 0.95);
+}
+
+.mm-btn-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border-color: #3b82f6;
+    font-weight: 600;
+}
+
+.mm-btn-primary:hover {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.mm-btn-blind.active {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fcd34d;
+}
+
+/* Klinische Legende & Status-Bar */
+.mm-statusbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--mm-border);
+    border-radius: 12px;
+    padding: 0.75rem 1.15rem;
+}
+
+.mm-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    align-items: center;
+}
+
+.mm-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mm-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.mm-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.mm-stat-badge {
+    background: rgba(30, 41, 59, 0.9);
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--mm-border);
+}
+
+/* Workspace: Links Pool + Sokratischer Tutor, Rechts Mindmap-Canvas */
+.mm-workspace {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1.25rem;
+    flex: 1;
+    min-height: 680px;
+}
+
+@media (max-width: 1100px) {
+    .mm-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+.mm-sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mm-pool-box, .mm-tutor-box {
+    background: var(--mm-bg-surface);
+    border: 1px solid var(--mm-border);
+    border-radius: 14px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.mm-pool-box {
+    flex: 1;
+    max-height: 440px;
+    overflow-y: auto;
+}
+
+.mm-box-header {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mm-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+/* Draggable Begriffs-Chips */
+.mm-chip {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: rgba(30, 41, 59, 0.95);
+    border-left: 4px solid var(--mm-neutral);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.mm-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.mm-chip.selected-chip {
+    outline: 2px solid #38bdf8;
+    background: rgba(14, 116, 144, 0.4);
+}
+
+.mm-chip.dragging {
+    opacity: 0.4;
+}
+
+/* Ghost-Element beim Pointer-Drag */
+.mm-drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+    opacity: 0.95;
+}
+
+/* Kategoriefarben für Chips & Knoten */
+.cat-etiology { --cat-color: var(--mm-etiology); border-left-color: var(--mm-etiology) !important; }
+.cat-pathophysiology { --cat-color: var(--mm-pathophys); border-left-color: var(--mm-pathophys) !important; }
+.cat-clinical { --cat-color: var(--mm-clinical); border-left-color: var(--mm-clinical) !important; }
+.cat-diagnostics { --cat-color: var(--mm-diagnostics); border-left-color: var(--mm-diagnostics) !important; }
+.cat-therapy { --cat-color: var(--mm-therapy); border-left-color: var(--mm-therapy) !important; }
+.cat-blind { --cat-color: var(--mm-neutral); border-left-color: var(--mm-neutral) !important; }
+
+/* Sokratischer KI-Tutor */
+.mm-tutor-box {
+    border-left: 4px solid #38bdf8;
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(12, 74, 110, 0.25));
+    min-height: 190px;
+}
+
+.mm-tutor-content {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+    flex: 1;
+}
+
+.mm-tutor-thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #38bdf8;
+    font-style: italic;
+}
+
+/* Mindmap Canvas & SVG-Layer */
+.mm-canvas-container {
+    position: relative;
+    background: radial-gradient(circle at center, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border: 1px solid var(--mm-border);
+    border-radius: 16px;
+    overflow: hidden;
+    min-height: 680px;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Dezentes Punkt-Raster im Hintergrund */
+.mm-canvas-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+}
+
+.mm-svg-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.mm-edge-path {
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.35);
+    stroke-width: 2.2px;
+    stroke-dasharray: 6 4;
+    transition: stroke 0.35s ease, stroke-width 0.35s ease, stroke-dasharray 0.35s ease;
+}
+
+.mm-edge-path.solved-edge {
+    stroke-dasharray: none;
+    stroke-width: 3px;
+}
+
+.mm-edge-label-bg {
+    fill: rgba(15, 23, 42, 0.88);
+    rx: 5px;
+    ry: 5px;
+    stroke: rgba(148, 163, 184, 0.25);
+    stroke-width: 1px;
+}
+
+.mm-edge-label-text {
+    fill: #94a3b8;
+    font-size: 10.5px;
+    font-weight: 500;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+/* Knoten auf dem Canvas */
+.mm-nodes-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+}
+
+.mm-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 168px;
+    min-height: 54px;
+    padding: 0.55rem 0.7rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+/* Zentraler Wurzel-Knoten */
+.mm-node-root {
+    width: 200px;
+    min-height: 72px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 2px solid #38bdf8;
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.25);
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #f8fafc;
+    z-index: 3;
+}
+
+.mm-node-root .mm-root-badge {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #38bdf8;
+    margin-bottom: 0.2rem;
+}
+
+/* Leere Dropzone */
+.mm-node-slot {
+    background: rgba(15, 23, 42, 0.75);
+    border: 2px dashed var(--cat-color, var(--mm-neutral));
+    color: #94a3b8;
+    font-size: 0.78rem;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+}
+
+.mm-node-slot:hover, .mm-node-slot.drag-over {
+    transform: translate(-50%, -50%) scale(1.06);
+    background: rgba(30, 41, 59, 0.92);
+    box-shadow: 0 0 18px var(--cat-color, rgba(56, 189, 248, 0.35));
+}
+
+.mm-slot-hint {
+    font-size: 0.68rem;
+    opacity: 0.75;
+    margin-bottom: 0.15rem;
+    font-weight: 600;
+    color: var(--cat-color, #94a3b8);
+}
+
+/* Gelöster Knoten */
+.mm-node-solved {
+    background: rgba(30, 41, 59, 0.95);
+    border: 2px solid var(--cat-color, #10b981);
+    color: #f8fafc;
+    font-weight: 600;
+    font-size: 0.82rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35), 0 0 12px color-mix(in srgb, var(--cat-color) 30%, transparent);
+    animation: mmPopIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes mmPopIn {
+    0% { transform: translate(-50%, -50%) scale(0.8); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Fehler-Shake bei falscher Zuordnung */
+.mm-node-error {
+    animation: mmShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6) !important;
+}
+
+@keyframes mmShake {
+    10%, 90% { transform: translate(calc(-50% - 3px), -50%); }
+    20%, 80% { transform: translate(calc(-50% + 5px), -50%); }
+    30%, 50%, 70% { transform: translate(calc(-50% - 7px), -50%); }
+    40%, 60% { transform: translate(calc(-50% + 7px), -50%); }
+}
+
+/* Modal für JSON-Import & Prompt-Kopierer */
+.mm-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+    padding: 1rem;
+}
+
+.mm-modal {
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 16px;
+    max-width: 680px;
+    width: 100%;
+    padding: 1.5rem;
+    color: #f8fafc;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.mm-textarea {
+    width: 100%;
+    min-height: 220px;
+    background: #020617;
+    color: #38bdf8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+    padding: 0.85rem;
+    font-family: monospace;
+    font-size: 0.82rem;
+    margin: 0.75rem 0 1rem 0;
+    resize: vertical;
+}
