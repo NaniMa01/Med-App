@@ -13,13 +13,43 @@ const THEME_META_COLORS = {
     neuro:    '#090614',
     tropical: '#fff8ed'
 };
+function sanitizeLightThemeInlineStyles(rootEl = document.body) {
+    const activeTheme = document.documentElement.getAttribute('data-theme');
+    const isLight = (activeTheme === 'daylight' || activeTheme === 'tropical');
+    if (!isLight || !rootEl) return;
+
+    const elements = rootEl.querySelectorAll('[style]');
+    elements.forEach(el => {
+        // Theme-Preview-Karten in den Einstellungen nicht verändern
+        if (el.closest('.theme-card')) return;
+
+        const styleAttr = el.getAttribute('style') || '';
+
+        // Dunkle Inline-Hintergründe aus JS-Modulen auf helle Oberflächen umstellen
+        if (/rgba\(\s*(6|10|11|15|16|30)\s*,\s*(9|15|17|23|24|41)/i.test(styleAttr) || /#(060913|0b1121|0f172a|1e293b)/i.test(styleAttr)) {
+            el.style.backgroundColor = 'var(--surface-secondary)';
+            el.style.backgroundImage = 'none';
+            el.style.color = 'var(--text-main)';
+            el.style.borderColor = 'var(--card-border)';
+        }
+
+        // Zu helle Pastell-Textfarben auf hellem Hintergrund abdunkeln
+        if (/#(f8fafc|f1f5f9|e2e8f0|cbd5e1)/i.test(styleAttr)) {
+            el.style.color = 'var(--text-main)';
+        } else if (/#(a7f3d0|6ee7b7|86efac)/i.test(styleAttr)) {
+            el.style.color = '#065f46'; // Sattes Smaragdgrün
+        } else if (/#(fecaca|fca5a5|fecdd3)/i.test(styleAttr)) {
+            el.style.color = '#991b1b'; // Sattes Karminrot
+        } else if (/#(fde68a|fcd34d)/i.test(styleAttr)) {
+            el.style.color = '#92400e'; // Sattes Amber-Braun
+        }
+    });
+}
 
 function applyAppTheme(themeName) {
     const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
 
     if (validTheme === 'midnight') {
-        // Entfernt das data-theme Attribut vollständig
-        // Dadurch gelten 1:1 die exakten :root-Variablen von Cyber Midnight
         document.documentElement.removeAttribute('data-theme');
     } else {
         document.documentElement.setAttribute('data-theme', validTheme);
@@ -35,8 +65,27 @@ function applyAppTheme(themeName) {
     });
 
     localStorage.setItem(THEME_STORAGE_KEY, validTheme);
+
+    // Bestehende Inline-Styles bei Light-Themes sofort harmonisieren
+    if (validTheme === 'daylight' || validTheme === 'tropical') {
+        setTimeout(() => sanitizeLightThemeInlineStyles(document.body), 20);
+    }
 }
 window.applyAppTheme = applyAppTheme;
+
+// Überwacht dynamisch nachgerenderte Challenge-Elemente (Audit, Doctordle, Quiz, Taxonomie)
+document.addEventListener('DOMContentLoaded', () => {
+    const playerView = document.getElementById('player-view');
+    if (playerView && typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver(() => {
+            const activeTheme = document.documentElement.getAttribute('data-theme');
+            if (activeTheme === 'daylight' || activeTheme === 'tropical') {
+                sanitizeLightThemeInlineStyles(playerView);
+            }
+        });
+        observer.observe(playerView, { childList: true, subtree: true });
+    }
+});
 
 // Challenge States
 let selectedSynapses = [], totalSynapseDiseases = 0, solvedSynapseDiseases = 0, tilesPerDisease = 4;
