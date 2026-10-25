@@ -2599,10 +2599,10 @@ kbd {
 .theme-desc { font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
 
 /* ==========================================================================
-   SPACED REPETITION MODAL - STABILER SCROLL- & KONTRAST-FIX (VOLLSTÄNDIG)
+   SPACED REPETITION MODAL - PERFEKTES AKKORDEON & SCROLL-LAYOUT
    ========================================================================== */
 
-/* 1. Modal Overlay */
+/* 1. Modal Overlay & Karte */
 .sr-modal-overlay {
     position: fixed;
     inset: 0;
@@ -2621,23 +2621,20 @@ kbd {
     display: flex !important;
 }
 
-/* 2. Modal-Karte als starrer Flex-Container */
 .sr-modal-card {
     display: flex !important;
     flex-direction: column !important;
     width: 100%;
-    max-width: 720px;
-    height: 85vh !important;       /* Feste Höhe, damit Flex-Child exakt weiß, wann es scrollen muss */
+    max-width: 740px;
+    height: 85vh !important;
     max-height: 85vh !important;
     border-radius: 16px;
     background: var(--bg-surface, #0f172a);
     border: 1px solid var(--card-border, rgba(148, 163, 184, 0.22));
     box-shadow: 0 24px 55px rgba(0, 0, 0, 0.6);
     overflow: hidden !important;
-    animation: srModalPop 0.18s ease-out;
 }
 
-/* 3. Header & Toolbar (bleiben immer fixiert oben) */
 .sr-modal-header {
     flex-shrink: 0 !important;
     display: flex;
@@ -2660,12 +2657,12 @@ kbd {
     border-bottom: 1px solid var(--card-border, rgba(148, 163, 184, 0.12));
 }
 
-/* 4. DER ENTSCHEIDENDE SCROLL-CONTAINER (Hebt die Blockade auf!) */
+/* 2. Scroll-Body mit nativer Leiste */
 .sr-modal-body {
     flex: 1 1 auto !important;
-    min-height: 0 !important;        /* VERHINDERT das Ausbrechen aus Flexbox */
+    min-height: 0 !important;
     height: 100% !important;
-    overflow-y: auto !important;     /* Aktiviert das Scrollen */
+    overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 18px 22px !important;
@@ -2674,53 +2671,60 @@ kbd {
     gap: 14px;
 }
 
-/* Scrollbar-Design für das Spaced-Repetition-Menü */
-.sr-modal-body::-webkit-scrollbar {
-    width: 6px;
-}
-.sr-modal-body::-webkit-scrollbar-track {
-    background: var(--surface-secondary, rgba(15, 23, 42, 0.4));
-    border-radius: 4px;
-}
-.sr-modal-body::-webkit-scrollbar-thumb {
-    background: var(--accent-blue, rgba(56, 189, 248, 0.4));
-    border-radius: 4px;
-}
-.sr-modal-body::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-blue, #38bdf8);
+/* 3. Akkordeon-Gruppen (<details>) */
+.sr-topic-group {
+    border: 1px solid var(--card-border, rgba(148, 163, 184, 0.2));
+    border-radius: 12px;
+    background: var(--surface-secondary, rgba(15, 23, 42, 0.55));
+    overflow: hidden;
+    transition: border-color 0.2s ease;
 }
 
-/* 5. Stationen & Ausklapp-Elemente */
-.sr-topic-group {
-    background: var(--surface-secondary, rgba(15, 23, 42, 0.55));
-    border: 1px solid var(--card-border, rgba(148, 163, 184, 0.16));
-    border-radius: 12px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+.sr-topic-group[open] {
+    border-color: var(--accent-blue, #38bdf8);
 }
 
 .sr-topic-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 11px 16px;
-    background: var(--surface-elevated, rgba(30, 41, 59, 0.65));
-    font-size: 0.86rem;
-    font-weight: 700;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 14px 18px !important;
+    background: var(--surface-elevated, rgba(30, 41, 59, 0.65)) !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    list-style: none !important; /* Versteckt das Standard-Dreieck */
     color: var(--text-main, #f8fafc) !important;
-    cursor: pointer;
-    user-select: none;
-    flex-shrink: 0;
 }
 
-/* HIER FEHLTE DAS SAUBERE DISPLAY: FLEX FÜR DIE LISTE */
+.sr-topic-header::-webkit-details-marker {
+    display: none !important;
+}
+
+.sr-topic-arrow {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: var(--accent-blue, #38bdf8);
+    transition: transform 0.2s ease;
+}
+
+.sr-topic-group[open] .sr-topic-arrow {
+    transform: rotate(90deg);
+}
+
+.sr-topic-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #f59e0b;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* 4. Die Liste der Patienten innerhalb der Station (Jetzt voll sichtbar!) */
 .sr-cases-list {
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-surface, #ffffff);
-    border-top: 1px solid var(--divider-color, rgba(148, 163, 184, 0.15));
-    width: 100%;
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg-surface, #0b1121) !important;
+    border-top: 1px solid var(--divider-color, rgba(148, 163, 184, 0.15)) !important;
+    padding: 6px 0 !important;
 }
 
 .sr-case-row {
@@ -2728,51 +2732,61 @@ kbd {
     align-items: center !important;
     justify-content: space-between !important;
     flex-wrap: wrap !important;
-    gap: 12px !important;
-    padding: 12px 16px !important;
-    border-bottom: 1px solid var(--divider-color, rgba(148, 163, 184, 0.1));
-    background: var(--bg-surface, #ffffff) !important;
-    transition: background 0.15s ease;
-    min-height: 64px; /* Verhindert das Zusammenquetschen */
-    width: 100%;
-    box-sizing: border-box;
+    gap: 12px 16px !important;
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--divider-color, rgba(148, 163, 184, 0.08)) !important;
+    background: transparent !important;
+    min-height: 64px !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
 }
 
 .sr-case-row:last-child {
-    border-bottom: none;
+    border-bottom: none !important;
 }
 
 .sr-case-row:hover {
-    background: var(--surface-secondary, rgba(241, 245, 249, 0.6)) !important;
+    background: rgba(56, 189, 248, 0.06) !important;
 }
 
-/* Linker Textbereich: Titel & Status-Badges */
+.sr-case-row.is-critical-case {
+    border-left: 4px solid #ef4444 !important;
+}
+
+.sr-case-row.is-warning-case {
+    border-left: 4px solid #f59e0b !important;
+}
+
+.sr-case-row.is-stable-case {
+    border-left: 4px solid #10b981 !important;
+}
+
+/* Linker Textbereich */
 .sr-case-main {
-    flex: 1 1 300px !important;
+    flex: 1 1 320px !important;
     min-width: 0 !important;
-    cursor: pointer;
 }
 
 .sr-case-title {
-    font-size: 0.88rem !important;
+    font-size: 0.92rem !important;
     font-weight: 700 !important;
+    color: var(--text-main, #f8fafc) !important;
     line-height: 1.4 !important;
-    color: var(--text-main, #0f172a) !important;
+    margin-bottom: 4px !important;
     white-space: normal !important;
     word-break: break-word !important;
-    margin-bottom: 4px;
 }
 
 .sr-case-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    font-size: 0.72rem;
-    color: var(--text-muted, #475569);
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 6px 10px !important;
+    font-size: 0.74rem !important;
+    color: var(--text-muted, #94a3b8) !important;
 }
 
-/* Rechter Aktionsbereich: Haken & Stabilisieren-Button */
+/* Rechter Aktionsbereich */
 .sr-case-actions {
     display: flex !important;
     align-items: center !important;
@@ -2780,90 +2794,124 @@ kbd {
     flex-shrink: 0 !important;
 }
 
-/* Der '✓' Button (Manuell als stabil markieren) */
-.sr-btn-mark-done {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 8px !important;
-    background: rgba(16, 185, 129, 0.12) !important;
-    color: var(--color-symptom, #059669) !important;
-    border: 1px solid rgba(16, 185, 129, 0.35) !important;
-    cursor: pointer !important;
-    font-size: 0.95rem !important;
-    font-weight: 800 !important;
-    transition: transform 0.15s ease, background 0.15s ease;
-}
-.sr-btn-mark-done:hover {
-    background: rgba(16, 185, 129, 0.25) !important;
-    transform: scale(1.06);
-}
-
-/* Der 'Stabilisieren ➔' Button */
 .sr-btn-start {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    padding: 8px 16px !important;
-    height: 34px !important;
-    border-radius: 8px !important;
     background: linear-gradient(135deg, var(--accent-blue, #0284c7), var(--accent-cyan, #0891b2)) !important;
     color: #ffffff !important;
     border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
     font-size: 0.8rem !important;
     font-weight: 700 !important;
     cursor: pointer !important;
     white-space: nowrap !important;
     box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25) !important;
-    transition: transform 0.15s ease, opacity 0.15s ease;
-}
-.sr-btn-start:hover {
-    opacity: 0.94;
-    transform: translateY(-1px);
-}
-.sr-btn-start:active {
-    transform: translateY(0);
+    transition: transform 0.15s ease, opacity 0.15s ease !important;
 }
 
-/* Status-Badges im Fall (Kritisch / Heilig) */
+.sr-btn-start:hover {
+    transform: translateY(-1px) scale(1.02) !important;
+    opacity: 0.95 !important;
+}
+
+.sr-btn-mark-done {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 8px !important;
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+    cursor: pointer !important;
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.sr-btn-mark-done:hover {
+    background: rgba(16, 185, 129, 0.3) !important;
+    transform: scale(1.06) !important;
+}
+
+/* Badges */
 .sr-due-tag {
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 6px;
-    letter-spacing: 0.02em;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
 }
 .sr-due-tag.overdue {
-    background: rgba(225, 29, 72, 0.15) !important;
-    color: #be123c !important;
-    border: 1px solid rgba(225, 29, 72, 0.35);
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #fca5a5 !important;
+    border: 1px solid #ef4444 !important;
 }
 .sr-due-tag.today {
-    background: rgba(245, 158, 11, 0.15) !important;
-    color: #b45309 !important;
-    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fde68a !important;
+    border: 1px solid #f59e0b !important;
 }
 .sr-due-tag.scheduled {
-    background: rgba(13, 148, 136, 0.12) !important;
-    color: #0f766e !important;
-    border: 1px solid rgba(13, 148, 136, 0.3);
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #86efac !important;
+    border: 1px solid #10b981 !important;
 }
 
-/* Theme-spezifische Kontrastanpassung für Dark Mode vs. Light Mode */
-[data-theme="midnight"] .sr-case-row,
-:root:not([data-theme]) .sr-case-row {
-    background: rgba(15, 23, 42, 0.65) !important;
+/* ==========================================================================
+   HELLER MODUS: CLINICAL DAYLIGHT & TROPICAL SUNDAY
+   ========================================================================== */
+[data-theme="daylight"] .sr-modal-card,
+[data-theme="tropical"] .sr-modal-card {
+    background: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15) !important;
 }
-[data-theme="midnight"] .sr-case-title,
-:root:not([data-theme]) .sr-case-title {
-    color: #f8fafc !important;
+
+[data-theme="daylight"] .sr-modal-header,
+[data-theme="tropical"] .sr-modal-header {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
 }
 
+[data-theme="daylight"] .sr-modal-toolbar,
+[data-theme="tropical"] .sr-modal-toolbar {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
 
+[data-theme="daylight"] .sr-topic-header,
+[data-theme="tropical"] .sr-topic-header {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
 
+[data-theme="daylight"] .sr-cases-list,
+[data-theme="tropical"] .sr-cases-list {
+    background: #ffffff !important;
+}
+
+[data-theme="daylight"] .sr-case-title,
+[data-theme="tropical"] .sr-case-title {
+    color: #0f172a !important;
+}
+
+[data-theme="daylight"] .sr-case-row:hover,
+[data-theme="tropical"] .sr-case-row:hover {
+    background: #f8fafc !important;
+}
+
+[data-theme="daylight"] .sr-due-tag.overdue,
+[data-theme="tropical"] .sr-due-tag.overdue {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #dc2626 !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+[data-theme="daylight"] .sr-due-tag.today,
+[data-theme="tropical"] .sr-due-tag.today {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #d97706 !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+}
 /* ==========================================================================
    KONTRAST-FIX FÜR CLINICAL DAYLIGHT & TROPICAL SUNDAY
    ========================================================================== */
