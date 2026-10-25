@@ -168,17 +168,18 @@
                     <div class="panel-title">Klinische Module & Themen-Ordner</div>
                     <div class="panel-subtitle" style="margin-bottom: 14px;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
 
-                   <!-- Notaufnahme-Modus (Jetzt komplett Theme-adaptiv über .emergency-banner-card) -->
-                    <div onclick="window.startEmergencyMode()" role="button" tabindex="0" class="emergency-banner-card">
+                    <!-- Notaufnahme-Modus (Exklusiv im Dashboard platziert) -->
+                    <div onclick="window.startEmergencyMode()" role="button" tabindex="0"
+                         style="margin-bottom:18px; padding:18px 22px; border-radius:14px; background:linear-gradient(135deg, rgba(239,68,68,0.22), rgba(220,38,38,0.12)); border:1px solid rgba(239,68,68,0.45); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; cursor:pointer; transition:transform 0.18s ease;">
                         <div>
-                            <div class="emergency-banner-title">
+                            <div style="display:flex; align-items:center; gap:8px; color:#fca5a5; font-weight:800; font-size:1.05rem;">
                                 <span>🚨 Notaufnahme-Modus</span>
                             </div>
-                            <div class="emergency-banner-sub">
+                            <div style="color:#cbd5e1; font-size:0.84rem; margin-top:3px;">
                                 Interdisziplinäres Akut-Training unter echtem Zeitdruck. Triagiere und behandle zeitkritische Notfälle nacheinander.
                             </div>
                         </div>
-                        <button type="button" class="emergency-start-btn">
+                        <button type="button" style="background:#ef4444; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; font-size:0.85rem; cursor:pointer; white-space:nowrap; box-shadow:0 4px 12px rgba(239,68,68,0.4);">
                             Notdienst starten ➔
                         </button>
                     </div>
@@ -228,81 +229,35 @@
                         <button class="challenge-tab-btn" id="tab-btn-flashcards" onclick="switchPlayerMode('flashcards')" style="display:none;"><span>🗂️ Flash Cards</span><span class="tab-badge" id="badge-mode-flashcards">0/0</span></button>
                     </div>
 
-                   <div class="player-mode-pane" id="mode-container-overview" style="display: block;"><div id="overview-container"></div></div>
+                    <div class="player-mode-pane" id="mode-container-overview" style="display: block;"><div id="overview-container"></div></div>
                     <div class="player-mode-pane" id="mode-container-audit" style="display: none;"><div id="player-container"></div></div>
-                    <div class="player-mode-pane" id="mode-container-synapses" style="display: none;">
-                        <div class="synapses-container">
-                            <div class="panel-title">Synapsen-Matrix<button class="tutor-btn" onclick="showTutorHint('synapses_matrix')">💡</button></div>
-                            <div class="panel-subtitle" id="synapses-desc"></div>
-                            <div class="synapses-legend">
-                                <div class="legend-item" style="color: var(--color-risk);"><span class="legend-dot risk"></span><span>Risiko/Patho</span></div>
-                                <div class="legend-item" style="color: var(--color-symptom);"><span class="legend-dot symptom"></span><span>Symptom</span></div>
-                                <div class="legend-item" style="color: var(--color-lab);"><span class="legend-dot lab"></span><span>Diagnostik</span></div>
-                                <div class="legend-item" style="color: var(--color-treatment);"><span class="legend-dot treatment"></span><span>Therapie</span></div>
-                            </div>
-                            <div class="synapse-solved-area" id="synapses-solved-area"></div>
-                            <div class="synapses-grid-4x4" id="synapses-grid"></div>
-                            <div class="feedback-box" id="syn-fb"></div>
-                        </div>
-                    </div>
-                    <div class="player-mode-pane" id="mode-container-cascade" style="display: none;">
-                        <div class="challenge-stage-box">
-                            <div class="panel-title" style="margin-bottom: 6px;">Clinical Cascades (Flow-Charts)<button class="tutor-btn" onclick="showTutorHint('clinical_cascades')">💡</button></div>
-                            <div class="panel-subtitle">Bringe die Elemente aus der Bank in die chronologische Reihenfolge der Kaskade.</div>
-                            <div id="cascades-wrapper"></div>
-                        </div>
-                    </div>
-                    <div class="player-mode-pane" id="mode-container-cat" style="display: none;">
-                        <div class="challenge-stage-box">
-                            <div class="panel-title" style="margin-bottom: 6px;">Taxonomie<button class="tutor-btn" onclick="showTutorHint('categorization')">💡</button></div>
-                            <div class="panel-subtitle" id="cat-desc"></div>
-                            <div id="categorization-task"></div>
-                            <button class="action-btn" onclick="evalCategorization()" style="margin-top: 15px; width: 100%;">Zuordnung prüfen</button>
-                            <div class="feedback-box" id="cat-fb"></div>
-                        </div>
-                    </div>
-                    <div class="player-mode-pane" id="mode-container-quiz" style="display: none;">
-                        <div class="challenge-stage-box">
-                            <div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div>
-                            <div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div>
-                            <div id="quiz-wrapper"></div>
-                            <button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button>
-                            <div class="feedback-box" id="quiz-fb"></div>
-                        </div>
-                    </div>
+                    <div class="player-mode-pane" id="mode-container-synapses" style="display: none;"><div class="synapses-container"><div class="panel-title">Synapsen-Matrix<button class="tutor-btn" onclick="showTutorHint('synapses_matrix')">💡</button></div><div class="panel-subtitle" id="synapses-desc"></div><div class="synapses-legend"><div class="legend-item" style="color: var(--color-risk);"><span class="legend-dot risk"></span><span>Risiko/Patho</span></div><div class="legend-item" style="color: var(--color-symptom);"><span class="legend-dot symptom"></span><span>Symptom</span></div><div class="legend-item" style="color: var(--color-lab);"><span class="legend-dot lab"></span><span>Diagnostik</span></div><div class="legend-item" style="color: var(--color-treatment);"><span class="legend-dot treatment"></span><span>Therapie</span></div></div><div class="synapse-solved-area" id="synapses-solved-area"></div><div class="synapses-grid-4x4" id="synapses-grid"></div><div class="feedback-box" id="syn-fb"></div></div></div>
+                    <div class="player-mode-pane" id="mode-container-cascade" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Clinical Cascades (Flow-Charts)<button class="tutor-btn" onclick="showTutorHint('clinical_cascades')">💡</button></div><div class="panel-subtitle">Bringe die Elemente aus der Bank in die chronologische Reihenfolge der Kaskade.</div><div id="cascades-wrapper"></div></div></div>
+                    <div class="player-mode-pane" id="mode-container-cat" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Taxonomie<button class="tutor-btn" onclick="showTutorHint('categorization')">💡</button></div><div class="panel-subtitle" id="cat-desc"></div><div id="categorization-task"></div><button class="action-btn" onclick="evalCategorization()" style="margin-top: 15px; width: 100%;">Zuordnung prüfen</button><div class="feedback-box" id="cat-fb"></div></div></div>
+                    <div class="player-mode-pane" id="mode-container-quiz" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div><div class="panel-subtitle">Beantworte die fallbezogenen Prüfungsfragen. Achte auf subtile klinische Distraktoren.</div><div id="quiz-wrapper"></div><button class="action-btn" id="eval-quiz-btn" onclick="evalQuiz()" style="margin-top: 15px; width: 100%;">Prüfung auswerten</button><div class="feedback-box" id="quiz-fb"></div></div></div>
                     
-                    <!-- Doctordle -->
+                    <!-- Doctordle mit überarbeiteter UI-Struktur -->
                     <div class="player-mode-pane" id="mode-container-doctordle" style="display: none;">
-                        <div class="challenge-stage-box">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                                <div>
-                                    <div class="panel-title" id="doctordle-headline" style="margin-bottom: 4px;">Deduktionsrätsel</div>
-                                    <div class="panel-subtitle" id="doctordle-puzzle-tracker" style="margin-bottom: 0;">Rätsel 1/3</div>
-                                </div>
-                                <div class="hud-stat" id="doctordle-potential-xp" style="color: var(--accent-cyan); font-weight: 700;">Mögliche XP: +600</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <div class="panel-title" id="doctordle-headline" style="margin-bottom: 4px;">Deduktionsrätsel</div>
+                                <div class="panel-subtitle" id="doctordle-puzzle-tracker">Rätsel 1/3</div>
                             </div>
-                            <div id="doctordle-hints-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
-                            <div class="doctordle-input-wrapper">
-                                <input type="text" id="doctordle-input" placeholder="Verdachtsdiagnose eingeben..." autocomplete="off">
-                                <ul id="doctordle-autocomplete-list" class="hidden"></ul>
-                                <button type="button" id="doctordle-submit-btn">Diagnostizieren</button>
-                                <button type="button" id="doctordle-reveal-btn">Aufdecken (-200 XP)</button>
-                            </div>
-                            <div id="doctordle-result-box" class="doctordle-result hidden" style="padding: 16px; border-radius: 10px; margin: 16px 0; font-size: 0.95rem; line-height: 1.5;"></div>
-                            <button type="button" class="action-btn hidden" id="doctordle-next-btn" style="width: 100%; margin-top: 10px;">Nächstes Rätsel →</button>
+                            <div class="hud-stat" id="doctordle-potential-xp" style="color: var(--accent-cyan); font-weight: 700;">Mögliche XP: +600</div>
                         </div>
+                        <div id="doctordle-hints-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
+                        <div class="doctordle-input-wrapper">
+                            <input type="text" id="doctordle-input" placeholder="Verdachtsdiagnose eingeben..." autocomplete="off">
+                            <ul id="doctordle-autocomplete-list" class="hidden"></ul>
+                            <button type="button" id="doctordle-submit-btn">Diagnostizieren</button>
+                            <button type="button" id="doctordle-reveal-btn">Aufdecken (-200 XP)</button>
+                        </div>
+                        <div id="doctordle-result-box" class="doctordle-result hidden" style="padding: 16px; border-radius: 10px; margin: 16px 0; font-size: 0.95rem; line-height: 1.5;"></div>
+                        <button type="button" class="action-btn hidden" id="doctordle-next-btn" style="width: 100%; margin-top: 10px;">Nächstes Rätsel →</button>
                     </div>
 
-                    <div class="player-mode-pane" id="mode-container-flashcards" style="display: none;">
-                        <div class="challenge-stage-box">
-                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 6px;">
-                                <div class="panel-title" style="margin-bottom: 0;">Fakten-Flashcards (Active Recall)</div>
-                                <button type="button" class="action-btn secondary btn-sm" onclick="resetCurrentChallenge()">↺ Reset</button>
-                            </div>
-                            <div class="panel-subtitle">Atomares Faktenwissen (Bloom Stufe 1) – Leertaste zum Aufdecken, 1 / 2 / 3 zum Bewerten.</div>
-                            <div id="flashcards-wrapper"></div>
-                        </div>
-                    </div>
+                    <div class="player-mode-pane" id="mode-container-flashcards" style="display: none;"><div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);"><div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 6px;"><div class="panel-title" style="margin-bottom: 0;">Fakten-Flashcards (Active Recall)</div><button type="button" class="action-btn secondary btn-sm" onclick="resetCurrentChallenge()">↺ Reset</button></div><div class="panel-subtitle">Atomares Faktenwissen (Bloom Stufe 1) – Leertaste zum Aufdecken, 1 / 2 / 3 zum Bewerten.</div><div id="flashcards-wrapper"></div></div></div>
+                </div>
 
                 <!-- 4. FORGE VIEW -->
                 <div class="panel" id="forge-view" style="display: none;">
@@ -472,16 +427,16 @@
                                 </div>
                             </button>
                             <!-- Tropical Sunday Theme Card -->
-<button type="button" class="theme-card" data-theme-value="tropical" onclick="applyAppTheme('tropical')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #fff8ed 50%, #ccfbf1 50%); border-color: #0d9488;">
-                                    <span class="theme-dot" style="background: #0d9488;"></span>
-                                    <span class="theme-dot" style="background: #f97316;"></span>
-                                </div>
-                                <div class="theme-info">
-                                    <div class="theme-name">Tropical Sunday 🌴</div>
-                                    <div class="theme-desc">Warmer Strandsand & Lagunen-Türkis</div>
-                                </div>
-                            </button>
+<button type="button" 
+        class="theme-card" 
+        data-theme-value="tropical" 
+        onclick="window.applyAppTheme('tropical')">
+    <div class="theme-preview" style="background: linear-gradient(135deg, #fff8ed 0%, #99f6e4 55%, #fdba74 100%); border: 1px solid rgba(217, 119, 6, 0.3); height: 48px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+        🌴
+    </div>
+    <div style="font-weight: 700; font-size: 0.85rem;">Tropical Sunday</div>
+    <div style="font-size: 0.72rem; color: var(--text-muted);">Warm Sand & Lagoon</div>
+</button>
                         </div>
                     </div>
 
