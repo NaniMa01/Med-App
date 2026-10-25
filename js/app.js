@@ -949,31 +949,65 @@ window.switchTab = function(tab, el) {
         tab = 'settings';
     }
 
+    // 1. Aktiven Menüpunkt in der linken Sidebar markieren
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
     if (el) {
         el.classList.add('active');
     } else {
         document.querySelectorAll('.nav-item').forEach(item => {
-            if (item.getAttribute('onclick')?.includes(`'${tab}'`)) {
+            if (item.getAttribute('onclick')?.includes(`'${tab}'`) || item.getAttribute('data-view') === tab) {
                 item.classList.add('active');
             }
         });
     }
 
+    // 2. Alle Haupt-Views (inklusive mindmap-view) sauber ausblenden
     const allViews = [
         'dashboard-view', 
         'player-view', 
         'forge-view', 
         'settings-view', 
         'depot-view', 
-        'pharmacology-view'
+        'pharmacology-view',
+        'mindmap-view'
     ];
 
     allViews.forEach(viewId => {
         const element = document.getElementById(viewId);
-        if (element) element.style.display = 'none';
+        if (element) {
+            element.style.display = 'none';
+            element.classList.add('hidden');
+        }
     });
 
+    // 3. Mobile-Sidebar bei Tab-Wechsel schließen
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+
+    const navPlayer = document.getElementById('nav-player');
+    if (navPlayer) navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
+
+    // 4. Spezial-Routing für das Mindmap-Labor
+    if (tab === 'mindmap') {
+        window.isSpecialtyBlindMode = false;
+        const mmView = document.getElementById('mindmap-view');
+        if (mmView) {
+            mmView.classList.remove('hidden');
+            mmView.style.display = 'block';
+        }
+        if (window.MindmapModule && typeof window.MindmapModule.openView === 'function') {
+            window.MindmapModule.openView();
+        }
+        const activeTheme = document.documentElement.getAttribute('data-theme');
+        if ((activeTheme === 'daylight' || activeTheme === 'tropical') && mmView) {
+            setTimeout(() => sanitizeLightThemeInlineStyles(mmView), 30);
+        }
+        return;
+    }
+
+    // 5. Standard-View einblenden
     const targetViewMap = {
         'dashboard': 'dashboard-view',
         'player': 'player-view',
@@ -986,16 +1020,11 @@ window.switchTab = function(tab, el) {
     const activeViewId = targetViewMap[tab];
     if (activeViewId) {
         const targetElement = document.getElementById(activeViewId);
-        if (targetElement) targetElement.style.display = 'block';
+        if (targetElement) {
+            targetElement.classList.remove('hidden');
+            targetElement.style.display = 'block';
+        }
     }
-
-    const navPlayer = document.getElementById('nav-player');
-    if (navPlayer) navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
-
-    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
-    const overlay = document.querySelector('.sidebar-overlay');
-    if (sidebar) sidebar.classList.remove('open');
-    if (overlay) overlay.classList.remove('active');
 
     if (tab === 'dashboard') {
         window.isSpecialtyBlindMode = false;
@@ -2811,9 +2840,16 @@ window.renderOverview = function() {
 
     const html = `
         <div class="cornell-wrapper">
-            <div class="cornell-header">
-                <span style="font-size: 1.1rem;">📖</span>
-                <h2>${escapeHtml(topicTitle)}</h2>
+            <div class="cornell-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.1rem;">📖</span>
+                    <h2 style="margin: 0;">${escapeHtml(topicTitle)}</h2>
+                </div>
+                ${!window.isSpecialtyBlindMode ? `
+                    <button type="button" class="action-btn secondary btn-sm" onclick="window.practiceCurrentCaseAsMindmap()" style="font-size: 0.76rem; padding: 6px 12px; border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue);">
+                        🕸️ Aus dieser Übersicht Mindmap generieren
+                    </button>
+                ` : ''}
             </div>
             <div class="cornell-container-body">
                 ${notesHtml}
@@ -2845,6 +2881,124 @@ window.renderOverview = function() {
     });
 };
 
+// ====================================================
+// AUTO-KONVERTER: AKTIVER FALL -> INTERAKTIVE MINDMAP
+// ====================================================
+window.practiceCurrentCaseAsMindmap = function() {
+    if (!activeCaseData) {
+        alert('Bitte öffne zuerst einen klinischen Fall.');
+        return;
+    }
+
+    const caseId = activeCaseData.case_id || 'custom_case';
+    const mindmapId = `mm_case_${caseId}`;
+    const title = activeCaseData.metadata?.title || activeCaseData.case_overview?.topic || caseId;
+    const specialty = resolveCaseFolderName(activeCaseData);
+    const centralConcept = activeCaseData.metadata?.primary_disease || activeCaseData.case_overview?.topic || title.slice(0, 42);
+
+    const nodes = [];
+    let nodeCounter = 1;
+
+    // 1. Aus Synapsen-Matrix extrahieren (falls im Fall vorhanden)
+    const synVars = activeCaseData.extra_tasks?.synapses_matrix?.variables || [];
+    const primaryVars = synVars.filter(v => !activeCaseData.metadata?.primary_disease || v.disease === activeCaseData.metadata.primary_disease);
+    const chosenSynVars = (primaryVars.length >= 4 ? primaryVars : synVars).slice(0, 6);
+
+    const typeToCategory = {
+        'Risikofaktor/Pathophysiologie': 'pathophysiology',
+        'Symptom': 'clinical',
+        'Diagnostik': 'diagnostics',
+        'Therapie': 'therapy'
+    };
+
+    chosenSynVars.forEach(v => {
+        const cat = typeToCategory[v.type] || 'clinical';
+        nodes.push({
+            id: `n${nodeCounter++}`,
+            label: String(v.term || '').slice(0, 48),
+            category: cat,
+            parent_id: 'root',
+            relation_label: v.type || 'Klinischer Aspekt',
+            socratic_hint: `Überlege für „${v.disease || centralConcept}“: Welcher Begriff aus dem Bereich ${v.type || 'Klinik'} ist hier charakteristisch?`
+        });
+    });
+
+    // 2. Aus Clinical Cascades extrahieren (falls vorhanden, als kausale Kette)
+    const firstCascade = activeCaseData.extra_tasks?.clinical_cascades?.[0]?.cascade || [];
+    if (firstCascade.length >= 4 && nodes.length < 8) {
+        const triggerNodeId = `n${nodeCounter++}`;
+        nodes.push({
+            id: triggerNodeId,
+            label: String(firstCascade[0].content || '').slice(0, 48),
+            category: 'etiology',
+            parent_id: 'root',
+            relation_label: 'Auslöser (01)',
+            socratic_hint: 'Was steht ganz am Anfang dieser pathophysiologischen Kaskade?'
+        });
+
+        const pathoNodeId = `n${nodeCounter++}`;
+        nodes.push({
+            id: pathoNodeId,
+            label: String(firstCascade[1].content || '').slice(0, 48),
+            category: 'pathophysiology',
+            parent_id: triggerNodeId,
+            relation_label: 'führt zu (02)',
+            socratic_hint: 'Welcher unmittelbare pathophysiologische Schritt folgt auf den Auslöser?'
+        });
+    }
+
+    // 3. Aus Cornell-Cues auffüllen, falls der Fall noch wenige Knoten hat (z.B. Demo-Fall)
+    const cornellNotes = activeCaseData.case_overview?.cornell_notes || [];
+    const fallbackCategories = ['pathophysiology', 'clinical', 'diagnostics', 'therapy', 'etiology'];
+    cornellNotes.forEach((row, rIdx) => {
+        (row.cues || []).forEach((cue, cIdx) => {
+            if (nodes.length >= 10) return;
+            const cleanCue = String(cue || '').trim();
+            if (!cleanCue || cleanCue.length < 3) return;
+            if (nodes.some(n => n.label.toLowerCase() === cleanCue.toLowerCase())) return;
+
+            const parentId = (cIdx === 0 || nodes.length < 5) ? 'root' : nodes[0].id;
+            nodes.push({
+                id: `n${nodeCounter++}`,
+                label: cleanCue.slice(0, 48),
+                category: fallbackCategories[(rIdx + cIdx) % fallbackCategories.length],
+                parent_id: parentId,
+                relation_label: cIdx === 0 ? 'Schlüsselkonzept' : 'Assoziiert mit',
+                socratic_hint: `Welcher Kernbegriff aus den Cornell-Notizen beschreibt diesen Aspekt von „${centralConcept}“?`
+            });
+        });
+    });
+
+    const generatedMindmap = {
+        id: mindmapId,
+        title: `Fall-Mindmap: ${title}`,
+        specialty: specialty,
+        central_concept: centralConcept,
+        nodes: nodes
+    };
+
+    // Lokal speichern, damit MindmapModule sie sofort in der Liste hat
+    try {
+        const localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
+        const filtered = localSaved.filter(m => m.id !== mindmapId);
+        filtered.unshift(generatedMindmap);
+        localStorage.setItem('medcheck_custom_mindmaps', JSON.stringify(filtered));
+    } catch (e) {
+        console.warn('Konnte generierte Fall-Mindmap nicht im LocalStorage zwischenspeichern:', e);
+    }
+
+    window.switchTab('mindmap', document.getElementById('nav-mindmap'));
+
+    if (window.MindmapModule) {
+        if (typeof window.MindmapModule.init === 'function') {
+            window.MindmapModule.init().then(() => {
+                window.MindmapModule.selectMindmap(mindmapId);
+            });
+        } else if (typeof window.MindmapModule.selectMindmap === 'function') {
+            window.MindmapModule.selectMindmap(mindmapId);
+        }
+    }
+};
 // ====================================================
 // FORGE / GEMINI API
 // ====================================================
