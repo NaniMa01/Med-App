@@ -6014,3 +6014,428 @@ html[data-theme="tropical"] .duel-email-input {
     color: #0f172a !important;
     border-color: rgba(100, 116, 139, 0.35) !important;
 }
+
+/* ==========================================================================
+   MINIMALIST EDITORIAL UI REFINEMENT (CLEAN DASHBOARD & SIREN BUTTON)
+   ========================================================================== */
+
+/* 1. Ruhigere Topbar & kompakte HUD-Pills */
+topbar {
+    height: 60px;
+    padding: 0 24px;
+}
+
+.topbar-engine-tag {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.hud-stat {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+    padding: 5px 11px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    gap: 5px;
+}
+
+/* 2. Schlankeres Haupt-Panel ohne doppelten Box-in-Box-Rahmen */
+.content-body {
+    padding: 22px 28px;
+    max-width: 1320px;
+}
+
+#dashboard-view.panel {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 4px 0;
+}
+
+.dashboard-top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.dashboard-top-header .panel-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    margin-bottom: 2px;
+}
+
+.dashboard-top-header .panel-subtitle {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+}
+
+.dashboard-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 3. Kompaktes Sirenen-Icon für den Notaufnahme-Modus */
+.emergency-siren-btn {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-spring), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+
+.emergency-siren-btn .siren-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+    transition: transform 0.2s var(--ease-spring);
+}
+
+.emergency-siren-btn .siren-pulse-ring {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+
+.emergency-siren-btn:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: #ef4444;
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.28);
+}
+
+.emergency-siren-btn:hover .siren-icon {
+    transform: rotate(-8deg) scale(1.1);
+}
+
+.emergency-siren-btn:active {
+    transform: scale(0.95);
+}
+
+/* 4. Kompakte Dashboard-Subbar (Modus-Tabs + dezente Ordner-Buttons) */
+.dashboard-subbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 14px 0 16px 0;
+}
+
+.dashboard-quick-folder-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ghost-tool-btn {
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 6px 11px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.ghost-tool-btn:hover {
+    color: var(--text-main);
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.08);
+}
+
+/* 5. Kompaktere Creator-Upload-Leiste */
+.creator-upload-section {
+    margin: 10px 0 14px 0;
+}
+
+.creator-upload-card {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+.creator-upload-card .drop-zone {
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px dashed rgba(148, 163, 184, 0.28);
+    background: rgba(15, 23, 42, 0.35);
+    min-height: auto;
+}
+
+.creator-upload-card .drop-zone-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* 6. Aufgeräumte Überordner & Unterordner mit Hover-Reveal für Werkzeuge */
+.super-folder {
+    margin-bottom: 10px;
+    border: 1px solid var(--card-border);
+    border-radius: 13px;
+    background: rgba(15, 23, 42, 0.4);
+    box-shadow: none;
+    transition: border-color 0.2s ease;
+}
+
+.super-folder:hover {
+    border-color: rgba(148, 163, 184, 0.22);
+}
+
+.super-folder-header {
+    padding: 13px 18px;
+    background: transparent;
+    border-bottom: none;
+}
+
+.super-folder-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    gap: 8px;
+}
+
+.super-drag-handle,
+.category-drag-handle {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    color: var(--text-dim);
+    cursor: grab;
+}
+
+.super-folder-header:hover .super-drag-handle,
+.category-header:hover .category-drag-handle {
+    opacity: 0.65;
+}
+
+.super-folder-right,
+.category-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Progressive Disclosure: Edit/Delete-Buttons erst bei Hover einblenden */
+.folder-hover-tools {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+}
+
+.super-folder-header:hover .folder-hover-tools,
+.category-header:hover .folder-hover-tools {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.super-count-pill,
+.category-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, 0.1);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.super-chevron {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    width: 14px;
+    text-align: center;
+}
+
+.super-folder-body {
+    padding: 6px 14px 14px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.category-folder {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    background: rgba(10, 15, 29, 0.35);
+}
+
+.category-header {
+    padding: 10px 14px;
+    background: transparent;
+}
+
+.category-title-wrap {
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.category-cases-body {
+    padding: 12px 14px 14px 14px;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* 7. Minimalistische Fallkarten (Ohne Badge-Flut) */
+.case-card {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: none;
+    border-radius: 12px;
+    padding: 14px 16px;
+    min-height: 108px;
+    gap: 8px;
+}
+
+.case-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(22, 33, 58, 0.85);
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.4);
+}
+
+.case-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.case-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.case-status-pill .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.case-status-pill.status-open .status-dot {
+    background: var(--accent-blue);
+}
+
+.case-status-pill.status-progress .status-dot {
+    background: var(--warning);
+}
+
+.case-status-pill.status-solved {
+    color: var(--color-symptom);
+}
+
+.case-status-pill.status-solved .status-dot {
+    background: var(--color-symptom);
+}
+
+/* Löschen-Button auf Fallkarten erst bei Hover zeigen */
+.case-card .delete-case-btn,
+.case-card .unpublish-case-btn {
+    position: static;
+    width: 22px;
+    height: 22px;
+    font-size: 0.72rem;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.case-card:hover .delete-case-btn,
+.case-card:hover .unpublish-case-btn {
+    opacity: 1;
+}
+
+.case-card .delete-case-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    transform: none;
+}
+
+.case-card h3 {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.4;
+    margin: 2px 0;
+    color: var(--text-main);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.case-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.case-meta-xp {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+
+.empty-superfolder-hint,
+.empty-subfolder-hint {
+    padding: 10px 12px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Light Theme Anpassungen für die neuen minimalistischen Klassen */
+[data-theme="daylight"] #dashboard-view.panel,
+[data-theme="tropical"] #dashboard-view.panel {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+[data-theme="daylight"] .case-card,
+[data-theme="tropical"] .case-card {
+    background: #ffffff !important;
+    border: 1px solid var(--card-border) !important;
+}
+
+[data-theme="daylight"] .case-card-footer,
+[data-theme="tropical"] .case-card-footer,
+[data-theme="daylight"] .super-folder-body,
+[data-theme="tropical"] .super-folder-body,
+[data-theme="daylight"] .category-cases-body,
+[data-theme="tropical"] .category-cases-body {
+    border-top-color: var(--divider-color) !important;
+}
