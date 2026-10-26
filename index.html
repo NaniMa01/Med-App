@@ -107,19 +107,19 @@
     </sidebar>
 
     <div class="main-wrapper">
-        <topbar>
+   <topbar>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <button class="menu-toggle" onclick="toggleSidebar()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
-                <div class="topbar-engine-tag"><span class="dot"></span><span class="engine-text">V6.0 Cornell Note Engine</span></div>
+                <div class="topbar-engine-tag"><span class="dot"></span><span class="engine-text">Klinisches Training</span></div>
             </div>
             <div class="user-hud">
-                <div class="hud-stat streak-stat" title="Täglicher Dienst-Streak (inkl. Dienstfrei-Joker & XP-Multiplikator)"><span>Dienst:</span><strong id="stat-streak">🔥 0d</strong> </div>
-                <div class="hud-stat rank-stat"><span>Rang:</span><strong id="stat-rank">Famulus</strong></div>
-                <div class="hud-stat xp-stat"><span>XP:</span><strong id="stat-xp">0</strong></div>
+                <div class="hud-stat streak-stat" title="Täglicher Dienst-Streak"><span>🔥</span><strong id="stat-streak">0d</strong></div>
+                <div class="hud-stat rank-stat"><strong id="stat-rank">Famulus</strong></div>
+                <div class="hud-stat xp-stat"><strong id="stat-xp">0</strong><span>XP</span></div>
                 <div id="hud-popup-container"></div>
                 <div class="auth-user" id="auth-user" style="display: none;">
                     <span class="auth-email" id="auth-user-email"></span>
-                    <button class="action-btn secondary" onclick="authSignOut()">Abmelden</button>
+                    <button class="action-btn secondary btn-sm" onclick="authSignOut()">Abmelden</button>
                 </div>
             </div>
         </topbar>
@@ -141,18 +141,28 @@
         <div class="content-body">
             <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
 
-                <!-- 2. DASHBOARD VIEW -->
+                <!-- 2. DASHBOARD VIEW (CLEAN & MINIMALISTISCH) -->
                 <div class="panel" id="dashboard-view" style="display: block;">
                     <div class="dashboard-top-header">
                         <div>
-                            <div class="panel-title">Klinische Module & Themen-Ordner</div>
-                            <div class="panel-subtitle" style="margin-bottom: 0;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
+                            <div class="panel-title">Fall-Bibliothek</div>
+                            <div class="panel-subtitle" style="margin-bottom: 0;">Klinische Fälle, Spaced Repetition & Schwerpunkte</div>
                         </div>
-                        <button type="button" id="dashboard-search-toggle-btn" class="dashboard-search-toggle-btn" onclick="window.toggleDashboardSearch()" title="Fälle durchsuchen (Shortcut: Cmd/Ctrl + K)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            <span>Fälle suchen</span>
-                            <kbd class="search-kbd-hint">⌘K</kbd>
-                        </button>
+
+                        <!-- Kompakte Aktionsleiste rechts oben: Suche + Sirenen-Button für Notfallmodus -->
+                        <div class="dashboard-header-actions">
+                            <button type="button" id="dashboard-search-toggle-btn" class="dashboard-search-toggle-btn" onclick="window.toggleDashboardSearch()" title="Fälle durchsuchen (Shortcut: Cmd/Ctrl + K)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                <span>Suchen</span>
+                                <kbd class="search-kbd-hint">⌘K</kbd>
+                            </button>
+
+                            <!-- NEU: Kompaktes Sirenen-Button-Widget für den Notaufnahme-Modus -->
+                            <button type="button" class="emergency-siren-btn" onclick="window.startEmergencyMode()" title="Notaufnahme-Modus starten (Akut-Training unter Zeitdruck)">
+                                <span class="siren-icon">🚨</span>
+                                <span class="siren-pulse-ring"></span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Ausklappbare Echtzeit-Suchleiste -->
@@ -164,71 +174,54 @@
                             <button type="button" id="dashboard-search-clear-btn" class="dashboard-search-clear-btn hidden" onclick="window.clearDashboardSearch()" title="Suche zurücksetzen (ESC)">✕</button>
                         </div>
                         <div class="dashboard-search-filters">
-                            <span class="search-filter-label">Status-Filter:</span>
-                            <button type="button" class="search-status-pill active" data-status-filter="all" onclick="window.setDashboardSearchStatus('all', this)">Alle Fälle</button>
-                            <button type="button" class="search-status-pill" data-status-filter="open" onclick="window.setDashboardSearchStatus('open', this)">● Noch offen</button>
-                            <button type="button" class="search-status-pill" data-status-filter="progress" onclick="window.setDashboardSearchStatus('progress', this)">↻ In Bearbeitung</button>
+                            <span class="search-filter-label">Status:</span>
+                            <button type="button" class="search-status-pill active" data-status-filter="all" onclick="window.setDashboardSearchStatus('all', this)">Alle</button>
+                            <button type="button" class="search-status-pill" data-status-filter="open" onclick="window.setDashboardSearchStatus('open', this)">● Offen</button>
+                            <button type="button" class="search-status-pill" data-status-filter="progress" onclick="window.setDashboardSearchStatus('progress', this)">↻ In Arbeit</button>
                             <button type="button" class="search-status-pill" data-status-filter="solved" onclick="window.setDashboardSearchStatus('solved', this)">✓ Gelöst</button>
                         </div>
                     </div>
                     
-                    <!-- Admin Case Upload Dropzone -->
+                    <!-- Admin Case Upload Dropzone (Kompakt & nur für Creator sichtbar) -->
                     <section id="creatorUploadSection" class="creator-upload-section" style="display: none;">
                         <div class="creator-upload-card">
-                            <div class="upload-header">
-                                <h3>⚡ Creator Hub: Fälle hochladen</h3>
-                                <p>Ziehe deine fertigen <code>.json</code>-Falldateien per Drag & Drop hier hinein.</p>
-                            </div>
-                            
                             <div id="dropZone" class="drop-zone">
-                                <div class="drop-zone-icon">📁</div>
-                                <p class="drop-zone-text">JSON-Dateien hier ablegen oder <span class="browse-link">durchsuchen</span></p>
+                                <span class="drop-zone-text">⚡ <strong>Creator Upload:</strong> JSON-Falldateien hier ablegen oder <span class="browse-link">durchsuchen</span></span>
                                 <input type="file" id="caseFileInput" accept=".json" multiple style="display: none;">
                             </div>
-
                             <div id="uploadStatusList" class="upload-status-list"></div>
                         </div>
                     </section>
                     
-                    <div class="panel-title">Klinische Module & Themen-Ordner</div>
-                    <div class="panel-subtitle" style="margin-bottom: 14px;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
-
-                    <!-- Notaufnahme-Modus -->
-                    <div onclick="window.startEmergencyMode()" role="button" tabindex="0"
-                         style="margin-bottom:18px; padding:18px 22px; border-radius:14px; background:linear-gradient(135deg, rgba(239,68,68,0.22), rgba(220,38,38,0.12)); border:1px solid rgba(239,68,68,0.45); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; cursor:pointer; transition:transform 0.18s ease;">
-                        <div>
-                            <div style="display:flex; align-items:center; gap:8px; color:#fca5a5; font-weight:800; font-size:1.05rem;">
-                                <span>🚨 Notaufnahme-Modus</span>
-                            </div>
-                            <div style="color:#cbd5e1; font-size:0.84rem; margin-top:3px;">
-                                Interdisziplinäres Akut-Training unter echtem Zeitdruck. Triagiere und behandle zeitkritische Notfälle nacheinander.
-                            </div>
-                        </div>
-                        <button type="button" style="background:#ef4444; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; font-size:0.85rem; cursor:pointer; white-space:nowrap; box-shadow:0 4px 12px rgba(239,68,68,0.4);">
-                            Notdienst starten ➔
-                        </button>
-                    </div>
-                    
                     <!-- Spaced Repetition Zentrale -->
                     <section id="sr-dashboard-widget"></section>
-                    <div class="segmented-control" role="tablist">
-                        <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themenbasiertes Lernen</button>
-                        <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Lernen nach Fachrichtung</button>
+
+                    <!-- Kompakte Steuerleiste: Modus-Umschalter links, dezente Ordner-Buttons rechts -->
+                    <div class="dashboard-subbar">
+                        <div class="segmented-control" role="tablist" style="margin-bottom: 0;">
+                            <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Themen-Ordner</button>
+                            <button type="button" class="segmented-btn" id="seg-specialty" role="tab" onclick="setLearningMode('specialty')">Fachrichtungen</button>
+                        </div>
+                        <div class="dashboard-quick-folder-btns">
+                            <button type="button" class="ghost-tool-btn" onclick="window.createNewSuperFolderModal()" title="Neuen Überordner anlegen">+ Überordner</button>
+                            <button type="button" class="ghost-tool-btn" onclick="window.promptCreateNewFolderWithSuper()" title="Neuen Unterordner anlegen">+ Ordner</button>
+                        </div>
                     </div>
+
                     <div id="specialty-hub" class="specialty-hub" style="display: none;"></div>
                     
                     <!-- Fester Wrapper für die dynamischen Super-Folder -->
-                    <div id="super-folders-wrapper" style="display: flex; flex-direction: column; gap: 16px; margin-top: 15px;">
+                    <div id="super-folders-wrapper" style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
                         <div class="super-folder" id="topic-grid">
                             <div class="super-folder-header" onclick="toggleSuperFolder('Nervensystem und Sinnesorgane')">
-                                <div class="super-folder-title"><svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
-                                <span style="font-size: 0.8rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
+                                <div class="super-folder-title"><svg class="super-folder-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg><span>Nervensystem und Sinnesorgane</span></div>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
                             </div>
                             <div class="super-folder-body" id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
                         </div>
                     </div>
                 </div>
-
+                
                 <!-- 3. PLAYER VIEW -->
                 <div class="panel" id="player-view" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
