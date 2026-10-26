@@ -1,12 +1,10 @@
 /**
- * MedCheck - Interactive Clinical Mindmap Module V2.0 (js/mindmap.js)
- * Features:
- *  - Exact Box-Edge Raycasting (Lines & Arrows connect cleanly at box borders, never hidden behind nodes)
- *  - High-Contrast Relational Context Badges inside every node + SVG Midpoint Pills
- *  - Collision-Free Elliptical 2-Ring Layout on an expandable Pan & Zoom Canvas (1450x980)
- *  - Interactive Pointer Drag-and-Drop + Click-to-Place + Relation Tree Inspector
- *  - Socratic AI Feedback Loop via /api/gemini with Smart Local Fallback
- *  - Full Light/Dark Theme Contrast Safety & Supabase Persistence
+ * MedCheck - Interactive Clinical Mindmap Module V3.0 (js/mindmap.js)
+ * Upgrades in V3.0:
+ *  - Zero Text-Selection Drag & Drop (e.preventDefault, getSelection().removeAllRanges, PointerCapture, body lock)
+ *  - Expanded XXL Stage (2400 x 1600 px) with wide elliptical rings & collision repulsion
+ *  - Auto-expanding HTML Edge Labels (never truncates long medical relation descriptions)
+ *  - Full-text wrapping nodes (250-280px width) + Focus/Expand Mode toggle
  */
 
 (function () {
@@ -20,10 +18,10 @@
         therapy: { label: 'Therapie', color: '#10b981', cssClass: 'cat-therapy', icon: '💊' }
     };
 
-    const STAGE_WIDTH = 1480;
-    const STAGE_HEIGHT = 980;
+    // Großzügig ausgedehnte XXL-Stage für 100% Text-Lesbarkeit ohne Gedränge
+    const STAGE_WIDTH = 2400;
+    const STAGE_HEIGHT = 1600;
 
-    // Vorinstallierte klinische Mindmaps als sofort spielbare Referenz
     const BUILTIN_MINDMAPS = [
         {
             id: 'mm_cardio_stemi_001',
@@ -71,7 +69,6 @@
                     relation_label: 'Hauptrisikofaktoren',
                     socratic_hint: 'Welche chronischen kardiovaskulären Faktoren fördern die Bildung vulnerabler Plaques?'
                 },
-                // 2. Ordnung (Unteräste)
                 {
                     id: 'n6',
                     label: 'Transmurale Nekrose & Troponin-Anstieg',
@@ -180,12 +177,13 @@
         hoveredNodeId: null,
         blindMode: false,
         showInspector: false,
+        expandedCanvas: false,
         mistakesCount: 0,
         weakNodeIds: new Set(),
         startTime: null,
-        nodePositions: {}, // Pixel-Koordinaten auf der 1480x980 Stage: { x, y, level }
+        nodePositions: {},
         progressCache: {},
-        zoom: 0.85,
+        zoom: 0.65,
         panX: 0,
         panY: 0,
         isPanning: false
@@ -194,6 +192,15 @@
     // ========================================================================
     // 1. INITIALISIERUNG & DOM-STRUKTUR
     // ========================================================================
+
+    function clearBrowserTextSelection() {
+        try {
+            if (window.getSelection) {
+                const sel = window.getSelection();
+                if (sel && sel.removeAllRanges) sel.removeAllRanges();
+            }
+        } catch (_e) {}
+    }
 
     function ensureDomStructure() {
         let viewSection = document.getElementById('mindmap-view');
@@ -368,7 +375,6 @@
         state.progressCache[state.currentMap.id] = record;
         localStorage.setItem('medcheck_mindmap_progress', JSON.stringify(state.progressCache));
 
-        // XP-Belohnung in MedCheck gutschreiben
         if (typeof window.applyXpDelta === 'function') {
             window.applyXpDelta(250, 'Mindmap vernetzt');
         }
@@ -395,12 +401,12 @@
     }
 
     // ========================================================================
-    // 3. KOLLISIONSFREIER ELLIPTISCHER 2-RING-ALGORITHMUS (1480x980 STAGE)
+    // 3. WEIT AUSGEDEHNTER 2-RING-ALGORITHMUS (2400 x 1600 XXL-STAGE)
     // ========================================================================
 
     function computeRadialLayout(mindmap) {
-        const centerX = STAGE_WIDTH / 2;   // 740px
-        const centerY = STAGE_HEIGHT / 2;  // 490px
+        const centerX = STAGE_WIDTH / 2;   // 1200px
+        const centerY = STAGE_HEIGHT / 2;  // 800px
 
         const positions = {
             root: { x: centerX, y: centerY, angle: 0, level: 0 }
@@ -410,7 +416,6 @@
         const firstOrder = nodes.filter(n => !n.parent_id || n.parent_id === 'root');
         const secondOrder = nodes.filter(n => n.parent_id && n.parent_id !== 'root');
 
-        // Kinder pro Hauptknoten gruppieren, um das Gewicht jedes Sektors zu kennen
         const childrenByParent = {};
         secondOrder.forEach(n => {
             if (!childrenByParent[n.parent_id]) childrenByParent[n.parent_id] = [];
@@ -418,9 +423,9 @@
         });
 
         const count1 = firstOrder.length || 1;
-        // Großzügiger innerer Ring (genug Platz für die Kanten-Labels zwischen Root und Ring 1!)
-        const radius1X = 330;
-        const radius1Y = 235;
+        // Weit ausgedehnter 1. Ring -> volle Sichtbarkeit für alle Verbindungs-Badges!
+        const radius1X = 500;
+        const radius1Y = 350;
 
         firstOrder.forEach((node, idx) => {
             const angle = (-Math.PI / 2) + (idx * 2 * Math.PI) / count1;
@@ -432,15 +437,14 @@
             };
         });
 
-        // Äußerer Ring (weit genug außen, damit Knoten 1. und 2. Ordnung niemals überlappen!)
-        const radius2X = 605;
-        const radius2Y = 415;
+        // Weit ausgedehnter 2. Ring -> 420px Abstand zum 1. Ring!
+        const radius2X = 940;
+        const radius2Y = 640;
 
         Object.keys(childrenByParent).forEach(parentId => {
             const parentPos = positions[parentId] || { x: centerX, y: centerY, angle: 0 };
             const children = childrenByParent[parentId];
-            // Dynamischer Fächerwinkel je nach Kinderanzahl
-            const spread = Math.min(Math.PI / 2.6, children.length * 0.34);
+            const spread = Math.min(Math.PI / 2.2, children.length * 0.42);
 
             children.forEach((child, i) => {
                 let offset = 0;
@@ -449,35 +453,36 @@
                 }
                 const childAngle = (parentPos.angle || 0) + offset;
                 positions[child.id] = {
-                    x: Math.max(125, Math.min(STAGE_WIDTH - 125, centerX + radius2X * Math.cos(childAngle))),
-                    y: Math.max(75, Math.min(STAGE_HEIGHT - 75, centerY + radius2Y * Math.sin(childAngle))),
+                    x: Math.max(180, Math.min(STAGE_WIDTH - 180, centerX + radius2X * Math.cos(childAngle))),
+                    y: Math.max(110, Math.min(STAGE_HEIGHT - 110, centerY + radius2Y * Math.sin(childAngle))),
                     angle: childAngle,
                     level: 2
                 };
             });
         });
 
-        // Physikalische Mindestabstands-Entzerrung (verhindert jegliche Rest-Überlappungen)
+        // Starke physikalische Entzerrung (Repulsion) mit 330px horizontalem & 165px vertikalem Puffer
         const nodeIds = Object.keys(positions).filter(id => id !== 'root');
-        for (let iter = 0; iter < 12; iter++) {
+        for (let iter = 0; iter < 24; iter++) {
             for (let i = 0; i < nodeIds.length; i++) {
                 for (let j = i + 1; j < nodeIds.length; j++) {
                     const a = positions[nodeIds[i]];
                     const b = positions[nodeIds[j]];
                     const dx = b.x - a.x;
                     const dy = b.y - a.y;
-                    const minDx = 215; // Mindestbreite inkl. Abstand
-                    const minDy = 105; // Mindesthöhe inkl. Abstand
+                    const minDx = 330;
+                    const minDy = 165;
 
                     if (Math.abs(dx) < minDx && Math.abs(dy) < minDy) {
                         const pushX = ((minDx - Math.abs(dx)) / 2) * (dx >= 0 ? 1 : -1);
                         const pushY = ((minDy - Math.abs(dy)) / 2) * (dy >= 0 ? 1 : -1);
-                        if (Math.abs(dx) < minDx * 0.7) {
-                            a.y = Math.max(70, Math.min(STAGE_HEIGHT - 70, a.y - pushY));
-                            b.y = Math.max(70, Math.min(STAGE_HEIGHT - 70, b.y + pushY));
+
+                        if (Math.abs(dx) < minDx * 0.65) {
+                            a.y = Math.max(105, Math.min(STAGE_HEIGHT - 105, a.y - pushY * 0.75));
+                            b.y = Math.max(105, Math.min(STAGE_HEIGHT - 105, b.y + pushY * 0.75));
                         } else {
-                            a.x = Math.max(120, Math.min(STAGE_WIDTH - 120, a.x - pushX * 0.5));
-                            b.x = Math.max(120, Math.min(STAGE_WIDTH - 120, b.x + pushX * 0.5));
+                            a.x = Math.max(175, Math.min(STAGE_WIDTH - 175, a.x - pushX * 0.65));
+                            b.x = Math.max(175, Math.min(STAGE_WIDTH - 175, b.x + pushX * 0.65));
                         }
                     }
                 }
@@ -488,23 +493,40 @@
     }
 
     // ========================================================================
-    // 4. VIEWPORT AUTO-FIT & PAN/ZOOM ENGINE
+    // 4. INTELLIGENTES BOUNDING-BOX AUTO-FIT & PAN/ZOOM
     // ========================================================================
 
     function fitStageToViewport() {
         const viewport = document.getElementById('mm-canvas-viewport');
         if (!viewport) return;
 
-        const vw = viewport.clientWidth || 900;
-        const vh = viewport.clientHeight || 680;
+        const vw = viewport.clientWidth || 960;
+        const vh = viewport.clientHeight || 740;
 
-        const scaleX = (vw - 30) / STAGE_WIDTH;
-        const scaleY = (vh - 30) / STAGE_HEIGHT;
-        const bestScale = Math.max(0.52, Math.min(1.0, Math.min(scaleX, scaleY)));
+        // Berechne die tatsächliche Bounding-Box aller aktiven Knoten auf der Stage
+        const pts = Object.values(state.nodePositions);
+        if (pts.length === 0) return;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        pts.forEach(p => {
+            if (p.x - 180 < minX) minX = p.x - 180;
+            if (p.x + 180 > maxX) maxX = p.x + 180;
+            if (p.y - 110 < minY) minY = p.y - 110;
+            if (p.y + 110 > maxY) maxY = p.y + 110;
+        });
+
+        const contentW = Math.max(800, maxX - minX);
+        const contentH = Math.max(600, maxY - minY);
+        const contentCenterX = (minX + maxX) / 2;
+        const contentCenterY = (minY + maxY) / 2;
+
+        const scaleX = (vw - 60) / contentW;
+        const scaleY = (vh - 80) / contentH;
+        const bestScale = Math.max(0.48, Math.min(1.05, Math.min(scaleX, scaleY)));
 
         state.zoom = Number(bestScale.toFixed(2));
-        state.panX = Math.round((vw - STAGE_WIDTH * state.zoom) / 2);
-        state.panY = Math.round((vh - STAGE_HEIGHT * state.zoom) / 2);
+        state.panX = Math.round(vw / 2 - contentCenterX * state.zoom);
+        state.panY = Math.round(vh / 2 - contentCenterY * state.zoom);
 
         applyStageTransform();
     }
@@ -525,10 +547,9 @@
         if (!viewport) return;
 
         const oldZoom = state.zoom;
-        const newZoom = Math.max(0.45, Math.min(1.45, Number((oldZoom + delta).toFixed(2))));
+        const newZoom = Math.max(0.38, Math.min(1.6, Number((oldZoom + delta).toFixed(2))));
         if (newZoom === oldZoom) return;
 
-        // Zoom relativ zur Viewport-Mitte
         const cx = viewport.clientWidth / 2;
         const cy = viewport.clientHeight / 2;
         state.panX = Math.round(cx - ((cx - state.panX) / oldZoom) * newZoom);
@@ -611,7 +632,7 @@
                 <div class="mm-header">
                     <div class="mm-title-group">
                         <h2>🕸️ Klinisches Mindmap-Labor</h2>
-                        <p>Jeder Knoten zeigt oben sein <strong>Beziehungs-Banner</strong> (z. B. <em>↳ Leitsymptom</em>). Ziehe den passenden Vorlesungsbegriff in das Feld!</p>
+                        <p>Ziehe die Begriffe auf die passenden Knoten. Jede Verbindungslinie und jedes Knoten-Banner zeigt dir die genaue kausale Beziehung.</p>
                     </div>
                     <div class="mm-controls">
                         <select id="mm-map-selector" class="mm-select" title="Mindmap auswählen">
@@ -624,12 +645,16 @@
                             }).join('')}
                         </select>
 
+                        <button id="mm-toggle-expand" class="mm-btn ${state.expandedCanvas ? 'active' : ''}" title="Mindmap auf volle Breite ausdehnen">
+                            ${state.expandedCanvas ? '📐 Standard-Ansicht' : '🔭 Großansicht (Breit)'}
+                        </button>
+
                         <button id="mm-toggle-blind" class="mm-btn mm-btn-blind ${state.blindMode ? 'active' : ''}" title="Verbirgt die Kategoriefarben vor dem Lösen gegen Test-Wiseness">
-                            ${state.blindMode ? '🕶️ Prüfungs-Modus (Blind: AN)' : '🎨 Lern-Modus (Farben: AN)'}
+                            ${state.blindMode ? '🕶️ Prüfungs-Modus (Blind)' : '🎨 Lern-Modus (Farben)'}
                         </button>
 
                         <button id="mm-btn-inspector" class="mm-btn ${state.showInspector ? 'active' : ''}" title="Zeigt alle kausalen Verbindungen als übersichtliche Baumstruktur">
-                            🧭 Verbindungs-Übersicht
+                            🧭 Verbindungs-Baum
                         </button>
 
                         <button id="mm-btn-reset" class="mm-btn" title="Mindmap zurücksetzen">
@@ -663,11 +688,11 @@
                     </div>
                 </div>
 
-                <!-- OPTIONALER KAUSALKETTEN-INSPEKTOR (KLARE ÜBERSICHT ALLER BEZIEHUNGEN) -->
+                <!-- OPTIONALER KAUSALKETTEN-INSPEKTOR -->
                 ${state.showInspector ? renderInspectorPanel(map) : ''}
 
                 <!-- WORKSPACE -->
-                <div class="mm-workspace">
+                <div class="mm-workspace ${state.expandedCanvas ? 'mm-workspace-expanded' : ''}">
                     <!-- LINKE SPALTE: BEGRIFFS-POOL & SOKRATISCHER TUTOR -->
                     <div class="mm-sidebar-panel">
                         <div class="mm-pool-box">
@@ -688,6 +713,7 @@
                                     return `
                                         <div class="mm-chip ${catClass} ${isSelected}"
                                              data-node-id="${escapeHtml(node.id)}"
+                                             draggable="false"
                                              title="Ziehe diesen Begriff auf den passenden Ziel-Knoten oder klicke ihn an">
                                             ${catBadge}
                                             <span class="mm-chip-label">${escapeHtml(node.label)}</span>
@@ -709,23 +735,25 @@
                         </div>
                     </div>
 
-                    <!-- RECHTE SPALTE: INTERAKTIVES PAN & ZOOM MINDMAP-CANVAS -->
+                    <!-- RECHTE SPALTE: INTERAKTIVES XXL PAN & ZOOM MINDMAP-CANVAS -->
                     <div id="mm-canvas-viewport" class="mm-canvas-container">
-                        <!-- ZOOM & NAVIGATION OVERLAY -->
                         <div class="mm-canvas-HUD">
                             <button type="button" class="mm-hud-btn" id="mm-zoom-out" title="Herauszoomen">➖</button>
-                            <span id="mm-zoom-label" class="mm-hud-zoom-text">85%</span>
+                            <span id="mm-zoom-label" class="mm-hud-zoom-text">65%</span>
                             <button type="button" class="mm-hud-btn" id="mm-zoom-in" title="Hineinzoomen">➕</button>
-                            <button type="button" class="mm-hud-btn" id="mm-zoom-fit" title="Mindmap zentrieren & einpassen">🎯 Zentrieren</button>
+                            <button type="button" class="mm-hud-btn" id="mm-zoom-100" title="100% Originalgröße für maximale Lesbarkeit">100%</button>
+                            <button type="button" class="mm-hud-btn" id="mm-zoom-fit" title="Gesamte Mindmap einpassen">🎯 Alles zeigen</button>
                         </div>
 
                         <div class="mm-canvas-help-pill">
-                            🖱️ Hintergrund ziehen zum Verschieben • Mausrad zum Zoomen • Knoten anklicken für Tipp
+                            🖱️ Hintergrund ziehen zum Verschieben • Mausrad zum Zoomen • Knoten anklicken für sokratischen Tipp
                         </div>
 
-                        <!-- TRANSFORMABLE STAGE (1480 x 980) -->
+                        <!-- TRANSFORMABLE XXL STAGE (2400 x 1600) -->
                         <div id="mm-stage" class="mm-stage" style="width:${STAGE_WIDTH}px; height:${STAGE_HEIGHT}px;">
                             <svg id="mm-svg" class="mm-svg-layer" viewBox="0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}"></svg>
+                            <!-- HTML-Layer für niemals abgeschnittene Verbindungs-Schilder auf den Linien -->
+                            <div id="mm-edge-labels-layer" class="mm-edge-labels-layer"></div>
                             <div id="mm-nodes" class="mm-nodes-layer">
                                 <!-- ZENTRALER WURZEL-KNOTEN -->
                                 <div class="mm-node mm-node-root"
@@ -800,12 +828,12 @@
         const isSecondOrder = node.parent_id && node.parent_id !== 'root';
         const parentSolved = isParentSolvedOrRoot(node);
 
-        // Kontext-Zeile: Zeigt exakt an, worauf sich dieser Knoten bezieht!
-        let originPrefix = '🎯 Vom Zentrum';
+        // Vollständiger Herkunftstext ohne enges Abschneiden
+        let originPrefix = `🎯 Vom Zentrum (${state.currentMap.central_concept})`;
         if (isSecondOrder) {
             originPrefix = parentSolved
-                ? `↳ Von „${getParentLabel(node).slice(0, 22)}“`
-                : `↳ Folgeschritt (2. Ebene)`;
+                ? `↳ Ausgehend von: „${getParentLabel(node)}“`
+                : `↳ Folgeschritt (2. Ebene – löse zuerst den Vorgänger-Knoten)`;
         }
 
         if (isSolved) {
@@ -815,8 +843,8 @@
                      style="left: ${pos.x}px; top: ${pos.y}px;"
                      data-slot-id="${escapeHtml(node.id)}">
                     <div class="mm-node-rel-banner">
-                        <span class="mm-rel-origin">${escapeHtml(originPrefix)}:</span>
-                        <strong class="mm-rel-verb">„${escapeHtml(relationText)}“</strong>
+                        <span class="mm-rel-origin">${escapeHtml(originPrefix)}</span>
+                        <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                     </div>
                     <div class="mm-node-body-solved">
                         <span class="mm-solved-cat-pill">${catCfg.icon} ${escapeHtml(catCfg.label)}</span>
@@ -836,27 +864,22 @@
                  data-slot-id="${escapeHtml(node.id)}"
                  title="Klicken für sokratische Leitfrage oder Begriff hier ablegen">
                 <div class="mm-node-rel-banner">
-                    <span class="mm-rel-origin">${escapeHtml(originPrefix)}:</span>
-                    <strong class="mm-rel-verb">„${escapeHtml(relationText)}“</strong>
+                    <span class="mm-rel-origin">${escapeHtml(originPrefix)}</span>
+                    <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                 </div>
                 <div class="mm-slot-inner">
                     <span class="mm-slot-hint">${escapeHtml(slotHintLabel)}</span>
-                    <span class="mm-slot-cta">Begriff hierhin ziehen</span>
+                    <span class="mm-slot-cta">Passenden Begriff hierhin ziehen</span>
                 </div>
             </div>
         `;
     }
 
     // ========================================================================
-    // 6. GEOMETRISCHES BOX-EDGE-CLIPPING & SVG-VERBINDUNGEN
+    // 6. BOX-EDGE-CLIPPING & AUTO-EXPANDIERENDE HTML-KANTEN-LABELS
     // ========================================================================
 
-    /**
-     * Berechnet den exakten Schnittpunkt eines Strahls vom Zentrum (cx, cy)
-     * in Richtung (tx, ty) mit dem Rechteck (width, height) + Padding.
-     * Dadurch verschwinden Pfeile und Labels NIE wieder hinter den Knoten-Boxen!
-     */
-    function getBoxBorderPoint(cx, cy, halfW, halfH, tx, ty, extraPad = 4) {
+    function getBoxBorderPoint(cx, cy, halfW, halfH, tx, ty, extraPad = 6) {
         const dx = tx - cx;
         const dy = ty - cy;
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return { x: cx, y: cy };
@@ -879,12 +902,13 @@
         if (domEl && domEl.offsetWidth > 0 && domEl.offsetHeight > 0) {
             return { halfW: domEl.offsetWidth / 2, halfH: domEl.offsetHeight / 2 };
         }
-        if (nodeId === 'root') return { halfW: 115, halfH: 44 };
-        return { halfW: 102, halfH: 46 };
+        if (nodeId === 'root') return { halfW: 145, halfH: 54 };
+        return { halfW: 132, halfH: 58 };
     }
 
     function drawSvgConnections() {
         const svg = document.getElementById('mm-svg');
+        const edgeLabelsLayer = document.getElementById('mm-edge-labels-layer');
         if (!svg || !state.currentMap) return;
 
         let defsHtml = `
@@ -901,7 +925,7 @@
         `;
 
         let pathsHtml = '';
-        let labelsHtml = '';
+        let htmlBadges = '';
 
         state.currentMap.nodes.forEach(node => {
             const parentId = node.parent_id || 'root';
@@ -911,16 +935,14 @@
             const fromDim = getNodeHalfDimensions(parentId);
             const toDim = getNodeHalfDimensions(node.id);
 
-            // Exakte Start- und Endpunkte an den Box-Rändern berechnen!
-            const startPt = getBoxBorderPoint(fromCenter.x, fromCenter.y, fromDim.halfW, fromDim.halfH, toCenter.x, toCenter.y, 3);
-            const endPt = getBoxBorderPoint(toCenter.x, toCenter.y, toDim.halfW, toDim.halfH, fromCenter.x, fromCenter.y, 8);
+            const startPt = getBoxBorderPoint(fromCenter.x, fromCenter.y, fromDim.halfW, fromDim.halfH, toCenter.x, toCenter.y, 4);
+            const endPt = getBoxBorderPoint(toCenter.x, toCenter.y, toDim.halfW, toDim.halfH, fromCenter.x, fromCenter.y, 10);
 
             const x1 = startPt.x;
             const y1 = startPt.y;
             const x2 = endPt.x;
             const y2 = endPt.y;
 
-            // Sanfte S-Kurve zwischen den sichtbaren Rändern
             const dx = x2 - x1;
             const dy = y2 - y1;
             const cx1 = x1 + dx * 0.35;
@@ -942,36 +964,40 @@
                       marker-end="url(#${markerId})" />
             `;
 
-            // Mittelpunkt auf der sichtbaren Linie zwischen den Rändern (nicht mehr unter dem Knoten!)
+            // Echte HTML-Badges auf dem Mittelpunkt der sichtbaren Linie (passt sich jedem Text flexibel an!)
             if (node.relation_label) {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
-                const labelText = escapeHtml(node.relation_label);
-                const boxWidth = Math.max(88, node.relation_label.length * 6.8 + 20);
-
-                labelsHtml += `
-                    <g class="mm-edge-pill-group" transform="translate(${midX.toFixed(1)}, ${midY.toFixed(1)})">
-                        <rect class="mm-edge-label-bg"
-                              x="${(-boxWidth / 2).toFixed(1)}"
-                              y="-11"
-                              width="${boxWidth.toFixed(1)}"
-                              height="22"
-                              style="stroke: ${strokeColor};" />
-                        <text class="mm-edge-label-text" x="0" y="0">${labelText}</text>
-                    </g>
+                htmlBadges += `
+                    <div class="mm-edge-html-badge ${isHovered ? 'is-hovered' : ''}"
+                         style="left:${midX.toFixed(1)}px; top:${midY.toFixed(1)}px; border-color:${strokeColor};">
+                        ${escapeHtml(node.relation_label)}
+                    </div>
                 `;
             }
         });
 
-        svg.innerHTML = defsHtml + pathsHtml + labelsHtml;
+        svg.innerHTML = defsHtml + pathsHtml;
+        if (edgeLabelsLayer) {
+            edgeLabelsLayer.innerHTML = htmlBadges;
+        }
     }
 
     // ========================================================================
-    // 7. EVENT-BINDING (DRAG & DROP, ZOOM, PAN, INSPECTOR)
+    // 7. EVENT-BINDING (ZERO-SELECTION DRAG & DROP, ZOOM, PAN)
     // ========================================================================
 
     function bindEvents() {
         document.getElementById('mm-map-selector')?.addEventListener('change', e => selectMindmap(e.target.value));
+
+        document.getElementById('mm-toggle-expand')?.addEventListener('click', () => {
+            state.expandedCanvas = !state.expandedCanvas;
+            renderModule();
+            requestAnimationFrame(() => {
+                fitStageToViewport();
+                drawSvgConnections();
+            });
+        });
 
         document.getElementById('mm-toggle-blind')?.addEventListener('click', () => {
             state.blindMode = !state.blindMode;
@@ -999,11 +1025,15 @@
         document.getElementById('mm-btn-import')?.addEventListener('click', openImportModal);
 
         // Zoom Controls
-        document.getElementById('mm-zoom-in')?.addEventListener('click', () => adjustZoom(0.12));
-        document.getElementById('mm-zoom-out')?.addEventListener('click', () => adjustZoom(-0.12));
+        document.getElementById('mm-zoom-in')?.addEventListener('click', () => adjustZoom(0.14));
+        document.getElementById('mm-zoom-out')?.addEventListener('click', () => adjustZoom(-0.14));
+        document.getElementById('mm-zoom-100')?.addEventListener('click', () => {
+            const delta = 1.0 - state.zoom;
+            adjustZoom(delta);
+        });
         document.getElementById('mm-zoom-fit')?.addEventListener('click', () => fitStageToViewport());
 
-        // Viewport Panning & Mousewheel Zoom
+        // Viewport Panning & Mousewheel Zoom (ohne Text-Markierung!)
         const viewport = document.getElementById('mm-canvas-viewport');
         if (viewport) {
             viewport.addEventListener('wheel', e => {
@@ -1014,13 +1044,20 @@
 
             viewport.addEventListener('pointerdown', e => {
                 if (e.target.closest('.mm-node') || e.target.closest('.mm-canvas-HUD')) return;
+                // Verhindert sofort jegliche Textmarkierung beim Ziehen des Hintergrunds
+                e.preventDefault();
+                clearBrowserTextSelection();
+
                 state.isPanning = true;
                 viewport.classList.add('is-panning');
+                document.body.classList.add('mm-dragging-active');
+
                 const startX = e.clientX - state.panX;
                 const startY = e.clientY - state.panY;
 
                 function onPanMove(moveEv) {
                     if (!state.isPanning) return;
+                    moveEv.preventDefault();
                     state.panX = moveEv.clientX - startX;
                     state.panY = moveEv.clientY - startY;
                     applyStageTransform();
@@ -1029,29 +1066,27 @@
                 function onPanUp() {
                     state.isPanning = false;
                     viewport.classList.remove('is-panning');
+                    document.body.classList.remove('mm-dragging-active');
                     window.removeEventListener('pointermove', onPanMove);
                     window.removeEventListener('pointerup', onPanUp);
+                    window.removeEventListener('pointercancel', onPanUp);
                 }
 
-                window.addEventListener('pointermove', onPanMove);
+                window.addEventListener('pointermove', onPanMove, { passive: false });
                 window.addEventListener('pointerup', onPanUp);
+                window.addEventListener('pointercancel', onPanUp);
             });
         }
 
-        // Chips: Pointer-Drag + Click-to-Select
+        // Chips: Zero-Selection Pointer-Drag + Click-to-Select
         document.querySelectorAll('.mm-chip').forEach(chip => {
+            // Verhindert natives HTML5-Drag-Verhalten & Textselektion
+            chip.addEventListener('dragstart', e => e.preventDefault());
+            chip.addEventListener('selectstart', e => e.preventDefault());
             chip.addEventListener('pointerdown', onChipPointerDown);
-            chip.addEventListener('click', e => {
-                e.stopPropagation();
-                const nodeId = chip.getAttribute('data-node-id');
-                state.selectedChipId = (state.selectedChipId === nodeId) ? null : nodeId;
-                document.querySelectorAll('.mm-chip').forEach(c => {
-                    c.classList.toggle('selected-chip', c.getAttribute('data-node-id') === state.selectedChipId);
-                });
-            });
         });
 
-        // Ziel-Slots & Gelöste Knoten: Hover-Kanten-Highlight + Klick
+        // Ziel-Slots & Gelöste Knoten: Hover & Click
         document.querySelectorAll('.mm-node[data-slot-id]').forEach(nodeEl => {
             const slotId = nodeEl.getAttribute('data-slot-id');
 
@@ -1079,16 +1114,31 @@
 
     function onChipPointerDown(e) {
         if (e.button !== undefined && e.button !== 0) return;
+
+        // KRITISCH: Verhindert sofort, dass der Browser Text im Chip oder auf der Seite markiert!
+        e.preventDefault();
+        e.stopPropagation();
+        clearBrowserTextSelection();
+
         const chip = e.currentTarget;
         const nodeId = chip.getAttribute('data-node-id');
+        const pointerId = e.pointerId;
         const startX = e.clientX;
         const startY = e.clientY;
         let isDragging = false;
         let ghostEl = null;
 
+        document.body.classList.add('mm-dragging-active');
+        try {
+            if (chip.setPointerCapture) chip.setPointerCapture(pointerId);
+        } catch (_err) {}
+
         function onPointerMove(moveEvent) {
+            moveEvent.preventDefault();
+            clearBrowserTextSelection();
+
             const dist = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
-            if (!isDragging && dist > 6) {
+            if (!isDragging && dist > 5) {
                 isDragging = true;
                 chip.classList.add('dragging');
                 ghostEl = chip.cloneNode(true);
@@ -1110,6 +1160,12 @@
         function onPointerUp(upEvent) {
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+            document.body.classList.remove('mm-dragging-active');
+
+            try {
+                if (chip.releasePointerCapture) chip.releasePointerCapture(pointerId);
+            } catch (_err) {}
 
             if (isDragging) {
                 chip.classList.remove('dragging');
@@ -1121,11 +1177,18 @@
                     const slotId = targetSlot.getAttribute('data-slot-id');
                     evaluateDropAttempt(nodeId, slotId, targetSlot);
                 }
+            } else {
+                // Es war ein kurzer Klick ohne Ziehen -> Chip auswählen / abwählen (Click-to-Place)
+                state.selectedChipId = (state.selectedChipId === nodeId) ? null : nodeId;
+                document.querySelectorAll('.mm-chip').forEach(c => {
+                    c.classList.toggle('selected-chip', c.getAttribute('data-node-id') === state.selectedChipId);
+                });
             }
         }
 
-        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointermove', onPointerMove, { passive: false });
         window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
     }
 
     function findSlotUnderPoint(x, y) {
@@ -1149,7 +1212,6 @@
         const targetNode = map.nodes.find(n => n.id === targetSlotId);
         if (!draggedNode || !targetNode) return;
 
-        // Fall 1: Korrekte Zuordnung
         if (draggedNode.id === targetNode.id) {
             state.solvedNodeIds.add(targetNode.id);
             state.selectedChipId = null;
@@ -1191,7 +1253,6 @@
             return;
         }
 
-        // Fall 2: Fehlzuordnung
         state.mistakesCount += 1;
         state.weakNodeIds.add(targetNode.id);
 
@@ -1301,8 +1362,8 @@ Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, m
    - 5 Knoten sind Hauptäste 1. Ordnung ("parent_id": "root") und decken alle 5 Kategorien ab ("etiology", "pathophysiology", "clinical", "diagnostics", "therapy").
    - 5 bis 7 Knoten sind Vertiefungsäste 2. Ordnung ("parent_id": "n1" etc.), die einen Hauptast kausal weiterführen. Keine 3. Ebene!
 3. KOMPAKTE UI-LABELS:
-   - "label": Maximal 45 Zeichen.
-   - "relation_label": Präzises kausales Verb/Beziehung (max. 24 Zeichen, z.B. "oxidiert Co2+ in", "Goldstandard bei", "kontraindiziert wegen").
+   - "label": Maximal 50 Zeichen.
+   - "relation_label": Präzises kausales Verb/Beziehung (z.B. "oxidiert Co2+ in", "Goldstandard bei", "kontraindiziert wegen").
 4. SOKRATISCHE LEITFRAGEN ("socratic_hint"):
    - Formuliere eine gezielte Frage, die über den Mechanismus auf den Begriff hinführt, OHNE das Wort aus "label" zu verraten!
 
@@ -1315,7 +1376,7 @@ Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, m
   "nodes": [
     {
       "id": "n1",
-      "label": "Tiefendetail 1. Ordnung (max. 45 Z.)",
+      "label": "Tiefendetail 1. Ordnung",
       "category": "etiology | pathophysiology | clinical | diagnostics | therapy",
       "parent_id": "root",
       "relation_label": "Kausale Relation",
