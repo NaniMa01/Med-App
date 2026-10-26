@@ -1,10 +1,11 @@
 /**
- * MedCheck - Interactive Clinical Mindmap Module V3.0 (js/mindmap.js)
- * Upgrades in V3.0:
- *  - Zero Text-Selection Drag & Drop (e.preventDefault, getSelection().removeAllRanges, PointerCapture, body lock)
- *  - Expanded XXL Stage (2400 x 1600 px) with wide elliptical rings & collision repulsion
- *  - Auto-expanding HTML Edge Labels (never truncates long medical relation descriptions)
- *  - Full-text wrapping nodes (250-280px width) + Focus/Expand Mode toggle
+ * MedCheck - Interactive Clinical Mindmap Module V4.0 (js/mindmap.js)
+ * Upgrades in V4.0:
+ *  - Full Delete Function (LocalStorage + Supabase Cloud DELETE + Built-in Hide/Restore)
+ *  - Progressive Causal Unlocking: 2nd-order nodes unlock dynamically once their 1st-order parent is solved
+ *  - Step-by-Step Clinical Reasoning & Pearl Confirmation on every solved node
+ *  - Active Pool Filtering (highlights 1st-order vs. unlocked 2nd-order concepts)
+ *  - Zero Text-Selection Drag & Drop + 2400x1600 XXL Stage with Auto-Fit
  */
 
 (function () {
@@ -18,9 +19,9 @@
         therapy: { label: 'Therapie', color: '#10b981', cssClass: 'cat-therapy', icon: '💊' }
     };
 
-    // Großzügig ausgedehnte XXL-Stage für 100% Text-Lesbarkeit ohne Gedränge
     const STAGE_WIDTH = 2400;
     const STAGE_HEIGHT = 1600;
+    const DELETED_BUILTINS_KEY = 'medcheck_deleted_builtin_mindmaps_v1';
 
     const BUILTIN_MINDMAPS = [
         {
@@ -34,24 +35,27 @@
                     label: 'Plaqueruptur & Thrombus',
                     category: 'pathophysiology',
                     parent_id: 'root',
-                    relation_label: 'Entstehungsmechanismus',
-                    socratic_hint: 'Was passiert akut an einer vulnerablen atherosklerotischen Koronarläsion, bevor das Gefäß komplett verschließt?'
+                    relation_label: 'Akuter Pathomechanismus',
+                    socratic_hint: 'Was passiert akut an einer vulnerablen atherosklerotischen Koronarläsion, bevor das Gefäß komplett verschließt?',
+                    explanation: 'Durch Ruptur der fibrösen Kappe einer vulnerablen Plaque wird subendotheliales Kollagen und Tissue Factor freigelegt, was zur sofortigen Thrombozytenaggregation und einem okklusiven Abscheidungsthrombus führt.'
                 },
                 {
                     id: 'n2',
                     label: 'Vernichtungsschmerz (retrosternal)',
                     category: 'clinical',
                     parent_id: 'root',
-                    relation_label: 'Leitsymptom',
-                    socratic_hint: 'Wie äußert sich eine akute myokardiale Ischämie typischerweise subjektiv beim Patienten?'
+                    relation_label: 'Klinisches Leitsymptom',
+                    socratic_hint: 'Wie äußert sich eine akute myokardiale Ischämie (> 20 Min., nicht nitro-sensibel) subjektiv beim Patienten?',
+                    explanation: 'Anhaltender retrosternaler Druck- oder Vernichtungsschmerz (> 20 Min.), oft begleitet von vegetativer Symptomatik (Kaltschweißigkeit, Todesangst, Dyspnoe).'
                 },
                 {
                     id: 'n3',
                     label: '12-Kanal-EKG (< 10 Min.)',
                     category: 'diagnostics',
                     parent_id: 'root',
-                    relation_label: 'Primärdiagnostik',
-                    socratic_hint: 'Welche apparative Untersuchung muss laut ESC-Leitlinie innerhalb von 10 Minuten nach Erstkontakt erfolgen?'
+                    relation_label: 'Sofort-Diagnostik',
+                    socratic_hint: 'Welche apparative Untersuchung muss laut ESC-Leitlinie zwingend innerhalb von 10 Minuten nach medizinischem Erstkontakt erfolgen?',
+                    explanation: 'Das 12-Kanal-EKG innerhalb von 10 Minuten nach Erstkontakt (First Medical Contact) ist die entscheidende Weichenstellung für die sofortige Reperfusionsstrategie.'
                 },
                 {
                     id: 'n4',
@@ -59,23 +63,26 @@
                     category: 'therapy',
                     parent_id: 'root',
                     relation_label: 'Kausale Reperfusion',
-                    socratic_hint: 'Welche Intervention öffnet das verschlossene Koronargefäß mechanisch mit der höchsten Erfolgsrate?'
+                    socratic_hint: 'Welche Intervention öffnet das verschlossene Koronargefäß mechanisch mit der höchsten Erfolgsrate (Time is Muscle)?',
+                    explanation: 'Die primäre perkutane Koronarintervention (PCI) mit Stent-Implantation (< 60–90 Min. nach Diagnose) ist der Goldstandard zur Wiederherstellung des TIMI-III-Flusses.'
                 },
                 {
                     id: 'n5',
                     label: 'LDL-Hypercholesterinämie & Nikotin',
                     category: 'etiology',
                     parent_id: 'root',
-                    relation_label: 'Hauptrisikofaktoren',
-                    socratic_hint: 'Welche chronischen kardiovaskulären Faktoren fördern die Bildung vulnerabler Plaques?'
+                    relation_label: 'Kardiovaskuläre Hauptrisiken',
+                    socratic_hint: 'Welche chronischen Faktoren fördern endotheliale Dysfunktion und die Bildung vulnerabler Koronarplaques?',
+                    explanation: 'Oxidiertes LDL-Cholesterin, Nikotinabusus, arterielle Hypertonie und Diabetes mellitus treiben die koronare Atherosklerose über Jahre voran.'
                 },
                 {
                     id: 'n6',
                     label: 'Transmurale Nekrose & Troponin-Anstieg',
                     category: 'pathophysiology',
                     parent_id: 'n1',
-                    relation_label: 'führt unbehandelt zu',
-                    socratic_hint: 'Was passiert mit den Kardiomyozyten bei anhaltender kompletter Ischämie und welcher Biomarker wird dabei frei?'
+                    relation_label: 'führt nach 20–40 Min. zu',
+                    socratic_hint: 'Was passiert mit den Kardiomyozyten bei anhaltender kompletter Ischämie von innen nach außen (Subendokard -> Epikard) und welcher Biomarker wird frei?',
+                    explanation: 'Ohne Reperfusion breitet sich die Wellenfront der Myokardnekrose vom Subendokard transmural aus; durch den Zelluntergang steigt hochsensitives kardiales Troponin (hs-cTnT/I) im Blut an.'
                 },
                 {
                     id: 'n7',
@@ -83,15 +90,17 @@
                     category: 'clinical',
                     parent_id: 'n2',
                     relation_label: 'Head-Zonen-Projektion',
-                    socratic_hint: 'Wohin projiziert der viszerale Herzschmerz über die Segmente C8–Th5 typischerweise?'
+                    socratic_hint: 'Wohin projiziert der viszerale Herzschmerz über die Konvergenz viszero- und somatosensibler Fasern (Segmente C8–Th5)?',
+                    explanation: 'Über viszerosomatische Konvergenz im Hinterhorn des Rückenmarks wird der Schmerz als übertragener Schmerz (Referred Pain) in den linken Arm (ulnar), Hals, Unterkiefer oder das Epigastrium projiziert.'
                 },
                 {
                     id: 'n8',
                     label: 'Konvexe ST-Hebung in ≥ 2 Nachbarableitungen',
                     category: 'diagnostics',
                     parent_id: 'n3',
-                    relation_label: 'Beweisender Befund',
-                    socratic_hint: 'Welches spezifische Erregungsrückbildungs-Kriterium im EKG definiert den STEMI?'
+                    relation_label: 'Beweisender EKG-Befund',
+                    socratic_hint: 'Welches spezifische Erregungsrückbildungs-Kriterium im EKG beweist den transmuralen Verletzungsstrom?',
+                    explanation: 'Signifikante ST-Strecken-Hebungen am J-Punkt in mindestens zwei anatomisch benachbarten Ableitungen (oder ein neu aufgetretener Links-/Rechtsschenkelblock bei passender Klinik) sichern die STEMI-Diagnose.'
                 },
                 {
                     id: 'n9',
@@ -99,7 +108,8 @@
                     category: 'therapy',
                     parent_id: 'n4',
                     relation_label: 'Stentthrombose-Prophylaxe',
-                    socratic_hint: 'Welche medikamentöse Kombination verhindert nach Stent-Implantation den akuten Wiederverschluss?'
+                    socratic_hint: 'Welche duale medikamentöse Thrombozytenhemmung verhindert nach Stent-Implantation über 12 Monate den akuten Wiederverschluss?',
+                    explanation: 'Nach Stent-Implantation ist eine duale Thrombozytenaggregationshemmung (DAPT) aus ASS (COX-1-Hemmer) plus einem potenten P2Y12-Inhibitor (Prasugrel oder Ticagrelor) für i.d.R. 12 Monate obligat.'
                 }
             ]
         },
@@ -114,56 +124,63 @@
                     label: 'Tiefe Beinvenenthrombose (TVT)',
                     category: 'etiology',
                     parent_id: 'root',
-                    relation_label: 'Emboliequelle (90%)',
-                    socratic_hint: 'Woher stammt der eingeschwemmte Thrombus in den allermeisten Fällen anatomisch?'
+                    relation_label: 'Emboliequelle (ca. 90%)',
+                    socratic_hint: 'Woher stammt der eingeschwemmte Thrombus (Virchow-Trias) in den allermeisten Fällen anatomisch?',
+                    explanation: 'Rund 90 % aller Lungenembolien entstehen durch Abschwemmung eines Thrombus aus den tiefen Bein- oder Beckenvenen (V. femoralis, V. iliaca).'
                 },
                 {
                     id: 'l2',
                     label: 'Abrupter Nachlastanstieg rechter Ventrikel',
                     category: 'pathophysiology',
                     parent_id: 'root',
-                    relation_label: 'Hämodynamische Folge',
-                    socratic_hint: 'Welcher Herzabschnitt muss plötzlich gegen den erhöhten pulmonalvaskulären Widerstand anpumpen?'
+                    relation_label: 'Hämodynamische Primärfolge',
+                    socratic_hint: 'Welcher dünnwandige Herzabschnitt muss plötzlich gegen den akut erhöhten pulmonalvaskulären Widerstand (PVR) anpumpen?',
+                    explanation: 'Durch mechanische Obstruktion (> 30–50 % des Gefäßbetts) und hypoxische Vasokonstriktion steigt die rechtsventrikuläre Nachlast abrupt an -> akutes Cor pulmonale.'
                 },
                 {
                     id: 'l3',
-                    label: 'Akute Dyspnoe & Tachypnoe',
+                    label: 'Akute Dyspnoe, Tachypnoe & Pleuraschmerz',
                     category: 'clinical',
                     parent_id: 'root',
-                    relation_label: 'Initiales Leitsymptom',
-                    socratic_hint: 'Welches klinische Zeichen tritt plötzlich durch die Totraumventilation und Hypoxämie auf?'
+                    relation_label: 'Klinische Leitsymptome',
+                    socratic_hint: 'Welche Symptome treten plötzlich durch die Totraumventilation, V/Q-Mismatch und pleurale Reizung auf?',
+                    explanation: 'Plötzliche Dyspnoe, Tachypnoe, Sinustachykardie und atemabhängiger (pleuritischer) Thoraxschmerz sind die häufigsten Initialsymptome.'
                 },
                 {
                     id: 'l4',
-                    label: 'Wells-Score + D-Dimere / CT-Angiographie',
+                    label: 'Wells-Score + D-Dimere / CT-Pulmonalis-Angio',
                     category: 'diagnostics',
                     parent_id: 'root',
                     relation_label: 'Diagnose-Algorithmus',
-                    socratic_hint: 'Wie kombiniert man klinische Wahrscheinlichkeit, Labor und Goldstandard-Bildgebung?'
+                    socratic_hint: 'Wie kombiniert man klinische Vortestwahrscheinlichkeit, Ausschlusslabor und bildgebenden Goldstandard?',
+                    explanation: 'Bei niedriger/mittlerer Wahrscheinlichkeit (Wells-Score) schließen negative D-Dimere eine LAE aus; bei hoher Wahrscheinlichkeit oder positiven D-Dimeren folgt direkt die CT-Pulmonalisangiographie (CTPA).'
                 },
                 {
                     id: 'l5',
                     label: 'Therapeutische Antikoagulation (DOAK/Heparin)',
                     category: 'therapy',
                     parent_id: 'root',
-                    relation_label: 'Basistherapie',
-                    socratic_hint: 'Welche medikamentöse Maßnahme stoppt sofort das appositionelle Thrombuswachstum?'
+                    relation_label: 'Sofort-Basistherapie',
+                    socratic_hint: 'Welche medikamentöse Maßnahme stoppt sofort das appositionelle Thrombuswachstum bei hämodynamisch stabilen Patienten?',
+                    explanation: 'Hämodynamisch stabile Patienten erhalten sofort eine therapeutische Antikoagulation (bevorzugt DOAK wie Apixaban/Rivaroxaban oder initial NMH/UFH).'
                 },
                 {
                     id: 'l6',
                     label: 'Obstruktiver Schock (RRsys < 90 mmHg)',
                     category: 'pathophysiology',
                     parent_id: 'l2',
-                    relation_label: 'Dekompensation',
-                    socratic_hint: 'Was passiert mit dem linksventrikulären Vorlast-Angebot und dem Systemblutdruck, wenn der rechte Ventrikel versagt?'
+                    relation_label: 'führt bei RV-Versagen zu',
+                    socratic_hint: 'Was passiert durch die rechtsventrikuläre Dilatation und Septumverschiebung (Ventrikel-Interdependenz) mit der Füllung des linken Ventrikels?',
+                    explanation: 'Der dilatierte rechte Ventrikel wölbt das Septum nach links, komprimiert den linken Ventrikel im Perikard und führt zum kritischen linksventrikulären Vorlastmangel -> obstruktiver Schock (High-Risk-LAE).'
                 },
                 {
                     id: 'l7',
                     label: 'Systemische Thrombolyse (rt-PA / Alteplase)',
                     category: 'therapy',
                     parent_id: 'l6',
-                    relation_label: 'Notfalltherapie Schock',
-                    socratic_hint: 'Welche medikamentöse Reperfusionstherapie ist bei hämodynamischer Instabilität (High-Risk-LAE) indiziert?'
+                    relation_label: 'Notfalltherapie im Schock',
+                    socratic_hint: 'Welche medikamentöse Reperfusionstherapie löst den Embolus bei hämodynamischer Instabilität (High-Risk-LAE) aktiv auf?',
+                    explanation: 'Bei High-Risk-LAE (obstruktiver Schock / Reanimation) ist die sofortige systemische Fibrinolyse mit rt-PA (Alteplase) neben unfraktioniertem Heparin lebensrettend.'
                 }
             ]
         }
@@ -178,6 +195,7 @@
         blindMode: false,
         showInspector: false,
         expandedCanvas: false,
+        strictCausalOrder: true, // NEU: Erzwingt logisches Lernen (erst 1. Ordnung, dann 2. Ordnung!)
         mistakesCount: 0,
         weakNodeIds: new Set(),
         startTime: null,
@@ -254,11 +272,11 @@
     }
 
     // ========================================================================
-    // 2. SUPABASE PERSISTENZ & LOCALSTORAGE SYNC
+    // 2. SUPABASE PERSISTENZ, LOCALSTORAGE SYNC & LÖSCH-FUNKTION
     // ========================================================================
 
     function getSupabase() {
-        return window.supabaseClient || window.supabase || (window.Auth && window.Auth.supabase) || null;
+        return window.supabaseClient || window.supabase || window.sb || (window.Auth && window.Auth.supabase) || null;
     }
 
     async function getCurrentUser() {
@@ -272,13 +290,44 @@
         }
     }
 
+    function getDeletedBuiltinIds() {
+        try {
+            return JSON.parse(localStorage.getItem(DELETED_BUILTINS_KEY) || '[]');
+        } catch (_e) {
+            return [];
+        }
+    }
+
+    function addDeletedBuiltinId(id) {
+        const list = getDeletedBuiltinIds();
+        if (!list.includes(id)) {
+            list.push(id);
+            localStorage.setItem(DELETED_BUILTINS_KEY, JSON.stringify(list));
+        }
+    }
+
+    async function restoreDeletedBuiltinMindmaps() {
+        localStorage.removeItem(DELETED_BUILTINS_KEY);
+        await loadMindmapsAndProgress();
+        if (state.mindmaps.length > 0) {
+            selectMindmap(state.mindmaps[0].id);
+        } else {
+            renderModule();
+        }
+    }
+
     async function loadMindmapsAndProgress() {
         const localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
         const localProgress = JSON.parse(localStorage.getItem('medcheck_mindmap_progress') || '{}');
+        const deletedBuiltins = getDeletedBuiltinIds();
         state.progressCache = localProgress;
 
         const mapById = new Map();
-        BUILTIN_MINDMAPS.forEach(m => mapById.set(m.id, m));
+        BUILTIN_MINDMAPS.forEach(m => {
+            if (!deletedBuiltins.includes(m.id)) {
+                mapById.set(m.id, m);
+            }
+        });
         localSaved.forEach(m => mapById.set(m.id, m));
 
         const sb = getSupabase();
@@ -292,6 +341,7 @@
 
                 if (!mapErr && Array.isArray(dbMaps)) {
                     dbMaps.forEach(row => {
+                        if (deletedBuiltins.includes(row.id)) return;
                         const parsed = typeof row.data_json === 'string' ? JSON.parse(row.data_json) : row.data_json;
                         mapById.set(row.id, {
                             id: row.id,
@@ -353,6 +403,64 @@
         }
     }
 
+    /**
+     * NEU: Löscht die aktuell ausgewählte Mindmap lokal UND aus der Supabase-Cloud
+     */
+    async function deleteCurrentMindmap() {
+        if (!state.currentMap) return;
+
+        const targetId = state.currentMap.id;
+        const targetTitle = state.currentMap.title || state.currentMap.central_concept || targetId;
+        const isBuiltin = BUILTIN_MINDMAPS.some(b => b.id === targetId);
+
+        const confirmMsg = isBuiltin
+            ? `Möchtest du die Standard-Mindmap „${targetTitle}“ aus deiner Liste entfernen?\n\n(Du kannst Standard-Mindmaps später jederzeit wiederherstellen.)`
+            : `Möchtest du die Mindmap „${targetTitle}“ inklusive deines Lernfortschritts wirklich unwiderruflich löschen?`;
+
+        if (!window.confirm(confirmMsg)) return;
+
+        if (isBuiltin) {
+            addDeletedBuiltinId(targetId);
+        }
+
+        // 1. Aus LocalStorage ('medcheck_custom_mindmaps') entfernen
+        try {
+            const localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
+            const updatedLocal = localSaved.filter(m => m.id !== targetId);
+            localStorage.setItem('medcheck_custom_mindmaps', JSON.stringify(updatedLocal));
+        } catch (_e) {}
+
+        // 2. Fortschritt aus LocalStorage ('medcheck_mindmap_progress') entfernen
+        delete state.progressCache[targetId];
+        try {
+            localStorage.setItem('medcheck_mindmap_progress', JSON.stringify(state.progressCache));
+        } catch (_e) {}
+
+        // 3. Aus Supabase ('mindmap_progress' & 'mindmaps') löschen
+        const sb = getSupabase();
+        const user = await getCurrentUser();
+        if (sb && user) {
+            try {
+                await sb.from('mindmap_progress').delete().eq('mindmap_id', targetId).eq('user_id', user.id);
+                await sb.from('mindmaps').delete().eq('id', targetId);
+            } catch (err) {
+                console.warn('[Mindmap] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
+            }
+        }
+
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
+
+        // 4. Liste aktualisieren und nächste verfügbare Mindmap wählen
+        await loadMindmapsAndProgress();
+        if (state.mindmaps.length > 0) {
+            selectMindmap(state.mindmaps[0].id);
+        } else {
+            state.currentMap = null;
+            state.solvedNodeIds = new Set();
+            renderModule();
+        }
+    }
+
     async function saveProgressToDb() {
         if (!state.currentMap) return;
         const totalNodes = state.currentMap.nodes.length;
@@ -405,8 +513,8 @@
     // ========================================================================
 
     function computeRadialLayout(mindmap) {
-        const centerX = STAGE_WIDTH / 2;   // 1200px
-        const centerY = STAGE_HEIGHT / 2;  // 800px
+        const centerX = STAGE_WIDTH / 2;
+        const centerY = STAGE_HEIGHT / 2;
 
         const positions = {
             root: { x: centerX, y: centerY, angle: 0, level: 0 }
@@ -423,7 +531,6 @@
         });
 
         const count1 = firstOrder.length || 1;
-        // Weit ausgedehnter 1. Ring -> volle Sichtbarkeit für alle Verbindungs-Badges!
         const radius1X = 500;
         const radius1Y = 350;
 
@@ -437,7 +544,6 @@
             };
         });
 
-        // Weit ausgedehnter 2. Ring -> 420px Abstand zum 1. Ring!
         const radius2X = 940;
         const radius2Y = 640;
 
@@ -461,7 +567,6 @@
             });
         });
 
-        // Starke physikalische Entzerrung (Repulsion) mit 330px horizontalem & 165px vertikalem Puffer
         const nodeIds = Object.keys(positions).filter(id => id !== 'root');
         for (let iter = 0; iter < 24; iter++) {
             for (let i = 0; i < nodeIds.length; i++) {
@@ -503,7 +608,6 @@
         const vw = viewport.clientWidth || 960;
         const vh = viewport.clientHeight || 740;
 
-        // Berechne die tatsächliche Bounding-Box aller aktiven Knoten auf der Stage
         const pts = Object.values(state.nodePositions);
         if (pts.length === 0) return;
 
@@ -560,12 +664,16 @@
     }
 
     // ========================================================================
-    // 5. RENDERING & INTERAKTION
+    // 5. RENDERING & PROGRESSIVE KAUSAL-LOGIK
     // ========================================================================
 
     function selectMindmap(mindmapId) {
         const found = state.mindmaps.find(m => m.id === mindmapId) || state.mindmaps[0];
-        if (!found) return;
+        if (!found) {
+            state.currentMap = null;
+            renderModule();
+            return;
+        }
 
         state.currentMap = found;
         state.solvedNodeIds = new Set();
@@ -612,10 +720,36 @@
         return state.solvedNodeIds.has(node.parent_id);
     }
 
+    function isSlotCurrentlyLocked(node) {
+        if (!state.strictCausalOrder) return false;
+        return !isParentSolvedOrRoot(node);
+    }
+
     function renderModule() {
         const container = ensureDomStructure();
+        const deletedBuiltins = getDeletedBuiltinIds();
+
         if (!state.currentMap) {
-            container.innerHTML = `<div class="mindmap-wrapper"><p>Keine Mindmap geladen.</p></div>`;
+            container.innerHTML = `
+                <div class="mindmap-wrapper">
+                    <div class="mm-header">
+                        <div class="mm-title-group">
+                            <h2>🕸️ Klinisches Mindmap-Labor</h2>
+                            <p>Aktuell sind keine Mindmaps in deiner Bibliothek vorhanden.</p>
+                        </div>
+                        <div class="mm-controls">
+                            ${deletedBuiltins.length > 0 ? `
+                                <button id="mm-btn-restore-builtins" class="mm-btn">♻️ Standard-Mindmaps wiederherstellen</button>
+                            ` : ''}
+                            <button id="mm-btn-prompt" class="mm-btn">📋 Deep-Prompt</button>
+                            <button id="mm-btn-import" class="mm-btn mm-btn-primary">📥 JSON Importieren</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
+            document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
+            document.getElementById('mm-btn-import')?.addEventListener('click', openImportModal);
             return;
         }
 
@@ -624,7 +758,12 @@
         const solvedCount = state.solvedNodeIds.size;
         const savedProg = state.progressCache[map.id];
 
-        const remainingNodes = shuffleArray(map.nodes.filter(n => !state.solvedNodeIds.has(n.id)));
+        // Sortiere die ungelösten Begriffe im Pool didaktisch sinnvoll:
+        // Aktuell freigeschaltete (spielbare) Begriffe stehen oben, noch gesperrte Folgeschritte leicht gedimmt darunter!
+        const unplacedNodes = map.nodes.filter(n => !state.solvedNodeIds.has(n.id));
+        const unlockedPoolNodes = shuffleArray(unplacedNodes.filter(n => !isSlotCurrentlyLocked(n)));
+        const lockedPoolNodes = shuffleArray(unplacedNodes.filter(n => isSlotCurrentlyLocked(n)));
+        const orderedPoolNodes = [...unlockedPoolNodes, ...lockedPoolNodes];
 
         container.innerHTML = `
             <div class="mindmap-wrapper">
@@ -632,7 +771,9 @@
                 <div class="mm-header">
                     <div class="mm-title-group">
                         <h2>🕸️ Klinisches Mindmap-Labor</h2>
-                        <p>Ziehe die Begriffe auf die passenden Knoten. Jede Verbindungslinie und jedes Knoten-Banner zeigt dir die genaue kausale Beziehung.</p>
+                        <p>
+                            <strong>Schritt-für-Schritt-Kausallogik:</strong> Löse zuerst die inneren Hauptäste rund um das Zentrum – dadurch schaltest du automatisch die abhängigen Folgekaskaden (2. Ebene) frei!
+                        </p>
                     </div>
                     <div class="mm-controls">
                         <select id="mm-map-selector" class="mm-select" title="Mindmap auswählen">
@@ -645,16 +786,30 @@
                             }).join('')}
                         </select>
 
-                        <button id="mm-toggle-expand" class="mm-btn ${state.expandedCanvas ? 'active' : ''}" title="Mindmap auf volle Breite ausdehnen">
-                            ${state.expandedCanvas ? '📐 Standard-Ansicht' : '🔭 Großansicht (Breit)'}
+                        <button id="mm-btn-delete" class="mm-btn" style="border-color: rgba(239, 68, 68, 0.45); color: #fca5a5 !important;" title="Aktuelle Mindmap löschen">
+                            🗑️ Löschen
+                        </button>
+
+                        ${deletedBuiltins.length > 0 ? `
+                            <button id="mm-btn-restore-builtins" class="mm-btn" title="Ausgeblendete Standard-Mindmaps wiederherstellen">
+                                ♻️ Standards
+                            </button>
+                        ` : ''}
+
+                        <button id="mm-toggle-causal" class="mm-btn ${state.strictCausalOrder ? 'active' : ''}" title="Wenn aktiv, müssen erst Hauptknoten (1. Ebene) gelöst werden, bevor deren Unteräste (2. Ebene) freigeschaltet werden">
+                            ${state.strictCausalOrder ? '🔗 Kausal-Sperre: AN' : '🔓 Alle Ebenen offen'}
                         </button>
 
                         <button id="mm-toggle-blind" class="mm-btn mm-btn-blind ${state.blindMode ? 'active' : ''}" title="Verbirgt die Kategoriefarben vor dem Lösen gegen Test-Wiseness">
-                            ${state.blindMode ? '🕶️ Prüfungs-Modus (Blind)' : '🎨 Lern-Modus (Farben)'}
+                            ${state.blindMode ? '🕶️ Prüfungs-Modus' : '🎨 Lern-Modus'}
                         </button>
 
                         <button id="mm-btn-inspector" class="mm-btn ${state.showInspector ? 'active' : ''}" title="Zeigt alle kausalen Verbindungen als übersichtliche Baumstruktur">
-                            🧭 Verbindungs-Baum
+                            🧭 Baum-Logik
+                        </button>
+
+                        <button id="mm-toggle-expand" class="mm-btn ${state.expandedCanvas ? 'active' : ''}" title="Mindmap auf volle Breite ausdehnen">
+                            ${state.expandedCanvas ? '📐 Standard' : '🔭 Großansicht'}
                         </button>
 
                         <button id="mm-btn-reset" class="mm-btn" title="Mindmap zurücksetzen">
@@ -666,7 +821,7 @@
                         </button>
 
                         <button id="mm-btn-import" class="mm-btn mm-btn-primary">
-                            📥 JSON Importieren
+                            📥 JSON Import
                         </button>
                     </div>
                 </div>
@@ -697,24 +852,32 @@
                     <div class="mm-sidebar-panel">
                         <div class="mm-pool-box">
                             <div class="mm-box-header">
-                                <span class="mm-box-title">📦 Extrahierte Begriffe (${remainingNodes.length})</span>
-                                <span class="mm-box-sub">Ziehen oder Klicken</span>
+                                <span class="mm-box-title">📦 Extrahierte Begriffe (${orderedPoolNodes.length})</span>
+                                <span class="mm-box-sub">${unlockedPoolNodes.length} direkt zuordenbar</span>
                             </div>
                             <div id="mm-chip-pool" class="mm-chip-list">
-                                ${remainingNodes.length === 0 ? `
+                                ${orderedPoolNodes.length === 0 ? `
                                     <div class="mm-all-solved-banner">
                                         🎉 Alle Begriffe erfolgreich vernetzt!
                                     </div>
-                                ` : remainingNodes.map(node => {
+                                ` : orderedPoolNodes.map(node => {
                                     const catCfg = CATEGORIES[node.category];
                                     const catClass = state.blindMode ? 'cat-blind' : (catCfg?.cssClass || 'cat-blind');
                                     const isSelected = state.selectedChipId === node.id ? 'selected-chip' : '';
-                                    const catBadge = state.blindMode ? '' : `<span class="mm-chip-cat-tag">${escapeHtml(catCfg?.label || '')}</span>`;
+                                    const isLockedChild = isSlotCurrentlyLocked(node);
+                                    const levelTag = (!node.parent_id || node.parent_id === 'root')
+                                        ? '1. Ebene (Hauptast)'
+                                        : (isLockedChild ? '🔒 2. Ebene (Löse erst Hauptast)' : '🔓 2. Ebene (Folgeschritt)');
+                                    const catBadge = state.blindMode
+                                        ? `<span class="mm-chip-cat-tag">${levelTag}</span>`
+                                        : `<span class="mm-chip-cat-tag">${escapeHtml(catCfg?.label || '')} • ${levelTag}</span>`;
+
                                     return `
                                         <div class="mm-chip ${catClass} ${isSelected}"
+                                             style="${isLockedChild ? 'opacity: 0.58;' : ''}"
                                              data-node-id="${escapeHtml(node.id)}"
                                              draggable="false"
-                                             title="Ziehe diesen Begriff auf den passenden Ziel-Knoten oder klicke ihn an">
+                                             title="${isLockedChild ? 'Dieser Begriff gehört auf die 2. Ebene – löse zuerst den zugehörigen Hauptast!' : 'Ziehe diesen Begriff auf den passenden Ziel-Knoten oder klicke ihn an'}">
                                             ${catBadge}
                                             <span class="mm-chip-label">${escapeHtml(node.label)}</span>
                                         </div>
@@ -730,7 +893,7 @@
                                 <span class="mm-tutor-bloom">Bloom: Analyse & Synthese</span>
                             </div>
                             <div id="mm-tutor-message" class="mm-tutor-content">
-                                Klicke auf einen offenen Ziel-Knoten in der Mindmap, um eine <strong>sokratische Leitfrage</strong> zu erhalten, oder ziehe direkt einen Begriff darauf!
+                                Klicke auf einen beliebigen Ziel-Knoten in der Mindmap, um eine <strong>gezielte sokratische Leitfrage</strong> zu erhalten, oder ziehe direkt einen passenden Begriff darauf!
                             </div>
                         </div>
                     </div>
@@ -741,18 +904,17 @@
                             <button type="button" class="mm-hud-btn" id="mm-zoom-out" title="Herauszoomen">➖</button>
                             <span id="mm-zoom-label" class="mm-hud-zoom-text">65%</span>
                             <button type="button" class="mm-hud-btn" id="mm-zoom-in" title="Hineinzoomen">➕</button>
-                            <button type="button" class="mm-hud-btn" id="mm-zoom-100" title="100% Originalgröße für maximale Lesbarkeit">100%</button>
+                            <button type="button" class="mm-hud-btn" id="mm-zoom-100" title="100% Originalgröße">100%</button>
                             <button type="button" class="mm-hud-btn" id="mm-zoom-fit" title="Gesamte Mindmap einpassen">🎯 Alles zeigen</button>
                         </div>
 
                         <div class="mm-canvas-help-pill">
-                            🖱️ Hintergrund ziehen zum Verschieben • Mausrad zum Zoomen • Knoten anklicken für sokratischen Tipp
+                            🖱️ Hintergrund ziehen zum Verschieben • Mausrad zum Zoomen • Knoten anklicken für sokratische Leitfrage
                         </div>
 
                         <!-- TRANSFORMABLE XXL STAGE (2400 x 1600) -->
                         <div id="mm-stage" class="mm-stage" style="width:${STAGE_WIDTH}px; height:${STAGE_HEIGHT}px;">
                             <svg id="mm-svg" class="mm-svg-layer" viewBox="0 0 ${STAGE_WIDTH} ${STAGE_HEIGHT}"></svg>
-                            <!-- HTML-Layer für niemals abgeschnittene Verbindungs-Schilder auf den Linien -->
                             <div id="mm-edge-labels-layer" class="mm-edge-labels-layer"></div>
                             <div id="mm-nodes" class="mm-nodes-layer">
                                 <!-- ZENTRALER WURZEL-KNOTEN -->
@@ -784,7 +946,7 @@
             <div class="mm-inspector-panel">
                 <div class="mm-inspector-header">
                     <strong>🧭 Logische Kausalstruktur dieser Mindmap (${escapeHtml(map.central_concept)})</strong>
-                    <span>Grün = bereits gelöst • Grau = noch offen</span>
+                    <span>Klicke auf einen offenen Schritt, um dir den sokratischen Hinweis im Tutor anzeigen zu lassen!</span>
                 </div>
                 <div class="mm-inspector-grid">
                     ${firstOrder.map(parent => {
@@ -794,20 +956,20 @@
 
                         return `
                             <div class="mm-inspector-branch">
-                                <div class="mm-inspector-step ${pSolved ? 'is-solved' : ''}">
-                                    <span class="mm-ins-rel">🎯 Zentrum ➔ <em>${escapeHtml(parent.relation_label || 'Verbindung')}</em>:</span>
+                                <div class="mm-inspector-step ${pSolved ? 'is-solved' : ''}" data-ins-slot="${escapeHtml(parent.id)}" style="cursor:pointer;">
+                                    <span class="mm-ins-rel">1️⃣ Zentrum ➔ <strong>${escapeHtml(parent.relation_label || 'Verbindung')}</strong>:</span>
                                     <strong class="mm-ins-target">
-                                        ${pSolved ? `✅ ${escapeHtml(parent.label)}` : `❓ [${escapeHtml(pCat)} gesucht]`}
+                                        ${pSolved ? `✅ ${escapeHtml(parent.label)}` : `❓ [${escapeHtml(pCat)} gesucht – klicken für Tipp]`}
                                     </strong>
                                 </div>
                                 ${children.map(child => {
                                     const cSolved = state.solvedNodeIds.has(child.id);
                                     const cCat = CATEGORIES[child.category]?.label || child.category;
                                     return `
-                                        <div class="mm-inspector-substep ${cSolved ? 'is-solved' : ''}">
-                                            <span class="mm-ins-rel">↳ <em>${escapeHtml(child.relation_label || 'führt zu')}</em>:</span>
+                                        <div class="mm-inspector-substep ${cSolved ? 'is-solved' : ''}" data-ins-slot="${escapeHtml(child.id)}" style="cursor:pointer;">
+                                            <span class="mm-ins-rel">↳ 2️⃣ Folgeschritt: <strong>${escapeHtml(child.relation_label || 'führt zu')}</strong>:</span>
                                             <strong class="mm-ins-target">
-                                                ${cSolved ? `✅ ${escapeHtml(child.label)}` : `❓ [${escapeHtml(cCat)} gesucht]`}
+                                                ${cSolved ? `✅ ${escapeHtml(child.label)}` : (pSolved ? `🔓 [${escapeHtml(cCat)} gesucht]` : `🔒 [Löse erst Schritt 1]`)}
                                             </strong>
                                         </div>
                                     `;
@@ -826,14 +988,13 @@
         const catCfg = CATEGORIES[node.category] || { label: 'Konzept', cssClass: 'cat-blind', icon: '🔹' };
         const relationText = node.relation_label || 'Verbindung';
         const isSecondOrder = node.parent_id && node.parent_id !== 'root';
-        const parentSolved = isParentSolvedOrRoot(node);
+        const isLocked = isSlotCurrentlyLocked(node);
 
-        // Vollständiger Herkunftstext ohne enges Abschneiden
-        let originPrefix = `🎯 Vom Zentrum (${state.currentMap.central_concept})`;
+        let originPrefix = `1. Ebene • Vom Zentrum`;
         if (isSecondOrder) {
-            originPrefix = parentSolved
-                ? `↳ Ausgehend von: „${getParentLabel(node)}“`
-                : `↳ Folgeschritt (2. Ebene – löse zuerst den Vorgänger-Knoten)`;
+            originPrefix = !isLocked
+                ? `2. Ebene • Aus „${getParentLabel(node)}“`
+                : `🔒 2. Ebene • Gesperrte Folgekaskade`;
         }
 
         if (isSolved) {
@@ -841,14 +1002,34 @@
                 <div class="mm-node mm-node-solved ${catCfg.cssClass}"
                      id="mm-node-dom-${escapeHtml(node.id)}"
                      style="left: ${pos.x}px; top: ${pos.y}px;"
-                     data-slot-id="${escapeHtml(node.id)}">
+                     data-slot-id="${escapeHtml(node.id)}"
+                     title="Klicken, um die klinische Erklärung im Tutor zu lesen">
                     <div class="mm-node-rel-banner">
                         <span class="mm-rel-origin">${escapeHtml(originPrefix)}</span>
                         <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                     </div>
                     <div class="mm-node-body-solved">
-                        <span class="mm-solved-cat-pill">${catCfg.icon} ${escapeHtml(catCfg.label)}</span>
+                        <span class="mm-solved-cat-pill">✅ ${catCfg.icon} ${escapeHtml(catCfg.label)}</span>
                         <div class="mm-solved-title">${escapeHtml(node.label)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (isLocked) {
+            return `
+                <div class="mm-node mm-node-slot cat-blind mm-node-locked"
+                     id="mm-node-dom-${escapeHtml(node.id)}"
+                     style="left: ${pos.x}px; top: ${pos.y}px; opacity: 0.58; filter: grayscale(0.4);"
+                     data-slot-id="${escapeHtml(node.id)}"
+                     title="Löse zuerst den inneren Hauptknoten (1. Ebene), um diesen Folgeschritt freizuschalten!">
+                    <div class="mm-node-rel-banner">
+                        <span class="mm-rel-origin">🔒 Folgeschritt (2. Ebene)</span>
+                        <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
+                    </div>
+                    <div class="mm-slot-inner">
+                        <span class="mm-slot-hint">⏳ Kausal-Sperre aktiv</span>
+                        <span class="mm-slot-cta">Löse zuerst den inneren Vorgänger-Knoten!</span>
                     </div>
                 </div>
             `;
@@ -862,14 +1043,14 @@
                  id="mm-node-dom-${escapeHtml(node.id)}"
                  style="left: ${pos.x}px; top: ${pos.y}px;"
                  data-slot-id="${escapeHtml(node.id)}"
-                 title="Klicken für sokratische Leitfrage oder Begriff hier ablegen">
+                 title="Klicken für sokratische Leitfrage oder passenden Begriff hier ablegen">
                 <div class="mm-node-rel-banner">
                     <span class="mm-rel-origin">${escapeHtml(originPrefix)}</span>
                     <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                 </div>
                 <div class="mm-slot-inner">
                     <span class="mm-slot-hint">${escapeHtml(slotHintLabel)}</span>
-                    <span class="mm-slot-cta">Passenden Begriff hierhin ziehen</span>
+                    <span class="mm-slot-cta">💡 Klicken für Leitfrage oder Begriff ziehen</span>
                 </div>
             </div>
         `;
@@ -951,26 +1132,26 @@
             const cy2 = y1 + dy * 0.85;
 
             const isSolved = state.solvedNodeIds.has(node.id);
+            const isLocked = isSlotCurrentlyLocked(node);
             const isHovered = state.hoveredNodeId === node.id || state.hoveredNodeId === parentId;
             const catCfg = CATEGORIES[node.category];
-            const showColor = isSolved || !state.blindMode;
-            const strokeColor = showColor && catCfg ? catCfg.color : '#94a3b8';
+            const showColor = isSolved || (!state.blindMode && !isLocked);
+            const strokeColor = showColor && catCfg ? catCfg.color : '#64748b';
             const markerId = showColor && catCfg ? `mm-arrow-${node.category}` : 'mm-arrow-default';
 
             pathsHtml += `
                 <path class="mm-edge-path ${isSolved ? 'solved-edge' : ''} ${isHovered ? 'hovered-edge' : ''}"
                       d="M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${cx1.toFixed(1)} ${cy1.toFixed(1)}, ${cx2.toFixed(1)} ${cy2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}"
-                      style="stroke: ${strokeColor};"
+                      style="stroke: ${strokeColor}; opacity: ${isLocked ? '0.35' : '0.9'};"
                       marker-end="url(#${markerId})" />
             `;
 
-            // Echte HTML-Badges auf dem Mittelpunkt der sichtbaren Linie (passt sich jedem Text flexibel an!)
             if (node.relation_label) {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
                 htmlBadges += `
                     <div class="mm-edge-html-badge ${isHovered ? 'is-hovered' : ''}"
-                         style="left:${midX.toFixed(1)}px; top:${midY.toFixed(1)}px; border-color:${strokeColor};">
+                         style="left:${midX.toFixed(1)}px; top:${midY.toFixed(1)}px; border-color:${strokeColor}; opacity:${isLocked ? '0.45' : '1'};">
                         ${escapeHtml(node.relation_label)}
                     </div>
                 `;
@@ -984,11 +1165,22 @@
     }
 
     // ========================================================================
-    // 7. EVENT-BINDING (ZERO-SELECTION DRAG & DROP, ZOOM, PAN)
+    // 7. EVENT-BINDING (DRAG & DROP, DELETE, CAUSAL LOCK, ZOOM, PAN)
     // ========================================================================
 
     function bindEvents() {
         document.getElementById('mm-map-selector')?.addEventListener('change', e => selectMindmap(e.target.value));
+        document.getElementById('mm-btn-delete')?.addEventListener('click', deleteCurrentMindmap);
+        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
+
+        document.getElementById('mm-toggle-causal')?.addEventListener('click', () => {
+            state.strictCausalOrder = !state.strictCausalOrder;
+            renderModule();
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+            });
+        });
 
         document.getElementById('mm-toggle-expand')?.addEventListener('click', () => {
             state.expandedCanvas = !state.expandedCanvas;
@@ -1024,6 +1216,14 @@
         document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
         document.getElementById('mm-btn-import')?.addEventListener('click', openImportModal);
 
+        // Klicks im Baum-Inspektor zeigen ebenfalls den sokratischen Tipp
+        document.querySelectorAll('[data-ins-slot]').forEach(el => {
+            el.addEventListener('click', () => {
+                const slotId = el.getAttribute('data-ins-slot');
+                showSlotSocraticHint(slotId);
+            });
+        });
+
         // Zoom Controls
         document.getElementById('mm-zoom-in')?.addEventListener('click', () => adjustZoom(0.14));
         document.getElementById('mm-zoom-out')?.addEventListener('click', () => adjustZoom(-0.14));
@@ -1033,7 +1233,6 @@
         });
         document.getElementById('mm-zoom-fit')?.addEventListener('click', () => fitStageToViewport());
 
-        // Viewport Panning & Mousewheel Zoom (ohne Text-Markierung!)
         const viewport = document.getElementById('mm-canvas-viewport');
         if (viewport) {
             viewport.addEventListener('wheel', e => {
@@ -1044,7 +1243,6 @@
 
             viewport.addEventListener('pointerdown', e => {
                 if (e.target.closest('.mm-node') || e.target.closest('.mm-canvas-HUD')) return;
-                // Verhindert sofort jegliche Textmarkierung beim Ziehen des Hintergrunds
                 e.preventDefault();
                 clearBrowserTextSelection();
 
@@ -1078,15 +1276,12 @@
             });
         }
 
-        // Chips: Zero-Selection Pointer-Drag + Click-to-Select
         document.querySelectorAll('.mm-chip').forEach(chip => {
-            // Verhindert natives HTML5-Drag-Verhalten & Textselektion
             chip.addEventListener('dragstart', e => e.preventDefault());
             chip.addEventListener('selectstart', e => e.preventDefault());
             chip.addEventListener('pointerdown', onChipPointerDown);
         });
 
-        // Ziel-Slots & Gelöste Knoten: Hover & Click
         document.querySelectorAll('.mm-node[data-slot-id]').forEach(nodeEl => {
             const slotId = nodeEl.getAttribute('data-slot-id');
 
@@ -1100,22 +1295,21 @@
                 drawSvgConnections();
             });
 
-            if (nodeEl.classList.contains('mm-node-slot')) {
-                nodeEl.addEventListener('click', () => {
-                    if (state.selectedChipId) {
-                        evaluateDropAttempt(state.selectedChipId, slotId, nodeEl);
-                    } else {
-                        showSlotSocraticHint(slotId);
-                    }
-                });
-            }
+            nodeEl.addEventListener('click', () => {
+                if (nodeEl.classList.contains('mm-node-solved')) {
+                    showSolvedNodeExplanation(slotId);
+                } else if (state.selectedChipId) {
+                    evaluateDropAttempt(state.selectedChipId, slotId, nodeEl);
+                } else {
+                    showSlotSocraticHint(slotId);
+                }
+            });
         });
     }
 
     function onChipPointerDown(e) {
         if (e.button !== undefined && e.button !== 0) return;
 
-        // KRITISCH: Verhindert sofort, dass der Browser Text im Chip oder auf der Seite markiert!
         e.preventDefault();
         e.stopPropagation();
         clearBrowserTextSelection();
@@ -1178,7 +1372,6 @@
                     evaluateDropAttempt(nodeId, slotId, targetSlot);
                 }
             } else {
-                // Es war ein kurzer Klick ohne Ziehen -> Chip auswählen / abwählen (Click-to-Place)
                 state.selectedChipId = (state.selectedChipId === nodeId) ? null : nodeId;
                 document.querySelectorAll('.mm-chip').forEach(c => {
                     c.classList.toggle('selected-chip', c.getAttribute('data-node-id') === state.selectedChipId);
@@ -1201,7 +1394,7 @@
     }
 
     // ========================================================================
-    // 8. AUSWERTUNG & SOKRATISCHE AI-FEEDBACK-SCHLEIFE (/api/gemini)
+    // 8. AUSWERTUNG, KAUSAL-PRÜFUNG & SOKRATISCHE AI-FEEDBACK-SCHLEIFE
     // ========================================================================
 
     async function evaluateDropAttempt(draggedNodeId, targetSlotId, slotElement) {
@@ -1212,9 +1405,50 @@
         const targetNode = map.nodes.find(n => n.id === targetSlotId);
         if (!draggedNode || !targetNode) return;
 
-        if (draggedNode.id === targetNode.id) {
+        const tutorEl = document.getElementById('mm-tutor-message');
+
+        // 1. Prüfen, ob der Ziel-Slot noch durch die Kausal-Sperre blockiert ist (ohne Strafpunkt!)
+        if (isSlotCurrentlyLocked(targetNode)) {
+            if (slotElement) {
+                slotElement.classList.remove('mm-node-error');
+                void slotElement.offsetWidth;
+                slotElement.classList.add('mm-node-error');
+            }
+            if (tutorEl) {
+                tutorEl.innerHTML = `
+                    <strong style="color:#38bdf8;">🔒 Kausaler Zwischenschritt fehlt noch!</strong><br>
+                    Dieser Knoten liegt auf der <strong>2. Ebene</strong> (Folgeschritt über <em>„${escapeHtml(targetNode.relation_label)}“</em>).<br>
+                    Löse zuerst den übergeordneten Hauptknoten der 1. Ebene, damit die Kausalkette logisch aufgebaut wird! (Kein Fehlversuch abgezogen).
+                `;
+            }
+            return;
+        }
+
+        // 2. Prüfen auf exakte Übereinstimmung ODER semantische Äquivalenz (gleicher Elternknoten, gleiche Kategorie, gleiche Relation)
+        const isExactMatch = draggedNode.id === targetNode.id;
+        const isSemanticEquivalent = (
+            (draggedNode.parent_id || 'root') === (targetNode.parent_id || 'root') &&
+            draggedNode.category === targetNode.category &&
+            (draggedNode.relation_label || '').trim().toLowerCase() === (targetNode.relation_label || '').trim().toLowerCase()
+        );
+
+        if (isExactMatch || isSemanticEquivalent) {
+            // Falls semantisch äquivalent, aber andere ID: Labels/Daten der beiden Knoten tauschen, damit der gezogene Chip verschwindet
+            if (!isExactMatch && isSemanticEquivalent) {
+                const temp = { ...targetNode };
+                targetNode.label = draggedNode.label;
+                targetNode.socratic_hint = draggedNode.socratic_hint;
+                targetNode.explanation = draggedNode.explanation;
+                draggedNode.label = temp.label;
+                draggedNode.socratic_hint = temp.socratic_hint;
+                draggedNode.explanation = temp.explanation;
+            }
+
             state.solvedNodeIds.add(targetNode.id);
             state.selectedChipId = null;
+
+            // Prüfen, welche Kind-Knoten durch diesen Schritt neu freigeschaltet wurden
+            const newlyUnlockedChildren = map.nodes.filter(n => n.parent_id === targetNode.id);
 
             const savedZoom = state.zoom;
             const savedPanX = state.panX;
@@ -1232,27 +1466,37 @@
 
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
 
-            const tutorEl = document.getElementById('mm-tutor-message');
-            if (tutorEl) {
+            const updatedTutorEl = document.getElementById('mm-tutor-message');
+            if (updatedTutorEl) {
                 const parentLabel = getParentLabel(targetNode);
-                tutorEl.innerHTML = `
+                const pearlText = targetNode.explanation
+                    ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; font-size:0.8rem;">💡 <strong>Klinischer Hintergrund:</strong> ${escapeHtml(targetNode.explanation)}</div>`
+                    : '';
+                const unlockNotice = newlyUnlockedChildren.length > 0
+                    ? `<div style="margin-top:6px; color:#38bdf8; font-size:0.8rem;">🔓 <strong>Folgekaskade freigeschaltet:</strong> Du kannst jetzt den nächsten Schritt (${newlyUnlockedChildren.map(c => '<em>„' + escapeHtml(c.relation_label) + '“</em>').join(', ')}) zuordnen!</div>`
+                    : '';
+
+                updatedTutorEl.innerHTML = `
                     <strong style="color:#10b981;">✅ Exakt richtig vernetzt!</strong><br>
-                    <strong>„${escapeHtml(targetNode.label)}“</strong> ist über die Relation <em>„${escapeHtml(targetNode.relation_label || 'Verbindung')}“</em> direkt mit <strong>„${escapeHtml(parentLabel)}“</strong> verknüpft.
+                    <strong>„${escapeHtml(targetNode.label)}“</strong> folgt über <em>„${escapeHtml(targetNode.relation_label || 'Verbindung')}“</em> aus <strong>„${escapeHtml(parentLabel)}“</strong>.
+                    ${pearlText}
+                    ${unlockNotice}
                 `;
             }
 
             if (state.solvedNodeIds.size === map.nodes.length) {
                 await saveProgressToDb();
-                if (tutorEl) {
-                    tutorEl.innerHTML = `
-                        <strong style="color:#10b981;">🏆 Mindmap vollständig gelöst (+250 XP)!</strong><br>
-                        Dein Fortschritt (${state.mistakesCount} Fehlversuche) wurde gespeichert.
+                if (updatedTutorEl) {
+                    updatedTutorEl.innerHTML = `
+                        <strong style="color:#10b981;">🏆 Gesamte Mindmap gemeistert (+250 XP)!</strong><br>
+                        Du hast alle ${map.nodes.length} Konzepte kausal vernetzt (${state.mistakesCount} Fehlversuche). Klicke auf beliebige gelöste Knoten, um ihre klinischen Erklärungen noch einmal zu wiederholen!
                     `;
                 }
             }
             return;
         }
 
+        // 3. Fehlversuch -> Gezielte diagnostische & sokratische Rückmeldung
         state.mistakesCount += 1;
         state.weakNodeIds.add(targetNode.id);
 
@@ -1270,16 +1514,40 @@
         await triggerSocraticFeedback(draggedNode, targetNode);
     }
 
+    function showSolvedNodeExplanation(slotId) {
+        const node = state.currentMap?.nodes.find(n => n.id === slotId);
+        const tutorEl = document.getElementById('mm-tutor-message');
+        if (!node || !tutorEl) return;
+
+        const parentLabel = getParentLabel(node);
+        tutorEl.innerHTML = `
+            <strong style="color:#10b981;">✅ Gelöster Knoten: „${escapeHtml(node.label)}“</strong><br>
+            <span style="font-size:0.8rem; color:#94a3b8;">Kausalkette: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(node.relation_label)}</em></span><br>
+            <div style="margin-top:6px;">${escapeHtml(node.explanation || node.socratic_hint || 'Klinisch verifiziertes Konzept.')}</div>
+        `;
+    }
+
     function showSlotSocraticHint(slotId) {
         const targetNode = state.currentMap?.nodes.find(n => n.id === slotId);
         const tutorEl = document.getElementById('mm-tutor-message');
         if (!targetNode || !tutorEl) return;
 
+        if (isSlotCurrentlyLocked(targetNode)) {
+            tutorEl.innerHTML = `
+                <strong style="color:#f59e0b;">🔒 Dieser Folgeschritt (2. Ebene) ist noch gesperrt:</strong><br>
+                Löse zuerst den zugehörigen Hauptknoten der 1. Ebene am Zentrum. Sobald die Ursache steht, wird dieser Folgeschritt (<em>„${escapeHtml(targetNode.relation_label || '')}“</em>) freigeschaltet!
+            `;
+            return;
+        }
+
         const parentLabel = getParentLabel(targetNode);
+        const targetCat = CATEGORIES[targetNode.category]?.label || targetNode.category;
         tutorEl.innerHTML = `
-            <strong style="color:#38bdf8;">💡 Sokratischer Hinweis für diesen Knoten:</strong><br>
-            Gesucht wird die Verbindung: <strong>„${escapeHtml(parentLabel)}“</strong> ➔ <em>„${escapeHtml(targetNode.relation_label || '')}“</em>.<br>
-            <span style="display:block; margin-top:6px;">${escapeHtml(targetNode.socratic_hint || 'Überlege, welcher Begriff aus dem Pool kausal an diese Stelle gehört.')}</span>
+            <strong style="color:#38bdf8;">💡 Sokratische Leitfrage für diesen Knoten:</strong><br>
+            <span style="font-size:0.8rem; color:#94a3b8;">Gesucht: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(targetNode.relation_label || '')}</em> (${escapeHtml(targetCat)})</span>
+            <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;">
+                ${escapeHtml(targetNode.socratic_hint || 'Überlege, welcher Begriff aus dem Pool kausal an diese Stelle gehört.')}
+            </div>
         `;
     }
 
@@ -1290,6 +1558,18 @@
         const parentLabel = getParentLabel(targetNode);
         const draggedCat = CATEGORIES[draggedNode.category]?.label || draggedNode.category;
         const targetCat = CATEGORIES[targetNode.category]?.label || targetNode.category;
+        const draggedIsSecondOrder = draggedNode.parent_id && draggedNode.parent_id !== 'root';
+        const targetIsSecondOrder = targetNode.parent_id && targetNode.parent_id !== 'root';
+
+        // Sofortiger präziser Ebenen-/Kategorie-Hinweis vorab
+        let structuralHint = '';
+        if (draggedIsSecondOrder !== targetIsSecondOrder) {
+            structuralHint = draggedIsSecondOrder
+                ? `⚠️ <strong>Ebenen-Verwechslung:</strong> „${escapeHtml(draggedNode.label)}“ ist eine spezifische <em>Folgeerscheinung / Detailmaßnahme (2. Ebene)</em>, aber hier wird zuerst das übergeordnete <em>Primärkonzept (1. Ebene)</em> gesucht!`
+                : `⚠️ <strong>Ebenen-Verwechslung:</strong> „${escapeHtml(draggedNode.label)}“ ist ein <em>Hauptast (1. Ebene)</em> direkt am Zentrum, nicht der hier gesuchte <em>Folgeschritt (2. Ebene)</em>!`;
+        } else if (draggedNode.category !== targetNode.category) {
+            structuralHint = `⚠️ <strong>Kategorie-Konflikt:</strong> Du hast einen Begriff der <em>${escapeHtml(draggedCat)}</em> gewählt, aber dieser Ast fragt nach <em>${escapeHtml(targetCat)}</em>.`;
+        }
 
         tutorEl.innerHTML = `
             <div class="mm-tutor-thinking">
@@ -1327,6 +1607,7 @@ Formuliere in maximal 2 bis 3 prägnanten Sätzen (auf Deutsch, per "Du") ein so
 
             if (aiText) {
                 tutorEl.innerHTML = `
+                    ${structuralHint ? `<div style="margin-bottom:5px; font-size:0.8rem; color:#fcd34d;">${structuralHint}</div>` : ''}
                     <strong style="color:#f59e0b;">🤔 Sokratische Rückfrage:</strong><br>
                     ${escapeHtml(aiText)}
                 `;
@@ -1334,14 +1615,14 @@ Formuliere in maximal 2 bis 3 prägnanten Sätzen (auf Deutsch, per "Du") ein so
             }
             throw new Error('Leere AI-Antwort');
         } catch (err) {
-            const catMismatch = draggedNode.category !== targetNode.category
-                ? `Du hast mit <strong>„${escapeHtml(draggedNode.label)}“</strong> einen Begriff aus dem Bereich <em>${escapeHtml(draggedCat)}</em> gewählt, aber dieser Knoten sucht nach einem Konzept der <em>${escapeHtml(targetCat)}</em>.`
-                : `<strong>„${escapeHtml(draggedNode.label)}“</strong> stammt zwar ebenfalls aus dem Bereich <em>${escapeHtml(draggedCat)}</em>, passt aber kausal nicht zur Relation <em>„${escapeHtml(targetNode.relation_label)}“</em> ausgehend von <strong>„${escapeHtml(parentLabel)}“</strong>.`;
+            const fallbackReason = structuralHint || `<strong>„${escapeHtml(draggedNode.label)}“</strong> passt kausal nicht zur Relation <em>„${escapeHtml(targetNode.relation_label)}“</em> ausgehend von <strong>„${escapeHtml(parentLabel)}“</strong>.`;
 
             tutorEl.innerHTML = `
-                <strong style="color:#f59e0b;">🤔 Sokratische Rückfrage:</strong><br>
-                ${catMismatch}<br>
-                <strong style="color:#38bdf8; display:block; margin-top:5px;">Leitfrage:</strong> ${escapeHtml(targetNode.socratic_hint || 'Welche direkte Konsequenz oder Maßnahme ergibt sich hier?')}
+                <strong style="color:#f59e0b;">🤔 Sokratische Analyse:</strong><br>
+                ${fallbackReason}<br>
+                <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;">
+                    <strong style="color:#38bdf8;">Leitfrage für diesen Slot:</strong> ${escapeHtml(targetNode.socratic_hint || 'Welche direkte Konsequenz oder Maßnahme ergibt sich hier?')}
+                </div>
             `;
         }
     }
@@ -1355,17 +1636,19 @@ Formuliere in maximal 2 bis 3 prägnanten Sätzen (auf Deutsch, per "Du") ein so
 Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau) und Daten-Architekt für das MedCheck Mindmap-Labor.
 Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, molekularbiologischen, diagnostischen und therapeutischen Details und überführe sie in ein direkt importierbares, valides JSON-Objekt.
 
-# 1. INHALTLICHE REGELN (ZERO-SUPERFICIALITY)
+# 1. INHALTLICHE REGELN (ZERO-SUPERFICIALITY & KAUSALE LOGIK)
 1. KEINE OBERFLÄCHLICHKEITEN: Begriffe wie "Blutbild", "MRT", "Entzündung" oder "Medikamente" sind verboten! Extrahiere exakte Rezeptoren, Ionenkanäle, Autoantikörper, Genmutationen, pathognomonische Zeichen, spezifische Sequenzen, exakte Cutoffs mit Einheiten und Wirkstoffe inkl. Mechanismus/Kontraindikation.
-2. 2-RING-TOPOLOGIE:
+2. STRIKTE 2-RING-KAUSALLOGIK (KEINE MEHRDEUTIGKEITEN!):
    - Erstelle insgesamt 10 bis 12 Knoten in "nodes".
    - 5 Knoten sind Hauptäste 1. Ordnung ("parent_id": "root") und decken alle 5 Kategorien ab ("etiology", "pathophysiology", "clinical", "diagnostics", "therapy").
-   - 5 bis 7 Knoten sind Vertiefungsäste 2. Ordnung ("parent_id": "n1" etc.), die einen Hauptast kausal weiterführen. Keine 3. Ebene!
+   - 5 bis 7 Knoten sind Vertiefungsäste 2. Ordnung ("parent_id": "n1" etc.), die einen Hauptast logisch-kausal weiterführen (Ursache -> unmittelbare Folge; Primärdiagnostik -> beweisender Befund; Erstlinientherapie -> spezifischer Wirkmechanismus/Prophylaxe).
+   - Jeder Slot muss durch seine "relation_label" und "socratic_hint" EINDEUTIG von allen anderen Knoten unterscheidbar sein!
 3. KOMPAKTE UI-LABELS:
-   - "label": Maximal 50 Zeichen.
-   - "relation_label": Präzises kausales Verb/Beziehung (z.B. "oxidiert Co2+ in", "Goldstandard bei", "kontraindiziert wegen").
-4. SOKRATISCHE LEITFRAGEN ("socratic_hint"):
-   - Formuliere eine gezielte Frage, die über den Mechanismus auf den Begriff hinführt, OHNE das Wort aus "label" zu verraten!
+   - "label": Maximal 48 Zeichen.
+   - "relation_label": Präzises kausales Verb/Beziehung (max. 26 Zeichen, z.B. "oxidiert Co2+ in", "Goldstandard-Nachweis", "kontraindiziert wegen").
+4. SOKRATISCHE LEITFRAGEN ("socratic_hint") & ERKLÄRUNG ("explanation"):
+   - "socratic_hint": Gezielte Frage, die über den Mechanismus auf den Begriff hinführt, OHNE das Wort aus "label" zu verraten!
+   - "explanation": 1-2 prägnante Sätze mit dem klinischen/pathophysiologischen Merksatz, der nach dem Lösen zur Festigung angezeigt wird.
 
 # 2. STRIKTES JSON-SCHEMA (Antworte NUR mit reinem JSON ohne Markdown-Block)
 {
@@ -1376,11 +1659,12 @@ Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, m
   "nodes": [
     {
       "id": "n1",
-      "label": "Tiefendetail 1. Ordnung",
+      "label": "Tiefendetail 1. Ordnung (max. 48 Z.)",
       "category": "etiology | pathophysiology | clinical | diagnostics | therapy",
       "parent_id": "root",
-      "relation_label": "Kausale Relation",
-      "socratic_hint": "Sokratische Frage ohne Lösungsspoiler?"
+      "relation_label": "Eindeutige Kausalrelation",
+      "socratic_hint": "Sokratische Frage ohne Lösungsspoiler?",
+      "explanation": "Klinisch-pathophysiologische Begründung nach dem Lösen."
     }
   ]
 }
@@ -1447,7 +1731,8 @@ Hier ist der Vorlesungstext:
     window.MindmapModule = {
         init,
         openView,
-        selectMindmap
+        selectMindmap,
+        deleteCurrentMindmap
     };
 
     if (document.readyState === 'loading') {
