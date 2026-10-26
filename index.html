@@ -46,6 +46,7 @@
             <li class="nav-item" onclick="switchTab('player', this)" id="nav-player" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span>Challenge Hub</span></li>
             <li class="nav-item" onclick="switchTab('forge', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg><span>Fall-Generator (Dev)</span></li>
             <li class="nav-item" onclick="switchTab('depot', this)" id="nav-depot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg><span>Lern-Depot</span><span class="depot-nav-badge" id="nav-depot-badge">0</span></li>
+            
             <li class="nav-item" data-view="mindmap" id="nav-mindmap" onclick="switchTab('mindmap', this)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
@@ -60,12 +61,22 @@
                 </svg>
                 <span>Mindmaps</span>
             </li>
+
             <li class="nav-item" onclick="switchTab('pharmacology', this)" id="nav-pharmacology">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10.5 20.5 3.5 13.5a4.95 4.95 0 1 1 7-7l7 7a4.95 4.95 0 1 1-7 7Z"></path>
                     <path d="m8.5 8.5 7 7"></path>
                 </svg>
                 <span>Pharmakologie</span>
+            </li>
+
+            <!-- ✅ KORREKTUR: Duell als eigenständiger Menüpunkt direkt über Einstellungen -->
+            <li class="nav-item" data-view="duel" id="nav-duel" onclick="switchTab('duel', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span>Klinik-Duell</span>
+                <span class="depot-nav-badge" id="nav-duel-badge" style="display: none; background: #10b981; color: #06281e;">0</span>
             </li>
 
             <li class="nav-item" onclick="switchTab('settings', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg><span>Einstellungen</span></li>
@@ -132,7 +143,7 @@
 
                 <!-- 2. DASHBOARD VIEW -->
                 <div class="panel" id="dashboard-view" style="display: block;">
-<div class="dashboard-top-header">
+                    <div class="dashboard-top-header">
                         <div>
                             <div class="panel-title">Klinische Module & Themen-Ordner</div>
                             <div class="panel-subtitle" style="margin-bottom: 0;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
@@ -160,6 +171,7 @@
                             <button type="button" class="search-status-pill" data-status-filter="solved" onclick="window.setDashboardSearchStatus('solved', this)">✓ Gelöst</button>
                         </div>
                     </div>
+                    
                     <!-- Admin Case Upload Dropzone -->
                     <section id="creatorUploadSection" class="creator-upload-section" style="display: none;">
                         <div class="creator-upload-card">
@@ -181,7 +193,7 @@
                     <div class="panel-title">Klinische Module & Themen-Ordner</div>
                     <div class="panel-subtitle" style="margin-bottom: 14px;">Wähle ein Fachgebiet aus, um die interaktiven Master-Fälle zu öffnen.</div>
 
-                    <!-- Notaufnahme-Modus (Exklusiv im Dashboard platziert) -->
+                    <!-- Notaufnahme-Modus -->
                     <div onclick="window.startEmergencyMode()" role="button" tabindex="0"
                          style="margin-bottom:18px; padding:18px 22px; border-radius:14px; background:linear-gradient(135deg, rgba(239,68,68,0.22), rgba(220,38,38,0.12)); border:1px solid rgba(239,68,68,0.45); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; cursor:pointer; transition:transform 0.18s ease;">
                         <div>
@@ -196,7 +208,7 @@
                             Notdienst starten ➔
                         </button>
                     </div>
-                   
+                    
                     <!-- Spaced Repetition Zentrale -->
                     <section id="sr-dashboard-widget"></section>
                     <div class="segmented-control" role="tablist">
@@ -440,16 +452,16 @@
                                 </div>
                             </button>
                             <!-- Tropical Sunday Theme Card -->
-<button type="button" 
-        class="theme-card" 
-        data-theme-value="tropical" 
-        onclick="window.applyAppTheme('tropical')">
-    <div class="theme-preview" style="background: linear-gradient(135deg, #fff8ed 0%, #99f6e4 55%, #fdba74 100%); border: 1px solid rgba(217, 119, 6, 0.3); height: 48px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
-        🌴
-    </div>
-    <div style="font-weight: 700; font-size: 0.85rem;">Tropical Sunday</div>
-    <div style="font-size: 0.72rem; color: var(--text-muted);">Warm Sand & Lagoon</div>
-</button>
+                            <button type="button" 
+                                    class="theme-card" 
+                                    data-theme-value="tropical" 
+                                    onclick="window.applyAppTheme('tropical')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #fff8ed 0%, #99f6e4 55%, #fdba74 100%); border: 1px solid rgba(217, 119, 6, 0.3); height: 48px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                                    🌴
+                                </div>
+                                <div style="font-weight: 700; font-size: 0.85rem;">Tropical Sunday</div>
+                                <div style="font-size: 0.72rem; color: var(--text-muted);">Warm Sand & Lagoon</div>
+                            </button>
                         </div>
                     </div>
 
@@ -465,20 +477,20 @@
                     </div>
                 </div>
 
-                //mindmap view
-<section class="panel view-section hidden" id="mindmap-view" style="display: none;"></section>
                 <!-- 7. PHARMAKOLOGIE VIEW -->
                 <div class="panel" id="pharmacology-view" style="display: none;">
                     <div id="pharmacology-container"></div>
-
-                     <section class="panel view-section hidden" id="duel-view" style="display: none;"></section>
                 </div>
+
+                <!-- 8. MINDMAP-LABOR VIEW -->
+                <section class="panel view-section hidden" id="mindmap-view" style="display: none;"></section>
+
+                <!-- ✅ 9. KLINIK-DUELL VIEW (Sauber auf gleicher Panel-Ebene platziert) -->
+                <section class="panel view-section hidden" id="duel-view" style="display: none;"></section>
 
             </div> 
         </div>    
 
-
-        
         <!-- RECHTES FORTSCHRITTS-WIDGET -->
         <aside id="subject-progress-drawer" class="progress-drawer collapsed">
             <button type="button" class="progress-drawer-handle" onclick="toggleSubjectDrawer()" title="Fächer-Fortschritt ein-/ausklappen">
