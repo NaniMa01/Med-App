@@ -162,6 +162,10 @@
                                 <span class="siren-icon">🚨</span>
                                 <span class="siren-pulse-ring"></span>
                             </button>
+
+                            <button type="button" class="dashboard-tool-icon-btn" onclick="window.toggleSubjectProgressModal(true)" title="Themen- und Fächerfortschritt anzeigen">
+    <span class="tool-icon">📊</span>
+</button>
                         </div>
                     </div>
 
@@ -484,34 +488,23 @@
             </div> 
         </div>    
 
-        <!-- RECHTES FORTSCHRITTS-WIDGET -->
-        <aside id="subject-progress-drawer" class="progress-drawer collapsed">
-            <button type="button" class="progress-drawer-handle" onclick="toggleSubjectDrawer()" title="Fächer-Fortschritt ein-/ausklappen">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="20" x2="18" y2="10"></line>
-                    <line x1="12" y1="20" x2="12" y2="4"></line>
-                    <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
-                <span class="handle-label">Fächer</span>
-                <span class="handle-arrow" id="drawer-arrow">◀</span>
-            </button>
-
-            <div class="progress-drawer-body">
-                <div class="progress-drawer-header">
-                    <div>
-                        <div class="panel-title" style="font-size: 0.95rem; margin-bottom: 2px;">Themen-Fortschritt</div>
-                        <div style="font-size: 0.72rem; color: var(--text-dim);">Nach Überordnern & Kategorien</div>
-                    </div>
-                    <button type="button" class="drawer-close-btn" onclick="toggleSubjectDrawer()">✕</button>
-                </div>
-                <div id="dynamic-subjects-list" class="subjects-progress-list"></div>
-                <div class="progress-drawer-legend">
-                    <span><i class="dot-red"></i> &le;32%</span>
-                    <span><i class="dot-orange"></i> 33–66%</span>
-                    <span><i class="dot-green"></i> &ge;67%</span>
-                </div>
+      <!-- THEMEN-FORTSCHRITT MODAL OVERLAY -->
+<div id="subject-progress-modal" class="reveal-modal" style="display: none;" onclick="if(event.target === this) window.toggleSubjectProgressModal(false)">
+    <div class="reveal-card" style="max-width: 480px; padding: 22px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px;">
+            <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                <span>📊</span> Themen-Fortschritt
             </div>
-        </aside>
+            <button type="button" class="action-btn secondary btn-sm" onclick="window.toggleSubjectProgressModal(false)" style="padding: 4px 10px;">✕</button>
+        </div>
+        <div id="dynamic-subjects-list" class="subjects-progress-list" style="max-height: 60vh; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px;"></div>
+        <div class="progress-drawer-legend" style="display: flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--card-border); font-size: 0.72rem; color: var(--text-muted);">
+            <span><i class="dot-red" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444; margin-right:4px;"></i> &le;32%</span>
+            <span><i class="dot-orange" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b; margin-right:4px;"></i> 33–66%</span>
+            <span><i class="dot-green" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; margin-right:4px;"></i> &ge;67%</span>
+        </div>
+    </div>
+</div>
 
         <div id="reveal-modal" class="reveal-modal" style="display: none;">
             <div class="reveal-card" id="reveal-card"></div>
