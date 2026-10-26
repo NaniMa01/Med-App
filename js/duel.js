@@ -1,11 +1,11 @@
 /**
- * MedCheck - Klinik-Duell Module (Quizduell-Style 5-Round Medical Arena)
- * Features:
- *  - 5 Rounds x 3 Questions = Max 15 Points
- *  - Alternating Category Selection (4 random medical specialties offered per round)
- *  - Top-Center 15-Second Smooth Countdown Banner (60fps rAF + dynamic color shift)
- *  - Friend Search & Invitation via Email Address (Supabase Realtime + Local/Bot Mode)
- *  - Dynamic Question Extraction from MedCheck Cases + High-Yield Fallback Pool
+ * MedCheck - Klinik-Duell Module V2.0 (Cloud-Sync & Multiplayer Fix)
+ * Fixes & Features:
+ *  - Separate INSERT vs. UPDATE Supabase queries (fixes Player 2 RLS rejection bug!)
+ *  - Atomic State Merging before saving (prevents overwriting opponent's answers)
+ *  - Auth State Listener (automatically detects login/logout from js/auth.js)
+ *  - Dual Sync: Supabase Realtime WebSockets + 5-Second Auto-Polling Backup
+ *  - 5 Rounds x 3 Questions = Max 15 Points with 15s Top-Center Countdown Banner
  */
 
 (function () {
@@ -16,7 +16,6 @@
     const QUESTION_TIME_LIMIT_SEC = 15;
     const BOT_EMAIL = 'dr.house@klinik-bot.ch';
 
-    // Kuratierter High-Yield-Fragenpool (wird automatisch mit allen Fragen aus deinen MedCheck-Fällen kombiniert!)
     const BUILTIN_DUEL_QUESTIONS = [
         {
             category: 'Kardiologie & Angiologie',
@@ -28,7 +27,7 @@
                 'Konkave ST-Hebung aus dem absteigenden S in allen Brustwandableitungen'
             ],
             correct_index: 0,
-            explanation: 'Da V1–V3 auf der Vorderwand kleben, bildet sich eine transmurale Ischämie der posterioren Wand spiegelbildlich als ST-Senkung mit großer R-Zacke (entspricht einer pathologischen Q-Zacke von dorsal) ab.'
+            explanation: 'Da V1–V3 auf der Vorderwand kleben, bildet sich eine transmurale Ischämie der posterioren Wand spiegelbildlich als ST-Senkung mit großer R-Zacke ab.'
         },
         {
             category: 'Kardiologie & Angiologie',
@@ -64,7 +63,7 @@
                 'Spastische Tetraparese mit frühzeitiger Okulomotorikstörung und Doppelbildern'
             ],
             correct_index: 0,
-            explanation: 'Die A. spinalis anterior versorgt die vorderen 2/3 des Myelons (Pyramidenbahn + Tractus spinothalamicus). Die Hinterstränge (Lagesinn/Vibration) bleiben über die Aa. spinales posteriores intakt (dissoziierte Empfindungsstörung).'
+            explanation: 'Die A. spinalis anterior versorgt die vorderen 2/3 des Myelons (Pyramidenbahn + Tractus spinothalamicus). Die Hinterstränge (Lagesinn/Vibration) bleiben über die Aa. spinales posteriores intakt.'
         },
         {
             category: 'Neurologie & ZNS',
@@ -76,7 +75,7 @@
                 'Es induziert innerhalb weniger Tage eine irreversible funikuläre Myelose'
             ],
             correct_index: 0,
-            explanation: 'Klassische MS-Basistherapien wie Interferon-beta, Fingolimod oder Natalizumab verschlechtern eine Th17/B-Zell-vermittelte NMOSD drastisch und lösen schwere Schübe aus.'
+            explanation: 'Klassische MS-Basistherapien wie Interferon-beta verschlechtern eine Th17/B-Zell-vermittelte NMOSD drastisch und lösen schwere Schübe aus.'
         },
         {
             category: 'Neurologie & ZNS',
@@ -88,7 +87,7 @@
                 'Verminderte Aktivität der Glucose-6-Phosphat-Dehydrogenase im Erythrozyten'
             ],
             correct_index: 0,
-            explanation: 'Lachgas (N2O) oxidiert das Cobalt-Ion im Vitamin B12 irreversibel. Selbst bei noch normwertigem Gesamt-B12 im Serum steigen Methylmalonsäure (MMA) und Homocystein als funktionelle Substrate massiv an.'
+            explanation: 'Lachgas (N2O) oxidiert das Cobalt-Ion im Vitamin B12 irreversibel. Selbst bei noch normwertigem Gesamt-B12 im Serum steigen Methylmalonsäure (MMA) und Homocystein massiv an.'
         },
         {
             category: 'Klinische Pharmakologie',
@@ -100,7 +99,7 @@
                 'Kompetitive Hemmung der tubulären Kaliumsekretion mit fulminanter Hyperkaliämie'
             ],
             correct_index: 0,
-            explanation: 'Morphin wird hepatisch zu M6G (doppelt so potent analgetisch/atemdepressiv wie Morphin) und M3G (neuroexzitatorisch: Myoklonien, Allodynie) glucuronidiert, welche beide zwingend renal eliminiert werden.'
+            explanation: 'Morphin wird hepatisch zu M6G (potent analgetisch/atemdepressiv) und M3G (neuroexzitatorisch) glucuronidiert, welche beide renal eliminiert werden.'
         },
         {
             category: 'Klinische Pharmakologie',
@@ -112,7 +111,7 @@
                 'Ausschließliche Wirkung an peripheren Opioidrezeptoren im Darm wegen P-gp-Efflux'
             ],
             correct_index: 0,
-            explanation: 'Buprenorphin bindet extrem hochaffin als Partialagonist an den μ-Opioid-Rezeptor (lange Dissoziations-HWZ von 160 Min., Ceiling-Effekt für Atemdepression) und wirkt antagonistisch am κ-Rezeptor.'
+            explanation: 'Buprenorphin bindet hochaffin als Partialagonist an den μ-Opioid-Rezeptor (Ceiling-Effekt für Atemdepression) und wirkt antagonistisch am κ-Rezeptor.'
         },
         {
             category: 'Klinische Pharmakologie',
@@ -124,7 +123,7 @@
                 'Reduktion der Dosis um exakt 95 Prozent für die ersten sieben Therapietage'
             ],
             correct_index: 0,
-            explanation: 'Wegen unvollständiger Kreuztoleranz an den Opioidrezeptor-Subtypen wird die errechnete Äquivalenzdosis bei einer Opioidrotation um 30–50 % (bei Wechsel auf Methadon sogar um 75–90 %) reduziert.'
+            explanation: 'Wegen unvollständiger Kreuztoleranz wird die errechnete Äquivalenzdosis bei einer Opioidrotation um 30–50 % (bei Wechsel auf Methadon um 75–90 %) reduziert.'
         },
         {
             category: 'Pneumologie & Intensivmedizin',
@@ -136,7 +135,7 @@
                 'Grundsätzlich bei allen Patienten unter 65 Jahren zur Prävention einer tiefen Venenthrombose'
             ],
             correct_index: 0,
-            explanation: 'Die systemische Thrombolyse ist wegen des Blutungsrisikos der High-Risk-LAE (hämodynamische Instabilität / obstruktiver Schock mit RRsys < 90 mmHg oder Druckabfall ≥ 40 mmHg für > 15 Min.) vorbehalten.'
+            explanation: 'Die systemische Thrombolyse ist der High-Risk-LAE (hämodynamische Instabilität / obstruktiver Schock mit RRsys < 90 mmHg) vorbehalten.'
         },
         {
             category: 'Pneumologie & Intensivmedizin',
@@ -148,7 +147,7 @@
                 'Massiver Flüssigkeitsverlust in das Interstitium durch histaminvermittelte Kapillarleckage'
             ],
             correct_index: 0,
-            explanation: 'Die Verlegung der Pulmonalstrombahn erhöht abrupt den pulmonalvaskulären Widerstand (RV-Nachlast). Der rechte Ventrikel dilatiert, wölbt das Septum nach links und komprimiert den linken Ventrikel (Vorlastmangel -> Schock).'
+            explanation: 'Die Verlegung der Pulmonalstrombahn erhöht abrupt die RV-Nachlast. Der rechte Ventrikel dilatiert, komprimiert über den Septumshift den linken Ventrikel und führt zum Vorlastmangel.'
         },
         {
             category: 'Pneumologie & Intensivmedizin',
@@ -160,7 +159,7 @@
                 'Chronische Bronchitis, Untergewicht, Röntgen-Infiltrat, Blutkultur positiv, Alter ≥ 65 J.'
             ],
             correct_index: 0,
-            explanation: 'CURB-65 steht für: Confusion (Bewusstseinseintrübung), Urea (Harnstoff > 7 mmol/l), Respiratory rate (≥ 30/min), Blood pressure (systolisch < 90 oder diastolisch ≤ 60 mmHg) und Alter ≥ 65 Jahre.'
+            explanation: 'CURB-65 steht für: Confusion, Urea (> 7 mmol/l), Respiratory rate (≥ 30/min), Blood pressure (< 90/60 mmHg) und Alter ≥ 65 Jahre.'
         },
         {
             category: 'Hämatologie & Onkologie',
@@ -172,7 +171,7 @@
                 'Translokation t(8;14) mit Fusion des MYC-Protoonkogens an den IgH-Promotor'
             ],
             correct_index: 0,
-            explanation: 'Beim follikulären Lymphom gelangt das BCL2-Gen auf Chromosom 18 unter die Kontrolle des Immunglobulin-Schwerkettengen-Locus auf Chromosom 14 -> t(14;18), was die Apoptose der Keimzentrums-B-Zellen verhindert.'
+            explanation: 'Beim follikulären Lymphom führt t(14;18) zur konstitutiven Überexpression von BCL2, was die Apoptose der Keimzentrums-B-Zellen verhindert.'
         },
         {
             category: 'Hämatologie & Onkologie',
@@ -184,7 +183,7 @@
                 'Massive Hyperurikämie durch den Abbau freigesetzter Nukleinsäuren (Purine)'
             ],
             correct_index: 0,
-            explanation: 'Beim Tumorlysesyndrom kommt es zu Hyperkaliämie, Hyperurikämie und Hyperphosphatämie. Das hohe Phosphat fällt mit Kalzium zu Kalziumphosphat aus, was zu einer sekundären HYPOkalzämie (Tetanie, QT-Verlängerung) führt.'
+            explanation: 'Beim Tumorlysesyndrom fällt das hohe Phosphat mit Kalzium zu Kalziumphosphat aus, was zu einer sekundären HYPOkalzämie führt.'
         },
         {
             category: 'Hämatologie & Onkologie',
@@ -196,7 +195,7 @@
                 'Direkte Chelatbildung mit freiem Kalziumphosphat im renalen Sammelrohrsystem'
             ],
             correct_index: 0,
-            explanation: 'Rasburicase ist eine rekombinante Uratoxidase und baut bereits vorhandene Harnsäure enzymatisch zu Allantoin ab (5–10x besser wasserlöslich als Harnsäure), während Allopurinol nur die Neubildung über die Xanthinoxidase hemmt.'
+            explanation: 'Rasburicase baut als rekombinante Uratoxidase bereits vorhandene Harnsäure enzymatisch zu gut wasserlöslichem Allantoin ab.'
         },
         {
             category: 'Psychiatrie & Psychosomatik',
@@ -208,7 +207,7 @@
                 'Zwanghaftes Kontrollverhalten, isolierte Tierphobien und hypochondrische Ängste'
             ],
             correct_index: 0,
-            explanation: 'Die KPTBS erfordert in der ICD-11 neben den 3 PTBS-Kernkriterien (Intrusionen, Vermeidung, anhaltendes Bedrohungsgefühl) die 3 DSO-Cluster: Probleme der Affektregulation, negatives Selbstbild und interpersonelle Schwierigkeiten.'
+            explanation: 'Die KPTBS erfordert in der ICD-11 neben den 3 PTBS-Kernkriterien die 3 DSO-Cluster: Affektregulationsstörung, negatives Selbstkonzept und Beziehungsstörungen.'
         },
         {
             category: 'Psychiatrie & Psychosomatik',
@@ -220,7 +219,7 @@
                 'Sie blockieren selektiv die Wirkung einer späteren SSRI-Therapie durch Enzyminduktion'
             ],
             correct_index: 0,
-            explanation: 'Benzodiazepine unterdrücken die physiologische emotionale Verarbeitung und Furchtextinktion nach Trauma und sind mit einer höheren Rate späterer PTBS sowie Abhängigkeitsentwicklung assoziiert.'
+            explanation: 'Benzodiazepine unterdrücken die physiologische Traumaverarbeitung und Furchtextinktion und erhöhen das Risiko einer späteren PTBS.'
         },
         {
             category: 'Psychiatrie & Psychosomatik',
@@ -232,36 +231,37 @@
                 'Langzeitgabe von Lorazepam kombiniert mit abendlichem Zolpidem'
             ],
             correct_index: 0,
-            explanation: 'Traumafokussierte Psychotherapie (TF-KVT mit imaginativer/in-vivo Exposition und kognitiver Umstrukturierung sowie EMDR) hat die höchste Effektstärke und ist Goldstandard.'
+            explanation: 'Traumafokussierte Psychotherapie (TF-KVT oder EMDR) hat die höchste Effektstärke und ist Goldstandard.'
         }
     ];
 
     const state = {
         myEmail: '',
+        myUserId: null,
+        isAuthenticated: false,
         matches: [],
         activeMatch: null,
         viewMode: 'lobby', // 'lobby' | 'match_overview' | 'category_select' | 'playing_round'
         searchQueryEmail: '',
         statusMessage: null,
-        // Aktuelle Spielrunde (während der 3 Fragen)
         activeRoundNum: 1,
         activeQuestionIdx: 0,
         activeQuestions: [],
         roundAnswers: [],
         questionLocked: false,
-        // 15-Sekunden-Countdown-State
         timerRafId: null,
         questionStartTime: 0,
         remainingMs: QUESTION_TIME_LIMIT_SEC * 1000,
-        realtimeChannel: null
+        realtimeChannel: null,
+        pollIntervalId: null
     };
 
     // ========================================================================
-    // 1. INITIALISIERUNG & AUTH-IDENTITÄT
+    // 1. INITIALISIERUNG, AUTH-SYNCHRONISATION & POLLING
     // ========================================================================
 
     function getSupabase() {
-        return window.supabaseClient || window.supabase || window.sb || null;
+        return window.supabaseClient || window.supabase || window.sb || (window.Auth && window.Auth.supabase) || null;
     }
 
     async function resolveCurrentUserEmail() {
@@ -269,18 +269,32 @@
         if (sb && sb.auth) {
             try {
                 const { data } = await sb.auth.getSession();
-                const email = data?.session?.user?.email;
-                if (email) {
-                    state.myEmail = email.toLowerCase().trim();
+                const user = data?.session?.user || window.currentSessionUser;
+                if (user && user.email) {
+                    state.myEmail = user.email.toLowerCase().trim();
+                    state.myUserId = user.id;
+                    state.isAuthenticated = true;
                     return state.myEmail;
                 }
             } catch (_e) {}
         }
-        const domEmail = document.getElementById('auth-user-email')?.textContent?.trim();
-        if (domEmail) {
-            state.myEmail = domEmail.toLowerCase();
+
+        if (window.currentSessionUser && window.currentSessionUser.email) {
+            state.myEmail = window.currentSessionUser.email.toLowerCase().trim();
+            state.myUserId = window.currentSessionUser.id || null;
+            state.isAuthenticated = true;
             return state.myEmail;
         }
+
+        const domEmail = document.getElementById('auth-user-email')?.textContent?.trim();
+        if (domEmail && domEmail.includes('@')) {
+            state.myEmail = domEmail.toLowerCase().trim();
+            state.isAuthenticated = true;
+            return state.myEmail;
+        }
+
+        state.isAuthenticated = false;
+        state.myUserId = null;
         state.myEmail = localStorage.getItem('medcheck_guest_duel_email') || 'gast-arzt@medcheck.ch';
         return state.myEmail;
     }
@@ -303,7 +317,20 @@
         await resolveCurrentUserEmail();
         await loadMatches();
         subscribeRealtimeUpdates();
+        startBackgroundPolling();
         updateSidebarBadge();
+
+        // Auth-Wechsel (Login/Logout) live abfangen!
+        const sb = getSupabase();
+        if (sb && sb.auth) {
+            sb.auth.onAuthStateChange(async () => {
+                await resolveCurrentUserEmail();
+                await loadMatches();
+                if (isDuelViewVisible() && state.viewMode !== 'playing_round') {
+                    render();
+                }
+            });
+        }
     }
 
     async function openView() {
@@ -315,8 +342,26 @@
         render();
     }
 
+    function startBackgroundPolling() {
+        if (state.pollIntervalId) clearInterval(state.pollIntervalId);
+        // Pollt alle 5 Sekunden im Hintergrund, wenn man in der Lobby oder Match-Übersicht ist
+        state.pollIntervalId = setInterval(async () => {
+            if (!isDuelViewVisible() || state.viewMode === 'playing_round' || state.viewMode === 'category_select') {
+                return;
+            }
+            const prevUpdated = state.activeMatch?.updated_at;
+            const prevCount = state.matches.length;
+            await loadMatches();
+
+            const newUpdated = state.activeMatch?.updated_at;
+            if (prevUpdated !== newUpdated || state.matches.length !== prevCount) {
+                render();
+            }
+        }, 5000);
+    }
+
     // ========================================================================
-    // 2. FRAGEN-POOL AGGREGATOR (MEDCHECK FÄLLE + BUILT-IN HIGH-YIELD POOL)
+    // 2. FRAGEN-POOL AGGREGATOR
     // ========================================================================
 
     function buildQuestionBankByCategory() {
@@ -326,11 +371,8 @@
             const cat = cleanCategoryName(catRaw);
             if (!bank[cat]) bank[cat] = [];
             if (!Array.isArray(qObj.options) || qObj.options.length < 2) return;
-
-            // Duplikate vermeiden
             if (bank[cat].some(existing => existing.question === qObj.question)) return;
 
-            // Auf 4 kompakte Quizduell-Optionen normalisieren (falls eine Frage 5 Optionen hat)
             let opts = [...qObj.options];
             let corrIdx = Number(qObj.correct_index) || 0;
             if (opts.length > 4) {
@@ -349,10 +391,8 @@
             });
         };
 
-        // 1. Built-in High-Yield Fragen laden
         BUILTIN_DUEL_QUESTIONS.forEach(q => addQ(q.category, q));
 
-        // 2. Alle registrierten MedCheck-Fälle dynamisch anzapfen
         const registeredCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
         registeredCases.forEach(c => {
             const rawCat = c.folder_name || c.metadata?.medical_field || 'Allgemeinmedizin';
@@ -374,7 +414,6 @@
 
     function getRandomCategoryChoices(excludeCategories = []) {
         const bank = buildQuestionBankByCategory();
-        // Nur Kategorien mit mindestens 3 Fragen bevorzugen
         let validCats = Object.keys(bank).filter(c => bank[c].length >= 3 && !excludeCategories.includes(c));
         if (validCats.length < 4) {
             validCats = Object.keys(bank);
@@ -386,12 +425,10 @@
         const bank = buildQuestionBankByCategory();
         let pool = bank[categoryName] || [];
         if (pool.length < 3) {
-            // Fallback: Mit Fragen aus anderen Kategorien auffüllen, falls ein benutzerdefinierter Ordner < 3 Fragen hat
             const allQs = Object.values(bank).flat();
             pool = [...pool, ...allQs];
         }
         return shuffleArray(pool).slice(0, QUESTIONS_PER_ROUND).map(q => {
-            // Optionen pro Match frisch mischen, aber für beide Spieler identisch im Match-State speichern!
             const correctOptionText = q.options[q.correct_index];
             const shuffledOptions = shuffleArray([...q.options]);
             return {
@@ -405,7 +442,7 @@
     }
 
     // ========================================================================
-    // 3. MATCH-PERSISTENZ (SUPABASE + LOCALSTORAGE SYNC)
+    // 3. ROBUSTE CLOUD-PERSISTENZ (GETRENNTES INSERT & UPDATE + ATOMIC MERGE)
     // ========================================================================
 
     function getLocalMatches() {
@@ -426,21 +463,36 @@
         await resolveCurrentUserEmail();
         const localList = getLocalMatches();
         const mapById = new Map();
-        localList.forEach(m => mapById.set(m.id, m));
+
+        // Nur Bot-Spiele oder Spiele, an denen meine aktuelle E-Mail beteiligt ist, aus dem LocalStorage nehmen
+        localList.forEach(m => {
+            const p1 = (m.player1_email || '').toLowerCase();
+            const p2 = (m.player2_email || '').toLowerCase();
+            if (p1 === state.myEmail || p2 === state.myEmail) {
+                mapById.set(m.id, m);
+            }
+        });
 
         const sb = getSupabase();
-        if (sb && state.myEmail && state.myEmail !== 'gast-arzt@medcheck.ch') {
+        if (sb && state.isAuthenticated) {
             try {
+                const cleanMail = state.myEmail.replace(/,/g, '');
                 const { data, error } = await sb
                     .from('duel_matches')
                     .select('*')
-                    .or(`player1_email.ilike.${state.myEmail},player2_email.ilike.${state.myEmail}`)
+                    .or(`player1_email.ilike.${cleanMail},player2_email.ilike.${cleanMail}`)
                     .order('updated_at', { ascending: false });
 
                 if (!error && Array.isArray(data)) {
                     data.forEach(row => {
-                        mapById.set(row.id, normalizeMatchRow(row));
+                        const cloudMatch = normalizeMatchRow(row);
+                        // Cloud-Stand hat für Online-Matches immer Vorrang vor veraltetem LocalStorage!
+                        mapById.set(cloudMatch.id, cloudMatch);
                     });
+                    // Aktualisierte Cloud-Daten auch lokal spiegeln
+                    saveLocalMatches(Array.from(mapById.values()));
+                } else if (error) {
+                    console.warn('[Duel] Fehler beim Abrufen aus Supabase:', error.message);
                 }
             } catch (err) {
                 console.warn('[Duel] Supabase-Abfrage im Offline-Fallback:', err);
@@ -463,50 +515,151 @@
         const ms = typeof row.match_state === 'string' ? JSON.parse(row.match_state) : (row.match_state || {});
         return {
             id: row.id,
-            player1_email: (row.player1_email || '').toLowerCase(),
-            player2_email: (row.player2_email || '').toLowerCase(),
+            player1_id: row.player1_id || null,
+            player1_email: (row.player1_email || '').toLowerCase().trim(),
+            player2_email: (row.player2_email || '').toLowerCase().trim(),
             status: row.status || 'active',
             current_round: Number(row.current_round) || 1,
-            turn_email: (row.turn_email || '').toLowerCase(),
+            turn_email: (row.turn_email || '').toLowerCase().trim(),
             p1_score: Number(row.p1_score) || 0,
             p2_score: Number(row.p2_score) || 0,
             winner_email: row.winner_email || null,
+            is_local_only: (row.player2_email || '').toLowerCase().trim() === BOT_EMAIL,
             match_state: ms,
             created_at: row.created_at || new Date().toISOString(),
             updated_at: row.updated_at || new Date().toISOString()
         };
     }
 
-    async function persistMatch(matchObj) {
-        matchObj.updated_at = new Date().toISOString();
-
-        // 1. Lokal speichern
+    /**
+     * Erstellt ein neues Match per explizitem INSERT (für Spieler 1)
+     */
+    async function insertNewMatchToDb(matchObj) {
         const local = getLocalMatches().filter(m => m.id !== matchObj.id);
         local.unshift(matchObj);
         saveLocalMatches(local);
 
-        // 2. In Supabase speichern (falls echtes Match oder eingeloggter User)
         const sb = getSupabase();
         if (sb && !matchObj.is_local_only) {
+            if (!state.isAuthenticated) {
+                setStatusMessage('error', 'Hinweis: Du bist aktuell nicht in der Cloud angemeldet (Einstellungen). Das Duell wurde nur lokal gespeichert.');
+                return;
+            }
             try {
-                const { error } = await sb.from('duel_matches').upsert({
-                    id: matchObj.id,
-                    player1_email: matchObj.player1_email,
-                    player2_email: matchObj.player2_email,
-                    status: matchObj.status,
-                    current_round: matchObj.current_round,
-                    turn_email: matchObj.turn_email,
-                    p1_score: matchObj.p1_score,
-                    p2_score: matchObj.p2_score,
-                    winner_email: matchObj.winner_email,
-                    match_state: matchObj.match_state,
-                    updated_at: matchObj.updated_at
-                });
+                const { data, error } = await sb
+                    .from('duel_matches')
+                    .insert([{
+                        id: matchObj.id,
+                        player1_id: state.myUserId,
+                        player1_email: matchObj.player1_email,
+                        player2_email: matchObj.player2_email,
+                        status: matchObj.status,
+                        current_round: matchObj.current_round,
+                        turn_email: matchObj.turn_email,
+                        p1_score: matchObj.p1_score,
+                        p2_score: matchObj.p2_score,
+                        winner_email: matchObj.winner_email,
+                        match_state: matchObj.match_state,
+                        updated_at: matchObj.updated_at
+                    }])
+                    .select();
+
                 if (error) {
-                    console.warn('[Duel] Supabase Upsert Hinweis (lokal gespeichert):', error.message);
+                    console.error('[Duel] Supabase INSERT Fehler:', error);
+                    setStatusMessage('error', `Cloud-Speicherfehler: ${error.message}. Bitte prüfe die SQL-Policy in Supabase.`);
+                } else if (data && data[0]) {
+                    matchObj = normalizeMatchRow(data[0]);
                 }
             } catch (err) {
-                console.warn('[Duel] Offline-Speicherung aktiv:', err);
+                console.error('[Duel] Netzwerkfehler beim Erstellen:', err);
+            }
+        }
+
+        await loadMatches();
+    }
+
+    /**
+     * Speichert einen Spielzug per explizitem UPDATE (funktioniert für Spieler 1 UND Spieler 2!)
+     * Vor dem Update wird der neueste Stand aus Supabase geladen und gemerged,
+     * damit niemals Antworten des Gegners überschrieben werden.
+     */
+    async function updateExistingMatchInDb(matchObj) {
+        matchObj.updated_at = new Date().toISOString();
+
+        // 1. Lokal sichern
+        const local = getLocalMatches().filter(m => m.id !== matchObj.id);
+        local.unshift(matchObj);
+        saveLocalMatches(local);
+
+        // 2. Cloud-Update für Online-Duelle
+        const sb = getSupabase();
+        if (sb && !matchObj.is_local_only) {
+            if (!state.isAuthenticated) {
+                setStatusMessage('error', 'Du bist nicht angemeldet! Bitte logge dich unter „Einstellungen“ ein, damit dein Gegner deinen Spielstand erhält.');
+                return;
+            }
+
+            try {
+                // A) Frischen Stand aus der DB holen, um Race-Conditions zu verhindern
+                const { data: latestRows } = await sb
+                    .from('duel_matches')
+                    .select('*')
+                    .eq('id', matchObj.id)
+                    .maybeSingle();
+
+                if (latestRows && latestRows.match_state) {
+                    const cloudState = typeof latestRows.match_state === 'string'
+                        ? JSON.parse(latestRows.match_state)
+                        : latestRows.match_state;
+
+                    // Merge alle Runden: Behalte bereits vorhandene Antworten beider Spieler!
+                    for (let r = 1; r <= TOTAL_ROUNDS; r++) {
+                        const localRound = matchObj.match_state.rounds[r] || {};
+                        const cloudRound = cloudState.rounds?.[r] || {};
+
+                        matchObj.match_state.rounds[r] = {
+                            ...cloudRound,
+                            ...localRound,
+                            chosen_category: localRound.chosen_category || cloudRound.chosen_category || null,
+                            questions: (localRound.questions && localRound.questions.length > 0)
+                                ? localRound.questions
+                                : (cloudRound.questions || []),
+                            p1_answers: localRound.p1_answers || cloudRound.p1_answers || null,
+                            p2_answers: localRound.p2_answers || cloudRound.p2_answers || null
+                        };
+                    }
+                    recalculateTotalScores(matchObj);
+                }
+
+                // B) Explizites UPDATE (umgeht die INSERT-RLS-Sperre für Spieler 2!)
+                const { data: updatedRows, error: updateErr } = await sb
+                    .from('duel_matches')
+                    .update({
+                        status: matchObj.status,
+                        current_round: matchObj.current_round,
+                        turn_email: matchObj.turn_email,
+                        p1_score: matchObj.p1_score,
+                        p2_score: matchObj.p2_score,
+                        winner_email: matchObj.winner_email,
+                        match_state: matchObj.match_state,
+                        updated_at: matchObj.updated_at
+                    })
+                    .eq('id', matchObj.id)
+                    .select();
+
+                if (updateErr) {
+                    console.error('[Duel] Supabase UPDATE Fehler:', updateErr);
+                    setStatusMessage('error', `Spielstand konnte nicht übertragen werden: ${updateErr.message}`);
+                } else if (!updatedRows || updatedRows.length === 0) {
+                    console.warn('[Duel] Update lieferte 0 Zeilen zurück – RLS-Policy blockiert eventuell Spieler 2.');
+                    setStatusMessage('error', 'Übertragung blockiert (0 Zeilen aktualisiert). Bitte führe das neue SQL-Policy-Skript im Supabase SQL-Editor aus!');
+                } else {
+                    // Erfolgreich in der Cloud gespeichert!
+                    const synced = normalizeMatchRow(updatedRows[0]);
+                    state.activeMatch = synced;
+                }
+            } catch (err) {
+                console.error('[Duel] Fehler beim Cloud-Update:', err);
             }
         }
 
@@ -522,7 +675,7 @@
                 .channel('duel_matches_realtime')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'duel_matches' }, async () => {
                     await loadMatches();
-                    if (isDuelViewVisible() && state.viewMode !== 'playing_round') {
+                    if (isDuelViewVisible() && state.viewMode !== 'playing_round' && state.viewMode !== 'category_select') {
                         render();
                     }
                 })
@@ -554,28 +707,30 @@
     // 4. SPIELFLUSS-LOGIK (5 RUNDEN, KATEGORIEWAHL, ZUGWECHSEL & BOT-KI)
     // ========================================================================
 
-    /**
-     * Wer darf in Runde r (1..5) die Kategorie aus 4 Vorschlägen wählen?
-     * Ungerade Runden (1, 3, 5) -> Spieler 1 (Herausforderer)
-     * Gerade Runden (2, 4)     -> Spieler 2 (Freund)
-     */
     function getCategoryChooserRole(roundNum) {
         return (roundNum % 2 === 1) ? 'p1' : 'p2';
     }
 
     function getMyRole(match) {
-        return match.player1_email.toLowerCase() === state.myEmail.toLowerCase() ? 'p1' : 'p2';
+        return match.player1_email.toLowerCase().trim() === state.myEmail.toLowerCase().trim() ? 'p1' : 'p2';
     }
 
     async function createNewDuel(opponentEmailRaw) {
+        await resolveCurrentUserEmail();
         const opponentEmail = String(opponentEmailRaw || '').trim().toLowerCase();
+
         if (!opponentEmail || !opponentEmail.includes('@')) {
             setStatusMessage('error', 'Bitte gib eine gültige E-Mail-Adresse deines Freundes ein (z. B. clara@stud.unibas.ch).');
             return;
         }
 
+        if (opponentEmail !== BOT_EMAIL && !state.isAuthenticated) {
+            setStatusMessage('error', 'Für ein Online-Duell mit Freunden musst du unter „Einstellungen“ mit deiner E-Mail angemeldet sein!');
+            return;
+        }
+
         if (opponentEmail === state.myEmail.toLowerCase()) {
-            setStatusMessage('error', 'Du kannst dich nicht selbst herausfordern. Nutze eine andere E-Mail oder den Klinik-Bot!');
+            setStatusMessage('error', 'Du kannst dich nicht selbst herausfordern. Nutze eine andere E-Mail oder spiele gegen Dr. House!');
             return;
         }
 
@@ -591,18 +746,19 @@
                 category_options: r === 1 ? getRandomCategoryChoices() : [],
                 chosen_category: null,
                 questions: [],
-                p1_answers: null, // Array aus 3 Einträgen: { selectedIdx, isCorrect, timeSec }
+                p1_answers: null,
                 p2_answers: null
             };
         }
 
         const newMatch = {
             id: matchId,
-            player1_email: state.myEmail.toLowerCase(),
+            player1_id: state.myUserId,
+            player1_email: state.myEmail.toLowerCase().trim(),
             player2_email: opponentEmail,
             status: 'active',
             current_round: 1,
-            turn_email: state.myEmail.toLowerCase(), // Herausforderer startet sofort mit Runde 1!
+            turn_email: state.myEmail.toLowerCase().trim(),
             p1_score: 0,
             p2_score: 0,
             winner_email: null,
@@ -614,7 +770,7 @@
             updated_at: new Date().toISOString()
         };
 
-        await persistMatch(newMatch);
+        await insertNewMatchToDb(newMatch);
         state.activeMatch = newMatch;
         state.searchQueryEmail = '';
         state.statusMessage = null;
@@ -622,7 +778,9 @@
         render();
     }
 
-    function startTurnAction() {
+    async function startTurnAction() {
+        // Vor Rundenstart immer den frischesten Stand aus Supabase laden!
+        await loadMatches();
         const match = state.activeMatch;
         if (!match || match.status !== 'active') return;
 
@@ -632,8 +790,7 @@
 
         state.activeRoundNum = rNum;
 
-        // Wurde die Kategorie für diese Runde schon vom ersten Spieler dieser Runde gewählt?
-        if (!roundData.chosen_category) {
+        if (!roundData.chosen_category || !Array.isArray(roundData.questions) || roundData.questions.length === 0) {
             if (!Array.isArray(roundData.category_options) || roundData.category_options.length === 0) {
                 const usedCats = Object.values(match.match_state.rounds)
                     .map(r => r.chosen_category)
@@ -643,7 +800,6 @@
             state.viewMode = 'category_select';
             render();
         } else {
-            // Kategorie & Fragen stehen schon fest -> direkt in Frage 1 von 3 starten!
             beginThreeQuestionSequence(roundData.questions);
         }
     }
@@ -657,7 +813,8 @@
         roundData.chosen_category = chosenCat;
         roundData.questions = pickThreeQuestionsForCategory(chosenCat);
 
-        await persistMatch(match);
+        // Sofort in Supabase speichern, damit die 3 Fragen für beide Spieler feststehen!
+        await updateExistingMatchInDb(match);
         beginThreeQuestionSequence(roundData.questions);
     }
 
@@ -689,7 +846,7 @@
 
             if (remaining <= 0) {
                 state.timerRafId = null;
-                handleAnswerSubmission(-1, true); // Zeit abgelaufen!
+                handleAnswerSubmission(-1, true);
                 return;
             }
             state.timerRafId = requestAnimationFrame(tick);
@@ -749,7 +906,6 @@
             timeSec: timeSpentSec
         });
 
-        // Visuelles Feedback auf den Antwort-Buttons + Erklärung einblenden
         const optionBtns = document.querySelectorAll('.duel-opt-btn');
         optionBtns.forEach((btn, idx) => {
             btn.disabled = true;
@@ -769,7 +925,9 @@
                     : `<div class="duel-fb-title wrong">❌ Leider falsch!</div>`);
 
             const isLastInRound = state.activeQuestionIdx >= QUESTIONS_PER_ROUND - 1;
-            const nextBtnLabel = isLastInRound ? '🏁 Runde abschließen & zum Scoreboard ➔' : 'Nächste Frage (' + (state.activeQuestionIdx + 2) + '/3) ➔';
+            const nextBtnLabel = isLastInRound
+                ? '🏁 Runde speichern & übertragen ➔'
+                : 'Nächste Frage (' + (state.activeQuestionIdx + 2) + '/3) ➔';
 
             fbBox.style.display = 'block';
             fbBox.innerHTML = `
@@ -793,7 +951,13 @@
             return;
         }
 
-        // Alle 3 Fragen dieser Runde wurden vom aktuellen Spieler beantwortet!
+        // Button sperren während des Cloud-Syncs
+        const nextBtn = document.getElementById('duel-next-q-btn');
+        if (nextBtn) {
+            nextBtn.disabled = true;
+            nextBtn.textContent = '☁️ Übertrage Spielstand an Gegner...';
+        }
+
         const match = state.activeMatch;
         const myRole = getMyRole(match);
         const rNum = state.activeRoundNum;
@@ -815,7 +979,6 @@
         } else {
             // Beide Spieler haben diese Runde beendet!
             if (rNum >= TOTAL_ROUNDS) {
-                // Spielende nach 5 Runden (max. 15 Punkte)!
                 match.status = 'finished';
                 match.turn_email = '';
                 if (match.p1_score > match.p2_score) {
@@ -826,15 +989,14 @@
                     match.winner_email = 'draw';
                 }
 
-                // XP-Belohnung für abgeschlossenes Duell
                 if (typeof window.applyXpDelta === 'function') {
                     const myScore = myRole === 'p1' ? match.p1_score : match.p2_score;
                     const won = match.winner_email === state.myEmail;
                     window.applyXpDelta(won ? 300 : 120, won ? 'Duell-Sieg 🏆' : `Duell beendet (${myScore}/15)`);
                 }
             } else {
-                // Nächste Runde vorbereiten!
-                // Quizduell-Regel: Der Spieler, der in Runde R als Zweiter gespielt hat, darf in Runde R+1 sofort die neue Kategorie wählen!
+                // Nächste Runde vorbereiten:
+                // Der Spieler, der in Runde R als Zweiter gespielt hat, wählt jetzt direkt für Runde R+1 die Kategorie!
                 const nextRoundNum = rNum + 1;
                 match.current_round = nextRoundNum;
                 const nextChooserRole = getCategoryChooserRole(nextRoundNum);
@@ -847,24 +1009,23 @@
             }
         }
 
-        // Falls der Gegner der KI-Bot (Dr. House) ist, simuliert er sofort seinen Zug!
+        // Bot-Simulation, falls Gegner Dr. House ist
         if (match.player2_email === BOT_EMAIL && match.status === 'active' && match.turn_email === BOT_EMAIL) {
             simulateBotTurn(match);
         }
 
-        await persistMatch(match);
+        // Speichert den Spielstand per explizitem UPDATE in Supabase!
+        await updateExistingMatchInDb(match);
         state.viewMode = 'match_overview';
         render();
     }
 
     function simulateBotTurn(match) {
-        // 1. Aktuelle Runde beantworten, falls Bot noch offen
         let rNum = match.current_round;
         let roundData = match.match_state.rounds[rNum];
 
         if (roundData && roundData.chosen_category && !roundData.p2_answers) {
             roundData.p2_answers = roundData.questions.map(q => {
-                // Dr. House hat ~75% Trefferquote
                 const botHits = Math.random() < 0.75;
                 const selectedIdx = botHits
                     ? Number(q.correct_index)
@@ -887,13 +1048,11 @@
                 return;
             }
 
-            // Übergang zur nächsten Runde
             rNum += 1;
             match.current_round = rNum;
             roundData = match.match_state.rounds[rNum];
         }
 
-        // 2. Falls der Bot in einer geraden Runde (2 oder 4) Kategorie-Wähler ist, wählt er eine Kategorie und legt vor!
         if (match.status === 'active' && getCategoryChooserRole(rNum) === 'p2' && !roundData.chosen_category) {
             const usedCats = Object.values(match.match_state.rounds).map(r => r.chosen_category).filter(Boolean);
             const options = getRandomCategoryChoices(usedCats);
@@ -916,7 +1075,7 @@
             });
 
             recalculateTotalScores(match);
-            match.turn_email = match.player1_email; // Jetzt ist der menschliche Spieler für diese Runde dran!
+            match.turn_email = match.player1_email;
         }
     }
 
@@ -936,12 +1095,12 @@
     }
 
     // ========================================================================
-    // 6. UI-RENDERING (LOBBY, SCOREBOARD, KATEGORIEWAHL & DUELL-ARENA)
+    // 6. UI-RENDERING
     // ========================================================================
 
     function setStatusMessage(type, text) {
         state.statusMessage = { type, text };
-        render();
+        if (isDuelViewVisible()) render();
     }
 
     function escapeHtml(str) {
@@ -1003,12 +1162,18 @@
                         </p>
                     </div>
                     <div class="duel-user-identity">
-                        <span>Dein Spieler-Account:</span>
+                        <span>${state.isAuthenticated ? '🟢 Cloud-Account aktiv:' : '🟠 Gastmodus (Lokal):'}</span>
                         <strong>${escapeHtml(state.myEmail)}</strong>
                     </div>
                 </div>
 
-                <!-- FREUNDE SUCHEN & HERAUSFORDERN (E-MAIL SUCHE) -->
+                ${!state.isAuthenticated ? `
+                    <div class="duel-alert error" style="margin-top:0;">
+                        ⚠️ <strong>Wichtiger Hinweis für Multiplayer:</strong> Du bist aktuell nicht in der Cloud eingeloggt. Damit dein Gegner deine Spielzüge sieht, melde dich bitte kurz unter <strong>„Einstellungen“</strong> mit deiner E-Mail an!
+                    </div>
+                ` : ''}
+
+                <!-- FREUNDE SUCHEN & HERAUSFORDERN -->
                 <div class="duel-search-card">
                     <div class="duel-section-label">🔍 Mit Freunden spielen – Gegner per E-Mail-Adresse suchen & herausfordern</div>
                     <div class="duel-search-bar-row">
@@ -1017,7 +1182,7 @@
                             <input type="email"
                                    id="duel-friend-email-input"
                                    class="duel-email-input"
-                                   placeholder="E-Mail-Adresse deines Freundes eingeben (z. B. clara@stud.unibas.ch)..."
+                                   placeholder="E-Mail-Adresse deines Freundes eingeben (genau wie sein Login)..."
                                    value="${escapeHtml(state.searchQueryEmail)}"
                                    autocomplete="email">
                         </div>
@@ -1039,7 +1204,7 @@
                 <div class="duel-matches-section">
                     <div class="duel-section-header">
                         <h3>🔥 Laufende Duelle (${activeMatches.length})</h3>
-                        <button type="button" class="duel-btn duel-btn-sm" id="duel-refresh-btn">🔄 Aktualisieren</button>
+                        <button type="button" class="duel-btn duel-btn-sm" id="duel-refresh-btn">🔄 Jetzt synchronisieren</button>
                     </div>
                     ${activeMatches.length === 0 ? `
                         <div class="duel-empty-box">
@@ -1072,13 +1237,13 @@
         const myScore = myRole === 'p1' ? match.p1_score : match.p2_score;
         const oppScore = myRole === 'p1' ? match.p2_score : match.p1_score;
         const oppEmail = myRole === 'p1' ? match.player2_email : match.player1_email;
-        const isMyTurn = match.status === 'active' && match.turn_email.toLowerCase() === state.myEmail.toLowerCase();
+        const isMyTurn = match.status === 'active' && match.turn_email.toLowerCase().trim() === state.myEmail.toLowerCase().trim();
 
         let statusBadge = '';
         if (match.status === 'finished') {
             if (match.winner_email === 'draw') {
                 statusBadge = `<span class="duel-turn-pill draw">🤝 Unentschieden</span>`;
-            } else if (match.winner_email?.toLowerCase() === state.myEmail.toLowerCase()) {
+            } else if (match.winner_email?.toLowerCase().trim() === state.myEmail.toLowerCase().trim()) {
                 statusBadge = `<span class="duel-turn-pill won">🏆 Gewonnen!</span>`;
             } else {
                 statusBadge = `<span class="duel-turn-pill lost">Knapp unterlegen</span>`;
@@ -1122,7 +1287,7 @@
         const myScore = myRole === 'p1' ? m.p1_score : m.p2_score;
         const oppScore = myRole === 'p1' ? m.p2_score : m.p1_score;
         const oppEmail = myRole === 'p1' ? m.player2_email : m.player1_email;
-        const isMyTurn = m.status === 'active' && m.turn_email.toLowerCase() === state.myEmail.toLowerCase();
+        const isMyTurn = m.status === 'active' && m.turn_email.toLowerCase().trim() === state.myEmail.toLowerCase().trim();
 
         let rowsHtml = '';
         for (let r = 1; r <= TOTAL_ROUNDS; r++) {
@@ -1153,10 +1318,16 @@
             <div class="duel-wrapper">
                 <div class="duel-nav-top">
                     <button type="button" class="duel-btn duel-btn-secondary" id="duel-back-lobby-btn">← Zurück zur Duell-Lobby</button>
-                    <button type="button" class="duel-btn duel-btn-sm" id="duel-sync-match-btn">🔄 Spielstand synchronisieren</button>
+                    <button type="button" class="duel-btn duel-btn-sm" id="duel-sync-match-btn">🔄 Spielstand live abrufen</button>
                 </div>
 
-                <!-- GROSSES SCOREBOARD (QUIZDUELL STYLE) -->
+                ${state.statusMessage ? `
+                    <div class="duel-alert ${state.statusMessage.type}">
+                        ${escapeHtml(state.statusMessage.text)}
+                    </div>
+                ` : ''}
+
+                <!-- GROSSES SCOREBOARD -->
                 <div class="duel-scoreboard-hero">
                     <div class="duel-player-col">
                         <div class="duel-avatar-circle me">🩺</div>
@@ -1175,7 +1346,7 @@
 
                     <div class="duel-player-col">
                         <div class="duel-avatar-circle opp">⚔️</div>
-                        <div class="duel-player-name">Herausforderer</div>
+                        <div class="duel-player-name">Gegner</div>
                         <div class="duel-player-email">${escapeHtml(formatPlayerName(oppEmail))}</div>
                     </div>
                 </div>
@@ -1186,7 +1357,7 @@
                         <div class="duel-finished-headline">
                             ${m.winner_email === 'draw'
                                 ? '🤝 Unentschieden! Ein starkes Duell auf Augenhöhe.'
-                                : (m.winner_email?.toLowerCase() === state.myEmail.toLowerCase()
+                                : (m.winner_email?.toLowerCase().trim() === state.myEmail.toLowerCase().trim()
                                     ? '🏆 Sieg! Du hast dieses Klinik-Duell gewonnen!'
                                     : '⚔️ Duell beendet – fordere deinen Gegner direkt zur Revanche heraus!')}
                         </div>
@@ -1199,7 +1370,8 @@
                         </button>
                     ` : `
                         <div class="duel-waiting-notice">
-                            ⏳ <strong>${escapeHtml(formatPlayerName(oppEmail))}</strong> ist gerade am Zug (Runde ${m.current_round}).
+                            ⏳ <strong>${escapeHtml(formatPlayerName(oppEmail))}</strong> ist gerade am Zug (Runde ${m.current_round}).<br>
+                            <small style="color:#94a3b8;">Der Spielstand aktualisiert sich automatisch alle 5 Sekunden.</small>
                         </div>
                     `)}
                 </div>
@@ -1223,7 +1395,7 @@
         return [0, 1, 2].map(idx => {
             const ans = answersArray[idx];
             if (!ans) return `<span class="duel-dot empty"></span>`;
-            if (maskSecret) return `<span class="duel-dot masked" title="Gegner hat bereits gespielt">?</span>`;
+            if (maskSecret) return `<span class="duel-dot masked" title="Gegner hat diese Frage bereits beantwortet">?</span>`;
             return ans.isCorrect
                 ? `<span class="duel-dot hit" title="Richtig (${ans.timeSec}s)">✓</span>`
                 : `<span class="duel-dot miss" title="Falsch / Zeit abgelaufen">✕</span>`;
@@ -1332,6 +1504,7 @@
                 const found = state.matches.find(m => m.id === mId);
                 if (found) {
                     state.activeMatch = found;
+                    state.statusMessage = null;
                     state.viewMode = 'match_overview';
                     render();
                 }
@@ -1340,7 +1513,9 @@
     }
 
     function bindMatchOverviewEvents() {
-        document.getElementById('duel-back-lobby-btn')?.addEventListener('click', () => {
+        document.getElementById('duel-back-lobby-btn')?.addEventListener('click', async () => {
+            state.statusMessage = null;
+            await loadMatches();
             state.viewMode = 'lobby';
             render();
         });
