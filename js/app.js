@@ -949,7 +949,6 @@ window.switchTab = function(tab, el) {
         tab = 'settings';
     }
 
-    // 1. Aktiven Menüpunkt in der linken Sidebar markieren
     document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
     if (el) {
         el.classList.add('active');
@@ -961,7 +960,6 @@ window.switchTab = function(tab, el) {
         });
     }
 
-    // 2. Alle Haupt-Views (inklusive mindmap-view) sauber ausblenden
     const allViews = [
         'dashboard-view', 
         'player-view', 
@@ -969,7 +967,8 @@ window.switchTab = function(tab, el) {
         'settings-view', 
         'depot-view', 
         'pharmacology-view',
-        'mindmap-view'
+        'mindmap-view',
+        'duel-view'
     ];
 
     allViews.forEach(viewId => {
@@ -980,7 +979,6 @@ window.switchTab = function(tab, el) {
         }
     });
 
-    // 3. Mobile-Sidebar bei Tab-Wechsel schließen
     const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.remove('open');
@@ -989,7 +987,6 @@ window.switchTab = function(tab, el) {
     const navPlayer = document.getElementById('nav-player');
     if (navPlayer) navPlayer.style.display = (tab === 'player') ? 'flex' : 'none';
 
-    // 4. Spezial-Routing für das Mindmap-Labor
     if (tab === 'mindmap') {
         window.isSpecialtyBlindMode = false;
         const mmView = document.getElementById('mindmap-view');
@@ -1000,14 +997,22 @@ window.switchTab = function(tab, el) {
         if (window.MindmapModule && typeof window.MindmapModule.openView === 'function') {
             window.MindmapModule.openView();
         }
-        const activeTheme = document.documentElement.getAttribute('data-theme');
-        if ((activeTheme === 'daylight' || activeTheme === 'tropical') && mmView) {
-            setTimeout(() => sanitizeLightThemeInlineStyles(mmView), 30);
+        return;
+    }
+
+    if (tab === 'duel') {
+        window.isSpecialtyBlindMode = false;
+        const duelView = document.getElementById('duel-view');
+        if (duelView) {
+            duelView.classList.remove('hidden');
+            duelView.style.display = 'block';
+        }
+        if (window.DuelModule && typeof window.DuelModule.openView === 'function') {
+            window.DuelModule.openView();
         }
         return;
     }
 
-    // 5. Standard-View einblenden
     const targetViewMap = {
         'dashboard': 'dashboard-view',
         'player': 'player-view',
