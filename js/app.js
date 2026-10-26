@@ -1803,7 +1803,7 @@ function renderDashboardCases() {
         if (topicGrid) {
             wrapper = document.createElement('div');
             wrapper.id = 'super-folders-wrapper';
-            wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-top: 12px;';
+            wrapper.style.cssText = 'display: flex; flex-direction: column; gap: 16px; margin-top: 15px;';
             topicGrid.parentNode.replaceChild(wrapper, topicGrid);
         }
     }
@@ -1816,6 +1816,7 @@ function renderDashboardCases() {
     const caseMatchMap = {};
     let totalMatchedCasesCount = 0;
 
+    // Auch angelegte (noch leere) Unterordner aus medcheck_folder_order berücksichtigen
     const savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     const grouped = {};
     savedSubOrder.forEach(folderName => {
@@ -1836,6 +1837,7 @@ function renderDashboardCases() {
         grouped[cat].push(c);
     });
 
+    // Treffer-Anzeige in der Suchleiste aktualisieren
     const statsEl = document.getElementById('dashboard-search-stats');
     if (statsEl) {
         statsEl.textContent = isFilteringActive
@@ -1843,6 +1845,7 @@ function renderDashboardCases() {
             : '';
     }
 
+    // Überordner in der vom Nutzer sortierten Reihenfolge aufbauen
     const orderedSuperTitles = getSuperFolderOrder();
     const superFolders = {};
     orderedSuperTitles.forEach(key => {
@@ -1850,6 +1853,7 @@ function renderDashboardCases() {
     });
 
     Object.keys(grouped).forEach(cat => {
+        // Bei aktiver Suche leere Unterordner ausblenden (es sei denn, der Ordnername selbst matcht die Suche)
         if (isFilteringActive && grouped[cat].length === 0 && (!queryLower || !cat.toLowerCase().includes(queryLower))) {
             return;
         }
@@ -1860,7 +1864,23 @@ function renderDashboardCases() {
 
     const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
 
-    let superFoldersHtml = '';
+    // Direkt im Dashboard integrierte Toolbar zum schnellen Erstellen von Über- und Unterordnern
+    let superFoldersHtml = `
+        <div class="dashboard-folder-toolbar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:10px 14px; background:rgba(15,23,42,0.55); border:1px solid var(--card-border, rgba(148,163,184,0.16)); border-radius:12px;">
+            <div style="display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-muted, #94a3b8);">
+                <span>🗂️ <strong>Struktur & Themenblöcke:</strong> Ziehe Überordner, Ordner oder Fälle per Drag & Drop an die gewünschte Stelle.</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" onclick="window.createNewSuperFolderModal()" style="background:rgba(56,189,248,0.14); color:var(--accent-blue, #38bdf8); border:1px solid rgba(56,189,248,0.35); padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                    + Neuer Überordner
+                </button>
+                <button type="button" onclick="window.promptCreateNewFolderWithSuper()" style="background:rgba(148,163,184,0.12); color:var(--text-main, #f8fafc); border:1px solid var(--card-border, rgba(148,163,184,0.25)); padding:6px 12px; border-radius:8px; font-size:0.78rem; font-weight:600; cursor:pointer;">
+                    + Neuer Unterordner
+                </button>
+            </div>
+        </div>
+    `;
+
     const subFolderOrderList = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     let renderedSuperCount = 0;
 
@@ -1868,6 +1888,7 @@ function renderDashboardCases() {
         if (isFilteringActive && categories.length === 0) return;
         renderedSuperCount++;
 
+        // Bei aktiver Suche klappen relevante Überordner automatisch auf
         const isOpen = isFilteringActive ? true : !!superFolderStates[superTitle];
         const arrowSymbol = isOpen ? '▼' : '▶';
         const isProtectedDefault = (superTitle === 'Allgemein');
@@ -1883,9 +1904,9 @@ function renderDashboardCases() {
         let categoriesHtml = '';
         if (categories.length === 0) {
             categoriesHtml = `
-                <div class="empty-superfolder-hint">
-                    <span>Ordner leer</span>
-                    <button type="button" class="ghost-tool-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapeHtml(superTitle).replace(/'/g, "\\'")}')">+ Unterordner</button>
+                <div style="padding: 16px; color: var(--text-dim, #64748b); font-size: 0.84rem; font-style: italic; display:flex; justify-content:space-between; align-items:center; border:1px dashed rgba(148,163,184,0.2); border-radius:10px;">
+                    <span>Ziehe Ordner oder Fälle hierher oder lege direkt einen Unterordner an.</span>
+                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapeHtml(superTitle).replace(/'/g, "\\'")}')" style="padding:4px 10px; font-style:normal; font-size:0.75rem; border:1px solid rgba(56,189,248,0.3); border-radius:6px; color:var(--accent-blue, #38bdf8);">+ Unterordner</button>
                 </div>`;
         } else {
             categories.sort((a, b) => {
@@ -1903,7 +1924,7 @@ function renderDashboardCases() {
                 const isExpanded = isFilteringActive ? true : !!openFolders[category];
 
                 const cardsHtml = cases.length === 0
-                    ? `<div class="empty-subfolder-hint">Noch keine Fälle (Fallkarte per Drag & Drop hierher ziehen).</div>`
+                    ? `<div style="grid-column: 1 / -1; padding: 12px; color: var(--text-dim, #64748b); font-size: 0.8rem; font-style: italic;">Noch keine Fälle in diesem Ordner (Fallkarte hierher ziehen).</div>`
                     : cases.map(c => {
                         const isSolved = solved.includes(c.case_id);
                         const savedState = ProgressManager.getCaseProgress(c.case_id);
@@ -1911,32 +1932,32 @@ function renderDashboardCases() {
                         const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
                         const matchReason = caseMatchMap[c.case_id];
 
-                        const statusClass = isSolved ? 'status-solved' : (inProgress ? 'status-progress' : 'status-open');
-                        const statusLabel = isSolved ? 'Gelöst' : (inProgress ? 'In Arbeit' : 'Offen');
-
                         const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
                             ? ''
-                            : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal entfernen">✕</button>';
+                            : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal löschen">×</button>';
 
                         const unpublishBtn = (isCurrentUserCreator && isCloudCase)
-                            ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen">☁️✕</button>`
+                            ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen (Unpublish)">☁️✕</button>`
                             : '';
 
                         const matchBadgeHtml = (queryLower && matchReason && matchReason !== 'Falltitel')
-                            ? `<div class="case-search-match-pill">🎯 ${escapeHtml(matchReason)}</div>`
+                            ? `<div class="case-search-match-pill">🎯 Gefunden in: ${escapeHtml(matchReason)}</div>`
                             : '';
 
                         return `
-                        <div class="case-card ${inProgress ? 'in-progress' : ''} ${isSolved ? 'is-solved-card' : ''}" 
+                        <div class="case-card ${inProgress ? 'in-progress' : ''}" 
                              draggable="true" 
                              data-case-id="${encodeURIComponent(c.case_id)}" 
                              role="button" 
                              tabindex="0">
 
-                            <div class="case-card-top">
-                                <span class="case-status-pill ${statusClass}">
-                                    <span class="status-dot"></span>${statusLabel}
-                                </span>
+                            <div class="case-card-header">
+                                <div class="case-card-badges">
+                                    <span class="tag">${escapeHtml(c.metadata?.bloom_level || 'Evaluation')}</span>
+                                    <span class="cloud-badge ${isCloudCase ? 'is-cloud' : 'is-local'}">
+                                        ${isCloudCase ? '☁️ Cloud' : '💾 Lokal'}
+                                    </span>
+                                </div>
                                 <div class="case-card-actions">
                                     ${unpublishBtn}
                                     ${deleteBtn}
@@ -1946,9 +1967,11 @@ function renderDashboardCases() {
                             <h3>${highlightSearchTerm(c.metadata?.title || c.case_id, dashboardSearchQuery)}</h3>
                             ${matchBadgeHtml}
 
-                            <div class="case-card-footer">
-                                <span class="case-meta-source">${isCloudCase ? 'Cloud' : 'Lokal'}</span>
-                                <span class="case-meta-xp">+${c.metadata?.xp_reward || 900} XP</span>
+                            <div style="font-size:0.75rem; display:flex; justify-content:space-between; margin-top:10px;">
+                                <span style="color:${isSolved ? 'var(--color-symptom, #10b981)' : (inProgress ? '#f59e0b' : 'var(--accent-blue, #38bdf8)')}; font-weight:700;">
+                                    ${isSolved ? '✓ Gelöst' : (inProgress ? '↻ Angefangen' : '● Offen')}
+                                </span>
+                                <span>+${c.metadata?.xp_reward || 900} XP</span>
                             </div>
                         </div>`;
                     }).join('');
@@ -1959,17 +1982,15 @@ function renderDashboardCases() {
                     <div class="category-folder" draggable="true" data-category="${encodeURIComponent(category)}" data-super="${encodeURIComponent(superTitle)}" id="dashboard-folder-${superIdx}-${catIdx}">
                         <div class="category-header">
                             <div class="category-title-wrap">
-                                <span class="category-drag-handle" title="Ziehen zum Verschieben">⠿</span>
+                                <span class="category-drag-handle" title="Unterordner ziehen zum Verschieben">⠿</span>
                                 <span class="category-arrow ${isExpanded ? 'expanded' : ''}" id="arrow-${superIdx}-${catIdx}">▶</span>
-                                <span class="category-name-text">${highlightSearchTerm(category, dashboardSearchQuery)}</span>
+                                <span>📁 ${highlightSearchTerm(category, dashboardSearchQuery)}</span>
                             </div>
-                            <div class="category-header-right">
-                                <div class="folder-hover-tools">
-                                    <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapedCatJs}')" title="Verschieben">⇄</button>
-                                    <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); const n = window.prompt('Neuer Name für den Unterordner:', '${escapedCatJs}'); if(n && n.trim() && n.trim() !== '${escapedCatJs}') renameFolder('${escapedCatJs}', n.trim());" title="Umbenennen">✏️</button>
-                                    <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); deleteFolder('${escapedCatJs}', ${cases.length});" title="Löschen">🗑️</button>
-                                </div>
-                                <span class="category-badge">${solvedCount}/${cases.length}</span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapedCatJs}')" title="In anderen Überordner verschieben">⇄</button>
+                                <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); const n = window.prompt('Neuer Name für den Unterordner:', '${escapedCatJs}'); if(n && n.trim() && n.trim() !== '${escapedCatJs}') renameFolder('${escapedCatJs}', n.trim());" title="Unterordner umbenennen">✏️</button>
+                                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); deleteFolder('${escapedCatJs}', ${cases.length});" title="Unterordner löschen">🗑️</button>
+                                <span class="category-badge">${solvedCount}/${cases.length} Gelöst</span>
                             </div>
                         </div>
                         <div class="category-cases-body" id="folder-body-${superIdx}-${catIdx}" style="display:${isExpanded ? 'grid' : 'none'};">${cardsHtml}</div>
@@ -1980,31 +2001,29 @@ function renderDashboardCases() {
         const escapedSuperJs = escapeHtml(superTitle).replace(/'/g, "\\'");
         const superEditControls = !isProtectedDefault
             ? `
-                <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuer Unterordner">+</button>
-                <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.renameSuperFolder('${escapedSuperJs}')" title="Umbenennen">✏️</button>
-                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.removeCustomSuperFolder('${escapedSuperJs}')" title="Löschen">🗑️</button>
+                <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuen Unterordner in diesem Überordner erstellen">➕</button>
+                <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.renameSuperFolder('${escapedSuperJs}')" title="Überordner umbenennen">✏️</button>
+                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.removeCustomSuperFolder('${escapedSuperJs}')" title="Überordner löschen">🗑️</button>
               `
             : `
-                <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuer Unterordner">+</button>
+                <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuen Unterordner in diesem Überordner erstellen">➕</button>
               `;
 
         superFoldersHtml += `
             <div class="super-folder" draggable="true" data-super-title="${encodeURIComponent(superTitle)}">
                 <div class="super-folder-header" onclick="toggleSuperFolder('${escapedSuperJs}')">
-                    <div class="super-folder-title">
-                        <span class="super-drag-handle" title="Ziehen zum Umsortieren">⠿</span>
-                        <svg class="super-folder-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    <div class="super-folder-title" style="display:flex; align-items:center; gap:8px;">
+                        <span class="super-drag-handle" title="Überordner ziehen zum Umsortieren" style="cursor:grab; opacity:0.65; user-select:none;">⠿</span>
+                        <svg class="super-folder-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                         <span>${escapeHtml(superTitle)}</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted, #94a3b8); font-weight:500; margin-left:4px;">(${solvedCasesInSuper}/${totalCasesInSuper})</span>
                     </div>
-                    <div class="super-folder-right">
-                        <div class="folder-hover-tools">
-                            ${superEditControls}
-                        </div>
-                        <span class="super-count-pill">${solvedCasesInSuper}/${totalCasesInSuper}</span>
-                        <span class="super-chevron">${arrowSymbol}</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        ${superEditControls}
+                        <span style="font-size: 0.8rem; color: var(--text-muted); margin-left:4px;">${arrowSymbol}</span>
                     </div>
                 </div>
-                <div class="super-folder-body" style="display:${isOpen ? 'flex' : 'none'}; flex-direction:column; gap:10px;">
+                <div class="super-folder-body" style="display:${isOpen ? 'flex' : 'none'}; flex-direction:column; gap:12px;">
                     ${categoriesHtml}
                 </div>
             </div>
@@ -2014,15 +2033,15 @@ function renderDashboardCases() {
     if (isFilteringActive && renderedSuperCount === 0) {
         superFoldersHtml += `
             <div class="dashboard-search-empty-state">
-                <div style="font-size: 1.5rem; margin-bottom: 6px;">🔍</div>
-                <div style="font-weight: 700; color: var(--text-main); font-size: 0.92rem; margin-bottom: 4px;">
+                <div style="font-size: 1.8rem; margin-bottom: 8px;">🔍</div>
+                <div style="font-weight: 800; color: var(--text-main, #f8fafc); font-size: 0.96rem; margin-bottom: 4px;">
                     Keine passenden Fälle gefunden
                 </div>
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-                    Für „${escapeHtml(dashboardSearchQuery)}“ wurden keine Treffer gefunden.
+                <div style="font-size: 0.82rem; color: var(--text-muted, #94a3b8); margin-bottom: 14px;">
+                    Für <strong>„${escapeHtml(dashboardSearchQuery)}“</strong> ${dashboardSearchStatusFilter !== 'all' ? '(mit aktivem Status-Filter)' : ''} wurden keine Treffer in Titeln, Cornell Notes oder Diagnosen gefunden.
                 </div>
                 <button type="button" class="action-btn secondary btn-sm" onclick="window.clearDashboardSearch()">
-                    Filter zurücksetzen
+                    ✕ Suchfilter zurücksetzen
                 </button>
             </div>
         `;
@@ -2030,13 +2049,14 @@ function renderDashboardCases() {
 
     wrapper.innerHTML = superFoldersHtml;
 
-    // Drag & Drop für Überordner
+    // Drag & Drop für Überordner (nimmt Überordner, Unterordner UND einzelne Fälle entgegen)
     wrapper.querySelectorAll('.super-folder').forEach(superEl => {
         const sTitle = decodeURIComponent(superEl.dataset.superTitle);
         const superHeader = superEl.querySelector('.super-folder-header');
 
         if (superHeader) {
             superEl.addEventListener('dragstart', (e) => {
+                // Nur starten, wenn nicht ein innerer Unterordner oder eine Fallkarte gezogen wird
                 if (e.target.closest('.category-folder') || e.target.closest('.case-card')) return;
                 draggedSuperFolderTitle = sTitle;
                 draggedItemState = { type: 'super-folder', name: sTitle };
@@ -2069,6 +2089,7 @@ function renderDashboardCases() {
         });
 
         superEl.addEventListener('drop', async (e) => {
+            // Wenn auf einem spezifischen Unterordner gedroppt wurde, übernimmt dessen Handler
             if (e.target.closest('.category-folder') && !draggedSuperFolderTitle && draggedItemState?.type !== 'super-folder') {
                 superEl.classList.remove('super-folder-drag-over');
                 return;
@@ -2106,7 +2127,7 @@ function renderDashboardCases() {
         });
     });
 
-    // Klick- & Drag-Handler für Unterordner
+    // Klick- & Drag-Handler für Unterordner im Dashboard
     wrapper.querySelectorAll('.category-folder').forEach(folderEl => {
         const catName = decodeURIComponent(folderEl.dataset.category);
         const header = folderEl.querySelector('.category-header');
@@ -2156,6 +2177,7 @@ function renderDashboardCases() {
             e.stopPropagation();
             folderEl.classList.remove('drag-over-folder');
 
+            // A) Fallkarte auf diesen Unterordner gezogen
             const droppedCaseId = (draggedItemState?.type === 'case' && draggedItemState.id) || e.dataTransfer.getData('application/medcheck-case-id');
             if (droppedCaseId) {
                 draggedItemState = null;
@@ -2164,6 +2186,7 @@ function renderDashboardCases() {
                 return;
             }
 
+            // B) Anderen Unterordner auf diesen Unterordner gezogen -> Überordner angleichen + Reihenfolge anpassen
             const sourceFolder = draggedDashboardFolder || (draggedItemState?.type === 'folder' ? draggedItemState.name : null);
             if (sourceFolder && sourceFolder !== catName) {
                 draggedDashboardFolder = null;
@@ -2226,6 +2249,7 @@ function renderDashboardCases() {
         console.error("Bookshelf Fehler:", bsErr);
     }
 }
+
 // ====================================================
 // NOTABILITY-STYLE BOOKSHELF MIT DYNAMISCHER EINRÜCKUNG
 // ====================================================
