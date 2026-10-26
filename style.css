@@ -6439,3 +6439,43 @@ topbar {
 [data-theme="tropical"] .category-cases-body {
     border-top-color: var(--divider-color) !important;
 }
+
+/* ==========================================================================
+   NEUER FORTSCHRITTS-ICON-BUTTON & CLEANES MODAL
+   ========================================================================== */
+.dashboard-tool-icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-spring), background 0.2s ease, border-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.dashboard-tool-icon-btn .tool-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+    transition: transform 0.2s var(--ease-spring);
+}
+
+.dashboard-tool-icon-btn:hover {
+    background: rgba(56, 189, 248, 0.24);
+    border-color: var(--accent-blue);
+    transform: translateY(-1px) scale(1.04);
+}
+
+.dashboard-tool-icon-btn:active {
+    transform: scale(0.95);
+}
+
+/* Light-Theme-Kompatibilität */
+html[data-theme="daylight"] .dashboard-tool-icon-btn,
+html[data-theme="tropical"] .dashboard-tool-icon-btn {
+    background: #ffffff !important;
+    border-color: rgba(100, 116, 139, 0.35) !important;
+}
