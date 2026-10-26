@@ -3789,15 +3789,27 @@ window.addEventListener("cloudCasesSynced", async () => {
     window.addEventListener('DOMContentLoaded', () => setTimeout(syncMobileChallengePicker, 200));
 })();
 
-function toggleSubjectDrawer() {
-    const drawer = document.getElementById('subject-progress-drawer');
-    if (!drawer) return;
-    drawer.classList.toggle('collapsed');
-
-    if (!drawer.classList.contains('collapsed')) {
+// ==========================================================================
+// THEMEN-FORTSCHRITT MODAL
+// ==========================================================================
+window.toggleSubjectProgressModal = function(forceOpen) {
+    const modal = document.getElementById('subject-progress-modal');
+    if (!modal) return;
+    const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : (modal.style.display === 'none');
+    
+    if (shouldOpen) {
         renderSubjectProgressDrawer();
+        modal.style.display = 'flex';
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+    } else {
+        modal.style.display = 'none';
     }
-}
+};
+
+// Rückwärtskompatibilität, falls noch irgendwo toggleSubjectDrawer aufgerufen wird:
+window.toggleSubjectDrawer = function() {
+    window.toggleSubjectProgressModal();
+};
 
 function getSubjectColorClass(pct) {
     if (pct <= 32) return 'bar-red';
@@ -3805,13 +3817,11 @@ function getSubjectColorClass(pct) {
     return 'bar-green';
 }
 
-// Liest alle Fälle aus und ordnet sie den echten Überordnern zu
 function renderSubjectProgressDrawer() {
     const listEl = document.getElementById('dynamic-subjects-list');
     if (!listEl) return;
 
     const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-
     const superStats = {};
     getSuperFolderOrder().forEach(name => {
         superStats[name] = { total: 0, solved: 0 };
@@ -3823,15 +3833,13 @@ function renderSubjectProgressDrawer() {
 
     allAvailableCases.forEach(c => {
         const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
-
-        const superFolder = typeof getSuperFolderForCategory === 'function' 
-            ? getSuperFolderForCategory(rawCategory) 
+        const superFolder = typeof getSuperFolderForCategory === 'function'
+            ? getSuperFolderForCategory(rawCategory)
             : 'Allgemein';
 
         if (!superStats[superFolder]) {
             superStats[superFolder] = { total: 0, solved: 0 };
         }
-
         superStats[superFolder].total += 1;
 
         const caseId = c.case_id || c.id;
@@ -3841,7 +3849,6 @@ function renderSubjectProgressDrawer() {
     });
 
     const entries = Object.entries(superStats);
-
     entries.sort((a, b) => {
         const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
         const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
@@ -3853,12 +3860,12 @@ function renderSubjectProgressDrawer() {
         const colorClass = getSubjectColorClass(pct);
 
         return `
-            <div class="subject-item" style="cursor: pointer;" onclick="if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${escapeHtml(folderName)}' zu filtern">
-                <div class="subject-item-top">
-                    <span class="subject-item-name" title="${escapeHtml(folderName)}">📁 ${escapeHtml(folderName)}</span>
-                    <span class="subject-item-stats">${pct}% (${stats.solved}/${stats.total})</span>
+            <div class="subject-item" style="cursor: pointer; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px;" onclick="window.toggleSubjectProgressModal(false); if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${escapeHtml(folderName)}' zu filtern">
+                <div class="subject-item-top" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span class="subject-item-name" style="font-size:0.82rem; font-weight:700; color:var(--text-main);">📁 ${escapeHtml(folderName)}</span>
+                    <span class="subject-item-stats" style="font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:var(--accent-blue); font-weight:700;">${pct}% (${stats.solved}/${stats.total})</span>
                 </div>
-                <div class="subject-bar-track">
+                <div class="subject-bar-track" style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:999px; overflow:hidden;">
                     <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
                 </div>
             </div>
@@ -4440,130 +4447,118 @@ window.syncPharmaSetsFromCloud = async function() {
 };
 
 // ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE (TURBO 60-120 FPS - ULTRA SCHNELL)
+// DRAG & DROP AUTO-SCROLL ENGINE V2.0 (Universell für Window & Container)
 // ==========================================================================
 (function initDragAutoScroll() {
-    const TOP_THRESHOLD = 180;
-    const BOTTOM_THRESHOLD = 140;
-    const BASE_SPEED = 8;
-    const MAX_SCROLL_SPEED = 52;
+    const EDGE_ZONE = 130;       // Pixel ab oberem/unterem Rand, in denen gescrollt wird
+    const MAX_SPEED = 32;        // Maximale Scroll-Geschwindigkeit in Pixel/Frame
 
-    let isDraggingActive = false;
-    let currentMouseY = -1;
-    let currentMouseX = -1;
-    let scrollFrameId = null;
+    let isDragging = false;
+    let mouseY = -1;
+    let mouseX = -1;
+    let animFrame = null;
 
     function getScrollContainer() {
-        const mainWrapper = document.querySelector('.main-wrapper');
-        if (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight) {
-            return mainWrapper;
-        }
+        const mw = document.querySelector('.main-wrapper');
+        if (mw && mw.scrollHeight > mw.clientHeight) return mw;
         return document.scrollingElement || document.documentElement || document.body;
     }
 
-    function performAutoScroll() {
-        if (!isDraggingActive) {
-            scrollFrameId = null;
+    function scrollLoop() {
+        if (!isDragging) {
+            animFrame = null;
             return;
         }
 
-        let bookshelfScrolled = false;
+        const vh = window.innerHeight;
+
+        // 1. Bücherregal scrollen, wenn der Zeiger darüber liegt
         const bookshelf = document.getElementById('bookshelf-container');
-        if (bookshelf && bookshelf.scrollHeight > bookshelf.clientHeight && currentMouseX >= 0) {
+        let bsScrolled = false;
+        if (bookshelf && mouseX >= 0 && mouseY >= 0) {
             const rect = bookshelf.getBoundingClientRect();
-            const inBookshelfX = currentMouseX >= rect.left && currentMouseX <= rect.right;
-            const inBookshelfY = currentMouseY >= rect.top && currentMouseY <= rect.bottom;
-
-            if (inBookshelfX && inBookshelfY) {
-                const edgeZone = Math.min(80, rect.height * 0.28);
-                if (currentMouseY < rect.top + edgeZone) {
-                    const ratio = Math.max(0, (edgeZone - (currentMouseY - rect.top)) / edgeZone);
-                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
-                    bookshelf.scrollTop -= speed;
-                    bookshelfScrolled = true;
-                } else if (currentMouseY > rect.bottom - edgeZone) {
-                    const ratio = Math.max(0, (currentMouseY - (rect.bottom - edgeZone)) / edgeZone);
-                    const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * (ratio * ratio));
-                    bookshelf.scrollTop += speed;
-                    bookshelfScrolled = true;
+            if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
+                const zone = 60;
+                if (mouseY < rect.top + zone) {
+                    const factor = (zone - (mouseY - rect.top)) / zone;
+                    bookshelf.scrollTop -= Math.ceil(factor * 20);
+                    bsScrolled = true;
+                } else if (mouseY > rect.bottom - zone) {
+                    const factor = (mouseY - (rect.bottom - zone)) / zone;
+                    bookshelf.scrollTop += Math.ceil(factor * 20);
+                    bsScrolled = true;
                 }
             }
         }
 
-        if (!bookshelfScrolled && currentMouseY >= 0) {
-            const scrollTarget = getScrollContainer();
-            const viewportHeight = window.innerHeight;
+        // 2. Hauptbereich / Fenster scrollen
+        if (!bsScrolled && mouseY >= 0) {
+            const container = getScrollContainer();
+            let delta = 0;
 
-            const topbar = document.querySelector('topbar');
-            const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 70;
-            const topScrollZone = topbarBottom + TOP_THRESHOLD;
+            if (mouseY < EDGE_ZONE) {
+                // Nach oben scrollen
+                const factor = Math.max(0, (EDGE_ZONE - mouseY) / EDGE_ZONE);
+                delta = -Math.ceil(factor * MAX_SPEED);
+            } else if (mouseY > vh - EDGE_ZONE) {
+                // Nach unten scrollen
+                const factor = Math.max(0, (mouseY - (vh - EDGE_ZONE)) / EDGE_ZONE);
+                delta = Math.ceil(factor * MAX_SPEED);
+            }
 
-            if (currentMouseY < topScrollZone) {
-                const distanceInside = Math.max(0, topScrollZone - currentMouseY);
-                const ratio = Math.min(1, distanceInside / TOP_THRESHOLD);
-                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
-
-                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, -speed);
+            if (delta !== 0) {
+                if (container === document.documentElement || container === document.body) {
+                    window.scrollBy(0, delta);
                 } else {
-                    scrollTarget.scrollTop -= speed;
-                }
-            } else if (currentMouseY > viewportHeight - BOTTOM_THRESHOLD) {
-                const distanceInside = Math.max(0, currentMouseY - (viewportHeight - BOTTOM_THRESHOLD));
-                const ratio = Math.min(1, distanceInside / BOTTOM_THRESHOLD);
-                const speed = BASE_SPEED + Math.ceil((MAX_SCROLL_SPEED - BASE_SPEED) * Math.pow(ratio, 1.5));
-
-                if (scrollTarget === document.documentElement || scrollTarget === document.body) {
-                    window.scrollBy(0, speed);
-                } else {
-                    scrollTarget.scrollTop += speed;
+                    container.scrollTop += delta;
                 }
             }
         }
 
-        scrollFrameId = requestAnimationFrame(performAutoScroll);
+        animFrame = requestAnimationFrame(scrollLoop);
     }
 
-    function updateCoordinates(e) {
-        if (!isDraggingActive) return;
-        currentMouseY = e.clientY;
-        currentMouseX = e.clientX;
+    function updateCoords(e) {
+        mouseY = e.clientY;
+        mouseX = e.clientX;
     }
 
+    // Höre auf natives HTML5 Drag
     document.addEventListener('dragstart', (e) => {
-        const isDraggableItem = e.target.closest('.case-card') || 
-                               e.target.closest('.category-folder') || 
-                               e.target.closest('.super-folder') ||
-                               e.target.closest('.bookshelf-super-group') ||
-                               e.target.closest('.folder-case-item') || 
-                               e.target.closest('.folder-group');
-
-        if (isDraggableItem) {
-            isDraggingActive = true;
-            currentMouseY = e.clientY;
-            currentMouseX = e.clientX;
-
-            if (!scrollFrameId) {
-                scrollFrameId = requestAnimationFrame(performAutoScroll);
-            }
-        }
+        isDragging = true;
+        mouseY = e.clientY;
+        mouseX = e.clientX;
+        if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
     });
 
-    window.addEventListener('dragover', updateCoordinates, { passive: true });
-    document.addEventListener('drag', updateCoordinates, { passive: true });
+    document.addEventListener('dragover', updateCoords, { passive: true });
+    window.addEventListener('dragover', updateCoords, { passive: true });
 
-    const stopAutoScroll = () => {
-        isDraggingActive = false;
-        currentMouseY = -1;
-        currentMouseX = -1;
-        if (scrollFrameId) {
-            cancelAnimationFrame(scrollFrameId);
-            scrollFrameId = null;
+    const stopDrag = () => {
+        isDragging = false;
+        mouseY = -1;
+        mouseX = -1;
+        if (animFrame) {
+            cancelAnimationFrame(animFrame);
+            animFrame = null;
         }
     };
 
-    document.addEventListener('dragend', stopAutoScroll);
-    document.addEventListener('drop', stopAutoScroll);
+    document.addEventListener('dragend', stopDrag);
+    document.addEventListener('drop', stopDrag);
+
+    // Höre zusätzlich auf Pointer-Events (z. B. auf Touch-Geräten oder im Mindmap-Modus)
+    document.addEventListener('pointermove', (e) => {
+        if (document.body.classList.contains('mm-dragging-active') || isDragging) {
+            mouseY = e.clientY;
+            mouseX = e.clientX;
+            if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
+        }
+    }, { passive: true });
+
+    document.addEventListener('pointerup', () => {
+        if (!isDragging) stopDrag();
+    });
 })();
 
 function setupSuperFolderDropZones() {
