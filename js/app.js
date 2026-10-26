@@ -2897,7 +2897,7 @@ window.renderOverview = function() {
 };
 
 // ====================================================
-// AUTO-KONVERTER: AKTIVER FALL -> INTERAKTIVE MINDMAP
+// AUTO-KONVERTER V2.0: AKTIVER FALL -> LOGISCHE KAUSAL-MINDMAP
 // ====================================================
 window.practiceCurrentCaseAsMindmap = function() {
     if (!activeCaseData) {
@@ -2914,74 +2914,128 @@ window.practiceCurrentCaseAsMindmap = function() {
     const nodes = [];
     let nodeCounter = 1;
 
-    // 1. Aus Synapsen-Matrix extrahieren (falls im Fall vorhanden)
+    // 1. Primärerkrankung aus der Synapsen-Matrix extrahieren (4 klar getrennte Hauptäste 1. Ordnung)
     const synVars = activeCaseData.extra_tasks?.synapses_matrix?.variables || [];
-    const primaryVars = synVars.filter(v => !activeCaseData.metadata?.primary_disease || v.disease === activeCaseData.metadata.primary_disease);
-    const chosenSynVars = (primaryVars.length >= 4 ? primaryVars : synVars).slice(0, 6);
+    const primaryDisease = activeCaseData.metadata?.primary_disease;
+    const primaryVars = synVars.filter(v => !primaryDisease || v.disease === primaryDisease);
 
-    const typeToCategory = {
-        'Risikofaktor/Pathophysiologie': 'pathophysiology',
-        'Symptom': 'clinical',
-        'Diagnostik': 'diagnostics',
-        'Therapie': 'therapy'
+    const typeMap = {
+        'Risikofaktor/Pathophysiologie': { cat: 'pathophysiology', rel: 'Pathomechanismus / Risiko' },
+        'Symptom': { cat: 'clinical', rel: 'Klinisches Leitsymptom' },
+        'Diagnostik': { cat: 'diagnostics', rel: 'Diagnostischer Nachweis' },
+        'Therapie': { cat: 'therapy', rel: 'Therapeutische Säule' }
     };
 
-    chosenSynVars.forEach(v => {
-        const cat = typeToCategory[v.type] || 'clinical';
+    const parentByCategory = {};
+
+    primaryVars.slice(0, 4).forEach(v => {
+        const cfg = typeMap[v.type] || { cat: 'clinical', rel: 'Klinischer Aspekt' };
+        const nId = `n${nodeCounter++}`;
+        parentByCategory[cfg.cat] = nId;
+
         nodes.push({
-            id: `n${nodeCounter++}`,
+            id: nId,
             label: String(v.term || '').slice(0, 48),
-            category: cat,
+            category: cfg.cat,
             parent_id: 'root',
-            relation_label: v.type || 'Klinischer Aspekt',
-            socratic_hint: `Überlege für „${v.disease || centralConcept}“: Welcher Begriff aus dem Bereich ${v.type || 'Klinik'} ist hier charakteristisch?`
+            relation_label: cfg.rel,
+            socratic_hint: `Welches Kernkonzept aus dem Bereich „${v.type}“ charakterisiert ${centralConcept}?`,
+            explanation: `Bestandteil der klinischen Synapsen-Matrix für ${centralConcept} (${v.type}).`
         });
     });
 
-    // 2. Aus Clinical Cascades extrahieren (falls vorhanden, als kausale Kette)
-    const firstCascade = activeCaseData.extra_tasks?.clinical_cascades?.[0]?.cascade || [];
-    if (firstCascade.length >= 4 && nodes.length < 8) {
-        const triggerNodeId = `n${nodeCounter++}`;
+    // 2. Kausale Paare aus Clinical Cascades (1. Ordnung -> 2. Ordnung) extrahieren
+    const firstCascadeObj = activeCaseData.extra_tasks?.clinical_cascades?.[0];
+    const cascadeSteps = firstCascadeObj?.cascade || [];
+
+    if (cascadeSteps.length >= 6) {
+        // Paar A: Auslöser (01) -> Pathophysiologie (02)
+        const trigId = `n${nodeCounter++}`;
         nodes.push({
-            id: triggerNodeId,
-            label: String(firstCascade[0].content || '').slice(0, 48),
+            id: trigId,
+            label: String(cascadeSteps[0].content || '').slice(0, 48),
             category: 'etiology',
             parent_id: 'root',
-            relation_label: 'Auslöser (01)',
-            socratic_hint: 'Was steht ganz am Anfang dieser pathophysiologischen Kaskade?'
+            relation_label: 'Primärer Auslöser',
+            socratic_hint: 'Welcher initiale Faktor steht ganz am Beginn der pathophysiologischen Kaskade?',
+            explanation: `Stufe 1 (Auslöser) der Kaskade zu ${firstCascadeObj.disease || centralConcept}.`
         });
 
-        const pathoNodeId = `n${nodeCounter++}`;
         nodes.push({
-            id: pathoNodeId,
-            label: String(firstCascade[1].content || '').slice(0, 48),
+            id: `n${nodeCounter++}`,
+            label: String(cascadeSteps[1].content || '').slice(0, 48),
             category: 'pathophysiology',
-            parent_id: triggerNodeId,
-            relation_label: 'führt zu (02)',
-            socratic_hint: 'Welcher unmittelbare pathophysiologische Schritt folgt auf den Auslöser?'
+            parent_id: trigId,
+            relation_label: 'löst unmittelbar aus',
+            socratic_hint: `Welcher direkte pathophysiologische Prozess wird durch „${String(cascadeSteps[0].content || '').slice(0, 35)}“ in Gang gesetzt?`,
+            explanation: `Stufe 2 (Pathophysiologie) als direkte Folge des Auslösers.`
         });
-    }
 
-    // 3. Aus Cornell-Cues auffüllen, falls der Fall noch wenige Knoten hat (z.B. Demo-Fall)
-    const cornellNotes = activeCaseData.case_overview?.cornell_notes || [];
-    const fallbackCategories = ['pathophysiology', 'clinical', 'diagnostics', 'therapy', 'etiology'];
-    cornellNotes.forEach((row, rIdx) => {
-        (row.cues || []).forEach((cue, cIdx) => {
-            if (nodes.length >= 10) return;
-            const cleanCue = String(cue || '').trim();
-            if (!cleanCue || cleanCue.length < 3) return;
-            if (nodes.some(n => n.label.toLowerCase() === cleanCue.toLowerCase())) return;
-
-            const parentId = (cIdx === 0 || nodes.length < 5) ? 'root' : nodes[0].id;
+        // Paar B: Klinische Manifestation (05) -> Diagnostischer Befund (06)
+        if (cascadeSteps[4] && cascadeSteps[5]) {
+            const clinParentId = parentByCategory.clinical || `n${nodeCounter++}`;
+            if (!parentByCategory.clinical) {
+                nodes.push({
+                    id: clinParentId,
+                    label: String(cascadeSteps[4].content || '').slice(0, 48),
+                    category: 'clinical',
+                    parent_id: 'root',
+                    relation_label: 'Klinische Manifestation',
+                    socratic_hint: 'Wie manifestiert sich die anatomische Schädigung klinisch beim Patienten?',
+                    explanation: 'Klinische Manifestation innerhalb der Krankheitskaskade.'
+                });
+            }
             nodes.push({
                 id: `n${nodeCounter++}`,
-                label: cleanCue.slice(0, 48),
-                category: fallbackCategories[(rIdx + cIdx) % fallbackCategories.length],
-                parent_id: parentId,
-                relation_label: cIdx === 0 ? 'Schlüsselkonzept' : 'Assoziiert mit',
-                socratic_hint: `Welcher Kernbegriff aus den Cornell-Notizen beschreibt diesen Aspekt von „${centralConcept}“?`
+                label: String(cascadeSteps[5].content || '').slice(0, 48),
+                category: 'diagnostics',
+                parent_id: clinParentId,
+                relation_label: 'weist man nach durch',
+                socratic_hint: 'Welcher spezifische diagnostische Befund objektiviert diese klinische Symptomatik?',
+                explanation: 'Diagnostischer Korrelatbefund in der klinischen Kaskade.'
             });
+        }
+    }
+
+    // 3. Falls noch Knoten fehlen: Aus Cornell-Notes logische Cue-Paare mit echtem Erklärungstext bilden
+    const cornellNotes = activeCaseData.case_overview?.cornell_notes || [];
+    const catCycle = ['pathophysiology', 'diagnostics', 'therapy', 'clinical', 'etiology'];
+
+    cornellNotes.forEach((row, rIdx) => {
+        if (nodes.length >= 10) return;
+        const cues = Array.isArray(row.cues) ? row.cues : [];
+        const cleanNotes = String(row.notes || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cues.length === 0) return;
+
+        const mainCue = String(cues[0] || '').trim();
+        if (!mainCue || nodes.some(n => n.label.toLowerCase() === mainCue.toLowerCase())) return;
+
+        const cat = catCycle[rIdx % catCycle.length];
+        const pId = `n${nodeCounter++}`;
+        nodes.push({
+            id: pId,
+            label: mainCue.slice(0, 48),
+            category: cat,
+            parent_id: 'root',
+            relation_label: `Schwerpunkt ${rIdx + 1}`,
+            socratic_hint: `Welcher Leitbegriff steht im Zentrum dieses Abschnitts: „${cleanNotes.slice(0, 95)}…“?`,
+            explanation: cleanNotes.slice(0, 220)
         });
+
+        if (cues.length >= 2 && nodes.length < 10) {
+            const subCue = String(cues[1] || '').trim();
+            if (subCue && !nodes.some(n => n.label.toLowerCase() === subCue.toLowerCase())) {
+                nodes.push({
+                    id: `n${nodeCounter++}`,
+                    label: subCue.slice(0, 48),
+                    category: cat,
+                    parent_id: pId,
+                    relation_label: 'spezifisches Detail',
+                    socratic_hint: `Welches spezifische Detail oder Kriterium gehört im Kontext von „${mainCue}“ unmittelbar dazu?`,
+                    explanation: cleanNotes.slice(0, 220)
+                });
+            }
+        }
     });
 
     const generatedMindmap = {
@@ -2992,14 +3046,13 @@ window.practiceCurrentCaseAsMindmap = function() {
         nodes: nodes
     };
 
-    // Lokal speichern, damit MindmapModule sie sofort in der Liste hat
     try {
         const localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
         const filtered = localSaved.filter(m => m.id !== mindmapId);
         filtered.unshift(generatedMindmap);
         localStorage.setItem('medcheck_custom_mindmaps', JSON.stringify(filtered));
     } catch (e) {
-        console.warn('Konnte generierte Fall-Mindmap nicht im LocalStorage zwischenspeichern:', e);
+        console.warn('Konnte generierte Fall-Mindmap nicht zwischenspeichern:', e);
     }
 
     window.switchTab('mindmap', document.getElementById('nav-mindmap'));
