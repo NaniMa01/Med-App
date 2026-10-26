@@ -695,6 +695,7 @@ window.promptCreateNewFolderWithSuper = function() {
 function createNewFolder(folderName, targetSuperFolder = null) {
     if (!folderName || !folderName.trim()) return;
     const cleanName = folderName.trim();
+    if (typeof unmarkFolderAsDeleted === 'function') unmarkFolderAsDeleted(cleanName);
 
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!order.includes(cleanName)) {
@@ -1187,13 +1188,150 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
 
 // ====================================================
-// ORDNER VERWALTUNG (UMBENENNEN & LÖSCHEN)
+// PERSISTENTE ORDNER-OVERRIDES & TOMBSTONE-ENGINE (VERHINDERT RELOAD-RESET!)
+// ====================================================
+const CASE_FOLDER_OVERRIDES_KEY = 'medcheck_case_folder_overrides_v1';
+const DELETED_FOLDERS_SET_KEY   = 'medcheck_deleted_folders_v1';
+
+function getCaseFolderOverrides() {
+    try {
+        return JSON.parse(localStorage.getItem(CASE_FOLDER_OVERRIDES_KEY) || '{}');
+    } catch (_e) {
+        return {};
+    }
+}
+
+function saveCaseFolderOverrides(map) {
+    try {
+        localStorage.setItem(CASE_FOLDER_OVERRIDES_KEY, JSON.stringify(map));
+    } catch (_e) {}
+}
+
+function setCaseFolderOverride(caseId, folderName) {
+    if (!caseId || !folderName) return;
+    const map = getCaseFolderOverrides();
+    map[caseId] = folderName.trim();
+    saveCaseFolderOverrides(map);
+}
+
+function getDeletedFoldersSet() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]'));
+    } catch (_e) {
+        return new Set();
+    }
+}
+
+function markFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    if (clean.toLowerCase() === 'allgemein') return;
+    const set = getDeletedFoldersSet();
+    set.add(clean);
+    localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+}
+
+function unmarkFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    const set = getDeletedFoldersSet();
+    if (set.has(clean)) {
+        set.delete(clean);
+        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+    }
+}
+
+/**
+ * Stellt sicher, dass jeder Fall (egal ob Built-in Demo, lokal oder aus Supabase geladen)
+ * exakt die vom Nutzer vorgenommenen Ordner-Verschiebungen und Ordner-Löschungen respektiert!
+ */
+function applyFolderOverridesToCase(caseObj) {
+    if (!caseObj) return caseObj;
+    const cId = caseObj.case_id || caseObj.id;
+    const overrides = getCaseFolderOverrides();
+    const deletedFolders = getDeletedFoldersSet();
+
+    let currentFolder = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
+
+    // 1. Hat der Nutzer diesen Fall explizit in einen Ordner verschoben?
+    if (cId && overrides[cId]) {
+        currentFolder = overrides[cId];
+    }
+
+    // 2. Liegt der Fall in einem Ordner, den der Nutzer gelöscht hat? -> Ab nach "Allgemein"!
+    if (deletedFolders.has(currentFolder)) {
+        currentFolder = 'Allgemein';
+        if (cId) {
+            overrides[cId] = 'Allgemein';
+            saveCaseFolderOverrides(overrides);
+        }
+    }
+
+    caseObj.folder_name = currentFolder;
+    if (caseObj.metadata) {
+        caseObj.metadata.medical_field = currentFolder;
+    }
+    return caseObj;
+}
+
+/**
+ * Hilfsfunktion: Synchronisiert eine Liste geänderter Fälle im Hintergrund mit Supabase
+ */
+async function syncModifiedCasesToSupabase(casesList) {
+    if (!Array.isArray(casesList) || casesList.length === 0) return;
+    const sb = getActiveSupabaseClient();
+    if (!sb || !sb.auth) return;
+
+    try {
+        const { data: { session } } = await sb.auth.getSession();
+        const currentUser = session?.user;
+        if (!currentUser) return;
+
+        for (const c of casesList) {
+            const cId = c.case_id || c.id;
+            if (!cId || cId === BUILTIN_DEMO_CASE.case_id) continue;
+            const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const title = c.metadata?.title || c.title || cId;
+
+            // Zuerst gezieltes UPDATE versuchen (funktioniert auch für bereits existierende Cloud-Fälle)
+            const { data: updated, error: updErr } = await sb
+                .from('cases')
+                .update({
+                    medical_field: folder,
+                    content: c
+                })
+                .eq('case_id', cId)
+                .select('case_id');
+
+            // Falls der Fall noch gar nicht in der Cloud war, per UPSERT anlegen
+            if (!updErr && (!updated || updated.length === 0)) {
+                await sb.from('cases').upsert({
+                    case_id: cId,
+                    title: title,
+                    medical_field: folder,
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: c
+                }, { onConflict: 'case_id' });
+            }
+        }
+    } catch (err) {
+        console.warn('[Sync] Hintergrund-Sync zu Supabase übersprungen (lokale Overrides greifen trotzdem):', err);
+    }
+}
+
+// ====================================================
+// ORDNER VERWALTUNG (UMBENENNEN & LÖSCHEN MIT SYNC)
 // ====================================================
 
-window.renameFolder = function(oldName, newName) {
+window.renameFolder = async function(oldName, newName) {
     if (!oldName || !newName || oldName === newName) return;
     const cleanOld = oldName.trim();
     const cleanNew = newName.trim();
+
+    unmarkFolderAsDeleted(cleanNew);
+    markFolderAsDeleted(cleanOld);
 
     // 1. medcheck_folder_order aktualisieren
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
@@ -1203,6 +1341,7 @@ window.renameFolder = function(oldName, newName) {
     } else {
         order.push(cleanNew);
     }
+    order = Array.from(new Set(order));
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
     // 2. Mapping auf Überordner übernehmen
@@ -1213,20 +1352,32 @@ window.renameFolder = function(oldName, newName) {
         saveFolderSuperMapping(mapping);
     }
 
-    // 3. Alle Custom Cases aktualisieren
+    // 3. Alle registrierten Fälle (inkl. Demo-Fall & Custom Cases) + Overrides aktualisieren
+    const overrides = getCaseFolderOverrides();
+    Object.keys(overrides).forEach(cId => {
+        if (overrides[cId] === cleanOld) overrides[cId] = cleanNew;
+    });
+
+    const demoFolder = (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+    if (demoFolder === cleanOld || overrides[BUILTIN_DEMO_CASE.case_id] === cleanOld) {
+        overrides[BUILTIN_DEMO_CASE.case_id] = cleanNew;
+    }
+
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modified = false;
+    let modifiedCases = [];
     customCases.forEach(c => {
+        applyFolderOverridesToCase(c);
         const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
         if (cFolder === cleanOld) {
             c.folder_name = cleanNew;
             if (c.metadata) c.metadata.medical_field = cleanNew;
-            modified = true;
+            overrides[c.case_id || c.id] = cleanNew;
+            modifiedCases.push(c);
         }
     });
-    if (modified) {
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
+
+    saveCaseFolderOverrides(overrides);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
     // 4. UI States aktualisieren
     if (openFolders[cleanOld] !== undefined) {
@@ -1241,6 +1392,9 @@ window.renameFolder = function(oldName, newName) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+
+    // 5. In Supabase synchronisieren
+    await syncModifiedCasesToSupabase(modifiedCases);
 };
 
 window.deleteFolder = async function(folderName, caseCount = 0) {
@@ -1253,77 +1407,69 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     }
 
     const confirmMsg = caseCount > 0
-        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden sicher in den Ordner "Allgemein" verschoben und in der Cloud synchronisiert.`
+        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden dauerhaft in den Ordner "Allgemein" verschoben.`
         : `Möchtest du den leeren Ordner "${clean}" wirklich löschen?`;
 
     if (!window.confirm(confirmMsg)) return;
 
-    // 1. Aus medcheck_folder_order austragen
+    // 1. Ordner in die Tombstone-Liste eintragen (verhindert Wiederauferstehung nach Reload!)
+    markFolderAsDeleted(clean);
+
+    // 2. Aus medcheck_folder_order & Dashboard-Order austragen
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     order = order.filter(f => f !== clean);
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
-    // 2. Aus dem Überordner-Mapping entfernen
+    let dashOrder = getDashboardFolderOrder().filter(f => f !== clean);
+    saveDashboardFolderOrder(dashOrder);
+
+    // 3. Aus Überordner-Mapping entfernen
     const mapping = getFolderSuperMapping();
     delete mapping[clean];
     saveFolderSuperMapping(mapping);
 
-    // 3. Lokale Custom Cases nach "Allgemein" verschieben
+    // 4. Alle Fälle in diesem Ordner (auch Built-in Demo & Cloud-Fälle) per Override nach "Allgemein" verschieben
+    const overrides = getCaseFolderOverrides();
+    Object.keys(overrides).forEach(cId => {
+        if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
+    });
+
+    const demoCurrentFolder = overrides[BUILTIN_DEMO_CASE.case_id]
+        || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+    if (demoCurrentFolder === clean) {
+        overrides[BUILTIN_DEMO_CASE.case_id] = 'Allgemein';
+    }
+
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
     let modifiedCases = [];
     customCases.forEach(c => {
-        const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
+        const cId = c.case_id || c.id;
+        const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
         if (cFolder === clean) {
             c.folder_name = 'Allgemein';
             if (c.metadata) c.metadata.medical_field = 'Allgemein';
+            if (cId) overrides[cId] = 'Allgemein';
             modifiedCases.push(c);
         }
     });
 
-    if (modifiedCases.length > 0) {
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
+    saveCaseFolderOverrides(overrides);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-    // 4. CLOUD-SYNC: In Supabase alle betroffenen Fälle auf "Allgemein" aktualisieren!
-    const sb = getActiveSupabaseClient();
-    if (sb && sb.auth) {
-        try {
-            const { data: { session } } = await sb.auth.getSession();
-            const currentUser = session?.user;
-
-            if (currentUser && modifiedCases.length > 0) {
-                // Fälle in Supabase aktualisieren, damit sie beim nächsten Laden nicht den alten Ordner reaktivieren
-                const updates = modifiedCases.map(c => ({
-                    case_id: c.case_id,
-                    title: c.metadata?.title || c.case_id,
-                    medical_field: 'Allgemein',
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: c,
-                    updated_at: new Date().toISOString()
-                }));
-
-                const { error } = await sb.from('cases').upsert(updates, { onConflict: 'case_id' });
-                if (error) {
-                    console.warn('[Sync] Fehler beim Aktualisieren der Fälle in Supabase:', error.message);
-                }
-            }
-        } catch (cloudErr) {
-            console.warn('[Sync] Cloud-Aktualisierung nach Ordner-Löschung fehlgeschlagen:', cloudErr);
-        }
-    }
-
-    // 5. UI States bereinigen & synchron neu rendern
+    // 5. UI States bereinigen & sofort neu rendern
     delete openFolders[clean];
     delete bookshelfFolderState[clean];
+    openFolders['Allgemein'] = true;
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
-
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
     if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+
+    // 6. Geänderte Fälle in Supabase synchronisieren
+    await syncModifiedCasesToSupabase(modifiedCases);
 };
+
 // ====================================================
 // ZENTRALE FUNKTION ZUM VERSCHIEBEN VON FÄLLEN IN ORDNER
 // ====================================================
@@ -1331,18 +1477,22 @@ window.moveCaseToFolder = async function(caseId, targetFolder) {
     if (!caseId || !targetFolder) return;
     const cleanFolder = targetFolder.trim();
 
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let targetCase = customCases.find(c => c.case_id === caseId);
+    // Falls der Zielordner früher mal gelöscht wurde, wieder reaktivieren
+    unmarkFolderAsDeleted(cleanFolder);
 
-    // Falls es sich um den Built-in Demo-Fall handelt, kopieren wir ihn als Custom-Fall heraus,
-    // damit der Ordner überschrieben werden kann.
+    // 1. Dauerhaften Override für diese case_id speichern (überlebt jeden Reload!)
+    setCaseFolderOverride(caseId, cleanFolder);
+
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let targetCase = customCases.find(c => (c.case_id || c.id) === caseId);
+
     if (!targetCase && caseId === BUILTIN_DEMO_CASE.case_id) {
         targetCase = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE));
     }
 
     if (!targetCase) {
         const allRegistered = window.getRegisteredCases ? window.getRegisteredCases() : [];
-        const found = allRegistered.find(c => c.case_id === caseId);
+        const found = allRegistered.find(c => (c.case_id || c.id) === caseId);
         if (found) {
             targetCase = JSON.parse(JSON.stringify(found));
         }
@@ -1353,76 +1503,56 @@ window.moveCaseToFolder = async function(caseId, targetFolder) {
         return;
     }
 
-    // Ordner-Eigenschaft aktualisieren
+    // 2. Ordner-Eigenschaft am Fall-Objekt aktualisieren
     targetCase.folder_name = cleanFolder;
     if (targetCase.metadata) {
         targetCase.metadata.medical_field = cleanFolder;
     }
 
-    // Im lokalen Array aktualisieren / einfügen
-    customCases = customCases.filter(c => c.case_id !== caseId);
-    customCases.push(targetCase);
-    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    if (caseId !== BUILTIN_DEMO_CASE.case_id) {
+        customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
+        customCases.push(targetCase);
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    }
 
-    // Sicherstellen, dass der Ordner in der Ordnerstruktur registriert ist
+    // 3. Sicherstellen, dass der Zielordner in der Ordnerstruktur registriert ist
     if (typeof registerDynamicFolder === 'function') {
         registerDynamicFolder(cleanFolder);
     }
 
-    // Ordner im UI aufklappen
     openFolders[cleanFolder] = true;
 
-    // Cloud-Sync (falls der User eingeloggt ist)
-    const sb = getActiveSupabaseClient();
-    if (sb && sb.auth) {
-        try {
-            const { data: { session } } = await sb.auth.getSession();
-            const currentUser = session?.user;
-            if (currentUser) {
-                await sb.from('cases').upsert({
-                    case_id: targetCase.case_id,
-                    title: targetCase.metadata?.title || targetCase.case_id,
-                    medical_field: cleanFolder,
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: targetCase
-                }, { onConflict: 'case_id' });
-            }
-        } catch (cloudErr) {
-            console.warn("Cloud-Sync nach Ordnerwechsel im Hintergrund fehlgeschlagen:", cloudErr);
-        }
-    }
-
-    // Dashboard und Bücherregal neu rendern
+    // 4. Sofort Dashboard & Bookshelf neu rendern
     if (typeof renderDashboardCases === 'function') {
         renderDashboardCases();
     }
     if (typeof renderSubjectProgressDrawer === 'function') {
         renderSubjectProgressDrawer();
     }
-
-    // Haptisches Feedback beim erfolgreichen Verschieben
     if (typeof window.triggerHaptic === 'function') {
         window.triggerHaptic(14);
     }
+
+    // 5. Cloud-Sync in Supabase
+    await syncModifiedCasesToSupabase([targetCase]);
 };
+
 // Fall direkt auf einen Überordner ziehen
 async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
     if (!caseId || !targetSuperTitle) return;
     const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-    const targetCase = allCases.find(c => c.case_id === caseId);
+    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
     if (!targetCase) return;
 
     const currentFolder = (targetCase.folder_name || targetCase.metadata?.medical_field || 'Allgemein').trim();
 
-    // Wenn der Fall aktuell in "Allgemein" liegt, verschieben wir ihn in einen Ordner mit dem Namen des Überordners
     let destinationSubfolder = currentFolder;
     if (currentFolder.toLowerCase() === 'allgemein') {
         destinationSubfolder = targetSuperTitle;
     }
 
-    // Den Unterordner dem gewählten Überordner zuweisen
+    unmarkFolderAsDeleted(destinationSubfolder);
+
     const mapping = getFolderSuperMapping();
     mapping[destinationSubfolder] = targetSuperTitle;
     saveFolderSuperMapping(mapping);
@@ -1432,7 +1562,7 @@ async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
     openFolders[destinationSubfolder] = true;
     bookshelfFolderState[destinationSubfolder] = true;
 
-    await moveCaseToFolder(caseId, destinationSubfolder);
+    await window.moveCaseToFolder(caseId, destinationSubfolder);
 }
 
 window.promptMoveFolderToSuperFolder = function(folderName) {
@@ -1460,13 +1590,11 @@ window.promptMoveFolderToSuperFolder = function(folderName) {
         if (existingMatch) {
             window.moveFolderToSuperFolder(folderName, existingMatch);
         } else {
-            // Erlaubt das direkte Erstellen eines neuen Überordners aus dem Verschiebe-Dialog!
             createCustomSuperFolder(trimmed);
             window.moveFolderToSuperFolder(folderName, trimmed);
         }
     }
 };
-
 // ==========================================
 // DYNAMISCHES RESIZING DER SIDEBAR
 // ==========================================
@@ -2671,11 +2799,17 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
 // FALL LADEN & PLAYER LOGIK
 // ====================================================
 function getCustomCases() {
-    try { return JSON.parse(localStorage.getItem('custom_cases')) || []; } catch (e) { return []; }
+    try {
+        const raw = JSON.parse(localStorage.getItem('custom_cases')) || [];
+        return raw.map(c => applyFolderOverridesToCase(c));
+    } catch (e) {
+        return [];
+    }
 }
 
 window.getRegisteredCases = function() {
-    return [BUILTIN_DEMO_CASE, ...getCustomCases().filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
+    const demoCopy = applyFolderOverridesToCase(JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE)));
+    return [demoCopy, ...getCustomCases().filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
 };
 
 function applySpecialtyFilters(caseData) {
@@ -4908,7 +5042,7 @@ function renderStatus(fileName, state, message) {
     item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
 }
 
-// 7. Datenbank synchronisieren & Cloud-Badges verwalten
+// 7. Datenbank synchronisieren & Cloud-Badges verwalten (Respektiert lokale Ordner-Overrides!)
 async function loadCasesFromDatabase() {
     const sb = getActiveSupabaseClient();
     if (!sb) return;
@@ -4926,29 +5060,45 @@ async function loadCasesFromDatabase() {
 
         window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
 
-      if (data && data.length > 0) {
+        if (data && data.length > 0) {
             let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-            const hiddenCloudIds = getHiddenCloudCaseIds(); // <-- NEU: Ausgeblendete Fälle laden
-            let modified = false;
+            const hiddenCloudIds = getHiddenCloudCaseIds();
+            const deletedFolders = getDeletedFoldersSet();
 
             data.forEach(dbCase => {
                 const cloudCase = dbCase.content;
                 if (!cloudCase) return;
                 const cId = cloudCase.case_id || cloudCase.id;
-                if (hiddenCloudIds.includes(cId)) return; // <-- NEU: Lokal gelöschte Cloud-Fälle überspringen!
+                if (hiddenCloudIds.includes(cId)) return;
+
+                // falls in der DB-Spalte 'medical_field' ein neuerer Ordner steht, übernehmen:
+                if (dbCase.medical_field && !deletedFolders.has(dbCase.medical_field.trim())) {
+                    cloudCase.folder_name = dbCase.medical_field.trim();
+                    if (cloudCase.metadata) cloudCase.metadata.medical_field = dbCase.medical_field.trim();
+                }
+
+                // WICHTIG: Lokale Ordner-Overrides & gelöschte Ordner auf den Cloud-Fall anwenden!
+                applyFolderOverridesToCase(cloudCase);
 
                 const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
                 if (idx !== -1) {
                     customCases[idx] = cloudCase;
                 } else {
                     customCases.push(cloudCase);
-                    modified = true;
                 }
                 window.registerCaseDDs(cloudCase);
             });
 
-            if (modified) {
-                localStorage.setItem('custom_cases', JSON.stringify(customCases));
+            localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        }
+
+        // Sicherstellen, dass gelöschte Ordner niemals wieder in medcheck_folder_order landen
+        const deletedSet = getDeletedFoldersSet();
+        if (deletedSet.size > 0) {
+            let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+            const cleanedOrder = savedOrder.filter(f => !deletedSet.has(f.trim()));
+            if (cleanedOrder.length !== savedOrder.length) {
+                localStorage.setItem('medcheck_folder_order', JSON.stringify(cleanedOrder));
             }
         }
 
