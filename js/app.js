@@ -1243,17 +1243,17 @@ window.renameFolder = function(oldName, newName) {
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
 };
 
-window.deleteFolder = function(folderName, caseCount = 0) {
+window.deleteFolder = async function(folderName, caseCount = 0) {
     if (!folderName) return;
     const clean = folderName.trim();
 
-    if (clean === 'Allgemein') {
+    if (clean.toLowerCase() === 'allgemein') {
         alert('Der Standardordner "Allgemein" kann nicht gelöscht werden.');
         return;
     }
 
     const confirmMsg = caseCount > 0
-        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden sicher in den Ordner "Allgemein" verschoben.`
+        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden sicher in den Ordner "Allgemein" verschoben und in der Cloud synchronisiert.`
         : `Möchtest du den leeren Ordner "${clean}" wirklich löschen?`;
 
     if (!window.confirm(confirmMsg)) return;
@@ -1263,33 +1263,66 @@ window.deleteFolder = function(folderName, caseCount = 0) {
     order = order.filter(f => f !== clean);
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
-    // 2. Aus Mapping entfernen
+    // 2. Aus dem Überordner-Mapping entfernen
     const mapping = getFolderSuperMapping();
     delete mapping[clean];
     saveFolderSuperMapping(mapping);
 
-    // 3. Fälle nach "Allgemein" verschieben
+    // 3. Lokale Custom Cases nach "Allgemein" verschieben
     let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modified = false;
+    let modifiedCases = [];
     customCases.forEach(c => {
         const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
         if (cFolder === clean) {
             c.folder_name = 'Allgemein';
             if (c.metadata) c.metadata.medical_field = 'Allgemein';
-            modified = true;
+            modifiedCases.push(c);
         }
     });
-    if (modified) {
+
+    if (modifiedCases.length > 0) {
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
     }
 
-    // 4. UI States bereinigen
+    // 4. CLOUD-SYNC: In Supabase alle betroffenen Fälle auf "Allgemein" aktualisieren!
+    const sb = getActiveSupabaseClient();
+    if (sb && sb.auth) {
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            const currentUser = session?.user;
+
+            if (currentUser && modifiedCases.length > 0) {
+                // Fälle in Supabase aktualisieren, damit sie beim nächsten Laden nicht den alten Ordner reaktivieren
+                const updates = modifiedCases.map(c => ({
+                    case_id: c.case_id,
+                    title: c.metadata?.title || c.case_id,
+                    medical_field: 'Allgemein',
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: c,
+                    updated_at: new Date().toISOString()
+                }));
+
+                const { error } = await sb.from('cases').upsert(updates, { onConflict: 'case_id' });
+                if (error) {
+                    console.warn('[Sync] Fehler beim Aktualisieren der Fälle in Supabase:', error.message);
+                }
+            }
+        } catch (cloudErr) {
+            console.warn('[Sync] Cloud-Aktualisierung nach Ordner-Löschung fehlgeschlagen:', cloudErr);
+        }
+    }
+
+    // 5. UI States bereinigen & synchron neu rendern
     delete openFolders[clean];
     delete bookshelfFolderState[clean];
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
 };
 // ====================================================
 // ZENTRALE FUNKTION ZUM VERSCHIEBEN VON FÄLLEN IN ORDNER
