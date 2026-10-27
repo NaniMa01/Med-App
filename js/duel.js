@@ -5,7 +5,7 @@
  *  - Atomic State Merging before saving (prevents overwriting opponent's answers)
  *  - Auth State Listener (automatically detects login/logout from js/auth.js)
  *  - Dual Sync: Supabase Realtime WebSockets + 5-Second Auto-Polling Backup
- *  - 5 Rounds x 3 Questions = Max 15 Points with 15s Top-Center Countdown Banner
+ *  - 5 Rounds x 3 Questions = Max 15 Points with 20s Top-Center Countdown Banner
  */
 
 (function () {
@@ -13,7 +13,7 @@
 
     const TOTAL_ROUNDS = 5;
     const QUESTIONS_PER_ROUND = 3;
-    const QUESTION_TIME_LIMIT_SEC = 15;
+    const QUESTION_TIME_LIMIT_SEC = 20;
     const BOT_EMAIL = 'dr.house@klinik-bot.ch';
 
     const BUILTIN_DUEL_QUESTIONS = [
