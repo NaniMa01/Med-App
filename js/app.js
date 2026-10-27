@@ -2956,21 +2956,26 @@ window.renderOverview = function() {
 
     let notesHtml = '';
     if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
-        data.cornell_notes.forEach(note => {
-            const rawCues = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
-            
-            // Defensives Rendering: Fallunterscheidung Einzel-Cue vs. Legacy-Multi-Cue
+        data.cornell_notes.forEach((note, index) => {
+            const cuesArray = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
+            const targetId = `cornell-note-target-${index}`;
+            const rowId = `cornell-row-${index}`;
+
             notesHtml += `
-                <div class="cornell-grid">
+                <div class="cornell-grid" id="${rowId}">
                     <div class="cornell-cues">
-                        ${rawCues.map(cueText => `
-                            <div class="cornell-cue-item">
+                        ${cuesArray.map((cueText) => `
+                            <div class="cornell-cue-item" 
+                                 data-target="${targetId}" 
+                                 data-row="${rowId}"
+                                 tabindex="0"
+                                 role="button">
                                 <span class="cornell-cue-bullet"></span>
                                 <span class="cornell-cue-label">${cueText}</span>
                             </div>
                         `).join('')}
                     </div>
-                    <div class="cornell-notes">
+                    <div class="cornell-notes" id="${targetId}" data-row="${rowId}">
                         ${note.notes || ''}
                     </div>
                 </div>
@@ -2999,26 +3004,67 @@ window.renderOverview = function() {
     `;
     container.innerHTML = html;
 
-    // Event-Listener direkt HIER im Funktionskontext einhängen, nachdem das HTML gerendert wurde
-    container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
+    // --- INTERAKTIVE GLOW-EVENTS (HOVER, TOUCH & BIDIREKTIONAL) ---
+    const cueElements = container.querySelectorAll('.cornell-cue-item');
+    const noteBlocks = container.querySelectorAll('.cornell-notes');
+
+    cueElements.forEach(cueEl => {
         const targetId = cueEl.getAttribute('data-target');
         const targetFragment = document.getElementById(targetId);
+        const rowId = cueEl.getAttribute('data-row');
+        const rowEl = document.getElementById(rowId);
 
-        if (targetFragment) {
-            cueEl.addEventListener('mouseenter', () => {
+        // Hover Start: Titel & zugehöriger Text leuchten auf
+        cueEl.addEventListener('mouseenter', () => {
+            cueEl.classList.add('cue-active-highlight');
+            if (targetFragment) targetFragment.classList.add('highlight-target');
+            if (rowEl) rowEl.classList.add('row-highlight');
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
+        });
+
+        // Hover Ende: Leuchteffekt entfernen
+        cueEl.addEventListener('mouseleave', () => {
+            cueEl.classList.remove('cue-active-highlight');
+            if (targetFragment) targetFragment.classList.remove('highlight-target');
+            if (rowEl) rowEl.classList.remove('row-highlight');
+        });
+
+        // Mobile / Touch Support (Tap)
+        cueEl.addEventListener('click', () => {
+            const isAlreadyActive = targetFragment?.classList.contains('highlight-target');
+            
+            container.querySelectorAll('.highlight-target').forEach(el => el.classList.remove('highlight-target'));
+            container.querySelectorAll('.cue-active-highlight').forEach(el => el.classList.remove('cue-active-highlight'));
+            container.querySelectorAll('.row-highlight').forEach(el => el.classList.remove('row-highlight'));
+
+            if (!isAlreadyActive && targetFragment) {
                 cueEl.classList.add('cue-active-highlight');
                 targetFragment.classList.add('highlight-target');
-                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
-            });
+                if (rowEl) rowEl.classList.add('row-highlight');
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+            }
+        });
+    });
 
-            cueEl.addEventListener('mouseleave', () => {
-                cueEl.classList.remove('cue-active-highlight');
-                targetFragment.classList.remove('highlight-target');
-            });
-        }
+    // Bidirektionaler Hover: Fährt man über den Text, leuchtet auch der Titel links
+    noteBlocks.forEach(noteEl => {
+        const rowId = noteEl.getAttribute('data-row');
+        const rowEl = document.getElementById(rowId);
+        const cuesInRow = rowEl ? rowEl.querySelectorAll('.cornell-cue-item') : [];
+
+        noteEl.addEventListener('mouseenter', () => {
+            noteEl.classList.add('highlight-target');
+            cuesInRow.forEach(c => c.classList.add('cue-active-highlight'));
+            if (rowEl) rowEl.classList.add('row-highlight');
+        });
+
+        noteEl.addEventListener('mouseleave', () => {
+            noteEl.classList.remove('highlight-target');
+            cuesInRow.forEach(c => c.classList.remove('cue-active-highlight'));
+            if (rowEl) rowEl.classList.remove('row-highlight');
+        });
     });
 };
-
 
 // ====================================================
 // AUTO-KONVERTER V2.0: AKTIVER FALL -> LOGISCHE KAUSAL-MINDMAP
