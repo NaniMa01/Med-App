@@ -1046,144 +1046,194 @@ topbar {
 .dot-green  { background: #10b981; }
 
 /* ==========================================================================
-   7. CORNELL NOTE SYSTEM (EDITORIAL & HIGH READABILITY)
+   7. CORNELL NOTE SYSTEM (OPTIMIERT FÜR PERFEKTES VERTICAL ALIGNMENT)
    ========================================================================== */
 .cornell-wrapper {
     display: flex;
     flex-direction: column;
-    background: var(--bg-surface);
-    border: 1px solid rgba(56, 189, 248, 0.2);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    background: rgba(11, 17, 33, 0.75);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), var(--surface-highlight);
     border-radius: 16px;
     overflow: hidden;
-    margin-bottom: 2rem;
+    backdrop-filter: blur(12px);
 }
 
 .cornell-header {
-    background: var(--bg-surface-elevated);
-    border-bottom: 2px solid var(--accent-blue, #38bdf8);
+    background: linear-gradient(135deg, rgba(16, 24, 46, 0.95), rgba(56, 189, 248, 0.15));
+    border-bottom: 2px solid var(--accent-blue);
     padding: 20px 24px;
     text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 12px;
 }
 
 .cornell-header h2 { 
     margin: 0; 
-    font-size: 1.2rem; 
-    font-weight: 700; 
-    color: var(--text-main);
+    font-size: 1.3rem; 
+    font-weight: 800; 
+    color: #ffffff; 
     letter-spacing: -0.01em;
 }
 
-.cornell-row-item {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.cornell-header-subtitle {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+}
+
+.cornell-body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Jede Zeile bildet ein bündiges 2-Spalten-Grid */
+.cornell-grid { 
+    display: grid; 
+    grid-template-columns: 240px 1fr; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
     transition: background 0.2s ease;
     align-items: stretch;
 }
-.cornell-row-item:hover { background: rgba(255, 255, 255, 0.02); }
-.cornell-row-item:last-child { border-bottom: none; }
 
-.cornell-cue-col { 
-    background: rgba(15, 23, 42, 0.7);
-    border-right: 1px solid rgba(56, 189, 248, 0.15);
-    padding: 18px 16px;
-    display: flex;
-    align-items: flex-start;
+.cornell-grid:last-child { 
+    border-bottom: none; 
+}
+
+.cornell-grid:hover { 
+    background: rgba(255, 255, 255, 0.02); 
+}
+
+/* Linke Spalte (Cues): Saubere Verankerung oben bündig mit der ersten Textzeile */
+.cornell-cues { 
+    background: rgba(16, 24, 46, 0.4); 
+    border-right: 2px solid rgba(56, 189, 248, 0.3); 
+    padding: 18px 16px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px;
+    justify-content: flex-start;
 }
 
 .cornell-cue-item {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    color: var(--accent-blue);
-    background: rgba(56, 189, 248, 0.08);
-    border: 1px solid rgba(56, 189, 248, 0.2);
-    border-left: 3px solid var(--accent-blue);
+    color: var(--accent-cyan);
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-left: 3px solid var(--accent-cyan);
     padding: 8px 12px;
-    border-radius: 6px;
-    line-height: 1.4;
-    cursor: pointer;
-    width: 100%;
-    transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-.cornell-cue-item:hover,
-.cornell-cue-item.cue-active-highlight {
-    transform: translateX(4px);
-    background: rgba(56, 189, 248, 0.18);
-    border-color: var(--accent-blue);
-    color: #ffffff;
-}
-
-.cornell-note-col {
-    padding: 16px 28px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.cornell-fragment {
-    font-size: 0.96rem;
-    line-height: 1.75;
-    color: #cbd5e1;
-    max-width: 880px;
-    padding: 8px 14px;
     border-radius: 8px;
-    border-left: 3px solid transparent;
-    transition: all 0.25s ease;
+    line-height: 1.35;
+    word-break: break-word;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s;
 }
 
-.cornell-fragment.highlight-target {
-    background-color: rgba(56, 189, 248, 0.08);
-    border-left-color: var(--accent-blue);
-    color: var(--text-main);
-    padding-left: 18px;
+.cornell-cue-item:hover {
+    transform: translateX(3px);
+    background: rgba(34, 211, 238, 0.15);
+    border-color: var(--accent-cyan);
 }
 
-.cornell-fragment strong, 
-.cornell-fragment b {
-    color: var(--text-main);
+.cornell-cue-bullet {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--accent-cyan);
+    box-shadow: 0 0 6px var(--accent-cyan);
+    flex-shrink: 0;
+}
+
+/* Rechte Spalte (Notes): Typografisch optimierter Lesetext */
+.cornell-notes { 
+    padding: 18px 24px; 
+    font-size: 0.94rem; 
+    line-height: 1.65; 
+    color: var(--text-main); 
+    word-break: break-word; 
+}
+
+.cornell-notes p {
+    margin: 0 0 0.5rem 0;
+}
+
+.cornell-notes p:last-child {
+    margin-bottom: 0;
+}
+
+.cornell-notes ul {
+    margin: 0.4rem 0 0.4rem 1.2rem;
+    padding: 0;
+}
+
+.cornell-notes li {
+    margin-bottom: 0.3rem;
+}
+
+/* Kontrastreiche Hervorhebung von Schlüsselbegriffen */
+.cornell-notes b, 
+.cornell-notes strong { 
+    color: #60a5fa; /* Leuchtendes Hellblau für sofortige visuelle Fixierung */
     font-weight: 700;
-    letter-spacing: 0.01em;
 }
 
-.cornell-fragment strong:first-child {
-    color: var(--accent-blue);
-    display: inline-block;
-    margin-right: 4px;
+.cornell-notes em {
+    color: var(--accent-cyan);
+    font-style: normal;
 }
 
+/* Zusammenfassungs-Bereich (Take-Home Message) */
 .cornell-summary { 
-    background: #0f172a;
-    border-top: 1px solid rgba(56, 189, 248, 0.2);
-    padding: 24px 28px;
+    background: rgba(16, 24, 46, 0.85); 
+    border-top: 2px solid var(--accent-blue); 
+    padding: 20px 24px; 
+    text-align: left; 
 }
 
-.cornell-summary h4 { 
-    margin: 0 0 8px 0; 
-    color: var(--accent-blue); 
-    text-transform: uppercase; 
-    font-size: 0.78rem; 
-    letter-spacing: 0.08em; 
-    font-weight: 700;
+.cornell-summary-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 4px;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
 }
 
 .cornell-summary p { 
     margin: 0; 
     font-size: 0.95rem; 
     font-weight: 500; 
-    color: #e2e8f0; 
-    line-height: 1.65; 
-    max-width: 900px;
+    color: var(--text-main); 
+    line-height: 1.6; 
 }
 
-@media (max-width: 860px) {
-    .cornell-row-item { grid-template-columns: 1fr; }
-    .cornell-cue-col { border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding: 12px 16px; }
-    .cornell-note-col { padding: 14px 16px; }
+/* Responsive Optimierung für Smartphones */
+@media screen and (max-width: 768px) {
+    .cornell-grid { 
+        display: flex !important; 
+        flex-direction: column !important; 
+        width: 100% !important; 
+    }
+    .cornell-cues { 
+        width: 100% !important; 
+        border-right: none !important; 
+        border-bottom: 1px solid rgba(56, 189, 248, 0.2) !important; 
+        padding: 12px 14px !important; 
+    }
+    .cornell-notes { 
+        width: 100% !important; 
+        padding: 14px 14px !important; 
+        font-size: 0.90rem !important; 
+    }
 }
 
 /* ==========================================================================
