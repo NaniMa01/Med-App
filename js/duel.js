@@ -829,7 +829,7 @@
     }
 
     // ========================================================================
-    // 5. DER 15-SEKUNDEN TOP-CENTER COUNTDOWN-BANNER (60 FPS)
+    // 5. DER 20-SEKUNDEN TOP-CENTER COUNTDOWN-BANNER (60 FPS)
     // ========================================================================
 
     function startQuestionTimer() {
@@ -919,7 +919,7 @@
         const fbBox = document.getElementById('duel-instant-feedback');
         if (fbBox) {
             const statusHeader = isTimeout
-                ? `<div class="duel-fb-title timeout">⏰ Zeit abgelaufen (15.0s)!</div>`
+                ? `<div class="duel-fb-title timeout">⏰ Zeit abgelaufen (20.0s)!</div>`
                 : (isCorrect
                     ? `<div class="duel-fb-title correct">✅ Richtig beantwortet (${timeSpentSec}s) – +1 Punkt!</div>`
                     : `<div class="duel-fb-title wrong">❌ Leider falsch!</div>`);
@@ -1155,7 +1155,7 @@
                         <div class="duel-title-row">
                             <span class="duel-bolt-badge">⚡</span>
                             <h2>MedCheck Klinik-Duell</h2>
-                            <span class="duel-mode-pill">5 Runden • Max. 15 Punkte • 15s Timer</span>
+                            <span class="duel-mode-pill">5 Runden • Max. 15 Punkte • 20s Timer</span>
                         </div>
                         <p class="duel-subtitle">
                             Fordere Kommilitonen per E-Mail-Adresse heraus. Pro Runde wählt abwechselnd ein Spieler 1 aus 4 Fachkategorien und beantwortet 3 klinische Fragen auf Zeit!
@@ -1415,7 +1415,7 @@
                 <div class="duel-cat-select-card">
                     <div class="duel-round-pill-large">Runde ${rNum} von 5</div>
                     <h2>Wähle die Fachkategorie für diese Runde</h2>
-                    <p>Du und dein Gegner beantwortet jeweils dieselben <strong>3 Fragen</strong> aus dem gewählten Thema (15 Sekunden pro Frage).</p>
+                    <p>Du und dein Gegner beantwortet jeweils dieselben <strong>3 Fragen</strong> aus dem gewählten Thema (20 Sekunden pro Frage).</p>
 
                     <div class="duel-cat-grid-4">
                         ${options.map(cat => `
@@ -1437,12 +1437,12 @@
 
         return `
             <div class="duel-arena-wrapper">
-                <!-- OBEN MITTIG: DER 15-SEKUNDEN COUNTDOWN-BANNER -->
+                <!-- OBEN MITTIG: DER 20-SEKUNDEN COUNTDOWN-BANNER -->
                 <div class="duel-timer-top-banner" id="duel-timer-top-banner">
                     <div class="duel-timer-meta-row">
                         <span class="duel-arena-round-tag">Runde ${state.activeRoundNum}/5 • Frage ${state.activeQuestionIdx + 1}/3</span>
                         <span class="duel-arena-cat-tag">${escapeHtml(q.category)}</span>
-                        <span class="duel-timer-clock">⏱️ <strong id="duel-timer-seconds-text">15.0s</strong></span>
+                        <span class="duel-timer-clock">⏱️ <strong id="duel-timer-seconds-text">20.0s</strong></span>
                     </div>
                     <div class="duel-timer-bar-track">
                         <div class="duel-timer-bar-fill" id="duel-timer-bar-fill" style="width: 100%;"></div>
