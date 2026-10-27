@@ -355,7 +355,7 @@ const PharmacologyModule = (() => {
         }
     }
 
-    async function uploadSetToSupabase(setObj, userId = null) {
+   async function uploadSetToSupabase(setObj, userId = null) {
         const sb = getSupabase();
         if (!sb || !sb.auth || !setObj || !setObj.set_id) return false;
 
@@ -367,17 +367,21 @@ const PharmacologyModule = (() => {
             }
             if (!uid) return false;
 
+            // Payload vorbereiten
+            const payload = {
+                set_id: setObj.set_id,
+                user_id: uid,
+                title: setObj.title || 'Pharmakologie-Set',
+                medical_field: setObj.medical_field || 'Pharmakologie',
+                game_type: setObj.game_type || 'arrow_compass',
+                content: setObj,
+                updated_at: new Date().toISOString()
+            };
+
+            // onConflict zwingend OHNE Leerzeichen nach dem Komma angeben!
             const { error } = await sb
                 .from('pharma_sets')
-                .upsert({
-                    set_id: setObj.set_id,
-                    user_id: uid,
-                    title: setObj.title || 'Pharmakologie-Set',
-                    medical_field: setObj.medical_field || 'Pharmakologie',
-                    game_type: setObj.game_type || 'arrow_compass',
-                    content: setObj,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id, set_id' });
+                .upsert(payload, { onConflict: 'user_id,set_id' });
 
             if (error) {
                 console.warn('[Pharmacology] Upload-Warnung:', error.message);
