@@ -2998,8 +2998,8 @@ window.renderOverview = function() {
         </div>
     `;
     container.innerHTML = html;
-};
 
+    // Event-Listener direkt HIER im Funktionskontext einhängen, nachdem das HTML gerendert wurde
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const targetId = cueEl.getAttribute('data-target');
         const targetFragment = document.getElementById(targetId);
@@ -3018,6 +3018,7 @@ window.renderOverview = function() {
         }
     });
 };
+
 
 // ====================================================
 // AUTO-KONVERTER V2.0: AKTIVER FALL -> LOGISCHE KAUSAL-MINDMAP
