@@ -2956,60 +2956,49 @@ window.renderOverview = function() {
 
     let notesHtml = '';
     if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
-        data.cornell_notes.forEach((note, noteIdx) => {
-            const cuesArray = Array.isArray(note.cues) ? note.cues : [];
-            const rawNotes = note.notes || '';
-
-            const paragraphs = rawNotes.split(/<br\s*\/?>\s*<br\s*\/?>|<\/p>/i)
-                .map(p => p.trim())
-                .filter(p => p.length > 0);
-
-            cuesArray.forEach((cueText, cueIdx) => {
-                let paragraphText = paragraphs[cueIdx] || paragraphs[0] || rawNotes;
-
-                notesHtml += `
-                    <div class="cornell-row-item" data-row="${noteIdx}-${cueIdx}">
-                        <div class="cornell-cue-col">
-                            <div class="cornell-cue-item" data-target="frag-${noteIdx}-${cueIdx}">
-                                ${escapeHtml(cueText)}
+        data.cornell_notes.forEach(note => {
+            const rawCues = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
+            
+            // Defensives Rendering: Fallunterscheidung Einzel-Cue vs. Legacy-Multi-Cue
+            notesHtml += `
+                <div class="cornell-grid">
+                    <div class="cornell-cues">
+                        ${rawCues.map(cueText => `
+                            <div class="cornell-cue-item">
+                                <span class="cornell-cue-bullet"></span>
+                                <span class="cornell-cue-label">${cueText}</span>
                             </div>
-                        </div>
-                        <div class="cornell-note-col">
-                            <div class="cornell-fragment" id="frag-${noteIdx}-${cueIdx}">
-                                ${paragraphText}
-                            </div>
-                        </div>
+                        `).join('')}
                     </div>
-                `;
-            });
+                    <div class="cornell-notes">
+                        ${note.notes || ''}
+                    </div>
+                </div>
+            `;
         });
     }
 
-    const topicTitle = window.isSpecialtyBlindMode ? "Klinisches Krankheitsbild (Blind-Training)" : (data.topic || 'Thematische Übersicht');
+    const topicTitle = window.isSpecialtyBlindMode 
+        ? "Klinisches Krankheitsbild (Blind-Training)" 
+        : (data.topic || 'Thematische Übersicht');
 
     const html = `
         <div class="cornell-wrapper">
-            <div class="cornell-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 1.1rem;">📖</span>
-                    <h2 style="margin: 0;">${escapeHtml(topicTitle)}</h2>
-                </div>
-                ${!window.isSpecialtyBlindMode ? `
-                    <button type="button" class="action-btn secondary btn-sm" onclick="window.practiceCurrentCaseAsMindmap()" style="font-size: 0.76rem; padding: 6px 12px; border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue);">
-                        🕸️ Aus dieser Übersicht Mindmap generieren
-                    </button>
-                ` : ''}
+            <div class="cornell-header">
+                <h2>${topicTitle}</h2>
+                <div class="cornell-header-subtitle">Systematische Übersicht & Evidenzbasierte Leitlinien</div>
             </div>
-            <div class="cornell-container-body">
+            <div class="cornell-body">
                 ${notesHtml}
             </div>
             <div class="cornell-summary">
-                <h4>Take-Home Message (Zusammenfassung)</h4>
+                <div class="cornell-summary-badge">Take-Home Message</div>
                 <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
             </div>
         </div>
     `;
     container.innerHTML = html;
+};
 
     container.querySelectorAll('.cornell-cue-item').forEach(cueEl => {
         const targetId = cueEl.getAttribute('data-target');
