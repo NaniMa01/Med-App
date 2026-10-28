@@ -278,7 +278,7 @@ const FriendsModule = (() => {
         return window.supabaseClient || window.supabase || window.sb || null;
     }
 
-   async function syncMyStatsToCloud() {
+ async function syncMyStatsToCloud() {
         const sb = getSupabase();
         if (!sb || !sb.auth) return;
 
@@ -288,8 +288,10 @@ const FriendsModule = (() => {
 
             const me = getMyProfile();
             
-            // Wir fangen den Upsert ab, damit bei Schema-Unstimmigkeiten keine App-Abstürze entstehen
-            const { error } = await sb.from('user_profiles').upsert({
+            // Payload vorbereiten: Wir setzen 'id' UND 'user_id' explizit auf die User-ID,
+            // damit Not-Null-Constraints auf beiden Feldern immer erfüllt sind!
+            const payload = {
+                id: session.user.id,
                 user_id: session.user.id,
                 email: session.user.email.toLowerCase(),
                 display_name: me.name.replace(' (Du)', ''),
@@ -300,10 +302,24 @@ const FriendsModule = (() => {
                 favorite_challenge: me.favoriteChallenge,
                 challenge_counts: me.challengeCounts,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
+            };
+
+            const { error } = await sb.from('user_profiles').upsert(payload, { 
+                onConflict: 'user_id' 
+            });
 
             if (error) {
-                console.warn("[Friends] Cloud-Sync Hinweis (läuft im Hintergrund weiter):", error.message);
+                // Fallback: Falls die Tabelle noch 'id' als primären Konfliktschlüssel erwartet
+                if (error.message && error.message.includes('ON CONFLICT')) {
+                    const fallbackRes = await sb.from('user_profiles').upsert(payload, { 
+                        onConflict: 'id' 
+                    });
+                    if (fallbackRes.error) {
+                        console.warn("[Friends] Cloud-Sync Hinweis:", fallbackRes.error.message);
+                    }
+                } else {
+                    console.warn("[Friends] Cloud-Sync Hinweis (läuft im Hintergrund weiter):", error.message);
+                }
             }
         } catch (err) {
             console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
