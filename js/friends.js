@@ -288,9 +288,9 @@ async function syncMyStatsToCloud() {
 
             const me = getMyProfile();
             const uid = session.user.id;
-
-            // Vollständiges Payload
-            const fullPayload = {
+            
+            const payload = {
+                id: uid,
                 user_id: uid,
                 email: (session.user.email || me.email || '').toLowerCase(),
                 display_name: (me.name || '').replace(' (Du)', '').trim(),
@@ -303,38 +303,20 @@ async function syncMyStatsToCloud() {
                 updated_at: new Date().toISOString()
             };
 
-            // Versuch 1: Primäres Upsert auf user_id
-            let { error } = await sb.from('user_profiles').upsert(fullPayload, { 
-                onConflict: 'user_id' 
+            // Wir versuchen das Upsert. Wenn die Tabelle nicht existiert, fangen wir den Fehler ab.
+            const { error } = await sb.from('user_profiles').upsert(payload, { 
+                onConflict: 'id' 
             });
 
-            // Fallback 1: Falls das Schema 'id' statt 'user_id' als Primary Key erwartet
-            if (error && error.message && error.message.includes('ON CONFLICT')) {
-                const idPayload = { ...fullPayload, id: uid };
-                const res = await sb.from('user_profiles').upsert(idPayload, { onConflict: 'id' });
-                error = res.error;
-            }
-
-            // Fallback 2: Falls spezifische Spalten in der DB fehlen (z.B. challenge_counts)
-            if (error && error.code === 'PGRST204') {
-                const minimalPayload = {
-                    user_id: uid,
-                    email: fullPayload.email,
-                    display_name: fullPayload.display_name,
-                    xp: fullPayload.xp,
-                    updated_at: fullPayload.updated_at
-                };
-                const res = await sb.from('user_profiles').upsert(minimalPayload, { onConflict: 'user_id' });
-                error = res.error;
-            }
-
             if (error) {
-                console.warn("[Friends] Cloud-Sync temporär im Hintergrund zurückgestellt:", error.message);
+                // Nur dezent in der Konsole loggen, damit die App nicht blockiert
+                console.debug("[Friends] Cloud-Sync im lokalen Fallback-Modus aktiv:", error.message);
             }
         } catch (err) {
-            console.warn('[Friends] Offline-Modus aktiv:', err);
+            console.debug('[Friends] Supabase nicht erreichbar, nutze lokalen Speicher.');
         }
     }
+
     async function fetchFriendsFromCloud() {
         const sb = getSupabase();
         if (!sb) return;
@@ -368,9 +350,10 @@ async function syncMyStatsToCloud() {
 
                 if (updated) saveFriendsList(localFriends);
             }
-        } catch (_e) {}
+        } catch (_e) {
+            // Keine harten Exceptions im UI werfen
+        }
     }
-
     // ======================================================================
     // 4. FREUND HINZUFÜGEN, ENTFERNEN, ANFUNKEN & DUELLIEREN
     // ======================================================================
