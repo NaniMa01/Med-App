@@ -6568,3 +6568,389 @@ html[data-theme="tropical"] .dashboard-tool-icon-btn {
     background: #ffffff !important;
     border-color: rgba(100, 116, 139, 0.35) !important;
 }
+
+/* ==========================================================================
+   21. SPRINGER-MEDIZIN EDITORIAL UX, SCROLL-REVEALS & MARGINALIA (UPGRADE)
+   ========================================================================== */
+
+:root {
+    --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-smooth-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --editorial-merke-bg: linear-gradient(135deg, rgba(56, 189, 248, 0.10) 0%, rgba(15, 23, 42, 0.78) 100%);
+    --editorial-cave-bg: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(15, 23, 42, 0.78) 100%);
+    --editorial-pearl-bg: linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, rgba(15, 23, 42, 0.78) 100%);
+}
+
+/* 1. DYNAMISCHE LESE-FORTSCHRITTSLEISTE (UNTER DER TOPBAR) */
+.editorial-scroll-progress-wrap {
+    position: sticky;
+    top: 60px; /* Exakt unter der 60px Topbar */
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.03);
+    z-index: 990;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.editorial-scroll-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan), var(--accent-indigo));
+    box-shadow: 0 0 12px var(--accent-blue);
+    transition: width 0.12s linear;
+    will-change: width;
+}
+
+/* 2. STICKY ARTIKEL-KONTEXT-LEISTE (ERSCHEINT BEIM TIEFER-SCROLLEN) */
+.editorial-sticky-context-bar {
+    position: sticky;
+    top: 63px;
+    z-index: 980;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 20px;
+    margin: -10px 0 18px 0;
+    background: rgba(10, 15, 29, 0.86);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -6px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transform: translateY(-14px);
+    pointer-events: none;
+    transition: opacity 0.32s var(--ease-editorial), transform 0.32s var(--ease-editorial);
+}
+
+.editorial-sticky-context-bar.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.editorial-context-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.editorial-context-kicker {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-blue);
+    flex-shrink: 0;
+}
+
+.editorial-context-section-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.editorial-context-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+}
+
+/* 3. SCROLL-REVEAL ANIMATIONEN FÜR KARTEN, CORNELL-ZEILEN & AUDIT-STEPS */
+.scroll-reveal-item {
+    opacity: 0;
+    transform: translateY(22px) scale(0.992);
+    filter: blur(3px);
+    transition: 
+        opacity 0.55s var(--ease-editorial),
+        transform 0.55s var(--ease-editorial),
+        filter 0.45s var(--ease-editorial);
+    transition-delay: var(--stagger-delay, 0ms);
+    will-change: opacity, transform, filter;
+}
+
+.scroll-reveal-item.is-in-view {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+}
+
+/* Seitlicher Slide-In für Zusatzinformationen (SpringerMedizin Randspalten-Effekt) */
+.scroll-reveal-aside {
+    opacity: 0;
+    transform: translateX(24px);
+    transition: opacity 0.5s var(--ease-editorial), transform 0.5s var(--ease-editorial);
+}
+
+.scroll-reveal-aside.is-in-view {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Fokus-Dimming beim intensiven Lesen im Cornell- & Audit-Modus */
+.cornell-body:hover .cornell-grid:not(:hover) {
+    opacity: 0.72;
+    transition: opacity 0.28s ease;
+}
+
+.cornell-grid {
+    transition: background 0.28s var(--ease-editorial), opacity 0.28s ease, transform 0.28s var(--ease-editorial);
+}
+
+/* 4. SPRINGER-MEDIZIN CALLOUT-BOXEN ("MERKE", "CAVE", "KLINIK-PERLE") */
+.sm-callout-box {
+    position: relative;
+    margin: 16px 0;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    border-left: 4px solid var(--accent-blue);
+    background: var(--editorial-merke-bg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: transform 0.25s var(--ease-editorial), box-shadow 0.25s var(--ease-editorial), border-color 0.25s ease;
+}
+
+.sm-callout-box:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.sm-callout-box.sm-cave {
+    border-left-color: var(--color-risk);
+    background: var(--editorial-cave-bg);
+}
+
+.sm-callout-box.sm-pearl {
+    border-left-color: var(--color-symptom);
+    background: var(--editorial-pearl-bg);
+}
+
+.sm-callout-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.sm-callout-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--accent-blue);
+}
+
+.sm-callout-box.sm-cave .sm-callout-badge { color: #f87171; }
+.sm-callout-box.sm-pearl .sm-callout-badge { color: #34d399; }
+
+.sm-callout-body {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-main);
+}
+
+/* 5. SMOOTH EXPANDABLE DEEP-DIVE DRAWER (OHNE RUCKELN MIT CSS GRID 0fr -> 1fr) */
+.sm-deep-dive-card {
+    margin: 12px 0;
+    border: 1px solid var(--card-border);
+    border-radius: 11px;
+    background: rgba(15, 23, 42, 0.45);
+    transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+.sm-deep-dive-card.is-open {
+    border-color: rgba(56, 189, 248, 0.45);
+    background: rgba(15, 23, 42, 0.72);
+}
+
+.sm-deep-dive-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 16px;
+    background: transparent;
+    border: none;
+    color: var(--accent-cyan);
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sm-deep-dive-trigger:hover {
+    color: var(--text-main);
+}
+
+.sm-deep-dive-chevron {
+    font-size: 0.75rem;
+    transition: transform 0.32s var(--ease-spring);
+}
+
+.sm-deep-dive-card.is-open .sm-deep-dive-chevron {
+    transform: rotate(180deg);
+}
+
+.sm-deep-dive-grid-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.36s var(--ease-editorial), opacity 0.3s ease;
+    opacity: 0;
+}
+
+.sm-deep-dive-card.is-open .sm-deep-dive-grid-wrapper {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.sm-deep-dive-inner {
+    overflow: hidden;
+}
+
+.sm-deep-dive-content {
+    padding: 0 16px 14px 16px;
+    border-top: 1px dashed var(--divider-color);
+    padding-top: 12px;
+    font-size: 0.86rem;
+    line-height: 1.62;
+    color: var(--text-muted);
+}
+
+/* 6. INTERAKTIVE FACHBEGRIFF-TOOLTIPS (INLINE MEDICAL GLOSSARY) */
+.med-term-highlight {
+    position: relative;
+    display: inline;
+    border-bottom: 1.5px dotted var(--accent-cyan);
+    color: var(--text-main);
+    cursor: help;
+    transition: color 0.18s ease, background-color 0.18s ease;
+}
+
+.med-term-highlight:hover {
+    color: var(--accent-cyan);
+    background: rgba(34, 211, 238, 0.1);
+    border-radius: 3px;
+}
+
+.med-term-highlight::after {
+    content: attr(data-med-info);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(6px) scale(0.96);
+    width: max-content;
+    max-width: 280px;
+    padding: 9px 13px;
+    border-radius: 10px;
+    background: rgba(10, 15, 29, 0.96);
+    border: 1px solid var(--accent-cyan);
+    color: #f8fafc;
+    font-size: 0.76rem;
+    font-weight: 500;
+    line-height: 1.45;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s var(--ease-editorial), transform 0.2s var(--ease-editorial), visibility 0.2s;
+    z-index: 1200;
+}
+
+.med-term-highlight:hover::after,
+.med-term-highlight:focus::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* 7. SANFTE AKKORDEON-ANIMATION FÜR SUPER-FOLDER & UNTERORDNER */
+.super-folder-body,
+.category-cases-body {
+    animation: editorialSlideDown 0.28s var(--ease-editorial) both;
+    transform-origin: top center;
+}
+
+@keyframes editorialSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 8. LIGHT-MODE KOMPATIBILITÄT (CLINICAL DAYLIGHT & TROPICAL SUNDAY) */
+[data-theme="daylight"] .editorial-sticky-context-bar,
+[data-theme="tropical"] .editorial-sticky-context-bar {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border-color: var(--card-border) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="daylight"] .sm-callout-box,
+[data-theme="tropical"] .sm-callout-box {
+    background: #f0f9ff !important;
+    border-color: #bae6fd !important;
+    border-left: 4px solid var(--accent-blue) !important;
+    color: var(--text-main) !important;
+}
+
+[data-theme="daylight"] .sm-callout-box.sm-cave,
+[data-theme="tropical"] .sm-callout-box.sm-cave {
+    background: #fef2f2 !important;
+    border-color: #fecaca !important;
+    border-left: 4px solid var(--color-risk) !important;
+}
+
+[data-theme="daylight"] .sm-callout-box.sm-pearl,
+[data-theme="tropical"] .sm-callout-box.sm-pearl {
+    background: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+    border-left: 4px solid var(--color-symptom) !important;
+}
+
+[data-theme="daylight"] .sm-deep-dive-card,
+[data-theme="tropical"] .sm-deep-dive-card {
+    background: var(--surface-secondary) !important;
+    border-color: var(--card-border) !important;
+}
+
+[data-theme="daylight"] .med-term-highlight::after,
+[data-theme="tropical"] .med-term-highlight::after {
+    background: #0f172a !important;
+    color: #ffffff !important;
+}
+
+/* Barrierefreiheit: Reduzierte Bewegung respektieren */
+@media (prefers-reduced-motion: reduce) {
+    .scroll-reveal-item,
+    .scroll-reveal-aside {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        transition: none !important;
+    }
+}
