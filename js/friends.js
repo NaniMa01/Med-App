@@ -279,39 +279,53 @@ const FriendsModule = (() => {
     }
 
 async function syncMyStatsToCloud() {
-    const sb = getSupabase();
-    if (!sb || !sb.auth) return;
+        const sb = getSupabase();
+        if (!sb || !sb.auth) return;
 
-    try {
-        const { data: { session } } = await sb.auth.getSession();
-        if (!session?.user) return;
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session?.user) return;
 
-        const me = getMyProfile();
+            const me = getMyProfile();
+            const currentUid = session.user.id;
+            
+            // Setzt 'id' UND 'user_id' auf die User-ID, damit Postgres in keinem Fall
+            // eine "null value in column id"-Verletzung wirft!
+            const payload = {
+                id: currentUid,
+                user_id: currentUid,
+                email: session.user.email.toLowerCase(),
+                display_name: me.name.replace(' (Du)', ''),
+                friend_code: me.friendCode,
+                xp: me.xp,
+                monthly_cases: me.monthlyCases,
+                streak: me.streak,
+                favorite_challenge: me.favoriteChallenge,
+                challenge_counts: me.challengeCounts,
+                updated_at: new Date().toISOString()
+            };
 
-        const payload = {
-            user_id: session.user.id,
-            email: session.user.email.toLowerCase(),
-            display_name: me.name.replace(' (Du)', ''),
-            friend_code: me.friendCode,
-            xp: me.xp,
-            monthly_cases: me.monthlyCases,
-            streak: me.streak,
-            favorite_challenge: me.favoriteChallenge,
-            challenge_counts: me.challengeCounts,
-            updated_at: new Date().toISOString()
-        };
+            const { error } = await sb.from('user_profiles').upsert(payload, { 
+                onConflict: 'user_id' 
+            });
 
-        const { error } = await sb.from('user_profiles').upsert(payload, { 
-            onConflict: 'user_id' 
-        });
-
-        if (error) {
-            console.warn('[Friends] Cloud-Sync Hinweis:', error.message);
+            if (error) {
+                // Fallback für alte Schemas, die noch 'id' als Konfliktspalte erwarten
+                if (error.message && error.message.includes('user_id')) {
+                    const fallbackRes = await sb.from('user_profiles').upsert(payload, { 
+                        onConflict: 'id' 
+                    });
+                    if (fallbackRes.error) {
+                        console.warn("[Friends] Cloud-Sync Hinweis:", fallbackRes.error.message);
+                    }
+                } else {
+                    console.warn("[Friends] Cloud-Sync Hinweis:", error.message);
+                }
+            }
+        } catch (err) {
+            console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
         }
-    } catch (err) {
-        console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
     }
-}
     async function fetchFriendsFromCloud() {
         const sb = getSupabase();
         if (!sb) return;
