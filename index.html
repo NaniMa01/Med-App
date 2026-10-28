@@ -126,7 +126,18 @@
                 </svg>
                 <span>Pharmakologie</span>
             </li>
-
+            
+<li class="nav-item" data-view="friends" id="nav-friends" onclick="switchTab('friends', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    </svg>
+    <span>Freunde & Scoreboard</span>
+    <span class="depot-nav-badge" id="nav-friends-badge" style="display: none; background: var(--accent-blue); color: #060913;">0</span>
+</li>
+            
             <li class="nav-item" data-view="duel" id="nav-duel" onclick="switchTab('duel', this)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
@@ -711,8 +722,15 @@
                      ======================================================== -->
                 <section class="panel view-section hidden" id="duel-view" style="display: none;"></section>
 
-            </div>
+    
+        <!-- ========================================================
+     VIEW 9: FREUNDE, SCOREBOARD & KLINIK-STATISTIK
+     ======================================================== -->
+<section class="panel view-section hidden" id="friends-view" style="display: none;"></section>
+
+                      </div>
         </div>
+
 
         <!-- ================================================================
              06. GLOBALE MODALS, POPUPS & POPOVERS
@@ -778,6 +796,7 @@
         <script src="js/emergency.js"></script>
         <script src="js/mindmap.js"></script>
         <script src="js/duel.js"></script>
+        <script src="js/friends.js"></script>
         <script src="js/app.js"></script>
         <script src="js/comments.js"></script>
         <script type="module" src="js/spaced_repetition.js"></script>
