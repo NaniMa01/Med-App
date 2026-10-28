@@ -279,39 +279,39 @@ const FriendsModule = (() => {
     }
 
 async function syncMyStatsToCloud() {
-        const sb = getSupabase();
-        if (!sb || !sb.auth) return;
+    const sb = getSupabase();
+    if (!sb || !sb.auth) return;
 
-        try {
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session?.user) return;
+    try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session?.user) return;
 
-            const me = getMyProfile();
-            
-            const payload = {
-                user_id: session.user.id,
-                email: session.user.email.toLowerCase(),
-                display_name: me.name.replace(' (Du)', ''),
-                friend_code: me.friendCode,
-                xp: me.xp,
-                monthly_cases: me.monthlyCases,
-                streak: me.streak,
-                favorite_challenge: me.favoriteChallenge,
-                challenge_counts: me.challengeCounts,
-                updated_at: new Date().toISOString()
-            };
+        const me = getMyProfile();
 
-            const { error } = await sb.from('user_profiles').upsert(payload, { 
-                onConflict: 'user_id' 
-            });
+        const payload = {
+            user_id: session.user.id,
+            email: session.user.email.toLowerCase(),
+            display_name: me.name.replace(' (Du)', ''),
+            friend_code: me.friendCode,
+            xp: me.xp,
+            monthly_cases: me.monthlyCases,
+            streak: me.streak,
+            favorite_challenge: me.favoriteChallenge,
+            challenge_counts: me.challengeCounts,
+            updated_at: new Date().toISOString()
+        };
 
-            if (error) {
-                console.warn("[Friends] Cloud-Sync Hinweis:", error.message);
-            }
-        } catch (err) {
-            console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
+        const { error } = await sb.from('user_profiles').upsert(payload, { 
+            onConflict: 'user_id' 
+        });
+
+        if (error) {
+            console.warn('[Friends] Cloud-Sync Hinweis:', error.message);
         }
+    } catch (err) {
+        console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
     }
+}
     async function fetchFriendsFromCloud() {
         const sb = getSupabase();
         if (!sb) return;
