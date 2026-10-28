@@ -5146,3 +5146,207 @@ async function loadCasesFromDatabase() {
         console.error("Fehler bei loadCasesFromDatabase:", err);
     }
 }
+
+
+/* ==========================================================================
+   EDITORIAL UX & SCROLL-REVEAL ENGINE (SpringerMedizin / AMBOSS Style)
+   ========================================================================== */
+const EditorialScrollEngine = (() => {
+    let observer = null;
+    let mainScroller = null;
+    let progressBar = null;
+    let stickyBar = null;
+    let stickySectionTitle = null;
+    let stickyReadPct = null;
+
+    function init() {
+        mainScroller = document.querySelector('.main-wrapper');
+        if (!mainScroller) return;
+
+        injectEditorialHUD();
+        setupIntersectionObserver();
+        setupScrollListener();
+        setupMutationWatcher();
+
+        // Initialer Durchlauf für bereits gerenderte Elemente
+        refreshScrollElements();
+    }
+
+    // 1. Erzeugt die Lesefortschrittsleiste & die Sticky-Kontext-Bar automatisch
+    function injectEditorialHUD() {
+        const topbar = document.querySelector('topbar');
+        if (topbar && !document.querySelector('.editorial-scroll-progress-wrap')) {
+            const progWrap = document.createElement('div');
+            progWrap.className = 'editorial-scroll-progress-wrap';
+            progWrap.innerHTML = `<div class="editorial-scroll-progress-bar" id="editorial-progress-bar"></div>`;
+            topbar.insertAdjacentElement('afterend', progWrap);
+            progressBar = document.getElementById('editorial-progress-bar');
+        }
+
+        const playerView = document.getElementById('player-view');
+        if (playerView && !document.getElementById('editorial-sticky-bar')) {
+            stickyBar = document.createElement('div');
+            stickyBar.id = 'editorial-sticky-bar';
+            stickyBar.className = 'editorial-sticky-context-bar';
+            stickyBar.innerHTML = `
+                <div class="editorial-context-left">
+                    <span class="editorial-context-kicker">Lernfokus</span>
+                    <span class="editorial-context-section-title" id="editorial-active-section">Übersicht & klinischer Verlauf</span>
+                </div>
+                <div class="editorial-context-meta">
+                    <span id="editorial-read-progress-text">0% gelesen</span>
+                </div>
+            `;
+            playerView.prepend(stickyBar);
+            stickySectionTitle = document.getElementById('editorial-active-section');
+            stickyReadPct = document.getElementById('editorial-read-progress-text');
+        }
+    }
+
+    // 2. IntersectionObserver für butterweiche Scroll-Reveals & aktives Section-Tracking
+    function setupIntersectionObserver() {
+        observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-in-view');
+
+                    // Aktuellen Cue oder Audit-Schritt in die Sticky-Bar spiegeln
+                    const cueEl = entry.target.querySelector('.cornell-cue-item, .audit-step-title');
+                    if (cueEl && stickySectionTitle) {
+                        stickySectionTitle.textContent = cueEl.textContent.trim();
+                    }
+                }
+            });
+        }, {
+            root: mainScroller,
+            rootMargin: '0px 0px -45px 0px',
+            threshold: 0.08
+        });
+    }
+
+    // 3. Berechnet Scroll-Tiefe im .main-wrapper
+    function setupScrollListener() {
+        let ticking = false;
+        mainScroller.addEventListener('scroll', () => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    updateScrollHUD();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
+    }
+
+    function updateScrollHUD() {
+        const scrollTop = mainScroller.scrollTop;
+        const scrollHeight = mainScroller.scrollHeight - mainScroller.clientHeight;
+        const pct = scrollHeight > 0 ? Math.min(100, Math.round((scrollTop / scrollHeight) * 100)) : 0;
+
+        if (progressBar) {
+            progressBar.style.width = `${pct}%`;
+        }
+        if (stickyReadPct) {
+            stickyReadPct.textContent = `${pct}% erarbeitet`;
+        }
+
+        // Sticky-Bar im Player erst ab 180px Scrolltiefe einblenden
+        const playerView = document.getElementById('player-view');
+        const isPlayerActive = playerView && !playerView.classList.contains('hidden');
+        if (stickyBar) {
+            if (isPlayerActive && scrollTop > 180) {
+                stickyBar.classList.add('is-visible');
+            } else {
+                stickyBar.classList.remove('is-visible');
+            }
+        }
+    }
+
+    // 4. Wandelt "Merke:", "Cave:" oder "Klinik-Perle:" Absätze automatisch in Springer-Callouts um
+    function upgradeEditorialCallouts() {
+        const paragraphs = document.querySelectorAll('.cornell-notes p:not(.sm-upgraded), .step-content p:not(.sm-upgraded)');
+        paragraphs.forEach((p) => {
+            p.classList.add('sm-upgraded');
+            const rawText = p.innerHTML.trim();
+
+            if (/^(<strong>|<b>)?\s*(Merke|MERKE|Take-Home)[:\s]/i.test(rawText)) {
+                wrapInCallout(p, 'sm-merke', '📘 Merke', rawText.replace(/^(<strong>|<b>)?\s*(Merke|MERKE|Take-Home)[:\s]*(<\/strong>|<\/b>)?/i, ''));
+            } else if (/^(<strong>|<b>)?\s*(Cave|CAVE|Red Flag|Achtung)[:\s]/i.test(rawText)) {
+                wrapInCallout(p, 'sm-cave', '⚠️ Cave / Red Flag', rawText.replace(/^(<strong>|<b>)?\s*(Cave|CAVE|Red Flag|Achtung)[:\s]*(<\/strong>|<\/b>)?/i, ''));
+            } else if (/^(<strong>|<b>)?\s*(Klinik-Perle|Clinical Pearl|Praxis-Tipp)[:\s]/i.test(rawText)) {
+                wrapInCallout(p, 'sm-pearl', '💡 Klinische Perle', rawText.replace(/^(<strong>|<b>)?\s*(Klinik-Perle|Clinical Pearl|Praxis-Tipp)[:\s]*(<\/strong>|<\/b>)?/i, ''));
+            }
+        });
+    }
+
+    function wrapInCallout(targetParagraph, modifierClass, badgeTitle, cleanHTML) {
+        const box = document.createElement('div');
+        box.className = `sm-callout-box ${modifierClass} scroll-reveal-aside`;
+        box.innerHTML = `
+            <div class="sm-callout-header">
+                <span class="sm-callout-badge">${badgeTitle}</span>
+            </div>
+            <div class="sm-callout-body">${cleanHTML}</div>
+        `;
+        targetParagraph.replaceWith(box);
+        if (observer) observer.observe(box);
+    }
+
+    // 5. Registriert neue Karten & Abschnitte für die Scroll-Animation
+    function refreshScrollElements() {
+        upgradeEditorialCallouts();
+
+        const selectors = [
+            '.cornell-grid',
+            '.audit-step-container',
+            '.quiz-card',
+            '.case-card',
+            '.specialty-card',
+            '.depot-card',
+            '.cascade-disease-container',
+            '.sr-topic-group'
+        ].join(', ');
+
+        const elements = document.querySelectorAll(selectors);
+        elements.forEach((el, index) => {
+            if (!el.classList.contains('scroll-reveal-item')) {
+                el.classList.add('scroll-reveal-item');
+                // Dezente Kaskaden-Verzögerung (max. 240ms bei Grid-Karten)
+                const stagger = (index % 6) * 40;
+                el.style.setProperty('--stagger-delay', `${stagger}ms`);
+                if (observer) observer.observe(el);
+            }
+        });
+
+        updateScrollHUD();
+    }
+
+    // 6. Beobachtet DOM-Änderungen (z. B. beim Öffnen eines Falls oder Wechsel des Challenge-Tabs)
+    function setupMutationWatcher() {
+        const contentBody = document.querySelector('.content-body');
+        if (!contentBody) return;
+
+        const domObserver = new MutationObserver(() => {
+            refreshScrollElements();
+        });
+
+        domObserver.observe(contentBody, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // Globale Hilfsfunktion für aufklappbare Zusatzinfos ("Exkurs / Leitlinien-Detail")
+    window.toggleDeepDive = function(btnElement) {
+        const card = btnElement.closest('.sm-deep-dive-card');
+        if (card) {
+            card.classList.toggle('is-open');
+        }
+    };
+
+    return { init, refresh: refreshScrollElements };
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+    EditorialScrollEngine.init();
+});
