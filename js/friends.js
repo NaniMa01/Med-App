@@ -287,43 +287,52 @@ async function syncMyStatsToCloud() {
             if (!session?.user) return;
 
             const me = getMyProfile();
-            const currentUid = session.user.id;
-            
-            // Setzt 'id' UND 'user_id' auf die User-ID, damit Postgres in keinem Fall
-            // eine "null value in column id"-Verletzung wirft!
-            const payload = {
-                id: currentUid,
-                user_id: currentUid,
-                email: session.user.email.toLowerCase(),
-                display_name: me.name.replace(' (Du)', ''),
+            const uid = session.user.id;
+
+            // Vollständiges Payload
+            const fullPayload = {
+                user_id: uid,
+                email: (session.user.email || me.email || '').toLowerCase(),
+                display_name: (me.name || '').replace(' (Du)', '').trim(),
                 friend_code: me.friendCode,
-                xp: me.xp,
-                monthly_cases: me.monthlyCases,
-                streak: me.streak,
-                favorite_challenge: me.favoriteChallenge,
-                challenge_counts: me.challengeCounts,
+                xp: Number(me.xp) || 0,
+                monthly_cases: Number(me.monthlyCases) || 0,
+                streak: Number(me.streak) || 1,
+                favorite_challenge: me.favoriteChallenge || 'audit',
+                challenge_counts: me.challengeCounts || {},
                 updated_at: new Date().toISOString()
             };
 
-            const { error } = await sb.from('user_profiles').upsert(payload, { 
+            // Versuch 1: Primäres Upsert auf user_id
+            let { error } = await sb.from('user_profiles').upsert(fullPayload, { 
                 onConflict: 'user_id' 
             });
 
+            // Fallback 1: Falls das Schema 'id' statt 'user_id' als Primary Key erwartet
+            if (error && error.message && error.message.includes('ON CONFLICT')) {
+                const idPayload = { ...fullPayload, id: uid };
+                const res = await sb.from('user_profiles').upsert(idPayload, { onConflict: 'id' });
+                error = res.error;
+            }
+
+            // Fallback 2: Falls spezifische Spalten in der DB fehlen (z.B. challenge_counts)
+            if (error && error.code === 'PGRST204') {
+                const minimalPayload = {
+                    user_id: uid,
+                    email: fullPayload.email,
+                    display_name: fullPayload.display_name,
+                    xp: fullPayload.xp,
+                    updated_at: fullPayload.updated_at
+                };
+                const res = await sb.from('user_profiles').upsert(minimalPayload, { onConflict: 'user_id' });
+                error = res.error;
+            }
+
             if (error) {
-                // Fallback für alte Schemas, die noch 'id' als Konfliktspalte erwarten
-                if (error.message && error.message.includes('user_id')) {
-                    const fallbackRes = await sb.from('user_profiles').upsert(payload, { 
-                        onConflict: 'id' 
-                    });
-                    if (fallbackRes.error) {
-                        console.warn("[Friends] Cloud-Sync Hinweis:", fallbackRes.error.message);
-                    }
-                } else {
-                    console.warn("[Friends] Cloud-Sync Hinweis:", error.message);
-                }
+                console.warn("[Friends] Cloud-Sync temporär im Hintergrund zurückgestellt:", error.message);
             }
         } catch (err) {
-            console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
+            console.warn('[Friends] Offline-Modus aktiv:', err);
         }
     }
     async function fetchFriendsFromCloud() {
