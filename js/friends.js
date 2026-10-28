@@ -278,7 +278,7 @@ const FriendsModule = (() => {
         return window.supabaseClient || window.supabase || window.sb || null;
     }
 
-    async function syncMyStatsToCloud() {
+   async function syncMyStatsToCloud() {
         const sb = getSupabase();
         if (!sb || !sb.auth) return;
 
@@ -287,7 +287,9 @@ const FriendsModule = (() => {
             if (!session?.user) return;
 
             const me = getMyProfile();
-            await sb.from('user_profiles').upsert({
+            
+            // Wir fangen den Upsert ab, damit bei Schema-Unstimmigkeiten keine App-Abstürze entstehen
+            const { error } = await sb.from('user_profiles').upsert({
                 user_id: session.user.id,
                 email: session.user.email.toLowerCase(),
                 display_name: me.name.replace(' (Du)', ''),
@@ -299,11 +301,14 @@ const FriendsModule = (() => {
                 challenge_counts: me.challengeCounts,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
-        } catch (_err) {
-            // Ignoriert leise, falls Tabelle 'user_profiles' noch nicht in Supabase angelegt wurde
+
+            if (error) {
+                console.warn("[Friends] Cloud-Sync Hinweis (läuft im Hintergrund weiter):", error.message);
+            }
+        } catch (err) {
+            console.warn('[Friends] Konnte Profil nicht zur Cloud senden:', err);
         }
     }
-
     async function fetchFriendsFromCloud() {
         const sb = getSupabase();
         if (!sb) return;
