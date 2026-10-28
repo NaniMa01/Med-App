@@ -5146,10 +5146,8 @@ async function loadCasesFromDatabase() {
         console.error("Fehler bei loadCasesFromDatabase:", err);
     }
 }
-
-
 /* ==========================================================================
-   EDITORIAL UX & SCROLL-REVEAL ENGINE (SpringerMedizin / AMBOSS Style)
+   EDITORIAL UX & SCROLL-REVEAL ENGINE (SpringerMedizin / AMBOSS Style - V2)
    ========================================================================== */
 const EditorialScrollEngine = (() => {
     let observer = null;
@@ -5158,23 +5156,28 @@ const EditorialScrollEngine = (() => {
     let stickyBar = null;
     let stickySectionTitle = null;
     let stickyReadPct = null;
+    let mutationThrottleTimer = null;
 
     function init() {
         mainScroller = document.querySelector('.main-wrapper');
-        if (!mainScroller) return;
+        if (!mainScroller) {
+            // Falls das Layout asynchron lädt, beim nächsten Frame nochmal versuchen
+            requestAnimationFrame(init);
+            return;
+        }
 
         injectEditorialHUD();
         setupIntersectionObserver();
         setupScrollListener();
         setupMutationWatcher();
 
-        // Initialer Durchlauf für bereits gerenderte Elemente
         refreshScrollElements();
     }
 
     // 1. Erzeugt die Lesefortschrittsleiste & die Sticky-Kontext-Bar automatisch
     function injectEditorialHUD() {
-        const topbar = document.querySelector('topbar');
+        // Flexiblerer Selector: Sucht nach Tag <topbar> ODER Klasse .topbar / header
+        const topbar = document.querySelector('topbar') || document.querySelector('.topbar') || document.querySelector('header');
         if (topbar && !document.querySelector('.editorial-scroll-progress-wrap')) {
             const progWrap = document.createElement('div');
             progWrap.className = 'editorial-scroll-progress-wrap';
@@ -5203,14 +5206,14 @@ const EditorialScrollEngine = (() => {
         }
     }
 
-    // 2. IntersectionObserver für butterweiche Scroll-Reveals & aktives Section-Tracking
+    // 2. IntersectionObserver für Scroll-Reveals
     function setupIntersectionObserver() {
+        if (observer) observer.disconnect();
         observer = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('is-in-view');
 
-                    // Aktuellen Cue oder Audit-Schritt in die Sticky-Bar spiegeln
                     const cueEl = entry.target.querySelector('.cornell-cue-item, .audit-step-title');
                     if (cueEl && stickySectionTitle) {
                         stickySectionTitle.textContent = cueEl.textContent.trim();
@@ -5224,7 +5227,7 @@ const EditorialScrollEngine = (() => {
         });
     }
 
-    // 3. Berechnet Scroll-Tiefe im .main-wrapper
+    // 3. Scroll-Listener mit RequestAnimationFrame
     function setupScrollListener() {
         let ticking = false;
         mainScroller.addEventListener('scroll', () => {
@@ -5239,18 +5242,14 @@ const EditorialScrollEngine = (() => {
     }
 
     function updateScrollHUD() {
+        if (!mainScroller) return;
         const scrollTop = mainScroller.scrollTop;
         const scrollHeight = mainScroller.scrollHeight - mainScroller.clientHeight;
         const pct = scrollHeight > 0 ? Math.min(100, Math.round((scrollTop / scrollHeight) * 100)) : 0;
 
-        if (progressBar) {
-            progressBar.style.width = `${pct}%`;
-        }
-        if (stickyReadPct) {
-            stickyReadPct.textContent = `${pct}% erarbeitet`;
-        }
+        if (progressBar) progressBar.style.width = `${pct}%`;
+        if (stickyReadPct) stickyReadPct.textContent = `${pct}% erarbeitet`;
 
-        // Sticky-Bar im Player erst ab 180px Scrolltiefe einblenden
         const playerView = document.getElementById('player-view');
         const isPlayerActive = playerView && !playerView.classList.contains('hidden');
         if (stickyBar) {
@@ -5262,7 +5261,7 @@ const EditorialScrollEngine = (() => {
         }
     }
 
-    // 4. Wandelt "Merke:", "Cave:" oder "Klinik-Perle:" Absätze automatisch in Springer-Callouts um
+    // 4. Callout-Ersetzung ("Merke", "Cave", etc.)
     function upgradeEditorialCallouts() {
         const paragraphs = document.querySelectorAll('.cornell-notes p:not(.sm-upgraded), .step-content p:not(.sm-upgraded)');
         paragraphs.forEach((p) => {
@@ -5292,7 +5291,6 @@ const EditorialScrollEngine = (() => {
         if (observer) observer.observe(box);
     }
 
-    // 5. Registriert neue Karten & Abschnitte für die Scroll-Animation
     function refreshScrollElements() {
         upgradeEditorialCallouts();
 
@@ -5311,7 +5309,6 @@ const EditorialScrollEngine = (() => {
         elements.forEach((el, index) => {
             if (!el.classList.contains('scroll-reveal-item')) {
                 el.classList.add('scroll-reveal-item');
-                // Dezente Kaskaden-Verzögerung (max. 240ms bei Grid-Karten)
                 const stagger = (index % 6) * 40;
                 el.style.setProperty('--stagger-delay', `${stagger}ms`);
                 if (observer) observer.observe(el);
@@ -5321,13 +5318,16 @@ const EditorialScrollEngine = (() => {
         updateScrollHUD();
     }
 
-    // 6. Beobachtet DOM-Änderungen (z. B. beim Öffnen eines Falls oder Wechsel des Challenge-Tabs)
+    // 5. Gedebouncter MutationObserver gegen Performance-Einbrüche
     function setupMutationWatcher() {
         const contentBody = document.querySelector('.content-body');
         if (!contentBody) return;
 
         const domObserver = new MutationObserver(() => {
-            refreshScrollElements();
+            clearTimeout(mutationThrottleTimer);
+            mutationThrottleTimer = setTimeout(() => {
+                refreshScrollElements();
+            }, 150); // Führt das Refresh erst aus, wenn für 150ms keine DOM-Änderungen mehr passierten
         });
 
         domObserver.observe(contentBody, {
@@ -5336,7 +5336,6 @@ const EditorialScrollEngine = (() => {
         });
     }
 
-    // Globale Hilfsfunktion für aufklappbare Zusatzinfos ("Exkurs / Leitlinien-Detail")
     window.toggleDeepDive = function(btnElement) {
         const card = btnElement.closest('.sm-deep-dive-card');
         if (card) {
@@ -5347,6 +5346,9 @@ const EditorialScrollEngine = (() => {
     return { init, refresh: refreshScrollElements };
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
+// Startet sicher beim Laden
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => EditorialScrollEngine.init());
+} else {
     EditorialScrollEngine.init();
-});
+}
