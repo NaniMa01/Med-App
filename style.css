@@ -26,6 +26,7 @@
    21. SPRINGER-MEDIZIN EDITORIAL UX, SCROLL-REVEALS & GLOSSARY
    22. THEME ENGINE (SCRUBS, NEURO, DAYLIGHT & TROPICAL OVERRIDES)
    23. RESPONSIVE, MOBILE PWA SAFE-AREAS & LANDSCAPE FAB
+   24. FREUNDE, SCOREBOARD & KLINIK-TELEMETRIE (friends.js)
    ========================================================================== */
 
 /* ==========================================================================
@@ -4785,4 +4786,515 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
         filter: none !important;
         transition: none !important;
     }
+}
+
+/* ==========================================================================
+   24. FREUNDE, SCOREBOARD & KLINIK-TELEMETRIE (friends.js)
+   ========================================================================== */
+.friends-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.friends-header-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 20px 24px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75));
+    border: 1px solid var(--card-border);
+}
+
+.friends-kicker {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.friends-main-title {
+    margin: 0 0 4px 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.friends-subtitle {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.friends-code-box {
+    background: rgba(6, 9, 19, 0.65);
+    border: 1px dashed rgba(56, 189, 248, 0.4);
+    padding: 10px 14px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.friends-code-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    font-weight: 700;
+}
+
+.friends-code-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.friends-code-row code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--accent-cyan);
+}
+
+/* Freund hinzufügen Bar */
+.friends-add-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+}
+
+.friends-add-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.friends-input-wrap {
+    flex: 1;
+    min-width: 260px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.friends-input-icon {
+    position: absolute;
+    left: 12px;
+    font-size: 0.95rem;
+    pointer-events: none;
+}
+
+.friends-add-input {
+    width: 100%;
+    padding: 10px 14px 10px 38px;
+    border-radius: 10px;
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    font-size: 0.86rem;
+    font-family: inherit;
+    outline: none;
+}
+
+.friends-add-input:focus {
+    border-color: var(--accent-blue);
+}
+
+.friends-feedback {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.friends-feedback.success { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.35); }
+.friends-feedback.error   { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); }
+
+/* 4er KPI Grid */
+.friends-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.friends-kpi-card {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.friends-kpi-card.highlight-blue    { border-top: 3px solid var(--accent-blue); }
+.friends-kpi-card.highlight-cyan    { border-top: 3px solid var(--accent-cyan); }
+.friends-kpi-card.highlight-emerald { border-top: 3px solid var(--color-symptom); }
+.friends-kpi-card.highlight-amber   { border-top: 3px solid var(--warning); }
+
+.kpi-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.kpi-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.kpi-icon { font-size: 1.2rem; }
+
+.kpi-value {
+    font-size: 1.55rem;
+    font-weight: 800;
+    color: var(--text-main);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.kpi-unit {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.kpi-sub {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.friends-goal-bar {
+    width: 100%;
+    height: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 2px 0;
+}
+
+.friends-goal-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--warning), var(--color-symptom));
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+/* Haupt-Grid: Scoreboard (links) & Statistik (rechts) */
+.friends-main-grid {
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 1080px) {
+    .friends-main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.friends-board-card,
+.friends-analytics-card {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.friends-analytics-col {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.friends-board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+/* Top 3 Podium */
+.friends-podium-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 20px;
+    padding: 14px 10px;
+    background: rgba(6, 9, 19, 0.45);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.podium-spot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.55);
+    border: 1px solid var(--card-border);
+    transition: transform 0.2s ease;
+}
+
+.podium-spot.spot-1 {
+    padding: 18px 8px;
+    background: linear-gradient(160deg, rgba(250, 204, 21, 0.14), rgba(30, 41, 59, 0.75));
+    border-color: rgba(250, 204, 21, 0.45);
+    transform: translateY(-4px);
+}
+
+.podium-spot.is-me-podium {
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.22);
+    border-color: var(--accent-blue);
+}
+
+.podium-medal  { font-size: 1.35rem; margin-bottom: 4px; }
+.podium-avatar { font-size: 1.5rem; margin-bottom: 4px; }
+.podium-name   { font-size: 0.82rem; font-weight: 800; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.podium-rank-badge { font-size: 0.66rem; color: var(--text-muted); margin: 2px 0 6px 0; }
+.podium-metric { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 800; color: var(--accent-cyan); }
+
+/* Scoreboard Zeilen */
+.friends-list-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.friend-row-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(10, 15, 29, 0.55);
+    border: 1px solid var(--card-border);
+    transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.friend-row-card:hover {
+    border-color: rgba(56, 189, 248, 0.35);
+    transform: translateX(2px);
+}
+
+.friend-row-card.is-me-row {
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(15, 23, 42, 0.65));
+    border-color: var(--accent-blue);
+}
+
+.friend-row-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 210px;
+    flex: 1;
+}
+
+.friend-rank-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-dim);
+    width: 26px;
+}
+
+.friend-avatar-wrap {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid var(--card-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.friend-online-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid #0b1121;
+}
+.friend-online-dot.online  { background: #10b981; }
+.friend-online-dot.offline { background: #64748b; }
+
+.friend-info { min-width: 0; }
+.friend-name-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.88rem; color: var(--text-main); }
+.friend-title-pill { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(99, 102, 241, 0.16); color: #a5b4fc; }
+.friend-meta-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+.friend-row-stats {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.friend-stat-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 58px;
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+
+.friend-stat-col.active-metric {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.friend-stat-col .stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+.friend-stat-col .stat-val.xp-val { color: var(--accent-blue); }
+.friend-stat-col .stat-lbl { font-size: 0.65rem; color: var(--text-dim); }
+
+.friend-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.friend-action-btn {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    padding: 5px 9px;
+    border-radius: 8px;
+    font-size: 0.73rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.friend-action-btn.duel-btn-mini:hover   { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.18); }
+.friend-action-btn.poke-btn-mini:hover   { border-color: var(--warning); background: rgba(245, 158, 11, 0.18); }
+.friend-action-btn.remove-btn-mini:hover { border-color: var(--error); color: #fca5a5; background: rgba(239, 68, 68, 0.15); }
+
+.me-tag-pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    padding: 4px 9px;
+    border-radius: 8px;
+    background: rgba(34, 211, 238, 0.12);
+}
+
+/* Beliebteste Challenges & Monats-Balken */
+.challenge-popularity-list,
+.monthly-comparison-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.popularity-top,
+.monthly-comp-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+
+.popularity-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-main);
+}
+
+.top-choice-pill {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(250, 204, 21, 0.2);
+    color: #fde047;
+}
+
+.popularity-numbers {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.popularity-bar-track {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.popularity-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Light-Theme Kompatibilität (Daylight & Tropical) */
+[data-theme="daylight"] .friends-header-card,
+[data-theme="tropical"] .friends-header-card,
+[data-theme="daylight"] .friends-add-card,
+[data-theme="tropical"] .friends-add-card,
+[data-theme="daylight"] .friends-kpi-card,
+[data-theme="tropical"] .friends-kpi-card,
+[data-theme="daylight"] .friends-board-card,
+[data-theme="tropical"] .friends-board-card,
+[data-theme="daylight"] .friends-analytics-card,
+[data-theme="tropical"] .friends-analytics-card {
+    background: var(--bg-surface) !important;
+    border-color: var(--card-border) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+[data-theme="daylight"] .friends-code-box,
+[data-theme="tropical"] .friends-code-box,
+[data-theme="daylight"] .friends-podium-row,
+[data-theme="tropical"] .friends-podium-row,
+[data-theme="daylight"] .friend-row-card,
+[data-theme="tropical"] .friend-row-card,
+[data-theme="daylight"] .podium-spot,
+[data-theme="tropical"] .podium-spot,
+[data-theme="daylight"] .friend-action-btn,
+[data-theme="tropical"] .friend-action-btn {
+    background: var(--surface-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-main) !important;
+}
+
+[data-theme="daylight"] .popularity-bar-track,
+[data-theme="tropical"] .popularity-bar-track,
+[data-theme="daylight"] .friends-goal-bar,
+[data-theme="tropical"] .friends-goal-bar {
+    background: rgba(100, 116, 139, 0.16) !important;
 }
