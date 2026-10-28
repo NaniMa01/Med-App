@@ -1438,7 +1438,7 @@ window.switchTab = function(tab, el) {
         'depot-view', 
         'pharmacology-view',
         'mindmap-view',
-        'duel-view'
+        'duel-view',
        'friends-view'
     ];
 
