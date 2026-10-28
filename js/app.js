@@ -1,91 +1,33 @@
-// ====================================================
-// GLOBALE STATES & KONFIGURATION
-// ====================================================
+/* ==========================================================================
+   MEDCHECK – CORE APPLICATION ENGINE (js/app.js)
+   ==========================================================================
+   INHALTSVERZEICHNIS:
+   01. GLOBALE STATES, KONSTANTEN & BUILT-IN DEMO CASE
+   02. THEME ENGINE & LIGHT-MODE INLINE-SANITIZER
+   03. PROGRESS MANAGER & PERSISTENCE (LOCALSTORAGE)
+   04. GLOBALE DIFFERENZIALDIAGNOSE-BIBLIOTHEK (DD-POOL)
+   05. ÜBERORDNER- & ORDNER-ENGINE (MAPPING & HEURISTIK)
+   06. TOMBSTONE-ENGINE & PERSISTENTE ORDNER-OVERRIDES (SUPABASE-SYNC)
+   07. FALL- & ORDNER-VERWALTUNG (RENAME, DELETE, MOVE)
+   08. ALLGEMEINE UI-UTILS, NAVIGATION & SIDEBAR-RESIZER
+   09. STATS, XP-SYSTEM & SKILL-TRACKING
+   --- (Ab Teil 2) ---
+   10. DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
+   11. DASHBOARD RENDERING &NOTABILITY-BOOKSHELF ENGINE
+   12. PLAYER-LOGIK, CORNELL-OVERVIEW & MINDMAP-KONVERTER
+   13. FORGE, GEMINI-API & DIDAKTISCHER MASTERPROMPT
+   14. LERN-DEPOT (KNOWLEDGE VAULT) & KI-PRÜFUNGS-GENERATOR
+   15. CREATOR HUB, FILE-DROPZONE & SUPABASE CLOUD-SYNC
+   16. MOBILE CHALLENGE-PICKER, AUTO-SCROLL & EDITORIAL UX ENGINE
+   17. ZENTRALER APPLICATION BOOTLOADER (DOMContentLoaded)
+   ========================================================================== */
+
+// ==========================================================================
+// 01. GLOBALE STATES, KONSTANTEN & BUILT-IN DEMO CASE
+// ==========================================================================
 const CREATOR_EMAIL = 'marco.claudio.nani@gmail.com';
 let activeCaseData = null;
 let currentActiveChallenge = 'overview';
-
-const THEME_STORAGE_KEY = 'medcheck_ui_theme';
-const THEME_META_COLORS = {
-    midnight: '#060913',
-    daylight: '#ffffff',
-    scrubs:   '#04110f',
-    neuro:    '#090614',
-    tropical: '#fff8ed'
-};
-function sanitizeLightThemeInlineStyles(rootEl = document.body) {
-    const activeTheme = document.documentElement.getAttribute('data-theme');
-    const isLight = (activeTheme === 'daylight' || activeTheme === 'tropical');
-    if (!isLight || !rootEl) return;
-
-    const elements = rootEl.querySelectorAll('[style]');
-    elements.forEach(el => {
-        // Theme-Preview-Karten in den Einstellungen nicht verändern
-        if (el.closest('.theme-card') || el.closest('#mindmap-view')) return;
-
-        const styleAttr = el.getAttribute('style') || '';
-
-        // Dunkle Inline-Hintergründe aus JS-Modulen auf helle Oberflächen umstellen
-        if (/rgba\(\s*(6|10|11|15|16|30)\s*,\s*(9|15|17|23|24|41)/i.test(styleAttr) || /#(060913|0b1121|0f172a|1e293b)/i.test(styleAttr)) {
-            el.style.backgroundColor = 'var(--surface-secondary)';
-            el.style.backgroundImage = 'none';
-            el.style.color = 'var(--text-main)';
-            el.style.borderColor = 'var(--card-border)';
-        }
-
-        // Zu helle Pastell-Textfarben auf hellem Hintergrund abdunkeln
-        if (/#(f8fafc|f1f5f9|e2e8f0|cbd5e1)/i.test(styleAttr)) {
-            el.style.color = 'var(--text-main)';
-        } else if (/#(a7f3d0|6ee7b7|86efac)/i.test(styleAttr)) {
-            el.style.color = '#065f46'; // Sattes Smaragdgrün
-        } else if (/#(fecaca|fca5a5|fecdd3)/i.test(styleAttr)) {
-            el.style.color = '#991b1b'; // Sattes Karminrot
-        } else if (/#(fde68a|fcd34d)/i.test(styleAttr)) {
-            el.style.color = '#92400e'; // Sattes Amber-Braun
-        }
-    });
-}
-
-function applyAppTheme(themeName) {
-    const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
-
-    if (validTheme === 'midnight') {
-        document.documentElement.removeAttribute('data-theme');
-    } else {
-        document.documentElement.setAttribute('data-theme', validTheme);
-    }
-
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) {
-        metaTheme.setAttribute('content', THEME_META_COLORS[validTheme]);
-    }
-
-    document.querySelectorAll('.theme-card').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
-    });
-
-    localStorage.setItem(THEME_STORAGE_KEY, validTheme);
-
-    // Bestehende Inline-Styles bei Light-Themes sofort harmonisieren
-    if (validTheme === 'daylight' || validTheme === 'tropical') {
-        setTimeout(() => sanitizeLightThemeInlineStyles(document.body), 20);
-    }
-}
-window.applyAppTheme = applyAppTheme;
-
-// Überwacht dynamisch nachgerenderte Challenge-Elemente (Audit, Doctordle, Quiz, Taxonomie)
-document.addEventListener('DOMContentLoaded', () => {
-    const playerView = document.getElementById('player-view');
-    if (playerView && typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(() => {
-            const activeTheme = document.documentElement.getAttribute('data-theme');
-            if (activeTheme === 'daylight' || activeTheme === 'tropical') {
-                sanitizeLightThemeInlineStyles(playerView);
-            }
-        });
-        observer.observe(playerView, { childList: true, subtree: true });
-    }
-});
 
 // Challenge States
 let selectedSynapses = [], totalSynapseDiseases = 0, solvedSynapseDiseases = 0, tilesPerDisease = 4;
@@ -96,9 +38,7 @@ let doctordleSolved = false, totalDoctordlePuzzles = 0, solvedDoctordlePuzzles =
 let flashcardsSolved = true, totalFlashcardsCount = 0, solvedFlashcardsCount = 0;
 let clearedStepsCount = 0, totalStepsCount = 0;
 
-// ====================================================
-// SUPER-FOLDER & DASHBOARD STATE KONFIGURATION
-// ====================================================
+// Super-Folder & Dashboard Storage Keys
 const DEFAULT_SUPER_FOLDERS = [
     'Nervensystem und Sinnesorgane',
     'Psyche / Ethik / Recht',
@@ -106,10 +46,16 @@ const DEFAULT_SUPER_FOLDERS = [
     'Allgemein'
 ];
 
-const SUPER_FOLDER_ORDER_KEY = 'medcheck_super_folder_order_v1';
-const CUSTOM_SUPERS_LEGACY_KEY = 'medcheck_custom_supers';
-const FOLDER_SUPER_MAPPING_KEY = 'medcheck_folder_super_mapping';
+const SUPER_FOLDER_ORDER_KEY     = 'medcheck_super_folder_order_v1';
+const CUSTOM_SUPERS_LEGACY_KEY   = 'medcheck_custom_supers';
+const FOLDER_SUPER_MAPPING_KEY   = 'medcheck_folder_super_mapping';
 const DASHBOARD_FOLDER_ORDER_KEY = 'medcheck_dashboard_folder_order';
+const CASE_FOLDER_OVERRIDES_KEY  = 'medcheck_case_folder_overrides_v1';
+const DELETED_FOLDERS_SET_KEY    = 'medcheck_deleted_folders_v1';
+const HIDDEN_CLOUD_CASES_KEY     = 'medcheck_hidden_cloud_cases_v1';
+const SIDEBAR_STORAGE_KEY        = 'medcheck_sidebar_width';
+const DEPOT_STORAGE_KEY          = 'medcheck_learning_depot_v1';
+const DD_POOL_KEY                = 'medcheck_global_dd_pool';
 
 let openFolders = {};
 let superFolderStates = {
@@ -119,7 +65,6 @@ let superFolderStates = {
     'Allgemein': false
 };
 
-// Klapp-Status für die Überordner im Bookshelf
 let bookshelfSuperFolderState = {
     'Nervensystem und Sinnesorgane': false,
     'Psyche / Ethik / Recht': false,
@@ -138,6 +83,10 @@ let currentLearningMode = 'topic';
 let specialtyQueue = [];
 let specialtyIndex = 0;
 let activeSpecialtyName = '';
+
+// Cloud & Auth Runtime States
+window.cloudCaseIds = new Set();
+window.currentSessionUser = null;
 
 const defaultSkills = {
     "Triage": { hits: 0, total: 0 },
@@ -234,9 +183,97 @@ const BUILTIN_DEMO_CASE = {
     }
 };
 
-// ====================================================
-// PROGRESS MANAGER & PERSISTENCE
-// ====================================================
+// ==========================================================================
+// 02. THEME ENGINE & LIGHT-MODE INLINE-SANITIZER
+// ==========================================================================
+const THEME_STORAGE_KEY = 'medcheck_ui_theme';
+const THEME_META_COLORS = {
+    midnight: '#060913',
+    daylight: '#ffffff',
+    scrubs:   '#04110f',
+    neuro:    '#090614',
+    tropical: '#fff8ed'
+};
+
+let lightSanitizeRaf = null;
+
+function sanitizeLightThemeInlineStyles(rootEl = document.body) {
+    const activeTheme = document.documentElement.getAttribute('data-theme');
+    const isLight = (activeTheme === 'daylight' || activeTheme === 'tropical');
+    if (!isLight || !rootEl) return;
+
+    const elements = rootEl.querySelectorAll('[style]');
+    elements.forEach(el => {
+        if (el.closest('.theme-card') || el.closest('#mindmap-view')) return;
+
+        const styleAttr = el.getAttribute('style') || '';
+
+        // Dunkle Inline-Hintergründe aus JS-Modulen auf helle Oberflächen umstellen
+        if (/rgba\(\s*(6|10|11|15|16|30)\s*,\s*(9|15|17|23|24|41)/i.test(styleAttr) || /#(060913|0b1121|0f172a|1e293b)/i.test(styleAttr)) {
+            el.style.backgroundColor = 'var(--surface-secondary)';
+            el.style.backgroundImage = 'none';
+            el.style.color = 'var(--text-main)';
+            el.style.borderColor = 'var(--card-border)';
+        }
+
+        // Zu helle Pastell-Textfarben auf hellem Hintergrund abdunkeln
+        if (/#(f8fafc|f1f5f9|e2e8f0|cbd5e1)/i.test(styleAttr)) {
+            el.style.color = 'var(--text-main)';
+        } else if (/#(a7f3d0|6ee7b7|86efac)/i.test(styleAttr)) {
+            el.style.color = '#065f46'; // Sattes Smaragdgrün
+        } else if (/#(fecaca|fca5a5|fecdd3)/i.test(styleAttr)) {
+            el.style.color = '#991b1b'; // Sattes Karminrot
+        } else if (/#(fde68a|fcd34d)/i.test(styleAttr)) {
+            el.style.color = '#92400e'; // Sattes Amber-Braun
+        }
+    });
+}
+
+function applyAppTheme(themeName) {
+    const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
+
+    if (validTheme === 'midnight') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.setAttribute('data-theme', validTheme);
+    }
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+        metaTheme.setAttribute('content', THEME_META_COLORS[validTheme]);
+    }
+
+    document.querySelectorAll('.theme-card').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
+    });
+
+    localStorage.setItem(THEME_STORAGE_KEY, validTheme);
+
+    if (validTheme === 'daylight' || validTheme === 'tropical') {
+        setTimeout(() => sanitizeLightThemeInlineStyles(document.body), 20);
+    }
+}
+window.applyAppTheme = applyAppTheme;
+
+function initPlayerLightModeObserver() {
+    const playerView = document.getElementById('player-view');
+    if (playerView && typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver(() => {
+            const activeTheme = document.documentElement.getAttribute('data-theme');
+            if (activeTheme === 'daylight' || activeTheme === 'tropical') {
+                if (lightSanitizeRaf) cancelAnimationFrame(lightSanitizeRaf);
+                lightSanitizeRaf = requestAnimationFrame(() => {
+                    sanitizeLightThemeInlineStyles(playerView);
+                });
+            }
+        });
+        observer.observe(playerView, { childList: true, subtree: true });
+    }
+}
+
+// ==========================================================================
+// 03. PROGRESS MANAGER & PERSISTENCE (LOCALSTORAGE)
+// ==========================================================================
 const ProgressManager = {
     STORAGE_KEY: 'medcheck_user_progress_v1',
 
@@ -279,24 +316,21 @@ const ProgressManager = {
         }
     },
 
-    // NEU: Setzt ALLE interaktiven Challenges (Audit, Quiz, Synapsen, Kaskaden, Doctordle, Flashcards)
-    // für eine Spaced-Repetition-Wiederholung zurück, behält den Fall aber in 'solved_cases'!
+    // Setzt alle interaktiven Challenges für eine Spaced-Repetition-Wiederholung zurück,
+    // behält den Fall aber in 'solved_cases'!
     resetCaseChallengesForReview(caseId) {
         if (!caseId) return;
 
-        // 1. Haupt-Progress für diesen Fall löschen
         const all = this.getAll();
         if (all[caseId]) {
             delete all[caseId];
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
         }
 
-        // 2. Separaten Doctordle-Speicher für diesen Fall löschen
         try {
             localStorage.removeItem(`doctordle_state_${caseId}`);
-        } catch (e) {}
+        } catch (_e) {}
 
-        // 3. Laufende Doctordle-Instanz im RAM zurücksetzen, damit initDoctordle() nicht cached
         if (window.doctordleGame && window.doctordleGame.currentCaseId === caseId) {
             window.doctordleGame.currentCaseId = null;
         }
@@ -313,10 +347,16 @@ const ProgressManager = {
 };
 window.ProgressManager = ProgressManager;
 
-// ====================================================
-// GLOBALE DD-BIBLIOTHEK
-// ====================================================
-const DD_POOL_KEY = 'medcheck_global_dd_pool';
+window.saveChallengeProgress = function(challengeKey, data) {
+    if (!activeCaseData) return;
+    ProgressManager.saveCaseState(activeCaseData.case_id, {
+        [challengeKey]: data
+    });
+};
+
+// ==========================================================================
+// 04. GLOBALE DIFFERENZIALDIAGNOSE-BIBLIOTHEK (DD-POOL)
+// ==========================================================================
 window.MedCheckDDLibrary = new Set();
 const ddLibraryKeys = new Set();
 
@@ -334,22 +374,52 @@ function addToDDLibrary(term) {
 function saveDDLibrary() {
     try {
         localStorage.setItem(DD_POOL_KEY, JSON.stringify(Array.from(window.MedCheckDDLibrary)));
-    } catch (e) {}
+    } catch (_e) {}
 }
 
 function loadDDLibrary() {
     try {
         const stored = JSON.parse(localStorage.getItem(DD_POOL_KEY) || '[]');
         if (Array.isArray(stored)) stored.forEach(addToDDLibrary);
-    } catch (e) {}
+    } catch (_e) {}
 }
 
-// ====================================================
-// VOLLSTÄNDIGE ÜBERORDNER- & ORDNER-ENGINE (DASHBOARD + BOOKSHELF)
-// ====================================================
+window.registerCaseDDs = function(caseData) {
+    const tasks = caseData?.extra_tasks;
+    if (!tasks) return;
+    let changed = false;
+    const add = t => { if (addToDDLibrary(t)) changed = true; };
 
+    (Array.isArray(tasks.library_entries) ? tasks.library_entries : []).forEach(add);
+    const puzzles = Array.isArray(tasks.doctordle) ? tasks.doctordle : (tasks.doctordle ? [tasks.doctordle] : []);
+    puzzles.forEach(p => {
+        add(p?.target_diagnosis);
+        (Array.isArray(p?.synonyms) ? p.synonyms : []).forEach(add);
+    });
+    if (changed) saveDDLibrary();
+};
+
+async function prefetchManifestDDs() {
+    try {
+        const res = await fetch('manifest.json');
+        if (!res.ok) return;
+        const manifest = await res.json();
+        const files = (manifest.cases || []).map(c => c.file_path).filter(Boolean);
+        await Promise.all(files.map(async path => {
+            try {
+                const r = await fetch(path);
+                if (r.ok) window.registerCaseDDs(await r.json());
+            } catch (_e) {}
+        }));
+    } catch (_e) {}
+}
+
+loadDDLibrary();
+
+// ==========================================================================
+// 05. ÜBERORDNER- & ORDNER-ENGINE (MAPPING & HEURISTIK)
+// ==========================================================================
 function getSuperFolderOrder() {
-    window.getSuperFolderOrder = getSuperFolderOrder;
     try {
         let order = JSON.parse(localStorage.getItem(SUPER_FOLDER_ORDER_KEY) || 'null');
         const legacyCustom = JSON.parse(localStorage.getItem(CUSTOM_SUPERS_LEGACY_KEY) || '[]')
@@ -378,10 +448,11 @@ function getSuperFolderOrder() {
             if (changed) localStorage.setItem(SUPER_FOLDER_ORDER_KEY, JSON.stringify(order));
         }
         return order;
-    } catch (e) {
+    } catch (_e) {
         return [...DEFAULT_SUPER_FOLDERS];
     }
 }
+window.getSuperFolderOrder = getSuperFolderOrder;
 
 function saveSuperFolderOrder(orderArray) {
     try {
@@ -389,7 +460,6 @@ function saveSuperFolderOrder(orderArray) {
         if (!clean.includes('Allgemein')) clean.push('Allgemein');
         localStorage.setItem(SUPER_FOLDER_ORDER_KEY, JSON.stringify(clean));
 
-        // Legacy-Array synchron halten
         const customOnly = clean.filter(name => !DEFAULT_SUPER_FOLDERS.includes(name));
         localStorage.setItem(CUSTOM_SUPERS_LEGACY_KEY, JSON.stringify(customOnly));
     } catch (e) {
@@ -408,7 +478,6 @@ window.getCustomSuperFolders = getCustomSuperFolders;
 function initCustomSuperFoldersState() {
     try {
         const allSupers = getSuperFolderOrder();
-        // Entfernte Überordner aus dem Laufzeit-State bereinigen
         Object.keys(superFolderStates).forEach(k => {
             if (!allSupers.includes(k)) delete superFolderStates[k];
         });
@@ -425,10 +494,244 @@ function initCustomSuperFoldersState() {
     }
 }
 
-// Direkt beim Laden initialisieren
 initCustomSuperFoldersState();
 
-// 1. Neuen Überordner erstellen
+function getFolderSuperMapping() {
+    try {
+        return JSON.parse(localStorage.getItem(FOLDER_SUPER_MAPPING_KEY) || '{}');
+    } catch (_e) {
+        return {};
+    }
+}
+
+function saveFolderSuperMapping(mapping) {
+    try {
+        localStorage.setItem(FOLDER_SUPER_MAPPING_KEY, JSON.stringify(mapping));
+    } catch (e) {
+        console.error('Fehler beim Speichern der Überordner-Zuweisung:', e);
+    }
+}
+
+function getSuperFolderForCategoryHeuristic(cleanName) {
+    const lower = (cleanName || '').toLowerCase();
+    const availableSupers = getSuperFolderOrder();
+
+    const directMatch = availableSupers.find(s => s.toLowerCase() === lower);
+    if (directMatch) return directMatch;
+
+    if (lower === 'allgemein' || lower.startsWith('allgemein') || lower === 'sonstiges' || lower === 'uncategorized') {
+        return 'Allgemein';
+    }
+    if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
+        return availableSupers.includes('Psyche / Ethik / Recht') ? 'Psyche / Ethik / Recht' : 'Allgemein';
+    }
+    if (lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') || lower.includes('fertilit') || lower.includes('schwanger') || lower.includes('zyklus') || lower.includes('ovard')) {
+        return availableSupers.includes('Reproduktion') ? 'Reproduktion' : 'Allgemein';
+    }
+    if (
+        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') || 
+        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') || 
+        lower.includes('hals-nase') || lower.includes('ohr') || lower.includes('29.2') || 
+        lower.includes('myelon') || lower.includes('hirn') || lower.includes('gehirn') || 
+        lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') || 
+        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz')
+    ) {
+        return availableSupers.includes('Nervensystem und Sinnesorgane') ? 'Nervensystem und Sinnesorgane' : 'Allgemein';
+    }
+    return 'Allgemein';
+}
+
+function getSuperFolderForCategory(categoryName) {
+    if (!categoryName) return 'Allgemein';
+    const cleanName = categoryName.trim();
+    const availableSupers = getSuperFolderOrder();
+
+    const mapping = getFolderSuperMapping();
+    if (mapping[cleanName] && availableSupers.includes(mapping[cleanName])) {
+        return mapping[cleanName];
+    }
+
+    return getSuperFolderForCategoryHeuristic(cleanName);
+}
+window.getSuperFolderForCategory = getSuperFolderForCategory;
+
+function resolveCaseFolderName(caseData) {
+    if (!caseData) return 'Allgemein';
+
+    const explicitFolder = (caseData.folder_name || '').trim();
+    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
+        return explicitFolder;
+    }
+
+    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
+    if (rawField) {
+        if (rawField.includes('_')) {
+            const parts = rawField.split('_');
+            const cleanTitle = parts.slice(1).join('_').trim();
+            if (cleanTitle.length > 2) return cleanTitle;
+        }
+        return rawField;
+    }
+
+    const topic = (caseData.case_overview?.topic || '').trim();
+    if (topic && topic.length > 2) {
+        return topic;
+    }
+
+    return 'Allgemein';
+}
+
+function autoAssignSuperFolder(folderName) {
+    if (!folderName) return 'Allgemein';
+    return getSuperFolderForCategory(folderName.trim());
+}
+
+function registerDynamicFolder(folderName, targetSuperFolder = null) {
+    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!order.includes(folderName)) {
+        order.push(folderName);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+    }
+
+    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
+    const mapping = getFolderSuperMapping();
+    if (!mapping[folderName]) {
+        mapping[folderName] = superTarget;
+        saveFolderSuperMapping(mapping);
+    }
+}
+
+// ==========================================================================
+// 06. TOMBSTONE-ENGINE & PERSISTENTE ORDNER-OVERRIDES (SUPABASE-SYNC)
+// ==========================================================================
+function getCaseFolderOverrides() {
+    try {
+        return JSON.parse(localStorage.getItem(CASE_FOLDER_OVERRIDES_KEY) || '{}');
+    } catch (_e) {
+        return {};
+    }
+}
+
+function saveCaseFolderOverrides(map) {
+    try {
+        localStorage.setItem(CASE_FOLDER_OVERRIDES_KEY, JSON.stringify(map));
+    } catch (_e) {}
+}
+
+function setCaseFolderOverride(caseId, folderName) {
+    if (!caseId || !folderName) return;
+    const map = getCaseFolderOverrides();
+    map[caseId] = folderName.trim();
+    saveCaseFolderOverrides(map);
+}
+
+function getDeletedFoldersSet() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]'));
+    } catch (_e) {
+        return new Set();
+    }
+}
+
+function markFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    if (clean.toLowerCase() === 'allgemein') return;
+    const set = getDeletedFoldersSet();
+    set.add(clean);
+    localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+}
+
+function unmarkFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    const set = getDeletedFoldersSet();
+    if (set.has(clean)) {
+        set.delete(clean);
+        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+    }
+}
+
+function applyFolderOverridesToCase(caseObj) {
+    if (!caseObj) return caseObj;
+    const cId = caseObj.case_id || caseObj.id;
+    const overrides = getCaseFolderOverrides();
+    const deletedFolders = getDeletedFoldersSet();
+
+    let currentFolder = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
+
+    if (cId && overrides[cId]) {
+        currentFolder = overrides[cId];
+    }
+
+    if (deletedFolders.has(currentFolder)) {
+        currentFolder = 'Allgemein';
+        if (cId) {
+            overrides[cId] = 'Allgemein';
+            saveCaseFolderOverrides(overrides);
+        }
+    }
+
+    caseObj.folder_name = currentFolder;
+    if (caseObj.metadata) {
+        caseObj.metadata.medical_field = currentFolder;
+    }
+    return caseObj;
+}
+
+function getActiveSupabaseClient() {
+    return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
+}
+// Alias für Rückwärtskompatibilität
+const getSupabaseInstance = getActiveSupabaseClient;
+
+async function syncModifiedCasesToSupabase(casesList) {
+    if (!Array.isArray(casesList) || casesList.length === 0) return;
+    const sb = getActiveSupabaseClient();
+    if (!sb || !sb.auth) return;
+
+    try {
+        const { data: { session } } = await sb.auth.getSession();
+        const currentUser = session?.user;
+        if (!currentUser) return;
+
+        for (const c of casesList) {
+            const cId = c.case_id || c.id;
+            if (!cId || cId === BUILTIN_DEMO_CASE.case_id) continue;
+            const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const title = c.metadata?.title || c.title || cId;
+
+            const { data: updated, error: updErr } = await sb
+                .from('cases')
+                .update({
+                    medical_field: folder,
+                    content: c
+                })
+                .eq('case_id', cId)
+                .select('case_id');
+
+            if (!updErr && (!updated || updated.length === 0)) {
+                await sb.from('cases').upsert({
+                    case_id: cId,
+                    title: title,
+                    medical_field: folder,
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: c
+                }, { onConflict: 'case_id' });
+            }
+        }
+    } catch (err) {
+        console.warn('[Sync] Hintergrund-Sync zu Supabase übersprungen (lokale Overrides greifen trotzdem):', err);
+    }
+}
+
+// ==========================================================================
+// 07. FALL- & ORDNER-VERWALTUNG (CREATE, RENAME, DELETE, MOVE)
+// ==========================================================================
 function createCustomSuperFolder(folderName) {
     if (!folderName || !folderName.trim()) return;
     const cleanName = folderName.trim();
@@ -439,7 +742,6 @@ function createCustomSuperFolder(folderName) {
         return;
     }
 
-    // Vor "Allgemein" einfügen, damit "Allgemein" als Sammelbecken unten bleibt
     const allgIdx = order.indexOf('Allgemein');
     if (allgIdx !== -1) {
         order.splice(allgIdx, 0, cleanName);
@@ -471,7 +773,6 @@ function promptNewSuperFolder() {
 }
 window.promptNewSuperFolder = promptNewSuperFolder;
 
-// 2. Überordner umbenennen (inkl. Migration aller Unterordner-Zuweisungen)
 window.renameSuperFolder = function(oldTitle) {
     if (!oldTitle) return;
     if (oldTitle === 'Allgemein') {
@@ -497,13 +798,11 @@ window.renameSuperFolder = function(oldTitle) {
     }
     saveSuperFolderOrder(order);
 
-    // States übertragen
     superFolderStates[newTitle] = superFolderStates[oldTitle] !== undefined ? superFolderStates[oldTitle] : true;
     bookshelfSuperFolderState[newTitle] = bookshelfSuperFolderState[oldTitle] !== undefined ? bookshelfSuperFolderState[oldTitle] : true;
     delete superFolderStates[oldTitle];
     delete bookshelfSuperFolderState[oldTitle];
 
-    // Alle zugewiesenen Unterordner auf den neuen Überordner umziehen
     const mapping = getFolderSuperMapping();
     Object.keys(mapping).forEach(subFolder => {
         if (mapping[subFolder] === oldTitle) {
@@ -511,7 +810,6 @@ window.renameSuperFolder = function(oldTitle) {
         }
     });
 
-    // Auch bisher heuristisch zugeordnete Unterordner explizit an den neuen Namen binden
     const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     const allSubFolders = new Set(savedSubOrder);
@@ -533,7 +831,6 @@ window.renameSuperFolder = function(oldTitle) {
     }
 };
 
-// 3. Überordner löschen (Unterordner wandern sicher nach "Allgemein")
 function removeCustomSuperFolder(superTitle) {
     if (!superTitle) return;
     if (superTitle === 'Allgemein') {
@@ -572,7 +869,6 @@ function removeCustomSuperFolder(superTitle) {
 window.removeCustomSuperFolder = removeCustomSuperFolder;
 window.deleteSuperFolder = removeCustomSuperFolder;
 
-// 4. Überordner per Drag & Drop umsortieren
 function reorderSuperFolders(draggedTitle, targetTitle) {
     if (!draggedTitle || !targetTitle || draggedTitle === targetTitle) return;
     const order = getSuperFolderOrder();
@@ -592,12 +888,13 @@ function reorderSuperFolders(draggedTitle, targetTitle) {
 }
 window.reorderSuperFolders = reorderSuperFolders;
 
-// 5. Unterordner direkt innerhalb eines bestimmten Überordners anlegen
 window.createSubfolderInSuperFolder = function(superTitle) {
     const targetSuper = superTitle || 'Allgemein';
     const subName = window.prompt(`Neuen Unterordner in "${targetSuper}" erstellen:\n\nName des Unterordners:`);
     if (!subName || !subName.trim()) return;
     const cleanSub = subName.trim();
+
+    unmarkFolderAsDeleted(cleanSub);
 
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!order.includes(cleanSub)) {
@@ -627,7 +924,6 @@ function toggleBookshelfSuperGroup(superTitle) {
 }
 window.toggleBookshelfSuperGroup = toggleBookshelfSuperGroup;
 
-// 6. Bookshelf-Header-Buttons (stellt sicher, dass "+ Über" auch ohne HTML-Anpassung im Bookshelf erscheint)
 window.renderBookshelfHeader = function() {
     return `
         <div class="bookshelf-header-row">
@@ -691,11 +987,10 @@ window.promptCreateNewFolderWithSuper = function() {
     createNewFolder(cleanName, chosenSuper);
 };
 
-// 7. Unterordner erstellen
 function createNewFolder(folderName, targetSuperFolder = null) {
     if (!folderName || !folderName.trim()) return;
     const cleanName = folderName.trim();
-    if (typeof unmarkFolderAsDeleted === 'function') unmarkFolderAsDeleted(cleanName);
+    unmarkFolderAsDeleted(cleanName);
 
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!order.includes(cleanName)) {
@@ -720,50 +1015,283 @@ function createNewFolder(folderName, targetSuperFolder = null) {
 }
 window.createNewFolder = createNewFolder;
 
-window.registerCaseDDs = function(caseData) {
-    const tasks = caseData?.extra_tasks;
-    if (!tasks) return;
-    let changed = false;
-    const add = t => { if (addToDDLibrary(t)) changed = true; };
+window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
+    if (!folderName || !targetSuperFolder) return;
+    const cleanFolder = folderName.trim();
+    const cleanSuper = targetSuperFolder.trim();
 
-    (Array.isArray(tasks.library_entries) ? tasks.library_entries : []).forEach(add);
-    const puzzles = Array.isArray(tasks.doctordle) ? tasks.doctordle : (tasks.doctordle ? [tasks.doctordle] : []);
-    puzzles.forEach(p => {
-        add(p?.target_diagnosis);
-        (Array.isArray(p?.synonyms) ? p.synonyms : []).forEach(add);
-    });
-    if (changed) saveDDLibrary();
+    const order = getSuperFolderOrder();
+    if (!order.includes(cleanSuper)) {
+        order.push(cleanSuper);
+        saveSuperFolderOrder(order);
+    }
+
+    const mapping = getFolderSuperMapping();
+    mapping[cleanFolder] = cleanSuper;
+    saveFolderSuperMapping(mapping);
+
+    let subOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!subOrder.includes(cleanFolder)) {
+        subOrder.push(cleanFolder);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(subOrder));
+    }
+
+    superFolderStates[cleanSuper] = true;
+    bookshelfSuperFolderState[cleanSuper] = true;
+
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+};
+window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
+
+window.promptMoveFolderToSuperFolder = function(folderName) {
+    if (!folderName) return;
+    const currentSuper = getSuperFolderForCategory(folderName);
+    const availableSupers = getSuperFolderOrder();
+
+    const optionsText = availableSupers
+        .map((s, idx) => `${idx + 1}: ${s}${s === currentSuper ? ' (aktuell)' : ''}`)
+        .join('\n');
+
+    const choice = window.prompt(
+        `In welchen Überordner möchtest du "${folderName}" verschieben?\n\nGib die Ziffer ein (oder tippe einen komplett neuen Überordner-Namen ein):\n${optionsText}`
+    );
+
+    if (choice === null || !choice.trim()) return;
+    const trimmed = choice.trim();
+    const num = parseInt(trimmed, 10);
+
+    if (!isNaN(num) && num >= 1 && num <= availableSupers.length) {
+        const target = availableSupers[num - 1];
+        window.moveFolderToSuperFolder(folderName, target);
+    } else {
+        const existingMatch = availableSupers.find(s => s.toLowerCase() === trimmed.toLowerCase());
+        if (existingMatch) {
+            window.moveFolderToSuperFolder(folderName, existingMatch);
+        } else {
+            createCustomSuperFolder(trimmed);
+            window.moveFolderToSuperFolder(folderName, trimmed);
+        }
+    }
 };
 
-async function prefetchManifestDDs() {
-    try {
-        const res = await fetch('manifest.json');
-        if (!res.ok) return;
-        const manifest = await res.json();
-        const files = (manifest.cases || []).map(c => c.file_path).filter(Boolean);
-        await Promise.all(files.map(async path => {
-            try {
-                const r = await fetch(path);
-                if (r.ok) window.registerCaseDDs(await r.json());
-            } catch (e) {}
-        }));
-    } catch (e) {}
+window.renameFolder = async function(oldName, newName) {
+    if (!oldName || !newName || oldName === newName) return;
+    const cleanOld = oldName.trim();
+    const cleanNew = newName.trim();
+
+    unmarkFolderAsDeleted(cleanNew);
+    markFolderAsDeleted(cleanOld);
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const idx = order.indexOf(cleanOld);
+    if (idx !== -1) {
+        order[idx] = cleanNew;
+    } else {
+        order.push(cleanNew);
+    }
+    order = Array.from(new Set(order));
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    const mapping = getFolderSuperMapping();
+    if (mapping[cleanOld]) {
+        mapping[cleanNew] = mapping[cleanOld];
+        delete mapping[cleanOld];
+        saveFolderSuperMapping(mapping);
+    }
+
+    const overrides = getCaseFolderOverrides();
+    Object.keys(overrides).forEach(cId => {
+        if (overrides[cId] === cleanOld) overrides[cId] = cleanNew;
+    });
+
+    const demoFolder = (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+    if (demoFolder === cleanOld || overrides[BUILTIN_DEMO_CASE.case_id] === cleanOld) {
+        overrides[BUILTIN_DEMO_CASE.case_id] = cleanNew;
+    }
+
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modifiedCases = [];
+    customCases.forEach(c => {
+        applyFolderOverridesToCase(c);
+        const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
+        if (cFolder === cleanOld) {
+            c.folder_name = cleanNew;
+            if (c.metadata) c.metadata.medical_field = cleanNew;
+            overrides[c.case_id || c.id] = cleanNew;
+            modifiedCases.push(c);
+        }
+    });
+
+    saveCaseFolderOverrides(overrides);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+    if (openFolders[cleanOld] !== undefined) {
+        openFolders[cleanNew] = openFolders[cleanOld];
+        delete openFolders[cleanOld];
+    }
+    if (bookshelfFolderState[cleanOld] !== undefined) {
+        bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
+        delete bookshelfFolderState[cleanOld];
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+
+    await syncModifiedCasesToSupabase(modifiedCases);
+};
+
+window.deleteFolder = async function(folderName, caseCount = 0) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+
+    if (clean.toLowerCase() === 'allgemein') {
+        alert('Der Standardordner "Allgemein" kann nicht gelöscht werden.');
+        return;
+    }
+
+    const confirmMsg = caseCount > 0
+        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden dauerhaft in den Ordner "Allgemein" verschoben.`
+        : `Möchtest du den leeren Ordner "${clean}" wirklich löschen?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    markFolderAsDeleted(clean);
+
+    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    order = order.filter(f => f !== clean);
+    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+
+    let dashOrder = getDashboardFolderOrder().filter(f => f !== clean);
+    saveDashboardFolderOrder(dashOrder);
+
+    const mapping = getFolderSuperMapping();
+    delete mapping[clean];
+    saveFolderSuperMapping(mapping);
+
+    const overrides = getCaseFolderOverrides();
+    Object.keys(overrides).forEach(cId => {
+        if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
+    });
+
+    const demoCurrentFolder = overrides[BUILTIN_DEMO_CASE.case_id]
+        || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+    if (demoCurrentFolder === clean) {
+        overrides[BUILTIN_DEMO_CASE.case_id] = 'Allgemein';
+    }
+
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modifiedCases = [];
+    customCases.forEach(c => {
+        const cId = c.case_id || c.id;
+        const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
+        if (cFolder === clean) {
+            c.folder_name = 'Allgemein';
+            if (c.metadata) c.metadata.medical_field = 'Allgemein';
+            if (cId) overrides[cId] = 'Allgemein';
+            modifiedCases.push(c);
+        }
+    });
+
+    saveCaseFolderOverrides(overrides);
+    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+    delete openFolders[clean];
+    delete bookshelfFolderState[clean];
+    openFolders['Allgemein'] = true;
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+
+    await syncModifiedCasesToSupabase(modifiedCases);
+};
+
+window.moveCaseToFolder = async function(caseId, targetFolder) {
+    if (!caseId || !targetFolder) return;
+    const cleanFolder = targetFolder.trim();
+
+    unmarkFolderAsDeleted(cleanFolder);
+    setCaseFolderOverride(caseId, cleanFolder);
+
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let targetCase = customCases.find(c => (c.case_id || c.id) === caseId);
+
+    if (!targetCase && caseId === BUILTIN_DEMO_CASE.case_id) {
+        targetCase = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE));
+    }
+
+    if (!targetCase) {
+        const allRegistered = window.getRegisteredCases ? window.getRegisteredCases() : [];
+        const found = allRegistered.find(c => (c.case_id || c.id) === caseId);
+        if (found) {
+            targetCase = JSON.parse(JSON.stringify(found));
+        }
+    }
+
+    if (!targetCase) {
+        console.warn("Fall nicht gefunden zum Verschieben:", caseId);
+        return;
+    }
+
+    targetCase.folder_name = cleanFolder;
+    if (targetCase.metadata) {
+        targetCase.metadata.medical_field = cleanFolder;
+    }
+
+    if (caseId !== BUILTIN_DEMO_CASE.case_id) {
+        customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
+        customCases.push(targetCase);
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    }
+
+    registerDynamicFolder(cleanFolder);
+    openFolders[cleanFolder] = true;
+
+    renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') {
+        renderSubjectProgressDrawer();
+    }
+    if (typeof window.triggerHaptic === 'function') {
+        window.triggerHaptic(14);
+    }
+
+    await syncModifiedCasesToSupabase([targetCase]);
+};
+
+async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
+    if (!caseId || !targetSuperTitle) return;
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
+    if (!targetCase) return;
+
+    const currentFolder = (targetCase.folder_name || targetCase.metadata?.medical_field || 'Allgemein').trim();
+
+    let destinationSubfolder = currentFolder;
+    if (currentFolder.toLowerCase() === 'allgemein') {
+        destinationSubfolder = targetSuperTitle;
+    }
+
+    unmarkFolderAsDeleted(destinationSubfolder);
+
+    const mapping = getFolderSuperMapping();
+    mapping[destinationSubfolder] = targetSuperTitle;
+    saveFolderSuperMapping(mapping);
+
+    superFolderStates[targetSuperTitle] = true;
+    bookshelfSuperFolderState[targetSuperTitle] = true;
+    openFolders[destinationSubfolder] = true;
+    bookshelfFolderState[destinationSubfolder] = true;
+
+    await window.moveCaseToFolder(caseId, destinationSubfolder);
 }
 
-loadDDLibrary();
-
-window.saveChallengeProgress = function(challengeKey, data) {
-    if (!activeCaseData) return;
-    ProgressManager.saveCaseState(activeCaseData.case_id, {
-        [challengeKey]: data
-    });
-};
-
-// ====================================================
-// FALL LÖSCHEN & AUSBLENDEN (INKL. CLOUD-PROTECTION)
-// ====================================================
-const HIDDEN_CLOUD_CASES_KEY = 'medcheck_hidden_cloud_cases_v1';
-
+// Fall Löschen & Ausblenden (Inkl. Cloud-Protection)
 function getHiddenCloudCaseIds() {
     try {
         return JSON.parse(localStorage.getItem(HIDDEN_CLOUD_CASES_KEY) || '[]');
@@ -783,7 +1311,6 @@ function addHiddenCloudCaseId(caseId) {
 window.deleteCaseById = async function(caseId) {
     if (!caseId) return;
 
-    // 1. Schutz für den fest eingebauten System-Demo-Fall
     if (caseId === BUILTIN_DEMO_CASE.case_id) {
         alert('Der integrierte System-Demofall kann nicht gelöscht werden.');
         return;
@@ -795,14 +1322,12 @@ window.deleteCaseById = async function(caseId) {
     const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(caseId));
     const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
 
-    // 2. Sicherheitsabfrage
     const confirmMsg = isCloudCase
         ? `Möchtest du den Fall „${title}“ lokal von diesem Gerät entfernen?\n\n(Hinweis: Da es ein Cloud-Fall ist, wird er für dein lokales Dashboard ausgeblendet.)`
         : `Möchtest du den lokalen Fall „${title}“ (${caseId}) wirklich löschen?\n\nDein Lernfortschritt für diesen Fall wird dabei ebenfalls zurückgesetzt.`;
 
     if (!window.confirm(confirmMsg)) return;
 
-    // 3. Optional für dich als Creator: Direkt fragen, ob er auch komplett aus der Supabase-Cloud gelöscht werden soll
     if (isCloudCase && isCurrentUserCreator) {
         const alsoUnpublish = window.confirm(
             `Creator-Option: Dieser Fall ist in der Supabase-Cloud veröffentlicht.\n\nSoll „${title}“ AUCH komplett aus der Cloud für alle Nutzer gelöscht werden?\n(Klicke „Abbrechen“, um ihn nur lokal bei dir zu löschen.)`
@@ -820,25 +1345,20 @@ window.deleteCaseById = async function(caseId) {
                 }
             }
         } else {
-            // Nur lokal ausblenden, damit loadCasesFromDatabase ihn nicht sofort wiederherstellt
             addHiddenCloudCaseId(caseId);
         }
     } else if (isCloudCase) {
-        // Normale Nutzer blenden Cloud-Fälle lokal aus
         addHiddenCloudCaseId(caseId);
     }
 
-    // 4. Aus localStorage ('custom_cases') entfernen
     let customCases = getCustomCases();
     customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
     localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-    // 5. Fortschritt & Challenge-States sauber bereinigen
     if (ProgressManager && typeof ProgressManager.resetEntireCase === 'function') {
         ProgressManager.resetEntireCase(caseId);
     }
 
-    // 6. Falls der gelöschte Fall gerade im Player geöffnet war -> zurück zum Dashboard
     if (activeCaseData && (activeCaseData.case_id === caseId || activeCaseData.id === caseId)) {
         activeCaseData = null;
         const playerView = document.getElementById('player-view');
@@ -849,7 +1369,6 @@ window.deleteCaseById = async function(caseId) {
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
 
-    // 7. Alle UI-Komponenten synchron neu rendern
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') {
         renderSubjectProgressDrawer();
@@ -862,66 +1381,10 @@ window.deleteCaseById = async function(caseId) {
         window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
     }
 };
-// ====================================================
-// INITIALISIERUNG
-// ====================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
-    applyAppTheme(savedTheme);
 
-    ensureBookshelfHeaderButtons();
-    initUserData();
-    initCreatorHubAndCloudCases();
-
-    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
-    prefetchManifestDDs();
-    renderSkillsSidebar();
-    renderDashboardCases();
-    if (typeof window.renderSpecialtyHub === 'function') {
-        window.renderSpecialtyHub();
-    }
-
-    // =========================================================================
-    // INITIALISIERUNG: SPACED REPETITION WIDGET (Stabil & Fehlerfrei)
-    // =========================================================================
-    if (window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
-    }
-
-    window.addEventListener('sr:updated', () => {
-        if (window.SpacedRepetitionEngine) {
-            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
-            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
-        }
-    });
-    // =========================================================================
-
-    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
-    if (addFolderBtn) {
-        addFolderBtn.onclick = (e) => {
-            e.preventDefault();
-            window.promptCreateNewFolderWithSuper();
-        };
-    }
-
-    document.addEventListener('click', (e) => {
-        if (e.target && e.target.closest('#btn-next-specialty-case')) window.nextSpecialtyCase();
-        if (e.target && e.target.closest('#btn-exit-specialty')) {
-            window.isSpecialtyBlindMode = false;
-            window.applyBlindHeader(false, null);
-            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
-        }
-  if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
-    if (typeof window.revealDiagnosis === 'function') window.revealDiagnosis();
-}
-    });
-
-    setTimeout(renderSubjectProgressDrawer, 500);
-});
-
-// ====================================================
-// ALLGEMEINE UI & UTILS
-// ====================================================
+// ==========================================================================
+// 08. ALLGEMEINE UI-UTILS, NAVIGATION & SIDEBAR-RESIZER
+// ==========================================================================
 window.triggerHaptic = function(ms = 8) {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         try { navigator.vibrate(ms); } catch (_e) {}
@@ -942,9 +1405,15 @@ function escapeHtml(str) {
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
 }
+// Alias für Lern-Depot Abwärtskompatibilität
+const escapeDepotHtml = escapeHtml;
 
 window.switchTab = function(tab, el) {
     window.triggerHaptic(6);
+
+    if (tab !== 'player' && window.EmergencyManager && typeof window.EmergencyManager.exitSession === 'function') {
+        window.EmergencyManager.exitSession();
+    }
 
     if (tab === 'auth') {
         tab = 'settings';
@@ -1088,517 +1557,7 @@ window.toggleSuperFolder = function(superFolderTitle) {
     renderDashboardCases();
 };
 
-// ====================================================
-// PERSISTENTE ÜBERORDNER-ZUWEISUNG (FOLDER-MAPPING)
-// ====================================================
-function getFolderSuperMapping() {
-    try {
-        return JSON.parse(localStorage.getItem(FOLDER_SUPER_MAPPING_KEY) || '{}');
-    } catch (_e) {
-        return {};
-    }
-}
-
-function saveFolderSuperMapping(mapping) {
-    try {
-        localStorage.setItem(FOLDER_SUPER_MAPPING_KEY, JSON.stringify(mapping));
-    } catch (e) {
-        console.error('Fehler beim Speichern der Überordner-Zuweisung:', e);
-    }
-}
-
-function getSuperFolderForCategoryHeuristic(cleanName) {
-    window.getSuperFolderForCategory = getSuperFolderForCategory;
-    const lower = (cleanName || '').toLowerCase();
-    const availableSupers = getSuperFolderOrder();
-
-    // Direkter Treffer mit einem benutzerdefinierten Überordnernamen
-    const directMatch = availableSupers.find(s => s.toLowerCase() === lower);
-    if (directMatch) return directMatch;
-
-    if (lower === 'allgemein' || lower.startsWith('allgemein') || lower === 'sonstiges' || lower === 'uncategorized') {
-        return 'Allgemein';
-    }
-    if (lower.includes('psych') || lower.includes('ethik') || lower.includes('recht') || lower.includes('legal') || lower.includes('forensik') || lower.includes('sozial')) {
-        return availableSupers.includes('Psyche / Ethik / Recht') ? 'Psyche / Ethik / Recht' : 'Allgemein';
-    }
-    if (lower.includes('repro') || lower.includes('gyn') || lower.includes('geburt') || lower.includes('fertilit') || lower.includes('schwanger') || lower.includes('zyklus') || lower.includes('ovard')) {
-        return availableSupers.includes('Reproduktion') ? 'Reproduktion' : 'Allgemein';
-    }
-    if (
-        lower.includes('neuro') || lower.includes('nerv') || lower.includes('sinnes') || 
-        lower.includes('auge') || lower.includes('ophthal') || lower.includes('hno') || 
-        lower.includes('hals-nase') || lower.includes('ohr') || lower.includes('29.2') || 
-        lower.includes('myelon') || lower.includes('hirn') || lower.includes('gehirn') || 
-        lower.includes('spinal') || lower.includes('mening') || lower.includes('cns') || 
-        lower.includes('zns') || lower.includes('cjk') || lower.includes('demenz')
-    ) {
-        return availableSupers.includes('Nervensystem und Sinnesorgane') ? 'Nervensystem und Sinnesorgane' : 'Allgemein';
-    }
-    return 'Allgemein';
-}
-
-function getSuperFolderForCategory(categoryName) {
-    if (!categoryName) return 'Allgemein';
-    const cleanName = categoryName.trim();
-    const availableSupers = getSuperFolderOrder();
-
-    // 1. Explizite Nutzerzuweisung prüfen
-    const mapping = getFolderSuperMapping();
-    if (mapping[cleanName] && availableSupers.includes(mapping[cleanName])) {
-        return mapping[cleanName];
-    }
-
-    // 2. Intelligente Heuristik als Fallback
-    return getSuperFolderForCategoryHeuristic(cleanName);
-}
-
-window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
-    if (!folderName || !targetSuperFolder) return;
-    const cleanFolder = folderName.trim();
-    const cleanSuper = targetSuperFolder.trim();
-
-    const order = getSuperFolderOrder();
-    if (!order.includes(cleanSuper)) {
-        order.push(cleanSuper);
-        saveSuperFolderOrder(order);
-    }
-
-    const mapping = getFolderSuperMapping();
-    mapping[cleanFolder] = cleanSuper;
-    saveFolderSuperMapping(mapping);
-
-    // Sicherstellen, dass der Unterordner auch in der Ordnerliste bekannt ist
-    let subOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!subOrder.includes(cleanFolder)) {
-        subOrder.push(cleanFolder);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(subOrder));
-    }
-
-    // Ziel-Überordner automatisch aufklappen
-    superFolderStates[cleanSuper] = true;
-    bookshelfSuperFolderState[cleanSuper] = true;
-
-    renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
-};
-window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
-
-// ====================================================
-// PERSISTENTE ORDNER-OVERRIDES & TOMBSTONE-ENGINE (VERHINDERT RELOAD-RESET!)
-// ====================================================
-const CASE_FOLDER_OVERRIDES_KEY = 'medcheck_case_folder_overrides_v1';
-const DELETED_FOLDERS_SET_KEY   = 'medcheck_deleted_folders_v1';
-
-function getCaseFolderOverrides() {
-    try {
-        return JSON.parse(localStorage.getItem(CASE_FOLDER_OVERRIDES_KEY) || '{}');
-    } catch (_e) {
-        return {};
-    }
-}
-
-function saveCaseFolderOverrides(map) {
-    try {
-        localStorage.setItem(CASE_FOLDER_OVERRIDES_KEY, JSON.stringify(map));
-    } catch (_e) {}
-}
-
-function setCaseFolderOverride(caseId, folderName) {
-    if (!caseId || !folderName) return;
-    const map = getCaseFolderOverrides();
-    map[caseId] = folderName.trim();
-    saveCaseFolderOverrides(map);
-}
-
-function getDeletedFoldersSet() {
-    try {
-        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]'));
-    } catch (_e) {
-        return new Set();
-    }
-}
-
-function markFolderAsDeleted(folderName) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-    if (clean.toLowerCase() === 'allgemein') return;
-    const set = getDeletedFoldersSet();
-    set.add(clean);
-    localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
-}
-
-function unmarkFolderAsDeleted(folderName) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-    const set = getDeletedFoldersSet();
-    if (set.has(clean)) {
-        set.delete(clean);
-        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
-    }
-}
-
-/**
- * Stellt sicher, dass jeder Fall (egal ob Built-in Demo, lokal oder aus Supabase geladen)
- * exakt die vom Nutzer vorgenommenen Ordner-Verschiebungen und Ordner-Löschungen respektiert!
- */
-function applyFolderOverridesToCase(caseObj) {
-    if (!caseObj) return caseObj;
-    const cId = caseObj.case_id || caseObj.id;
-    const overrides = getCaseFolderOverrides();
-    const deletedFolders = getDeletedFoldersSet();
-
-    let currentFolder = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
-
-    // 1. Hat der Nutzer diesen Fall explizit in einen Ordner verschoben?
-    if (cId && overrides[cId]) {
-        currentFolder = overrides[cId];
-    }
-
-    // 2. Liegt der Fall in einem Ordner, den der Nutzer gelöscht hat? -> Ab nach "Allgemein"!
-    if (deletedFolders.has(currentFolder)) {
-        currentFolder = 'Allgemein';
-        if (cId) {
-            overrides[cId] = 'Allgemein';
-            saveCaseFolderOverrides(overrides);
-        }
-    }
-
-    caseObj.folder_name = currentFolder;
-    if (caseObj.metadata) {
-        caseObj.metadata.medical_field = currentFolder;
-    }
-    return caseObj;
-}
-
-/**
- * Hilfsfunktion: Synchronisiert eine Liste geänderter Fälle im Hintergrund mit Supabase
- */
-async function syncModifiedCasesToSupabase(casesList) {
-    if (!Array.isArray(casesList) || casesList.length === 0) return;
-    const sb = getActiveSupabaseClient();
-    if (!sb || !sb.auth) return;
-
-    try {
-        const { data: { session } } = await sb.auth.getSession();
-        const currentUser = session?.user;
-        if (!currentUser) return;
-
-        for (const c of casesList) {
-            const cId = c.case_id || c.id;
-            if (!cId || cId === BUILTIN_DEMO_CASE.case_id) continue;
-            const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-            const title = c.metadata?.title || c.title || cId;
-
-            // Zuerst gezieltes UPDATE versuchen (funktioniert auch für bereits existierende Cloud-Fälle)
-            const { data: updated, error: updErr } = await sb
-                .from('cases')
-                .update({
-                    medical_field: folder,
-                    content: c
-                })
-                .eq('case_id', cId)
-                .select('case_id');
-
-            // Falls der Fall noch gar nicht in der Cloud war, per UPSERT anlegen
-            if (!updErr && (!updated || updated.length === 0)) {
-                await sb.from('cases').upsert({
-                    case_id: cId,
-                    title: title,
-                    medical_field: folder,
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: c
-                }, { onConflict: 'case_id' });
-            }
-        }
-    } catch (err) {
-        console.warn('[Sync] Hintergrund-Sync zu Supabase übersprungen (lokale Overrides greifen trotzdem):', err);
-    }
-}
-
-// ====================================================
-// ORDNER VERWALTUNG (UMBENENNEN & LÖSCHEN MIT SYNC)
-// ====================================================
-
-window.renameFolder = async function(oldName, newName) {
-    if (!oldName || !newName || oldName === newName) return;
-    const cleanOld = oldName.trim();
-    const cleanNew = newName.trim();
-
-    unmarkFolderAsDeleted(cleanNew);
-    markFolderAsDeleted(cleanOld);
-
-    // 1. medcheck_folder_order aktualisieren
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    const idx = order.indexOf(cleanOld);
-    if (idx !== -1) {
-        order[idx] = cleanNew;
-    } else {
-        order.push(cleanNew);
-    }
-    order = Array.from(new Set(order));
-    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-
-    // 2. Mapping auf Überordner übernehmen
-    const mapping = getFolderSuperMapping();
-    if (mapping[cleanOld]) {
-        mapping[cleanNew] = mapping[cleanOld];
-        delete mapping[cleanOld];
-        saveFolderSuperMapping(mapping);
-    }
-
-    // 3. Alle registrierten Fälle (inkl. Demo-Fall & Custom Cases) + Overrides aktualisieren
-    const overrides = getCaseFolderOverrides();
-    Object.keys(overrides).forEach(cId => {
-        if (overrides[cId] === cleanOld) overrides[cId] = cleanNew;
-    });
-
-    const demoFolder = (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
-    if (demoFolder === cleanOld || overrides[BUILTIN_DEMO_CASE.case_id] === cleanOld) {
-        overrides[BUILTIN_DEMO_CASE.case_id] = cleanNew;
-    }
-
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modifiedCases = [];
-    customCases.forEach(c => {
-        applyFolderOverridesToCase(c);
-        const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
-        if (cFolder === cleanOld) {
-            c.folder_name = cleanNew;
-            if (c.metadata) c.metadata.medical_field = cleanNew;
-            overrides[c.case_id || c.id] = cleanNew;
-            modifiedCases.push(c);
-        }
-    });
-
-    saveCaseFolderOverrides(overrides);
-    localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-    // 4. UI States aktualisieren
-    if (openFolders[cleanOld] !== undefined) {
-        openFolders[cleanNew] = openFolders[cleanOld];
-        delete openFolders[cleanOld];
-    }
-    if (bookshelfFolderState[cleanOld] !== undefined) {
-        bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
-        delete bookshelfFolderState[cleanOld];
-    }
-
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-
-    // 5. In Supabase synchronisieren
-    await syncModifiedCasesToSupabase(modifiedCases);
-};
-
-window.deleteFolder = async function(folderName, caseCount = 0) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-
-    if (clean.toLowerCase() === 'allgemein') {
-        alert('Der Standardordner "Allgemein" kann nicht gelöscht werden.');
-        return;
-    }
-
-    const confirmMsg = caseCount > 0
-        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden dauerhaft in den Ordner "Allgemein" verschoben.`
-        : `Möchtest du den leeren Ordner "${clean}" wirklich löschen?`;
-
-    if (!window.confirm(confirmMsg)) return;
-
-    // 1. Ordner in die Tombstone-Liste eintragen (verhindert Wiederauferstehung nach Reload!)
-    markFolderAsDeleted(clean);
-
-    // 2. Aus medcheck_folder_order & Dashboard-Order austragen
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    order = order.filter(f => f !== clean);
-    localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-
-    let dashOrder = getDashboardFolderOrder().filter(f => f !== clean);
-    saveDashboardFolderOrder(dashOrder);
-
-    // 3. Aus Überordner-Mapping entfernen
-    const mapping = getFolderSuperMapping();
-    delete mapping[clean];
-    saveFolderSuperMapping(mapping);
-
-    // 4. Alle Fälle in diesem Ordner (auch Built-in Demo & Cloud-Fälle) per Override nach "Allgemein" verschieben
-    const overrides = getCaseFolderOverrides();
-    Object.keys(overrides).forEach(cId => {
-        if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
-    });
-
-    const demoCurrentFolder = overrides[BUILTIN_DEMO_CASE.case_id]
-        || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
-    if (demoCurrentFolder === clean) {
-        overrides[BUILTIN_DEMO_CASE.case_id] = 'Allgemein';
-    }
-
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modifiedCases = [];
-    customCases.forEach(c => {
-        const cId = c.case_id || c.id;
-        const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
-        if (cFolder === clean) {
-            c.folder_name = 'Allgemein';
-            if (c.metadata) c.metadata.medical_field = 'Allgemein';
-            if (cId) overrides[cId] = 'Allgemein';
-            modifiedCases.push(c);
-        }
-    });
-
-    saveCaseFolderOverrides(overrides);
-    localStorage.setItem('custom_cases', JSON.stringify(customCases));
-
-    // 5. UI States bereinigen & sofort neu rendern
-    delete openFolders[clean];
-    delete bookshelfFolderState[clean];
-    openFolders['Allgemein'] = true;
-
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
-    renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
-
-    // 6. Geänderte Fälle in Supabase synchronisieren
-    await syncModifiedCasesToSupabase(modifiedCases);
-};
-
-// ====================================================
-// ZENTRALE FUNKTION ZUM VERSCHIEBEN VON FÄLLEN IN ORDNER
-// ====================================================
-window.moveCaseToFolder = async function(caseId, targetFolder) {
-    if (!caseId || !targetFolder) return;
-    const cleanFolder = targetFolder.trim();
-
-    // Falls der Zielordner früher mal gelöscht wurde, wieder reaktivieren
-    unmarkFolderAsDeleted(cleanFolder);
-
-    // 1. Dauerhaften Override für diese case_id speichern (überlebt jeden Reload!)
-    setCaseFolderOverride(caseId, cleanFolder);
-
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let targetCase = customCases.find(c => (c.case_id || c.id) === caseId);
-
-    if (!targetCase && caseId === BUILTIN_DEMO_CASE.case_id) {
-        targetCase = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE));
-    }
-
-    if (!targetCase) {
-        const allRegistered = window.getRegisteredCases ? window.getRegisteredCases() : [];
-        const found = allRegistered.find(c => (c.case_id || c.id) === caseId);
-        if (found) {
-            targetCase = JSON.parse(JSON.stringify(found));
-        }
-    }
-
-    if (!targetCase) {
-        console.warn("Fall nicht gefunden zum Verschieben:", caseId);
-        return;
-    }
-
-    // 2. Ordner-Eigenschaft am Fall-Objekt aktualisieren
-    targetCase.folder_name = cleanFolder;
-    if (targetCase.metadata) {
-        targetCase.metadata.medical_field = cleanFolder;
-    }
-
-    if (caseId !== BUILTIN_DEMO_CASE.case_id) {
-        customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
-        customCases.push(targetCase);
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-    }
-
-    // 3. Sicherstellen, dass der Zielordner in der Ordnerstruktur registriert ist
-    if (typeof registerDynamicFolder === 'function') {
-        registerDynamicFolder(cleanFolder);
-    }
-
-    openFolders[cleanFolder] = true;
-
-    // 4. Sofort Dashboard & Bookshelf neu rendern
-    if (typeof renderDashboardCases === 'function') {
-        renderDashboardCases();
-    }
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
-    if (typeof window.triggerHaptic === 'function') {
-        window.triggerHaptic(14);
-    }
-
-    // 5. Cloud-Sync in Supabase
-    await syncModifiedCasesToSupabase([targetCase]);
-};
-
-// Fall direkt auf einen Überordner ziehen
-async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
-    if (!caseId || !targetSuperTitle) return;
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
-    if (!targetCase) return;
-
-    const currentFolder = (targetCase.folder_name || targetCase.metadata?.medical_field || 'Allgemein').trim();
-
-    let destinationSubfolder = currentFolder;
-    if (currentFolder.toLowerCase() === 'allgemein') {
-        destinationSubfolder = targetSuperTitle;
-    }
-
-    unmarkFolderAsDeleted(destinationSubfolder);
-
-    const mapping = getFolderSuperMapping();
-    mapping[destinationSubfolder] = targetSuperTitle;
-    saveFolderSuperMapping(mapping);
-
-    superFolderStates[targetSuperTitle] = true;
-    bookshelfSuperFolderState[targetSuperTitle] = true;
-    openFolders[destinationSubfolder] = true;
-    bookshelfFolderState[destinationSubfolder] = true;
-
-    await window.moveCaseToFolder(caseId, destinationSubfolder);
-}
-
-window.promptMoveFolderToSuperFolder = function(folderName) {
-    if (!folderName) return;
-    const currentSuper = getSuperFolderForCategory(folderName);
-    const availableSupers = getSuperFolderOrder();
-
-    const optionsText = availableSupers
-        .map((s, idx) => `${idx + 1}: ${s}${s === currentSuper ? ' (aktuell)' : ''}`)
-        .join('\n');
-
-    const choice = window.prompt(
-        `In welchen Überordner möchtest du "${folderName}" verschieben?\n\nGib die Ziffer ein (oder tippe einen komplett neuen Überordner-Namen ein):\n${optionsText}`
-    );
-
-    if (choice === null || !choice.trim()) return;
-    const trimmed = choice.trim();
-    const num = parseInt(trimmed, 10);
-
-    if (!isNaN(num) && num >= 1 && num <= availableSupers.length) {
-        const target = availableSupers[num - 1];
-        window.moveFolderToSuperFolder(folderName, target);
-    } else {
-        const existingMatch = availableSupers.find(s => s.toLowerCase() === trimmed.toLowerCase());
-        if (existingMatch) {
-            window.moveFolderToSuperFolder(folderName, existingMatch);
-        } else {
-            createCustomSuperFolder(trimmed);
-            window.moveFolderToSuperFolder(folderName, trimmed);
-        }
-    }
-};
-// ==========================================
-// DYNAMISCHES RESIZING DER SIDEBAR
-// ==========================================
-const SIDEBAR_STORAGE_KEY = 'medcheck_sidebar_width';
+// Dynamisches Resizing der Sidebar
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 500;
 
@@ -1612,43 +1571,41 @@ function stepSidebarWidth(deltaPx) {
     const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')) || 260;
     setSidebarWidth(current + deltaPx);
 }
+window.stepSidebarWidth = stepSidebarWidth;
 
 function initSidebarResizer() {
     const resizer = document.getElementById('sidebar-resizer');
-    if (!resizer) return;
+    if (!resizer || resizer.dataset.bound === 'true') return;
+    resizer.dataset.bound = 'true';
 
     const savedWidth = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     if (savedWidth) setSidebarWidth(parseInt(savedWidth, 10));
 
-    let isging = false;
+    let isResizing = false;
 
     resizer.addEventListener('mousedown', (e) => {
         if (e.target.tagName === 'BUTTON') return;
-        isging = true;
+        isResizing = true;
         document.body.classList.add('is-resizing');
         e.preventDefault();
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isging) return;
+        if (!isResizing) return;
         setSidebarWidth(e.clientX);
     });
 
     window.addEventListener('mouseup', () => {
-        if (isging) {
-            isging = false;
+        if (isResizing) {
+            isResizing = false;
             document.body.classList.remove('is-resizing');
         }
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initSidebarResizer();
-});
-
-// ====================================================
-// STATS & SKILLS
-// ====================================================
+// ==========================================================================
+// 09. STATS, XP-SYSTEM & SKILL-TRACKING
+// ==========================================================================
 function initUserData() {
     if (!localStorage.getItem('user_xp')) localStorage.setItem('user_xp', '0');
     let rawSkills = JSON.parse(localStorage.getItem('user_skills') || 'null');
@@ -1691,7 +1648,6 @@ function applyXpDelta(delta, label) {
     let finalDelta = delta;
     let multSuffix = '';
 
-    // Positiven XP-Gewinn mit aktivem Dienst-Streak-Multiplikator verrechnen
     if (delta > 0 && window.Gamification) {
         window.Gamification.recordActivity('xp_earned');
         const mult = window.Gamification.getXpMultiplier();
@@ -1750,64 +1706,14 @@ function renderSkillsSidebar() {
     }).join('');
 }
 
-
 // ====================================================
 // DASHBOARD DYNAMISCHES RENDERING (SUPER-FOLDER ENGINE)
 // ====================================================
 function getDashboardFolderOrder() {
     try { return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]'); } catch (_e) { return []; }
-}
-
-function saveDashboardFolderOrder(orderArray) {
-    try { localStorage.setItem(DASHBOARD_FOLDER_ORDER_KEY, JSON.stringify(orderArray)); } catch (e) {}
-}
-
-function reorderDashboardFolders(draggedCat, targetCat) {
-    if (!draggedCat || !targetCat || draggedCat === targetCat) return;
-    let order = getDashboardFolderOrder();
-    const fromIdx = order.indexOf(draggedCat);
-    const toIdx = order.indexOf(targetCat);
-    if (fromIdx !== -1 && toIdx !== -1) {
-        order.splice(fromIdx, 1);
-        order.splice(toIdx, 0, draggedCat);
-        saveDashboardFolderOrder(order);
-    }
-
-    let bsOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    const bsFrom = bsOrder.indexOf(draggedCat);
-    const bsTo = bsOrder.indexOf(targetCat);
-    if (bsFrom !== -1 && bsTo !== -1) {
-        bsOrder.splice(bsFrom, 1);
-        bsOrder.splice(bsTo, 0, draggedCat);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(bsOrder));
-    }
-
-    renderDashboardCases();
-}
-
-function toggleFolder(category) {
-    if (!category) return;
-    openFolders[category] = !openFolders[category];
-
-    // Schnelles DOM-Toggling ohne kompletten Re-Render:
-    const safeCat = encodeURIComponent(category);
-    const folderEl = document.querySelector(`.category-folder[data-category="${safeCat}"]`);
-    if (folderEl) {
-        const body = folderEl.querySelector('.category-cases-body');
-        const arrow = folderEl.querySelector('.category-arrow');
-        const isNowOpen = !!openFolders[category];
-
-        if (body) body.style.display = isNowOpen ? 'grid' : 'none';
-        if (arrow) arrow.classList.toggle('expanded', isNowOpen);
-    } else {
-        // Fallback: Re-Render, falls das Element nicht direkt selektierbar war
-        renderDashboardCases();
-    }
-}
-window.toggleFolder = toggleFolder;
-// ====================================================
-// DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
-// ====================================================
+}// ==========================================================================
+// 10. DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
+// ==========================================================================
 let dashboardSearchQuery = '';
 let dashboardSearchStatusFilter = 'all'; // 'all' | 'open' | 'progress' | 'solved'
 let isDashboardSearchOpen = false;
@@ -1879,7 +1785,6 @@ window.clearDashboardSearch = function(keepClosed = false) {
     renderDashboardCases();
 };
 
-// Prüft, ob ein Fall zur Suchanfrage + Statusfilter passt, und liefert die genaue Fundstelle zurück
 function evaluateCaseSearchMatch(caseObj, queryLower, statusFilter, solvedList) {
     const isSolved = solvedList.includes(caseObj.case_id);
     const savedState = ProgressManager.getCaseProgress(caseObj.case_id);
@@ -1902,7 +1807,6 @@ function evaluateCaseSearchMatch(caseObj, queryLower, statusFilter, solvedList) 
     if (folder.toLowerCase().includes(queryLower)) return { matches: true, reason: `Ordner: ${folder}` };
     if (topic.toLowerCase().includes(queryLower)) return { matches: true, reason: `Thema: ${topic}` };
 
-    // Cornell Cues durchsuchen
     const cornell = Array.isArray(caseObj.case_overview?.cornell_notes) ? caseObj.case_overview.cornell_notes : [];
     for (const row of cornell) {
         const hitCue = (row.cues || []).find(cue => String(cue).toLowerCase().includes(queryLower));
@@ -1915,7 +1819,6 @@ function evaluateCaseSearchMatch(caseObj, queryLower, statusFilter, solvedList) 
 
     if (summary.toLowerCase().includes(queryLower)) return { matches: true, reason: 'Take-Home Summary' };
 
-    // Differenzialdiagnosen / Doctordle durchsuchen
     const libEntries = Array.isArray(caseObj.extra_tasks?.library_entries) ? caseObj.extra_tasks.library_entries : [];
     const hitLib = libEntries.find(e => String(e).toLowerCase().includes(queryLower));
     if (hitLib) return { matches: true, reason: `DD: ${hitLib}` };
@@ -1931,25 +1834,58 @@ function highlightSearchTerm(text, query) {
     return safeText.replace(regex, '<mark class="mc-search-highlight">$1</mark>');
 }
 
-// Tastatur-Shortcuts: Ctrl/Cmd + K zum Öffnen, ESC zum Zurücksetzen
-document.addEventListener('keydown', (e) => {
-    const dashboardView = document.getElementById('dashboard-view');
-    const isDashboardVisible = dashboardView && dashboardView.style.display !== 'none';
-    if (!isDashboardVisible) return;
+// ==========================================================================
+// 11. DASHBOARD RENDERING & NOTABILITY-BOOKSHELF ENGINE
+// ==========================================================================
+function getDashboardFolderOrder() {
+    try { return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]'); } catch (_e) { return []; }
+}
 
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        window.toggleDashboardSearch(true);
-    } else if (e.key === 'Escape' && isDashboardSearchOpen) {
-        const input = document.getElementById('dashboard-case-search-input');
-        if (dashboardSearchQuery.length > 0 || dashboardSearchStatusFilter !== 'all') {
-            window.clearDashboardSearch(false);
-        } else {
-            window.toggleDashboardSearch(false);
-            input?.blur();
-        }
+function saveDashboardFolderOrder(orderArray) {
+    try { localStorage.setItem(DASHBOARD_FOLDER_ORDER_KEY, JSON.stringify(orderArray)); } catch (_e) {}
+}
+
+function reorderDashboardFolders(draggedCat, targetCat) {
+    if (!draggedCat || !targetCat || draggedCat === targetCat) return;
+    let order = getDashboardFolderOrder();
+    const fromIdx = order.indexOf(draggedCat);
+    const toIdx = order.indexOf(targetCat);
+    if (fromIdx !== -1 && toIdx !== -1) {
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedCat);
+        saveDashboardFolderOrder(order);
     }
-});
+
+    let bsOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const bsFrom = bsOrder.indexOf(draggedCat);
+    const bsTo = bsOrder.indexOf(targetCat);
+    if (bsFrom !== -1 && bsTo !== -1) {
+        bsOrder.splice(bsFrom, 1);
+        bsOrder.splice(bsTo, 0, draggedCat);
+        localStorage.setItem('medcheck_folder_order', JSON.stringify(bsOrder));
+    }
+
+    renderDashboardCases();
+}
+
+function toggleFolder(category) {
+    if (!category) return;
+    openFolders[category] = !openFolders[category];
+
+    const safeCat = encodeURIComponent(category);
+    const folderEl = document.querySelector(`.category-folder[data-category="${safeCat}"]`);
+    if (folderEl) {
+        const body = folderEl.querySelector('.category-cases-body');
+        const arrow = folderEl.querySelector('.category-arrow');
+        const isNowOpen = !!openFolders[category];
+
+        if (body) body.style.display = isNowOpen ? 'grid' : 'none';
+        if (arrow) arrow.classList.toggle('expanded', isNowOpen);
+    } else {
+        renderDashboardCases();
+    }
+}
+window.toggleFolder = toggleFolder;
 
 function renderDashboardCases() {
     initCustomSuperFoldersState();
@@ -2321,7 +2257,7 @@ function renderDashboardCases() {
             if (droppedCaseId) {
                 draggedItemState = null;
                 openFolders[catName] = true;
-                await moveCaseToFolder(droppedCaseId, catName);
+                await window.moveCaseToFolder(droppedCaseId, catName);
                 return;
             }
 
@@ -2388,10 +2324,7 @@ function renderDashboardCases() {
     }
 }
 
-// ====================================================
-// NOTABILITY-STYLE BOOKSHELF MIT DYNAMISCHER EINRÜCKUNG
-// ====================================================
-
+// Notability-Style Bookshelf mit dynamischer Einrückung
 let activeDropIndicator = null;
 let currentDropTargetInfo = null;
 
@@ -2451,9 +2384,6 @@ function renderBookshelf(casesArray) {
             solvedCasesInSuper += list.filter(c => solved.includes(c.case_id)).length;
         });
 
-        // ==========================
-        // ÜBERORDNER-ELEMENT (ROOT)
-        // ==========================
         const superDiv = document.createElement('div');
         superDiv.className = 'bookshelf-super-group';
         superDiv.dataset.folderName = superTitle;
@@ -2479,7 +2409,6 @@ function renderBookshelf(casesArray) {
             </div>
         `;
 
-        // Buttons binden
         superHeader.querySelector('.add-sub-btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
             window.createSubfolderInSuperFolder(superTitle);
@@ -2499,9 +2428,6 @@ function renderBookshelf(casesArray) {
             renderBookshelf(casesArray);
         });
 
-        // ==========================
-        // UNTERORDNER-CONTAINER
-        // ==========================
         const superBody = document.createElement('div');
         superBody.className = `bookshelf-super-body ${isSuperOpen ? '' : 'collapsed'}`;
 
@@ -2536,13 +2462,13 @@ function renderBookshelf(casesArray) {
                 e.stopPropagation();
                 const newName = window.prompt("Neuer Name für den Ordner:", folderName);
                 if (newName && newName.trim() && newName.trim() !== folderName) {
-                    renameFolder(folderName, newName.trim());
+                    window.renameFolder(folderName, newName.trim());
                 }
             });
 
             header.querySelector('.delete-folder-btn')?.addEventListener('click', (e) => {
                 e.stopPropagation();
-                deleteFolder(folderName, casesInFolder.length);
+                window.deleteFolder(folderName, casesInFolder.length);
             });
 
             header.addEventListener('click', (e) => {
@@ -2551,7 +2477,6 @@ function renderBookshelf(casesArray) {
                 renderBookshelf(casesArray);
             });
 
-            // Fälle innerhalb des Unterordners
             const list = document.createElement('ul');
             list.className = `folder-cases-list ${isOpen ? '' : 'collapsed'}`;
             casesInFolder.forEach(caseItem => {
@@ -2582,13 +2507,10 @@ function renderBookshelf(casesArray) {
         bookshelfContainer.appendChild(superDiv);
     });
 
-  // ====================================================
-    // NOTABILITY-STYLE INTERACTION ENGINE MIT LEUCHT-FEEDBACK
-    // ====================================================
     const draggableRows = bookshelfContainer.querySelectorAll('.bookshelf-super-group, .folder-group.is-subfolder');
 
     function clearRowGlows() {
-        draggableRows.forEach(r => {
+        bookshelfContainer.querySelectorAll('.drop-target-active, .drop-target-sub-active').forEach(r => {
             r.classList.remove('drop-target-active');
             r.classList.remove('drop-target-sub-active');
         });
@@ -2623,7 +2545,6 @@ function renderBookshelf(casesArray) {
         });
 
         row.addEventListener('dragover', (e) => {
-            // A) Wenn ein Fall über den Ordner gezogen wird:
             const isCaseDrag = draggedItemState?.type === 'case' || e.dataTransfer.types.includes('application/medcheck-case-id');
             if (isCaseDrag) {
                 e.preventDefault();
@@ -2634,7 +2555,6 @@ function renderBookshelf(casesArray) {
                 return;
             }
 
-            // B) Wenn ein Bookshelf-Ordner verschoben wird:
             if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
             if (draggedItemState.name === row.dataset.folderName) return;
 
@@ -2680,7 +2600,6 @@ function renderBookshelf(casesArray) {
             clearRowGlows();
             removeDropIndicator();
 
-            // A) Fallkarte wurde auf diesen Ordner/Überordner fallen gelassen:
             const droppedCaseId = (draggedItemState?.type === 'case' && draggedItemState.id) 
                                   || e.dataTransfer.getData('application/medcheck-case-id')
                                   || e.dataTransfer.getData('text/plain');
@@ -2701,7 +2620,6 @@ function renderBookshelf(casesArray) {
                 return;
             }
 
-            // B) Ordner-Hierarchie-Änderung (Notability Style):
             if (!draggedItemState || draggedItemState.type !== 'bookshelf-folder') return;
             e.preventDefault();
             e.stopPropagation();
@@ -2713,18 +2631,20 @@ function renderBookshelf(casesArray) {
 
             applyNotabilityFolderHierarchy(dragged, info);
         });
-    }); // <-- HIER: Sauberes Schließen von draggableRows.forEach
-
-    bookshelfContainer.addEventListener('dragleave', (e) => {
-        if (!bookshelfContainer.contains(e.relatedTarget)) {
-            clearRowGlows();
-            removeDropIndicator();
-        }
     });
-} // <-- HIER: Sauberes Schließen von function renderBookshelf()
-/**
- * Wendet die Notability-Hierarchieänderung auf Überordner- und Unterordner-Listen an
- */
+
+    // Memory-Leak Fix: Container-Dragleave nur einmalig binden!
+    if (bookshelfContainer.dataset.dragleaveBound !== 'true') {
+        bookshelfContainer.dataset.dragleaveBound = 'true';
+        bookshelfContainer.addEventListener('dragleave', (e) => {
+            if (!bookshelfContainer.contains(e.relatedTarget)) {
+                clearRowGlows();
+                removeDropIndicator();
+            }
+        });
+    }
+}
+
 function applyNotabilityFolderHierarchy(dragged, targetInfo) {
     const draggedName = dragged.name;
     let superOrder = getSuperFolderOrder();
@@ -2733,17 +2653,12 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 
-    // =========================================================================
-    // FALL 1: NACH LINKS GEDROPPT -> WIRD ZUM ECHTEN ÜBERORDNER
-    // =========================================================================
     if (!targetInfo.makeSubfolder) {
-        // Falls er vorher ein Unterordner war: Aus dem Mapping entfernen
         if (mapping[draggedName]) {
             delete mapping[draggedName];
             saveFolderSuperMapping(mapping);
         }
 
-        // Zu den Überordnern hinzufügen (falls noch nicht drin)
         if (!superOrder.includes(draggedName)) {
             const targetIdx = superOrder.indexOf(targetInfo.targetIsSuper ? targetInfo.targetName : targetInfo.targetParentSuper);
             if (targetIdx !== -1) {
@@ -2756,17 +2671,10 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
 
         bookshelfSuperFolderState[draggedName] = true;
         superFolderStates[draggedName] = true;
-    }
-
-    // =========================================================================
-    // FALL 2: NACH RECHTS GEDROPPT -> WIRD ZUM UNTERORDNER
-    // =========================================================================
-    else {
-        // Bestimme den übergeordneten Ziel-Überordner
+    } else {
         const destinationSuper = targetInfo.targetIsSuper ? targetInfo.targetName : targetInfo.targetParentSuper;
         if (!destinationSuper || destinationSuper === draggedName) return;
 
-        // Falls er vorher ein Überordner war: Aus der Überordnerliste austragen
         if (superOrder.includes(draggedName) && draggedName !== 'Allgemein') {
             superOrder = superOrder.filter(s => s !== draggedName);
             saveSuperFolderOrder(superOrder);
@@ -2774,35 +2682,32 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
             delete superFolderStates[draggedName];
         }
 
-        // Sicherstellen, dass er in der Unterordnerliste eingetragen ist
         if (!subOrder.includes(draggedName)) {
             subOrder.push(draggedName);
             localStorage.setItem('medcheck_folder_order', JSON.stringify(subOrder));
         }
 
-        // Mapping zuweisen
         mapping[draggedName] = destinationSuper;
         saveFolderSuperMapping(mapping);
 
-        // Ziel-Überordner aufklappen, damit man das Ergebnis sofort sieht
         bookshelfSuperFolderState[destinationSuper] = true;
         superFolderStates[destinationSuper] = true;
     }
 
-    // UI aktualisieren
     renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') {
         renderSubjectProgressDrawer();
     }
 }
-// ====================================================
-// FALL LADEN & PLAYER LOGIK
-// ====================================================
+
+// ==========================================================================
+// 12. PLAYER-LOGIK, CORNELL-OVERVIEW & MINDMAP-KONVERTER
+// ==========================================================================
 function getCustomCases() {
     try {
         const raw = JSON.parse(localStorage.getItem('custom_cases')) || [];
         return raw.map(c => applyFolderOverridesToCase(c));
-    } catch (e) {
+    } catch (_e) {
         return [];
     }
 }
@@ -2836,8 +2741,8 @@ function applySpecialtyFilters(caseData) {
     }
 }
 window.applySpecialtyFilters = applySpecialtyFilters;
+
 window.loadCaseById = function(caseId, opts = {}) {
-    // NEU: Wenn ein normaler Fall geladen wird (nicht über Notdienst), Notdienst beenden!
     if (!opts.isEmergency && window.EmergencyManager && typeof window.EmergencyManager.exitSession === 'function') {
         window.EmergencyManager.exitSession();
     }
@@ -2860,7 +2765,9 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (specialtyMode) applySpecialtyFilters(activeCaseData);
     const saved = (specialtyMode || opts.resetForReview) ? {} : (ProgressManager.getCaseProgress(caseId) || {});
 
-    window.applyBlindHeader(specialtyMode, activeCaseData);
+    if (typeof window.applyBlindHeader === 'function') {
+        window.applyBlindHeader(specialtyMode, activeCaseData);
+    }
 
     if (!Array.isArray(activeCaseData.timeline)) activeCaseData.timeline = [];
     totalStepsCount = activeCaseData.timeline.length;
@@ -2875,7 +2782,6 @@ window.loadCaseById = function(caseId, opts = {}) {
 
     const tasks = activeCaseData.extra_tasks || {};
     
-    // Wichtig: show-Hilfsfunktion definieren!
     const show = (id, on) => { 
         const el = document.getElementById(id); 
         if (el) el.style.display = on ? 'inline-flex' : 'none'; 
@@ -3004,7 +2910,6 @@ window.renderOverview = function() {
     `;
     container.innerHTML = html;
 
-    // --- INTERAKTIVE GLOW-EVENTS (HOVER, TOUCH & BIDIREKTIONAL) ---
     const cueElements = container.querySelectorAll('.cornell-cue-item');
     const noteBlocks = container.querySelectorAll('.cornell-notes');
 
@@ -3014,7 +2919,6 @@ window.renderOverview = function() {
         const rowId = cueEl.getAttribute('data-row');
         const rowEl = document.getElementById(rowId);
 
-        // Hover Start: Titel & zugehöriger Text leuchten auf
         cueEl.addEventListener('mouseenter', () => {
             cueEl.classList.add('cue-active-highlight');
             if (targetFragment) targetFragment.classList.add('highlight-target');
@@ -3022,14 +2926,12 @@ window.renderOverview = function() {
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
         });
 
-        // Hover Ende: Leuchteffekt entfernen
         cueEl.addEventListener('mouseleave', () => {
             cueEl.classList.remove('cue-active-highlight');
             if (targetFragment) targetFragment.classList.remove('highlight-target');
             if (rowEl) rowEl.classList.remove('row-highlight');
         });
 
-        // Mobile / Touch Support (Tap)
         cueEl.addEventListener('click', () => {
             const isAlreadyActive = targetFragment?.classList.contains('highlight-target');
             
@@ -3046,7 +2948,6 @@ window.renderOverview = function() {
         });
     });
 
-    // Bidirektionaler Hover: Fährt man über den Text, leuchtet auch der Titel links
     noteBlocks.forEach(noteEl => {
         const rowId = noteEl.getAttribute('data-row');
         const rowEl = document.getElementById(rowId);
@@ -3066,9 +2967,7 @@ window.renderOverview = function() {
     });
 };
 
-// ====================================================
-// AUTO-KONVERTER V2.0: AKTIVER FALL -> LOGISCHE KAUSAL-MINDMAP
-// ====================================================
+// Auto-Konverter V2.0: Aktiver Fall -> Logische Kausal-Mindmap
 window.practiceCurrentCaseAsMindmap = function() {
     if (!activeCaseData) {
         alert('Bitte öffne zuerst einen klinischen Fall.');
@@ -3084,7 +2983,6 @@ window.practiceCurrentCaseAsMindmap = function() {
     const nodes = [];
     let nodeCounter = 1;
 
-    // 1. Primärerkrankung aus der Synapsen-Matrix extrahieren (4 klar getrennte Hauptäste 1. Ordnung)
     const synVars = activeCaseData.extra_tasks?.synapses_matrix?.variables || [];
     const primaryDisease = activeCaseData.metadata?.primary_disease;
     const primaryVars = synVars.filter(v => !primaryDisease || v.disease === primaryDisease);
@@ -3114,12 +3012,10 @@ window.practiceCurrentCaseAsMindmap = function() {
         });
     });
 
-    // 2. Kausale Paare aus Clinical Cascades (1. Ordnung -> 2. Ordnung) extrahieren
     const firstCascadeObj = activeCaseData.extra_tasks?.clinical_cascades?.[0];
     const cascadeSteps = firstCascadeObj?.cascade || [];
 
     if (cascadeSteps.length >= 6) {
-        // Paar A: Auslöser (01) -> Pathophysiologie (02)
         const trigId = `n${nodeCounter++}`;
         nodes.push({
             id: trigId,
@@ -3141,7 +3037,6 @@ window.practiceCurrentCaseAsMindmap = function() {
             explanation: `Stufe 2 (Pathophysiologie) als direkte Folge des Auslösers.`
         });
 
-        // Paar B: Klinische Manifestation (05) -> Diagnostischer Befund (06)
         if (cascadeSteps[4] && cascadeSteps[5]) {
             const clinParentId = parentByCategory.clinical || `n${nodeCounter++}`;
             if (!parentByCategory.clinical) {
@@ -3167,7 +3062,6 @@ window.practiceCurrentCaseAsMindmap = function() {
         }
     }
 
-    // 3. Falls noch Knoten fehlen: Aus Cornell-Notes logische Cue-Paare mit echtem Erklärungstext bilden
     const cornellNotes = activeCaseData.case_overview?.cornell_notes || [];
     const catCycle = ['pathophysiology', 'diagnostics', 'therapy', 'clinical', 'etiology'];
 
@@ -3237,9 +3131,248 @@ window.practiceCurrentCaseAsMindmap = function() {
         }
     }
 };
-// ====================================================
-// FORGE / GEMINI API
-// ====================================================
+
+// Abschluss & Resets im Player
+window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
+    solvedDoctordlePuzzles = solvedCount;
+    totalDoctordlePuzzles = totalCount;
+    const badge = document.getElementById('badge-mode-doctordle');
+    if (badge) {
+        if (solvedCount >= totalCount && totalCount > 0) {
+            badge.innerText = 'Gelöst';
+            badge.style.background = 'var(--color-symptom, #10b981)';
+        } else {
+            badge.innerText = `${solvedCount}/${totalCount}`;
+            badge.style.background = '';
+        }
+    }
+
+    if (solvedCount >= totalCount) {
+        doctordleSolved = true;
+    }
+
+    if (activeCaseData) {
+        ProgressManager.saveCaseState(activeCaseData.case_id, {
+            doctordle: {
+                solvedCount: solvedCount,
+                totalCount: totalCount,
+                solved: solvedCount >= totalCount
+            }
+        });
+    }
+
+    window.checkFinalCompletion();
+};
+
+window.checkFinalCompletion = function() {
+    const stepsDone = (clearedStepsCount === totalStepsCount);
+    const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
+    const casDone = (cascadesSolvedCount === totalCascades);
+    const docDone = doctordleSolved;
+    const fcDone = window.flashcardsSolved !== undefined ? window.flashcardsSolved : true;
+
+    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone && fcDone;
+
+    const finishBtn = document.getElementById('finish-case-btn');
+    if (finishBtn) {
+        finishBtn.style.display = allCompleted ? 'block' : 'none';
+        if (window.isSpecialtyBlindMode) {
+            finishBtn.innerText = '🎉 Krankheitsbild aufdecken & abschließen';
+        } else {
+            finishBtn.innerText = 'Fall abschließen & XP sichern';
+        }
+    }
+    if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
+};
+
+window.finishCase = function() {
+    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
+        solved.push(activeCaseData.case_id);
+        localStorage.setItem('solved_cases', JSON.stringify(solved));
+        if (window.Cloud) window.Cloud.scheduleProgressSync();
+        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
+    } else {
+        applyXpDelta(50, 'Review Bonus');
+    }
+
+    if (activeCaseData && window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.recordCaseReview(activeCaseData.case_id, 'good');
+    }
+
+    if (window.isSpecialtyBlindMode) {
+        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
+        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
+        window.nextSpecialtyCase();
+        return;
+    } else {
+        alert('🎉 Gratulation! Alle Challenges gemeistert.');
+    }
+
+    const navItems = document.querySelectorAll('.nav-item');
+    if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
+};
+
+window.resetCurrentChallenge = function() {
+    if (!activeCaseData || currentActiveChallenge === 'overview') return;
+
+    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
+    if (!confirmReset) return;
+
+    const caseId = activeCaseData.case_id;
+
+    switch (currentActiveChallenge) {
+        case 'audit':
+            ProgressManager.resetChallenge(caseId, 'audit');
+            clearedStepsCount = 0;
+            const badgeAudit = document.getElementById('badge-mode-audit');
+            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
+            if (window.renderTimeline) window.renderTimeline();
+            break;
+
+        case 'quiz':
+            ProgressManager.resetChallenge(caseId, 'quiz');
+            quizSolved = false;
+            userQuizAnswers = {};
+            if (window.renderQuiz) window.renderQuiz();
+            break;
+
+        case 'synapses':
+            ProgressManager.resetChallenge(caseId, 'synapses');
+            solvedSynapseDiseases = 0;
+            selectedSynapses = [];
+            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
+            break;
+
+        case 'cascade':
+            ProgressManager.resetChallenge(caseId, 'cascades');
+            cascadesSolvedCount = 0;
+            if (window.renderCascades) window.renderCascades();
+            break;
+
+        case 'cat':
+            ProgressManager.resetChallenge(caseId, 'categorization');
+            categorizationSolved = false;
+            if (window.renderCategorization) window.renderCategorization();
+            break;
+
+        case 'doctordle':
+            ProgressManager.resetChallenge(caseId, 'doctordle');
+            solvedDoctordlePuzzles = 0;
+            doctordleSolved = false;
+            const docBadge = document.getElementById('badge-mode-doctordle');
+            if (docBadge) {
+                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
+                docBadge.style.background = '';
+            }
+            if (window.doctordleGame) {
+                window.doctordleGame.resetGame();
+            }
+            break;
+
+        case 'flashcards':
+            ProgressManager.resetChallenge(caseId, 'flashcards');
+            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
+            break;
+    }
+
+    window.checkFinalCompletion();
+};
+
+window.resetCurrentCaseEntirely = function() {
+    if (!activeCaseData) return;
+    const blind = !!window.isSpecialtyBlindMode;
+    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
+    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
+
+    ProgressManager.resetEntireCase(activeCaseData.case_id);
+    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
+};
+
+// Themen-Fortschritt Modal
+window.toggleSubjectProgressModal = function(forceOpen) {
+    const modal = document.getElementById('subject-progress-modal');
+    if (!modal) return;
+    const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : (modal.style.display === 'none');
+    
+    if (shouldOpen) {
+        renderSubjectProgressDrawer();
+        modal.style.display = 'flex';
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+    } else {
+        modal.style.display = 'none';
+    }
+};
+
+window.toggleSubjectDrawer = function() {
+    window.toggleSubjectProgressModal();
+};
+
+function getSubjectColorClass(pct) {
+    if (pct <= 32) return 'bar-red';
+    if (pct <= 66) return 'bar-orange';
+    return 'bar-green';
+}
+
+function renderSubjectProgressDrawer() {
+    const listEl = document.getElementById('dynamic-subjects-list');
+    if (!listEl) return;
+
+    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    const superStats = {};
+    getSuperFolderOrder().forEach(name => {
+        superStats[name] = { total: 0, solved: 0 };
+    });
+
+    const allAvailableCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+
+    allAvailableCases.forEach(c => {
+        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
+        const superFolder = typeof getSuperFolderForCategory === 'function'
+            ? getSuperFolderForCategory(rawCategory)
+            : 'Allgemein';
+
+        if (!superStats[superFolder]) {
+            superStats[superFolder] = { total: 0, solved: 0 };
+        }
+        superStats[superFolder].total += 1;
+
+        const caseId = c.case_id || c.id;
+        if (solvedIds.includes(caseId)) {
+            superStats[superFolder].solved += 1;
+        }
+    });
+
+    const entries = Object.entries(superStats);
+    entries.sort((a, b) => {
+        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
+        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
+        return pctA - pctB;
+    });
+
+    listEl.innerHTML = entries.map(([folderName, stats]) => {
+        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+        const colorClass = getSubjectColorClass(pct);
+
+        return `
+            <div class="subject-item" style="cursor: pointer; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px;" onclick="window.toggleSubjectProgressModal(false); if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${escapeHtml(folderName)}' zu filtern">
+                <div class="subject-item-top" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <span class="subject-item-name" style="font-size:0.82rem; font-weight:700; color:var(--text-main);">📁 ${escapeHtml(folderName)}</span>
+                    <span class="subject-item-stats" style="font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:var(--accent-blue); font-weight:700;">${pct}% (${stats.solved}/${stats.total})</span>
+                </div>
+                <div class="subject-bar-track" style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:999px; overflow:hidden;">
+                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ==========================================================================
+// 13. FORGE, GEMINI-API & DIDAKTISCHER MASTERPROMPT
+// ==========================================================================
 function showForgeFeedback(type, message) {
     const fb = document.getElementById('forge-fb');
     if (!fb) return;
@@ -3322,10 +3455,6 @@ window.generateCaseWithGemini = async function() {
     }
 };
 
-// ====================================================
-// FORGE / GEMINI API & MASTERPROMPT EXPORT
-// ====================================================
-
 const MEDCHECK_MASTER_PROMPT = `# ROLLE & ZIELGRUPPE
 
 Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Generiere aus dem Fachtext/Skript genau EINEN maximal vollständigen Fall als syntaktisch valides JSON.
@@ -3337,13 +3466,13 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
 # 1. KRITISCHE TECHNISCHE REGELN (ZERO-TOLERANCE)
 
 1. ZWINGENDE CASE_ID ZUERST: "case_id": "STRING_IDENTIFIER" MUSS die allererste Eigenschaft im JSON sein. Darf niemals fehlen oder leer sein.
-2. REINES ROHTEXT-JSON (TRUNCATION-SCHUTZ): Antworte AUSSCHLIESSLICH mit dem JSON-Objekt (Erstes Zeichen {, letztes Zeichen }). KEIN einleitender/erklärender Text, KEINE Markdown-Codeblöcke, KEINE Kommentare. Muss direkt durch JSON.parse() lesbar und vollständig geschlossen sein.
+​2. REINES ROHTEXT-JSON (TRUNCATION-SCHUTZ): Antworte AUSSCHLIESSLICH mit dem JSON-Objekt (Erstes Zeichen {, letztes Zeichen }). KEIN einleitender/erklärender Text, KEINE Markdown-Codeblöcke, KEINE Kommentare. Muss direkt durch JSON.parse() lesbar und vollständig geschlossen sein.
 3. STRIKTES ZITATIONSVERBOT & VERBOT VON SPAN- UND ZITAT-TAGS: Absolut verboten sind Zitationsmarker, Quellenverweise, Span-Markierungen oder Tags jeder Art wie,, [1], (Quelle: ...), [span_...], (start_span), (end_span) oder <span>...</span>. Der Text muss ausnahmslos sauberer, reiner Fließtext ohne jegliche Zitations- oder Span-Fragmente sein!
 4. STRING-ESCAPING: Unescapte doppelte Anführungszeichen in Strings sind VERBOTEN (nutze '...' oder \\"). Zeilenumbrüche in Strings zwingend als \\n\\n escapen (keine echten Returns). Keine unmaskierten LaTeX-Backslashes (nutze Unicode wie ≥, ≤, ±, →).
 5. HTML-GÜLTIGKEITSBEREICH: HTML-Tags (<p>, <b>, <ul>, <li>) sind AUSSCHLIESSLICH in case_overview.cornell_notes[].notes erlaubt. Alle anderen Felder (cues, summary, content, hotspots, hints, cascades, explanation, flashcards etc.) sind ausnahmslos reiner Plain-Text! Im Feld cues sind absolut KEINE HTML-Tags gestattet; cues sind reiner Plain-Text (z. B. "Epidemiologie", NIEMALS "<b>Epidemiologie</b>").
 6. SYSTEMANKER (metadata.primary_disease): Exakte Zielerkrankung des Falls als primärer Filter-Anker.
 
-# 2. SEKTIONSSPEZIFISCHE ANFORDERUNGEN
+# 2. SEKTIONSSPEZIFISISCHE ANFORDERUNGEN
 
 ## A. CASE_OVERVIEW
   - cornell_notes:
@@ -3390,7 +3519,7 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
 
 ## H. MASTER QUIZ (extra_tasks.master_quiz – Mind. 5 MC-Fragen, Typ A)
 1. Tagging: Mind. Frage 1 & 2 (Index 0, 1) behandeln primary_disease ("is_primary": true, "target_disease" = primary_disease). Restliche Fragen behandeln Differenzialdiagnosen ("is_primary": false).
-2. Anspruch (Bloom 3–5): Fallvignetten mit zweistufigem Denkschritt (Befundsynthese -> Diagnose -> Therapie/Mechanismus) und klinischen Zielkonflikten. Kein First-Order Recall! Distraktoren auf Facharztniveau (Cognitive Biases, Kontraindikationen).
+​2. Anspruch (Bloom 3–5): Fallvignetten mit zweistufigem Denkschritt (Befundsynthese -> Diagnose -> Therapie/Mechanismus) und klinischen Zielkonflikten. Kein First-Order Recall! Distraktoren auf Facharztniveau (Cognitive Biases, Kontraindikationen).
 3. Anti-Bias-Protokoll (STRIKT):
       - Längenparität: Alle 5 Optionen (options) innerhalb 10–15 % Zeichenvarianz.
       - Homogenität: Gleicher grammatikalischer Typus, keine Begründungssätze ("weil...", "um zu..."), keine absoluten Signalwörter ("immer", "nie"), keine Meta-Optionen ("Alle genannten"). Option-Reihenfolge willkürlich permutieren.
@@ -3518,9 +3647,7 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
     ]
   }
 }`;
-/**
- * Kopiert den didaktischen Masterprompt in die Zwischenablage (Clipboard API + Fallback)
- */
+
 window.copyMasterPromptToClipboard = async function(btnElement) {
     if (typeof window.triggerHaptic === 'function') {
         window.triggerHaptic(12);
@@ -3581,65 +3708,6 @@ window.copyMasterPromptToClipboard = async function(btnElement) {
     }
 };
 
-// ====================================================
-// INTELLIGENTER FALL-KLASSIFIZIERER (AUTO-ROUTING)
-// ====================================================
-function resolveCaseFolderName(caseData) {
-    if (!caseData) return 'Allgemein';
-
-    const explicitFolder = (caseData.folder_name || '').trim();
-    if (explicitFolder && explicitFolder.toLowerCase() !== 'allgemein') {
-        return explicitFolder;
-    }
-
-    const rawField = (caseData.metadata?.medical_field || caseData.medical_field || '').trim();
-    if (rawField) {
-        if (rawField.includes('_')) {
-            const parts = rawField.split('_');
-            const cleanTitle = parts.slice(1).join('_').trim();
-            if (cleanTitle.length > 2) return cleanTitle;
-        }
-        return rawField;
-    }
-
-    const topic = (caseData.case_overview?.topic || '').trim();
-    if (topic && topic.length > 2) {
-        return topic;
-    }
-
-    return 'Allgemein';
-}
-
-function autoAssignSuperFolder(folderName) {
-    if (!folderName) return 'Allgemein';
-    const clean = folderName.trim();
-
-    const mapping = getFolderSuperMapping();
-    const availableSupers = getSuperFolderOrder();
-    if (mapping[clean] && availableSupers.includes(mapping[clean])) {
-        return mapping[clean];
-    }
-
-    return getSuperFolderForCategoryHeuristic(clean);
-}
-
-function registerDynamicFolder(folderName, targetSuperFolder = null) {
-    if (!folderName || folderName.toLowerCase() === 'allgemein') return;
-
-    let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    if (!order.includes(folderName)) {
-        order.push(folderName);
-        localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
-    }
-
-    const superTarget = targetSuperFolder || autoAssignSuperFolder(folderName);
-    const mapping = getFolderSuperMapping();
-    if (!mapping[folderName]) {
-        mapping[folderName] = superTarget;
-        saveFolderSuperMapping(mapping);
-    }
-}
-
 window.validateAndSaveCustomCase = function() {
     const inputEl = document.getElementById('forge-input');
     if (!inputEl) return;
@@ -3679,7 +3747,7 @@ window.validateAndSaveCustomCase = function() {
         try {
             customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
             if (!Array.isArray(customCases)) { customCases = []; }
-        } catch (storageError) {
+        } catch (_storageError) {
             customCases = [];
         }
 
@@ -3707,406 +3775,17 @@ window.validateAndSaveCustomCase = function() {
     }
 };
 
-// ====================================================
-// ABSCHLUSS & RESETS
-// ====================================================
-window.onDoctordlePuzzleSolved = function(solvedCount, totalCount) {
-    solvedDoctordlePuzzles = solvedCount;
-    totalDoctordlePuzzles = totalCount;
-    const badge = document.getElementById('badge-mode-doctordle');
-    if (badge) {
-        if (solvedCount >= totalCount && totalCount > 0) {
-            badge.innerText = 'Gelöst';
-            badge.style.background = 'var(--color-symptom, #10b981)';
-        } else {
-            badge.innerText = `${solvedCount}/${totalCount}`;
-            badge.style.background = '';
-        }
-    }
-
-    if (solvedCount >= totalCount) {
-        doctordleSolved = true;
-    }
-
-    if (activeCaseData) {
-        ProgressManager.saveCaseState(activeCaseData.case_id, {
-            doctordle: {
-                solvedCount: solvedCount,
-                totalCount: totalCount,
-                solved: solvedCount >= totalCount
-            }
-        });
-    }
-
-    window.checkFinalCompletion();
-};
-
-window.checkFinalCompletion = function() {
-    const stepsDone = (clearedStepsCount === totalStepsCount);
-    const synDone = (solvedSynapseDiseases === totalSynapseDiseases);
-    const casDone = (cascadesSolvedCount === totalCascades);
-    const docDone = doctordleSolved;
-    const fcDone = window.flashcardsSolved !== undefined ? window.flashcardsSolved : true;
-
-    const allCompleted = stepsDone && synDone && casDone && categorizationSolved && quizSolved && docDone && fcDone;
-
-    const finishBtn = document.getElementById('finish-case-btn');
-    if (finishBtn) {
-        finishBtn.style.display = allCompleted ? 'block' : 'none';
-        if (window.isSpecialtyBlindMode) {
-            finishBtn.innerText = '🎉 Krankheitsbild aufdecken & abschließen';
-        } else {
-            finishBtn.innerText = 'Fall abschließen & XP sichern';
-        }
-    }
-    if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
-};
-
-window.finishCase = function() {
-    let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
-        solved.push(activeCaseData.case_id);
-        localStorage.setItem('solved_cases', JSON.stringify(solved));
-        if (window.Cloud) window.Cloud.scheduleProgressSync();
-        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
-    } else {
-        applyXpDelta(50, 'Review Bonus');
-    }
-
-    // SR-Engine benachrichtigen, dass der Fall erfolgreich wiederholt wurde
-    if (activeCaseData && window.SpacedRepetitionEngine) {
-        window.SpacedRepetitionEngine.recordCaseReview(activeCaseData.case_id, 'good');
-    }
-
-    if (window.isSpecialtyBlindMode) {
-        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
-        window.nextSpecialtyCase();
-        return;
-    } else {
-        alert('🎉 Gratulation! Alle Challenges gemeistert.');
-    }
-
-    const navItems = document.querySelectorAll('.nav-item');
-    if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
-};
-window.resetCurrentChallenge = function() {
-    if (!activeCaseData || currentActiveChallenge === 'overview') return;
-
-    const confirmReset = window.confirm(`Möchtest du die Challenge "${currentActiveChallenge.toUpperCase()}" wirklich zurücksetzen?`);
-    if (!confirmReset) return;
-
-    const caseId = activeCaseData.case_id;
-
-    switch (currentActiveChallenge) {
-        case 'audit':
-            ProgressManager.resetChallenge(caseId, 'audit');
-            clearedStepsCount = 0;
-            const badgeAudit = document.getElementById('badge-mode-audit');
-            if (badgeAudit) badgeAudit.innerText = `0/${totalStepsCount}`;
-            if (window.renderTimeline) window.renderTimeline();
-            break;
-
-        case 'quiz':
-            ProgressManager.resetChallenge(caseId, 'quiz');
-            quizSolved = false;
-            userQuizAnswers = {};
-            if (window.renderQuiz) window.renderQuiz();
-            break;
-
-        case 'synapses':
-            ProgressManager.resetChallenge(caseId, 'synapses');
-            solvedSynapseDiseases = 0;
-            selectedSynapses = [];
-            if (window.renderSynapsesMatrix) window.renderSynapsesMatrix();
-            break;
-
-        case 'cascade':
-            ProgressManager.resetChallenge(caseId, 'cascades');
-            cascadesSolvedCount = 0;
-            if (window.renderCascades) window.renderCascades();
-            break;
-
-        case 'cat':
-            ProgressManager.resetChallenge(caseId, 'categorization');
-            categorizationSolved = false;
-            if (window.renderCategorization) window.renderCategorization();
-            break;
-
-        case 'doctordle':
-            ProgressManager.resetChallenge(caseId, 'doctordle');
-            solvedDoctordlePuzzles = 0;
-            doctordleSolved = false;
-            const docBadge = document.getElementById('badge-mode-doctordle');
-            if (docBadge) {
-                docBadge.innerText = `0/${totalDoctordlePuzzles}`;
-                docBadge.style.background = '';
-            }
-            if (window.doctordleGame) {
-                window.doctordleGame.resetGame();
-            }
-            break;
-
-        case 'flashcards':
-            ProgressManager.resetChallenge(caseId, 'flashcards');
-            if (window.restartFlashcardDeck) window.restartFlashcardDeck(false);
-            break;
-    }
-
-    window.checkFinalCompletion();
-};
-
-window.resetCurrentCaseEntirely = function() {
-    if (!activeCaseData) return;
-    const blind = !!window.isSpecialtyBlindMode;
-    const title = blind ? 'dieses Krankheitsbild' : (activeCaseData.metadata?.title || activeCaseData.case_id);
-    if (!window.confirm(`Gesamten Fall "${title}" komplett neu starten? Alle Teilergebnisse werden gelöscht.`)) return;
-
-    ProgressManager.resetEntireCase(activeCaseData.case_id);
-    window.loadCaseById(activeCaseData.case_id, { specialty: blind });
-};
-
-window.addEventListener("cloudCasesSynced", async () => {
-    getCustomCases().forEach(window.registerCaseDDs);
-    if (typeof renderDashboardCases === "function") {
-        renderDashboardCases();
-    }
-    if (typeof window.renderSpecialtyHub === "function") {
-        window.renderSpecialtyHub();
-    }
-    if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
-        window.PharmacologyModule.syncFromCloud();
-    }
-});
-// ====================================================
-// SMARTPHONE CHALLENGE-MENÜ
-// ====================================================
-(function initMobileChallengePicker() {
-    function syncMobileChallengePicker() {
-        const navBar = document.querySelector('.challenge-nav-bar');
-        if (!navBar) return;
-
-        let mobileWrapper = document.getElementById('mc-mobile-picker-wrap');
-        if (!mobileWrapper) {
-            mobileWrapper = document.createElement('div');
-            mobileWrapper.id = 'mc-mobile-picker-wrap';
-            mobileWrapper.className = 'mc-mobile-picker-wrap';
-            navBar.parentElement.insertBefore(mobileWrapper, navBar);
-        }
-
-        const buttons = Array.from(navBar.querySelectorAll('.challenge-tab-btn')).filter(btn => {
-            return btn.style.display !== 'none';
-        });
-
-        const optionsHtml = buttons.map(btn => {
-            const mode = btn.id.replace('tab-btn-', '');
-            const badgeText = btn.querySelector('.tab-badge')?.innerText || '';
-            const clone = btn.cloneNode(true);
-            const b = clone.querySelector('.tab-badge');
-            if (b) b.remove();
-            const label = clone.innerText.trim();
-            const selected = (mode === currentActiveChallenge) ? 'selected' : '';
-            return `<option value="${mode}" ${selected}>${label}${badgeText ? ' (' + badgeText + ')' : ''}</option>`;
-        }).join('');
-
-        mobileWrapper.innerHTML = `
-            <div class="mc-mobile-picker-inner">
-                <label for="mc-mobile-challenge-select" class="mc-mobile-picker-label">🎯 Challenge wählen:</label>
-                <select id="mc-mobile-challenge-select" class="mc-mobile-picker-select">
-                    ${optionsHtml}
-                </select>
-            </div>
-        `;
-
-        const selectEl = document.getElementById('mc-mobile-challenge-select');
-        if (selectEl) {
-            selectEl.addEventListener('change', (e) => {
-                window.switchPlayerMode(e.target.value);
-            });
-        }
-
-        let fabContainer = document.getElementById('landscape-fab-container');
-        if (!fabContainer) {
-            fabContainer = document.createElement('div');
-            fabContainer.id = 'landscape-fab-container';
-            fabContainer.className = 'landscape-fab-container';
-
-            fabContainer.innerHTML = `
-                <div class="landscape-fab-menu" id="landscape-fab-menu"></div>
-                <button class="landscape-fab-btn" id="landscape-fab-btn" title="Menü öffnen">+</button>
-            `;
-            document.body.appendChild(fabContainer);
-
-            document.getElementById('landscape-fab-btn').addEventListener('click', () => {
-                const menu = document.getElementById('landscape-fab-menu');
-                const btn = document.getElementById('landscape-fab-btn');
-                menu.classList.toggle('open');
-                btn.classList.toggle('active');
-                window.triggerHaptic(8);
-            });
-        }
-
-        const playerView = document.getElementById('player-view');
-        if (playerView && playerView.style.display !== 'none') {
-            fabContainer.classList.add('visible');
-        } else {
-            fabContainer.classList.remove('visible');
-            document.getElementById('landscape-fab-menu')?.classList.remove('open');
-            document.getElementById('landscape-fab-btn')?.classList.remove('active');
-        }
-
-        const fabMenu = document.getElementById('landscape-fab-menu');
-        if (fabMenu) {
-            fabMenu.innerHTML = buttons.map(btn => {
-                const mode = btn.id.replace('tab-btn-', '');
-                const clone = btn.cloneNode(true);
-                const b = clone.querySelector('.tab-badge');
-                if (b) b.remove();
-                const label = clone.innerText.trim();
-                const isActive = (mode === currentActiveChallenge) ? 'active' : '';
-
-                return `<button class="${isActive}" onclick="
-                    window.triggerHaptic(5);
-                    window.switchPlayerMode('${mode}'); 
-                    document.getElementById('landscape-fab-menu').classList.remove('open'); 
-                    document.getElementById('landscape-fab-btn').classList.remove('active');
-                ">${label}</button>`;
-            }).join('');
-        }
-    }
-
-    const origSwitchPlayerMode = window.switchPlayerMode;
-    if (typeof origSwitchPlayerMode === 'function') {
-        window.switchPlayerMode = function(mode) {
-            origSwitchPlayerMode(mode);
-            syncMobileChallengePicker();
-        };
-    }
-
-    const origLoadCaseById = window.loadCaseById;
-    if (typeof origLoadCaseById === 'function') {
-        window.loadCaseById = function(caseId, opts) {
-            origLoadCaseById(caseId, opts);
-            setTimeout(syncMobileChallengePicker, 50);
-        };
-    }
-
-    const origSwitchTab = window.switchTab;
-    if (typeof origSwitchTab === 'function') {
-       window.switchTab = function(tab, el) {
-    window.triggerHaptic(6);
-
-    // NEU: Sobald man den Player verlässt, Notdienst-Session beenden
-    if (tab !== 'player' && window.EmergencyManager && typeof window.EmergencyManager.exitSession === 'function') {
-        window.EmergencyManager.exitSession();
-    }
-
-    if (tab === 'auth') {
-        tab = 'settings';
-    }
-            origSwitchTab(tab, el);
-            setTimeout(syncMobileChallengePicker, 50);
-        };
-    }
-
-    window.addEventListener('DOMContentLoaded', () => setTimeout(syncMobileChallengePicker, 200));
-})();
-
 // ==========================================================================
-// THEMEN-FORTSCHRITT MODAL
+// 14. LERN-DEPOT (KNOWLEDGE VAULT) & KI-PRÜFUNGS-GENERATOR
 // ==========================================================================
-window.toggleSubjectProgressModal = function(forceOpen) {
-    const modal = document.getElementById('subject-progress-modal');
-    if (!modal) return;
-    const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : (modal.style.display === 'none');
-    
-    if (shouldOpen) {
-        renderSubjectProgressDrawer();
-        modal.style.display = 'flex';
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
-    } else {
-        modal.style.display = 'none';
-    }
-};
-
-// Rückwärtskompatibilität, falls noch irgendwo toggleSubjectDrawer aufgerufen wird:
-window.toggleSubjectDrawer = function() {
-    window.toggleSubjectProgressModal();
-};
-
-function getSubjectColorClass(pct) {
-    if (pct <= 32) return 'bar-red';
-    if (pct <= 66) return 'bar-orange';
-    return 'bar-green';
-}
-
-function renderSubjectProgressDrawer() {
-    const listEl = document.getElementById('dynamic-subjects-list');
-    if (!listEl) return;
-
-    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const superStats = {};
-    getSuperFolderOrder().forEach(name => {
-        superStats[name] = { total: 0, solved: 0 };
-    });
-
-    const allAvailableCases = typeof window.getRegisteredCases === 'function'
-        ? window.getRegisteredCases()
-        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-
-    allAvailableCases.forEach(c => {
-        const rawCategory = (c.folder_name || c.metadata?.medical_field || c.medical_field || 'Allgemein').trim();
-        const superFolder = typeof getSuperFolderForCategory === 'function'
-            ? getSuperFolderForCategory(rawCategory)
-            : 'Allgemein';
-
-        if (!superStats[superFolder]) {
-            superStats[superFolder] = { total: 0, solved: 0 };
-        }
-        superStats[superFolder].total += 1;
-
-        const caseId = c.case_id || c.id;
-        if (solvedIds.includes(caseId)) {
-            superStats[superFolder].solved += 1;
-        }
-    });
-
-    const entries = Object.entries(superStats);
-    entries.sort((a, b) => {
-        const pctA = a[1].total > 0 ? (a[1].solved / a[1].total) * 100 : 0;
-        const pctB = b[1].total > 0 ? (b[1].solved / b[1].total) * 100 : 0;
-        return pctA - pctB;
-    });
-
-    listEl.innerHTML = entries.map(([folderName, stats]) => {
-        const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
-        const colorClass = getSubjectColorClass(pct);
-
-        return `
-            <div class="subject-item" style="cursor: pointer; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px;" onclick="window.toggleSubjectProgressModal(false); if(typeof window.selectSrFolder === 'function') window.selectSrFolder('${folderName.replace(/'/g, "\\'")}')" title="Klicken, um Spaced Repetition auf '${escapeHtml(folderName)}' zu filtern">
-                <div class="subject-item-top" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <span class="subject-item-name" style="font-size:0.82rem; font-weight:700; color:var(--text-main);">📁 ${escapeHtml(folderName)}</span>
-                    <span class="subject-item-stats" style="font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:var(--accent-blue); font-weight:700;">${pct}% (${stats.solved}/${stats.total})</span>
-                </div>
-                <div class="subject-bar-track" style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:999px; overflow:hidden;">
-                    <div class="subject-bar-fill ${colorClass}" style="width: ${pct}%;"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// ==========================================================================
-// LERN-DEPOT (KNOWLEDGE VAULT) MODULE
-// ==========================================================================
-const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
 let currentDepotFilter = 'open';
 let pendingSelectionData = null;
+let currentDepotQuizQuestions = [];
 
 function getLocalDepot() {
     try {
         return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
-    } catch (e) {
+    } catch (_e) {
         return [];
     }
 }
@@ -4116,12 +3795,8 @@ function saveLocalDepot(items) {
     updateDepotBadges(items);
 }
 
-function getSupabaseInstance() {
-    return window.supabaseClient || window.sb || window.supabase_client || null;
-}
-
 async function syncDepotWithSupabase() {
-    const sb = getSupabaseInstance();
+    const sb = getActiveSupabaseClient();
     if (!sb || !sb.auth) {
         updateDepotBadges(getLocalDepot());
         return;
@@ -4154,7 +3829,8 @@ async function syncDepotWithSupabase() {
 
 function initOverviewSelectionListener() {
     const popover = document.getElementById('depot-selection-popover');
-    if (!popover) return;
+    if (!popover || popover.dataset.bound === 'true') return;
+    popover.dataset.bound = 'true';
 
     const handleSelection = () => {
         const overviewPane = document.getElementById('mode-container-overview');
@@ -4276,7 +3952,7 @@ async function createDepotEntry(entryData) {
         showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
     }
 
-    const sb = getSupabaseInstance();
+    const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
             const { data: sessionData } = await sb.auth.getSession();
@@ -4309,11 +3985,11 @@ async function toggleDepotItemMastered(itemId) {
     saveLocalDepot(items);
     renderDepotView();
 
-    const sb = getSupabaseInstance();
+    const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
             await sb.from('user_depot').update({ is_mastered: target.is_mastered }).eq('id', itemId);
-        } catch (e) {}
+        } catch (_e) {}
     }
 }
 
@@ -4325,11 +4001,11 @@ async function updateDepotItemNote(itemId, noteText) {
     target.user_note = noteText.trim();
     saveLocalDepot(items);
 
-    const sb = getSupabaseInstance();
+    const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
             await sb.from('user_depot').update({ user_note: target.user_note }).eq('id', itemId);
-        } catch (e) {}
+        } catch (_e) {}
     }
 }
 
@@ -4338,11 +4014,11 @@ async function deleteDepotItem(itemId) {
     saveLocalDepot(items);
     renderDepotView();
 
-    const sb = getSupabaseInstance();
+    const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
             await sb.from('user_depot').delete().eq('id', itemId);
-        } catch (e) {}
+        } catch (_e) {}
     }
 }
 
@@ -4367,14 +4043,6 @@ function updateDepotBadges(items = getLocalDepot()) {
 
     const masteredEl = document.getElementById('depot-count-mastered');
     if (masteredEl) masteredEl.textContent = masteredCount;
-}
-
-function escapeDepotHtml(str) {
-    return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 function renderDepotView() {
@@ -4448,16 +4116,7 @@ function renderDepotView() {
     `).join('');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    initOverviewSelectionListener();
-    syncDepotWithSupabase();
-});
-
-// ==========================================================================
-// KI-PRÜFUNGS-GENERATOR AUS DEM LERN-DEPOT (GEMINI API + FALLBACK)
-// ==========================================================================
-let currentDepotQuizQuestions = [];
-
+// KI-Prüfungs-Generator aus dem Lern-Depot
 function closeDepotQuizArena() {
     const arena = document.getElementById('depot-quiz-arena');
     if (arena) arena.classList.add('hidden');
@@ -4503,13 +4162,11 @@ async function generateDepotQuizWithAI() {
         <div class="skeleton" style="height: 110px; width: 100%;"></div>
     `;
 
-    // Erstelle den strukturierten Kontext der ausgewählten Lern-Depot-Karten
     const notesContext = sampledItems.map((item) => 
         `[ID: ${item.id}] (Thema: ${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
 
     try {
-        // ⚡ Übergibt direkt den strukturierten Kontext; api/gemini.js baut den Super-Prompt drumherum!
         const questions = await fetchQuizFromGeminiEndpoint(notesContext);
         currentDepotQuizQuestions = questions;
         if (subtitle) subtitle.textContent = `${questions.length} klinische Fragen aus deinen offenen Lernlücken bereit:`;
@@ -4654,10 +4311,8 @@ async function markDepotMasteredFromQuiz(depotId, btnEl) {
     }
 }
 
-// ====================================================
-// PHARMA-COMPASS & MATRIX CLOUD-SPEICHER-MODULE (DELEGATOR)
-// ====================================================
-window.savePharmaSet = async function(setObj) {
+// Pharma-Compass & Matrix Cloud-Delegatoren
+window.savePharmaSet = async function() {
     if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
         return await window.PharmacologyModule.syncFromCloud();
     }
@@ -4670,158 +4325,8 @@ window.syncPharmaSetsFromCloud = async function() {
 };
 
 // ==========================================================================
-// DRAG & DROP AUTO-SCROLL ENGINE V2.0 (Universell für Window & Container)
+// 15. CREATOR HUB, FILE-DROPZONE & SUPABASE CLOUD-SYNC
 // ==========================================================================
-(function initDragAutoScroll() {
-    const EDGE_ZONE = 130;       // Pixel ab oberem/unterem Rand, in denen gescrollt wird
-    const MAX_SPEED = 32;        // Maximale Scroll-Geschwindigkeit in Pixel/Frame
-
-    let isDragging = false;
-    let mouseY = -1;
-    let mouseX = -1;
-    let animFrame = null;
-
-    function getScrollContainer() {
-        const mw = document.querySelector('.main-wrapper');
-        if (mw && mw.scrollHeight > mw.clientHeight) return mw;
-        return document.scrollingElement || document.documentElement || document.body;
-    }
-
-    function scrollLoop() {
-        if (!isDragging) {
-            animFrame = null;
-            return;
-        }
-
-        const vh = window.innerHeight;
-
-        // 1. Bücherregal scrollen, wenn der Zeiger darüber liegt
-        const bookshelf = document.getElementById('bookshelf-container');
-        let bsScrolled = false;
-        if (bookshelf && mouseX >= 0 && mouseY >= 0) {
-            const rect = bookshelf.getBoundingClientRect();
-            if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
-                const zone = 60;
-                if (mouseY < rect.top + zone) {
-                    const factor = (zone - (mouseY - rect.top)) / zone;
-                    bookshelf.scrollTop -= Math.ceil(factor * 20);
-                    bsScrolled = true;
-                } else if (mouseY > rect.bottom - zone) {
-                    const factor = (mouseY - (rect.bottom - zone)) / zone;
-                    bookshelf.scrollTop += Math.ceil(factor * 20);
-                    bsScrolled = true;
-                }
-            }
-        }
-
-        // 2. Hauptbereich / Fenster scrollen
-        if (!bsScrolled && mouseY >= 0) {
-            const container = getScrollContainer();
-            let delta = 0;
-
-            if (mouseY < EDGE_ZONE) {
-                // Nach oben scrollen
-                const factor = Math.max(0, (EDGE_ZONE - mouseY) / EDGE_ZONE);
-                delta = -Math.ceil(factor * MAX_SPEED);
-            } else if (mouseY > vh - EDGE_ZONE) {
-                // Nach unten scrollen
-                const factor = Math.max(0, (mouseY - (vh - EDGE_ZONE)) / EDGE_ZONE);
-                delta = Math.ceil(factor * MAX_SPEED);
-            }
-
-            if (delta !== 0) {
-                if (container === document.documentElement || container === document.body) {
-                    window.scrollBy(0, delta);
-                } else {
-                    container.scrollTop += delta;
-                }
-            }
-        }
-
-        animFrame = requestAnimationFrame(scrollLoop);
-    }
-
-    function updateCoords(e) {
-        mouseY = e.clientY;
-        mouseX = e.clientX;
-    }
-
-    // Höre auf natives HTML5 Drag
-    document.addEventListener('dragstart', (e) => {
-        isDragging = true;
-        mouseY = e.clientY;
-        mouseX = e.clientX;
-        if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
-    });
-
-    document.addEventListener('dragover', updateCoords, { passive: true });
-    window.addEventListener('dragover', updateCoords, { passive: true });
-
-    const stopDrag = () => {
-        isDragging = false;
-        mouseY = -1;
-        mouseX = -1;
-        if (animFrame) {
-            cancelAnimationFrame(animFrame);
-            animFrame = null;
-        }
-    };
-
-    document.addEventListener('dragend', stopDrag);
-    document.addEventListener('drop', stopDrag);
-
-    // Höre zusätzlich auf Pointer-Events (z. B. auf Touch-Geräten oder im Mindmap-Modus)
-    document.addEventListener('pointermove', (e) => {
-        if (document.body.classList.contains('mm-dragging-active') || isDragging) {
-            mouseY = e.clientY;
-            mouseX = e.clientX;
-            if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
-        }
-    }, { passive: true });
-
-    document.addEventListener('pointerup', () => {
-        if (!isDragging) stopDrag();
-    });
-})();
-
-function setupSuperFolderDropZones() {
-    document.querySelectorAll('.bookshelf-super-group').forEach(superGroup => {
-        superGroup.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            superGroup.classList.add('bookshelf-super-drag-over');
-        });
-
-        superGroup.addEventListener('dragleave', () => {
-            superGroup.classList.remove('bookshelf-super-drag-over');
-        });
-
-        superGroup.addEventListener('drop', (e) => {
-            e.preventDefault();
-            superGroup.classList.remove('bookshelf-super-drag-over');
-
-            const folderId = e.dataTransfer.getData('text/plain');
-            const targetSuperId = superGroup.dataset.superId || superGroup.dataset.superTitle;
-
-            if (folderId && targetSuperId) {
-                if (typeof window.moveFolderToSuperFolder === 'function') {
-                    window.moveFolderToSuperFolder(folderId, targetSuperId);
-                }
-            }
-        });
-    });
-}
-
-// ==========================================
-// CREATOR HUB / CASE UPLOAD & CLOUD LOGIK
-// ==========================================
-
-window.cloudCaseIds = new Set();
-window.currentSessionUser = null;
-
-function getActiveSupabaseClient() {
-    return window.supabaseClient || window.supabase || window.sb || null;
-}
-
 window.addEventListener('dragover', (e) => {
     if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
         e.preventDefault();
@@ -4834,11 +4339,10 @@ window.addEventListener('drop', (e) => {
     }
 }, false);
 
-// 1. Initialisierung
 async function initCreatorHubAndCloudCases() {
     const sb = getActiveSupabaseClient();
     await loadCasesFromDatabase();
-    if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud(); // <-- NEU: Beim Start abrufen
+    if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud();
 
     if (!sb || !sb.auth) return;
 
@@ -4847,18 +4351,17 @@ async function initCreatorHubAndCloudCases() {
         window.currentSessionUser = session?.user || null;
         setupCreatorHub(window.currentSessionUser);
 
-        sb.auth.onAuthStateChange(async(_event, session) => {
+        sb.auth.onAuthStateChange(async (_event, session) => {
             window.currentSessionUser = session?.user || null;
             setupCreatorHub(window.currentSessionUser);
             loadCasesFromDatabase();
-            if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud(); // <-- NEU: Bei Login/Logout synchronisieren
+            if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud();
         });
     } catch (e) {
         console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
     }
 }
 
-// 2. UI aktivieren/deaktivieren
 function setupCreatorHub(currentUser) {
     const uploadSection = document.getElementById('creatorUploadSection');
     if (!uploadSection) return;
@@ -4871,11 +4374,14 @@ function setupCreatorHub(currentUser) {
     }
 }
 
-// 3. DropZone für Desktop-Dateien & Dashboard-Karten
 function initDropZone() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('caseFileInput');
     if (!dropZone || !fileInput) return;
+
+    // Verhindert Mehrfach-Registrierung der Drop-Events bei Auth-State-Changes!
+    if (dropZone.dataset.initialized === 'true') return;
+    dropZone.dataset.initialized = 'true';
 
     dropZone.onclick = (e) => {
         if (e.target !== fileInput) fileInput.click();
@@ -4923,7 +4429,6 @@ function initDropZone() {
     }, false);
 }
 
-// 4. Upload von In-App Fallkarten
 async function handleInternalCaseUpload(caseId) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
@@ -4977,7 +4482,6 @@ async function handleInternalCaseUpload(caseId) {
     }
 }
 
-// 5. Externe JSON-Dateien per Dropzone verarbeiten
 async function handleCaseFiles(files) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
@@ -5038,7 +4542,6 @@ async function handleCaseFiles(files) {
     }
 }
 
-// 6. Unpublish-Funktion: Fall aus der Cloud entfernen
 async function unpublishCaseFromCloud(caseId) {
     if (!window.confirm(`Möchtest du den Fall "${caseId}" wirklich aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
         return;
@@ -5078,7 +4581,6 @@ function renderStatus(fileName, state, message) {
     item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
 }
 
-// 7. Datenbank synchronisieren & Cloud-Badges verwalten (Respektiert lokale Ordner-Overrides!)
 async function loadCasesFromDatabase() {
     const sb = getActiveSupabaseClient();
     if (!sb) return;
@@ -5107,13 +4609,11 @@ async function loadCasesFromDatabase() {
                 const cId = cloudCase.case_id || cloudCase.id;
                 if (hiddenCloudIds.includes(cId)) return;
 
-                // falls in der DB-Spalte 'medical_field' ein neuerer Ordner steht, übernehmen:
                 if (dbCase.medical_field && !deletedFolders.has(dbCase.medical_field.trim())) {
                     cloudCase.folder_name = dbCase.medical_field.trim();
                     if (cloudCase.metadata) cloudCase.metadata.medical_field = dbCase.medical_field.trim();
                 }
 
-                // WICHTIG: Lokale Ordner-Overrides & gelöschte Ordner auf den Cloud-Fall anwenden!
                 applyFolderOverridesToCase(cloudCase);
 
                 const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
@@ -5128,7 +4628,6 @@ async function loadCasesFromDatabase() {
             localStorage.setItem('custom_cases', JSON.stringify(customCases));
         }
 
-        // Sicherstellen, dass gelöschte Ordner niemals wieder in medcheck_folder_order landen
         const deletedSet = getDeletedFoldersSet();
         if (deletedSet.size > 0) {
             let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
@@ -5146,9 +4645,239 @@ async function loadCasesFromDatabase() {
         console.error("Fehler bei loadCasesFromDatabase:", err);
     }
 }
-/* ==========================================================================
-   EDITORIAL UX & SCROLL-REVEAL ENGINE (SpringerMedizin / AMBOSS Style - V2)
-   ========================================================================== */
+
+// ==========================================================================
+// 16. MOBILE CHALLENGE-PICKER, AUTO-SCROLL & EDITORIAL UX ENGINE
+// ==========================================================================
+(function initMobileChallengePicker() {
+    function syncMobileChallengePicker() {
+        const navBar = document.querySelector('.challenge-nav-bar');
+        if (!navBar) return;
+
+        let mobileWrapper = document.getElementById('mc-mobile-picker-wrap');
+        if (!mobileWrapper) {
+            mobileWrapper = document.createElement('div');
+            mobileWrapper.id = 'mc-mobile-picker-wrap';
+            mobileWrapper.className = 'mc-mobile-picker-wrap';
+            navBar.parentElement.insertBefore(mobileWrapper, navBar);
+        }
+
+        const buttons = Array.from(navBar.querySelectorAll('.challenge-tab-btn')).filter(btn => {
+            return btn.style.display !== 'none';
+        });
+
+        const optionsHtml = buttons.map(btn => {
+            const mode = btn.id.replace('tab-btn-', '');
+            const badgeText = btn.querySelector('.tab-badge')?.innerText || '';
+            const clone = btn.cloneNode(true);
+            const b = clone.querySelector('.tab-badge');
+            if (b) b.remove();
+            const label = clone.innerText.trim();
+            const selected = (mode === currentActiveChallenge) ? 'selected' : '';
+            return `<option value="${mode}" ${selected}>${label}${badgeText ? ' (' + badgeText + ')' : ''}</option>`;
+        }).join('');
+
+        mobileWrapper.innerHTML = `
+            <div class="mc-mobile-picker-inner">
+                <label for="mc-mobile-challenge-select" class="mc-mobile-picker-label">🎯 Challenge wählen:</label>
+                <select id="mc-mobile-challenge-select" class="mc-mobile-picker-select">
+                    ${optionsHtml}
+                </select>
+            </div>
+        `;
+
+        const selectEl = document.getElementById('mc-mobile-challenge-select');
+        if (selectEl) {
+            selectEl.addEventListener('change', (e) => {
+                window.switchPlayerMode(e.target.value);
+            });
+        }
+
+        let fabContainer = document.getElementById('landscape-fab-container');
+        if (!fabContainer) {
+            fabContainer = document.createElement('div');
+            fabContainer.id = 'landscape-fab-container';
+            fabContainer.className = 'landscape-fab-container';
+
+            fabContainer.innerHTML = `
+                <div class="landscape-fab-menu" id="landscape-fab-menu"></div>
+                <button class="landscape-fab-btn" id="landscape-fab-btn" title="Menü öffnen">+</button>
+            `;
+            document.body.appendChild(fabContainer);
+
+            document.getElementById('landscape-fab-btn').addEventListener('click', () => {
+                const menu = document.getElementById('landscape-fab-menu');
+                const btn = document.getElementById('landscape-fab-btn');
+                menu.classList.toggle('open');
+                btn.classList.toggle('active');
+                window.triggerHaptic(8);
+            });
+        }
+
+        const playerView = document.getElementById('player-view');
+        if (playerView && playerView.style.display !== 'none') {
+            fabContainer.classList.add('visible');
+        } else {
+            fabContainer.classList.remove('visible');
+            document.getElementById('landscape-fab-menu')?.classList.remove('open');
+            document.getElementById('landscape-fab-btn')?.classList.remove('active');
+        }
+
+        const fabMenu = document.getElementById('landscape-fab-menu');
+        if (fabMenu) {
+            fabMenu.innerHTML = buttons.map(btn => {
+                const mode = btn.id.replace('tab-btn-', '');
+                const clone = btn.cloneNode(true);
+                const b = clone.querySelector('.tab-badge');
+                if (b) b.remove();
+                const label = clone.innerText.trim();
+                const isActive = (mode === currentActiveChallenge) ? 'active' : '';
+
+                return `<button class="${isActive}" onclick="
+                    window.triggerHaptic(5);
+                    window.switchPlayerMode('${mode}'); 
+                    document.getElementById('landscape-fab-menu').classList.remove('open'); 
+                    document.getElementById('landscape-fab-btn').classList.remove('active');
+                ">${label}</button>`;
+            }).join('');
+        }
+    }
+
+    const origSwitchPlayerMode = window.switchPlayerMode;
+    if (typeof origSwitchPlayerMode === 'function') {
+        window.switchPlayerMode = function(mode) {
+            origSwitchPlayerMode(mode);
+            syncMobileChallengePicker();
+        };
+    }
+
+    const origLoadCaseById = window.loadCaseById;
+    if (typeof origLoadCaseById === 'function') {
+        window.loadCaseById = function(caseId, opts) {
+            origLoadCaseById(caseId, opts);
+            setTimeout(syncMobileChallengePicker, 50);
+        };
+    }
+
+    const origSwitchTab = window.switchTab;
+    if (typeof origSwitchTab === 'function') {
+        window.switchTab = function(tab, el) {
+            origSwitchTab(tab, el);
+            setTimeout(syncMobileChallengePicker, 50);
+        };
+    }
+
+    window.syncMobileChallengePicker = syncMobileChallengePicker;
+})();
+
+// Drag & Drop Auto-Scroll Engine V2.0
+(function initDragAutoScroll() {
+    const EDGE_ZONE = 130;
+    const MAX_SPEED = 32;
+
+    let isDragging = false;
+    let mouseY = -1;
+    let mouseX = -1;
+    let animFrame = null;
+
+    function getScrollContainer() {
+        const mw = document.querySelector('.main-wrapper');
+        if (mw && mw.scrollHeight > mw.clientHeight) return mw;
+        return document.scrollingElement || document.documentElement || document.body;
+    }
+
+    function scrollLoop() {
+        if (!isDragging) {
+            animFrame = null;
+            return;
+        }
+
+        const vh = window.innerHeight;
+        const bookshelf = document.getElementById('bookshelf-container');
+        let bsScrolled = false;
+
+        if (bookshelf && mouseX >= 0 && mouseY >= 0) {
+            const rect = bookshelf.getBoundingClientRect();
+            if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
+                const zone = 60;
+                if (mouseY < rect.top + zone) {
+                    const factor = (zone - (mouseY - rect.top)) / zone;
+                    bookshelf.scrollTop -= Math.ceil(factor * 20);
+                    bsScrolled = true;
+                } else if (mouseY > rect.bottom - zone) {
+                    const factor = (mouseY - (rect.bottom - zone)) / zone;
+                    bookshelf.scrollTop += Math.ceil(factor * 20);
+                    bsScrolled = true;
+                }
+            }
+        }
+
+        if (!bsScrolled && mouseY >= 0) {
+            const container = getScrollContainer();
+            let delta = 0;
+
+            if (mouseY < EDGE_ZONE) {
+                const factor = Math.max(0, (EDGE_ZONE - mouseY) / EDGE_ZONE);
+                delta = -Math.ceil(factor * MAX_SPEED);
+            } else if (mouseY > vh - EDGE_ZONE) {
+                const factor = Math.max(0, (mouseY - (vh - EDGE_ZONE)) / EDGE_ZONE);
+                delta = Math.ceil(factor * MAX_SPEED);
+            }
+
+            if (delta !== 0) {
+                if (container === document.documentElement || container === document.body) {
+                    window.scrollBy(0, delta);
+                } else {
+                    container.scrollTop += delta;
+                }
+            }
+        }
+
+        animFrame = requestAnimationFrame(scrollLoop);
+    }
+
+    function updateCoords(e) {
+        mouseY = e.clientY;
+        mouseX = e.clientX;
+    }
+
+    document.addEventListener('dragstart', (e) => {
+        isDragging = true;
+        mouseY = e.clientY;
+        mouseX = e.clientX;
+        if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
+    });
+
+    document.addEventListener('dragover', updateCoords, { passive: true });
+    window.addEventListener('dragover', updateCoords, { passive: true });
+
+    const stopDrag = () => {
+        isDragging = false;
+        mouseY = -1;
+        mouseX = -1;
+        if (animFrame) {
+            cancelAnimationFrame(animFrame);
+            animFrame = null;
+        }
+    };
+
+    document.addEventListener('dragend', stopDrag);
+    document.addEventListener('drop', stopDrag);
+
+    document.addEventListener('pointermove', (e) => {
+        if (document.body.classList.contains('mm-dragging-active') || isDragging) {
+            mouseY = e.clientY;
+            mouseX = e.clientX;
+            if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
+        }
+    }, { passive: true });
+
+    document.addEventListener('pointerup', () => {
+        if (!isDragging) stopDrag();
+    });
+})();
+
+// Editorial UX & Scroll-Reveal Engine (SpringerMedizin / AMBOSS Style - V2)
 const EditorialScrollEngine = (() => {
     let observer = null;
     let mainScroller = null;
@@ -5161,7 +4890,6 @@ const EditorialScrollEngine = (() => {
     function init() {
         mainScroller = document.querySelector('.main-wrapper');
         if (!mainScroller) {
-            // Falls das Layout asynchron lädt, beim nächsten Frame nochmal versuchen
             requestAnimationFrame(init);
             return;
         }
@@ -5174,9 +4902,7 @@ const EditorialScrollEngine = (() => {
         refreshScrollElements();
     }
 
-    // 1. Erzeugt die Lesefortschrittsleiste & die Sticky-Kontext-Bar automatisch
     function injectEditorialHUD() {
-        // Flexiblerer Selector: Sucht nach Tag <topbar> ODER Klasse .topbar / header
         const topbar = document.querySelector('topbar') || document.querySelector('.topbar') || document.querySelector('header');
         if (topbar && !document.querySelector('.editorial-scroll-progress-wrap')) {
             const progWrap = document.createElement('div');
@@ -5206,7 +4932,6 @@ const EditorialScrollEngine = (() => {
         }
     }
 
-    // 2. IntersectionObserver für Scroll-Reveals
     function setupIntersectionObserver() {
         if (observer) observer.disconnect();
         observer = new IntersectionObserver((entries) => {
@@ -5227,7 +4952,6 @@ const EditorialScrollEngine = (() => {
         });
     }
 
-    // 3. Scroll-Listener mit RequestAnimationFrame
     function setupScrollListener() {
         let ticking = false;
         mainScroller.addEventListener('scroll', () => {
@@ -5261,7 +4985,6 @@ const EditorialScrollEngine = (() => {
         }
     }
 
-    // 4. Callout-Ersetzung ("Merke", "Cave", etc.)
     function upgradeEditorialCallouts() {
         const paragraphs = document.querySelectorAll('.cornell-notes p:not(.sm-upgraded), .step-content p:not(.sm-upgraded)');
         paragraphs.forEach((p) => {
@@ -5318,7 +5041,6 @@ const EditorialScrollEngine = (() => {
         updateScrollHUD();
     }
 
-    // 5. Gedebouncter MutationObserver gegen Performance-Einbrüche
     function setupMutationWatcher() {
         const contentBody = document.querySelector('.content-body');
         if (!contentBody) return;
@@ -5327,7 +5049,7 @@ const EditorialScrollEngine = (() => {
             clearTimeout(mutationThrottleTimer);
             mutationThrottleTimer = setTimeout(() => {
                 refreshScrollElements();
-            }, 150); // Führt das Refresh erst aus, wenn für 150ms keine DOM-Änderungen mehr passierten
+            }, 150);
         });
 
         domObserver.observe(contentBody, {
@@ -5346,9 +5068,105 @@ const EditorialScrollEngine = (() => {
     return { init, refresh: refreshScrollElements };
 })();
 
-// Startet sicher beim Laden
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => EditorialScrollEngine.init());
-} else {
+// ==========================================================================
+// 17. ZENTRALER APPLICATION BOOTLOADER (DOMContentLoaded & Global Events)
+// ==========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Theme & Layout-Observer initialisieren
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'midnight';
+    applyAppTheme(savedTheme);
+    initPlayerLightModeObserver();
+    initSidebarResizer();
+
+    // 2. User-Daten, Bookshelf-Header & Cloud-Sync starten
+    ensureBookshelfHeaderButtons();
+    initUserData();
+    initCreatorHubAndCloudCases();
+
+    // 3. Fälle, DD-Bibliothek & Dashboard initialisieren
+    [BUILTIN_DEMO_CASE, ...getCustomCases()].forEach(window.registerCaseDDs);
+    prefetchManifestDDs();
+    renderSkillsSidebar();
+    renderDashboardCases();
+    if (typeof window.renderSpecialtyHub === 'function') {
+        window.renderSpecialtyHub();
+    }
+
+    // 4. Spaced Repetition Widget starten
+    if (window.SpacedRepetitionEngine) {
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    }
+
+    // 5. Lern-Depot & Editorial Scroll Engine starten
+    initOverviewSelectionListener();
+    syncDepotWithSupabase();
     EditorialScrollEngine.init();
-}
+
+    // 6. Mobile Challenge Picker & Subject Progress Drawer verzögert synchronisieren
+    if (typeof window.syncMobileChallengePicker === 'function') {
+        setTimeout(window.syncMobileChallengePicker, 200);
+    }
+    setTimeout(renderSubjectProgressDrawer, 500);
+
+    // 7. Bookshelf "+ Ordner" Button binden
+    const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
+    if (addFolderBtn) {
+        addFolderBtn.onclick = (e) => {
+            e.preventDefault();
+            window.promptCreateNewFolderWithSuper();
+        };
+    }
+
+    // 8. Globale Click-Delegation (Specialty Blind-Mode Actions)
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.closest('#btn-next-specialty-case')) window.nextSpecialtyCase();
+        if (e.target && e.target.closest('#btn-exit-specialty')) {
+            window.isSpecialtyBlindMode = false;
+            if (typeof window.applyBlindHeader === 'function') window.applyBlindHeader(false, null);
+            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        }
+        if (e.target && e.target.closest('#btn-reveal-diagnosis')) {
+            if (typeof window.revealDiagnosis === 'function') window.revealDiagnosis();
+        }
+    });
+});
+
+// Globale Custom-Events & Tastatur-Shortcuts
+window.addEventListener('sr:updated', () => {
+    if (window.SpacedRepetitionEngine) {
+        const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
+    }
+});
+
+window.addEventListener('cloudCasesSynced', async () => {
+    getCustomCases().forEach(window.registerCaseDDs);
+    if (typeof renderDashboardCases === 'function') {
+        renderDashboardCases();
+    }
+    if (typeof window.renderSpecialtyHub === 'function') {
+        window.renderSpecialtyHub();
+    }
+    if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
+        window.PharmacologyModule.syncFromCloud();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    const dashboardView = document.getElementById('dashboard-view');
+    const isDashboardVisible = dashboardView && dashboardView.style.display !== 'none';
+    if (!isDashboardVisible) return;
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        window.toggleDashboardSearch(true);
+    } else if (e.key === 'Escape' && isDashboardSearchOpen) {
+        const input = document.getElementById('dashboard-case-search-input');
+        if (dashboardSearchQuery.length > 0 || dashboardSearchStatusFilter !== 'all') {
+            window.clearDashboardSearch(false);
+        } else {
+            window.toggleDashboardSearch(false);
+            input?.blur();
+        }
+    }
+});
