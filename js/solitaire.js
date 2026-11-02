@@ -1,17 +1,28 @@
 /* ==========================================================================
-   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V3.1 (js/solitaire.js)
+   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V3.3 (js/solitaire.js)
    ==========================================================================
-   FEATURES V3.1 (ZERO-DELAY TOUCH/IPAD DRAG & MAGNETIC DROP ENGINE):
-   01. 0ms Instant Touch-Pickup via Pointer-Events & GPU translate3d() Ghost
-   02. Magnetisches Drop-Snapping (Berechnet Karten-Rechteck-Überlappung statt nur Fingerpunkt)
-   03. Elastischer Spring-Back-Effekt beim Loslassen im Leeren oder bei Fehlversuch
-   04. 1-Tap / Double-Tap Smart-Auto-Move für einhändiges Spielen auf dem Smartphone
-   05. Hochkant-Spielkarten (5:7 Portrait), Spoilerfreier ⓘ Button & Zero-Move-Penalty
+   FEATURES V3.3 (SUPABASE CLOUD PUBLISHING & MULTI-DEVICE SYNC):
+   01. 1-Klick "☁️ Online stellen" für jedes Deck + Bulk-Upload ("Alle online stellen")
+   02. Echtzeit-Synchronisation über Supabase (Laptop, PC, iPad, iPhone & Freunde)
+   03. "☁️✕ Aus Cloud nehmen" (Unpublish) & Auto-Publish beim JSON-Drag-and-Drop
+   04. 6 Kartendecks (Spalten) im unteren Tableau + 4 Krankheits-Slots + Stock/Waste
+   05. 0ms Instant Touch/iPad Pointer-Drag, 5:7 Hochkant-Spielkarten & Spoilerfreier ⓘ Button
    ========================================================================== */
 
 const SolitaireModule = (() => {
     const STORAGE_DECKS_KEY = 'medcheck_solitaire_custom_decks_v1';
     const STORAGE_STATS_KEY = 'medcheck_solitaire_stats_v1';
+    const STORAGE_HIDDEN_CLOUD_DECKS_KEY = 'medcheck_solitaire_hidden_cloud_v1';
+
+    const CLOUD_DECK_PREFIX = '__SOL_DECK__';
+    const CLOUD_DECK_FIELD = '__SOLITAIRE_DECK__';
+
+    const FOUNDATION_SLOTS_COUNT = 4; // 4 Ziel-Slots oben für Krankheitsbilder
+    const TABLEAU_COLS_COUNT = 6;     // 6 Kartendecks (Spalten) unten im Tableau
+
+    // Set mit allen deck_ids, die aktuell live in der Supabase-Cloud stehen
+    let cloudPublishedDeckIds = new Set();
+    let isSyncingCloud = false;
 
     // ----------------------------------------------------------------------
     // 01. INTEGRIERTE STAATSEXAMENS-DEMODECKS
@@ -150,10 +161,10 @@ Deine Aufgabe: Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorl
 2. STRIKTES ZITATIONS- & TAG-VERBOT: Verwende NIEMALS Zitationsmarker oder Tags wie [1], (Quelle: ...), <span> oder HTML-Fragmente. Alle Strings müssen reiner Plain-Text sein.
 3. VOLLSTÄNDIGKEIT (100% EXTRACTION): Jedes im Quelltext behandelte Krankheitsbild (bzw. jede klinische Hauptentität/Subform) wird als eigenes Objekt im Array "diseases" angelegt (ideal: 4 bis 8 Krankheitsbilder pro Deck). Jedes Krankheitsbild erhält 5 bis 8 hochspezifische Begriffskarten im Array "cards".
 
-# 2. SPIELKARTEN-ERGONOMIE (HOCHKANT-FORMAT 5:7)
-Da die Karten im Spiel als rechteckige Hochkant-Spielkarten (Portrait-Ratio 5:7) dargestellt werden, gelten für das Feld "term" strikte Längenregeln:
+# 2. SPIELKARTEN-ERGONOMIE (HOCHKANT-FORMAT 5:7 FÜR 6 SPALTEN)
+Da die Karten im Spiel als rechteckige Hochkant-Spielkarten (Portrait-Ratio 5:7) in 6 nebeneinanderliegenden Kartendecks dargestellt werden, gelten für das Feld "term" strikte Längenregeln:
 - "term": Prägnanter klinischer Stichpunkt, Befund, Zeichen, Gen/Antikörper, Laborparameter oder Wirkstoff.
-- LÄNGEN-LIMIT FÜR "term": Maximal 2 bis 6 Wörter (strikt max. 42 Zeichen!), damit der Begriff auf dem Hochkant-Kartenblatt perfekt lesbar zentriert sitzt.
+- LÄNGEN-LIMIT FÜR "term": Maximal 2 bis 6 Wörter (strikt max. 40 Zeichen!), damit der Begriff auf dem Hochkant-Kartenblatt perfekt lesbar zentriert sitzt.
 - Alle ausführlichen Details, Grenzwerte, Dosierungen und Mechanismen gehören NICHT in "term", sondern zwingend in das Feld "explanation"!
 
 # 3. STRIKTES ANTI-SPOILER-PROTOKOLL FÜR "explanation" (ⓘ BUTTON)
@@ -186,7 +197,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
       "clinical_pearl": "Prägnante klinische Synthese / Merksatz (1-2 Sätze) zum gesamten Krankheitsbild.",
       "cards": [
         {
-          "term": "Kompakter Begriff (max. 42 Zeichen)",
+          "term": "Kompakter Begriff (max. 40 Zeichen)",
           "category": "Diagnostik",
           "explanation": "Spoilerfreie, tiefgehende pathophysiologische oder klinische Erklärung dieses Befundes (OHNE den Namen der Krankheit zu verraten!)."
         }
@@ -211,9 +222,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         comboStreak: 0,
         hintsLeft: 3,
         jokersLeft: 2,
-        foundations: [null, null, null, null],
+        foundations: Array(FOUNDATION_SLOTS_COUNT).fill(null),
         completedDiseases: [],
-        tableau: [[], [], [], []],
+        tableau: Array.from({ length: TABLEAU_COLS_COUNT }, () => []),
         stock: [],
         waste: [],
         selectedSource: null,
@@ -222,7 +233,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         lastSuccessAnim: null
     };
 
-    // High-Precision Touch / Pointer Drag State (0ms Delay)
     let dragSession = {
         active: false,
         hasMoved: false,
@@ -235,7 +245,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         offsetX: 0,
         offsetY: 0,
         ghostEl: null,
-        hoveredTarget: null, // { type: 'foundation' | 'tableau', index: number, el: HTMLElement }
+        hoveredTarget: null,
         lastTapTime: 0,
         lastTapUid: null
     };
@@ -251,7 +261,262 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     const ACCENT_PALETTE = ['#38bdf8', '#a855f7', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f97316'];
 
     // ----------------------------------------------------------------------
-    // 03. ANTI-SPOILER SANITIZER FÜR DEN ⓘ ZUSATZINFO-BUTTON
+    // 03. SUPABASE CLOUD-SYNC & ONLINE-PUBLISHING ENGINE
+    // ----------------------------------------------------------------------
+    function getSupabaseClient() {
+        return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
+    }
+
+    function getHiddenCloudDecks() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_HIDDEN_CLOUD_DECKS_KEY) || '[]');
+        } catch (_e) {
+            return [];
+        }
+    }
+
+    function addHiddenCloudDeck(deckId) {
+        const list = getHiddenCloudDecks();
+        if (!list.includes(deckId)) {
+            list.push(deckId);
+            localStorage.setItem(STORAGE_HIDDEN_CLOUD_DECKS_KEY, JSON.stringify(list));
+        }
+    }
+
+    function removeHiddenCloudDeck(deckId) {
+        const list = getHiddenCloudDecks().filter(id => id !== deckId);
+        localStorage.setItem(STORAGE_HIDDEN_CLOUD_DECKS_KEY, JSON.stringify(list));
+    }
+
+    // Lädt alle veröffentlichten Solitaire-Decks aus Supabase herunter und merged sie mit den lokalen Decks
+    async function syncDecksFromCloud() {
+        const sb = getSupabaseClient();
+        if (!sb || isSyncingCloud) return;
+        isSyncingCloud = true;
+
+        try {
+            const { data, error } = await sb
+                .from('cases')
+                .select('case_id, title, medical_field, is_public, content')
+                .eq('medical_field', CLOUD_DECK_FIELD)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.warn('[Solitaire Cloud] Decks konnten nicht geladen werden:', error.message);
+                return;
+            }
+
+            const newCloudSet = new Set();
+            const hiddenIds = getHiddenCloudDecks();
+            let customDecks = getCustomDecks();
+            let changed = false;
+
+            (data || []).forEach(row => {
+                const deckObj = row.content;
+                if (!deckObj || !deckObj.deck_id || !Array.isArray(deckObj.diseases)) return;
+
+                newCloudSet.add(deckObj.deck_id);
+                if (hiddenIds.includes(deckObj.deck_id)) return;
+
+                deckObj.is_cloud_published = true;
+                const existingIdx = customDecks.findIndex(d => d.deck_id === deckObj.deck_id);
+                if (existingIdx !== -1) {
+                    customDecks[existingIdx] = { ...customDecks[existingIdx], ...deckObj, is_cloud_published: true };
+                    changed = true;
+                } else {
+                    customDecks.push(deckObj);
+                    changed = true;
+                }
+            });
+
+            cloudPublishedDeckIds = newCloudSet;
+
+            if (changed) {
+                saveCustomDecks(customDecks);
+            }
+
+            const solView = document.getElementById('solitaire-view');
+            if (solView && solView.style.display !== 'none' && currentViewMode === 'lobby') {
+                renderView();
+            }
+        } catch (err) {
+            console.warn('[Solitaire Cloud] Fehler beim Cloud-Sync:', err);
+        } finally {
+            isSyncingCloud = false;
+        }
+    }
+
+    // Veröffentlicht ein einzelnes Deck per Klick in der Supabase-Cloud ("Online stellen")
+    async function publishDeckToCloud(deckId, btnEl = null) {
+        const sb = getSupabaseClient();
+        if (!sb || !sb.auth) {
+            alert('Keine Verbindung zu Supabase gefunden.');
+            return false;
+        }
+
+        const { data: { session } } = await sb.auth.getSession();
+        const currentUser = session?.user;
+        if (!currentUser) {
+            alert('Bitte melde dich zuerst unter „Einstellungen“ mit deinem Cloud-Account an, um Decks online zu stellen.');
+            return false;
+        }
+
+        const allDecks = getAllDecks();
+        const targetDeck = allDecks.find(d => d.deck_id === deckId);
+        if (!targetDeck) {
+            alert('Deck nicht gefunden.');
+            return false;
+        }
+
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '⏳ Lädt hoch...';
+        }
+
+        const cloudRowId = CLOUD_DECK_PREFIX + targetDeck.deck_id;
+        const deckPayload = {
+            ...targetDeck,
+            is_cloud_published: true,
+            published_at: new Date().toISOString(),
+            published_by: currentUser.email || currentUser.id
+        };
+
+        try {
+            const { error } = await sb
+                .from('cases')
+                .upsert({
+                    case_id: cloudRowId,
+                    title: targetDeck.title || targetDeck.deck_id,
+                    medical_field: CLOUD_DECK_FIELD,
+                    is_public: true,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: deckPayload
+                }, { onConflict: 'case_id' });
+
+            if (error) throw error;
+
+            removeHiddenCloudDeck(targetDeck.deck_id);
+            cloudPublishedDeckIds.add(targetDeck.deck_id);
+
+            // Lokales Deck als veröffentlicht markieren
+            const customDecks = getCustomDecks();
+            const idx = customDecks.findIndex(d => d.deck_id === targetDeck.deck_id);
+            if (idx !== -1) {
+                customDecks[idx].is_cloud_published = true;
+                saveCustomDecks(customDecks);
+            }
+
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
+            if (typeof showScorePopup === 'function') {
+                showScorePopup(`☁️ Deck „${targetDeck.title}“ ist jetzt online!`, 'positive');
+            }
+
+            renderView();
+            return true;
+        } catch (err) {
+            console.error('[Solitaire Cloud] Upload fehlgeschlagen:', err);
+            alert(`Online-Stellen fehlgeschlagen: ${err.message}`);
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = '☁️ Online stellen';
+            }
+            return false;
+        }
+    }
+
+    // Stellt alle noch lokalen eigenen Decks in einem Rutsch online
+    async function publishAllLocalDecksToCloud(btnEl = null) {
+        const customDecks = getCustomDecks();
+        const unpublished = customDecks.filter(d => !d.is_builtin && !cloudPublishedDeckIds.has(d.deck_id));
+
+        if (unpublished.length === 0) {
+            alert('Alle deine eigenen Kartendecks sind bereits online in der Cloud synchronisiert!');
+            return;
+        }
+
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = `⏳ Synchronisiere ${unpublished.length} Deck(s)...`;
+        }
+
+        let successCount = 0;
+        for (const deck of unpublished) {
+            const ok = await publishDeckToCloud(deck.deck_id, null);
+            if (ok) successCount++;
+        }
+
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = '☁️ Alle Decks online stellen';
+        }
+
+        if (successCount > 0) {
+            alert(`✓ ${successCount} Kartendeck(s) erfolgreich online gestellt! Sie sind jetzt auf allen deinen Geräten (Handy, iPad, Laptop) verfügbar.`);
+            renderView();
+        }
+    }
+
+    // Nimmt ein veröffentlichtes Deck wieder aus der Cloud (behält es aber lokal)
+    async function unpublishDeckFromCloud(deckId) {
+        const allDecks = getAllDecks();
+        const targetDeck = allDecks.find(d => d.deck_id === deckId);
+        const title = targetDeck?.title || deckId;
+
+        if (!window.confirm(`Möchtest du das Deck „${title}“ wieder aus der Cloud entfernen?\n\n(Es bleibt lokal auf diesem Gerät gespeichert, ist aber online für andere Geräte nicht mehr sichtbar.)`)) {
+            return;
+        }
+
+        const sb = getSupabaseClient();
+        if (!sb) return;
+
+        try {
+            const cloudRowId = CLOUD_DECK_PREFIX + deckId;
+            const { error } = await sb
+                .from('cases')
+                .delete()
+                .eq('case_id', cloudRowId);
+
+            if (error) throw error;
+
+            cloudPublishedDeckIds.delete(deckId);
+            const customDecks = getCustomDecks();
+            const idx = customDecks.findIndex(d => d.deck_id === deckId);
+            if (idx !== -1) {
+                customDecks[idx].is_cloud_published = false;
+                saveCustomDecks(customDecks);
+            }
+
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+            if (typeof showScorePopup === 'function') {
+                showScorePopup('☁️✕ Deck wieder auf „Nur lokal“ gesetzt', 'neutral');
+            }
+            renderView();
+        } catch (err) {
+            alert(`Fehler beim Entfernen aus der Cloud: ${err.message}`);
+        }
+    }
+
+    // Exportiert ein Deck als herunterladbare .json-Datei
+    function exportDeckAsJsonFile(deckId) {
+        const deck = getAllDecks().find(d => d.deck_id === deckId);
+        if (!deck) return;
+        const cleanCopy = { ...deck };
+        delete cleanCopy.is_cloud_published;
+
+        const blob = new Blob([JSON.stringify(cleanCopy, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${deck.deck_id || 'solitaire_deck'}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // ----------------------------------------------------------------------
+    // 04. ANTI-SPOILER SANITIZER FÜR DEN ⓘ ZUSATZINFO-BUTTON
     // ----------------------------------------------------------------------
     function getSpoilerFreeExplanation(explanationText, diseaseName, icd10) {
         if (!explanationText) return 'Klinischer Befund im Rahmen der Differentialdiagnose.';
@@ -379,7 +644,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 04. SOLITAIRE FX ENGINE (PARTIKEL, SHOCKWAVE & FLOATING TELEMETRY)
+    // 05. SOLITAIRE FX ENGINE (PARTIKEL, SHOCKWAVE & FLOATING TELEMETRY)
     // ----------------------------------------------------------------------
     function spawnMatchCelebrationFX(rect, accentColor = '#38bdf8', floatingLabel = '+Match!', isDiseaseComplete = false) {
         if (!rect) return;
@@ -436,7 +701,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 05. PERSISTENZ & DECK-HELPER
+    // 06. PERSISTENZ & DECK-HELPER
     // ----------------------------------------------------------------------
     function getCustomDecks() {
         try {
@@ -491,9 +756,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 06. AUTO-GENERATOR AUS VORHANDENEN APP-FÄLLEN
+    // 07. AUTO-GENERATOR AUS VORHANDENEN APP-FÄLLEN
     // ----------------------------------------------------------------------
-    function generateDecksFromExistingCases() {
+    async function generateDecksFromExistingCases() {
         const registeredCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
         if (!registeredCases.length) {
             alert('Keine Fälle zum Konvertieren gefunden.');
@@ -597,7 +862,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 07. SMART ANTI-DEADLOCK DEAL-ALGORITHMUS & SPIELSTART
+    // 08. SMART ANTI-DEADLOCK DEAL-ALGORITHMUS FÜR 6 KARTENDECKS UNTEN
     // ----------------------------------------------------------------------
     function shuffleArray(arr) {
         const copy = [...arr];
@@ -660,10 +925,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const remainingCats = shuffledCats.slice(2);
         const generalPool = shuffleArray([...remainingCats, ...shuffledTerms]);
 
-        const numCols = 4;
-        const tableau = [[], [], [], []];
+        const numCols = TABLEAU_COLS_COUNT;
+        const tableau = Array.from({ length: numCols }, () => []);
         const totalCardsCount = categoryCards.length + termCards.length;
-        const targetTableauCount = Math.min(generalPool.length, 12);
+
+        const targetTableauCount = Math.min(Math.max(numCols * 2, generalPool.length - 3), 17);
 
         for (let i = 0; i < targetTableauCount; i++) {
             const colIdx = i % numCols;
@@ -702,7 +968,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             comboStreak: 0,
             hintsLeft: 3,
             jokersLeft: 2,
-            foundations: [null, null, null, null],
+            foundations: Array(FOUNDATION_SLOTS_COUNT).fill(null),
             completedDiseases: [],
             tableau: tableau,
             stock: stock,
@@ -718,7 +984,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 08. SNAPSHOT / UNDO & AUTO-FINISH CHECK
+    // 09. SNAPSHOT / UNDO & AUTO-FINISH CHECK
     // ----------------------------------------------------------------------
     function saveHistorySnapshot() {
         const snapshot = JSON.stringify({
@@ -793,8 +1059,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         });
 
-        gameState.foundations = [null, null, null, null];
-        gameState.tableau = [[], [], [], []];
+        gameState.foundations = Array(FOUNDATION_SLOTS_COUNT).fill(null);
+        gameState.tableau = Array.from({ length: TABLEAU_COLS_COUNT }, () => []);
         gameState.stock = [];
         gameState.waste = [];
         renderView();
@@ -802,7 +1068,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 09. SPIELZÜGE, OPTISCHES PRE-STACKING & VALIDIERUNG (OHNE FEHLER-ABZUG)
+    // 10. SPIELZÜGE, OPTISCHES PRE-STACKING & VALIDIERUNG (OHNE FEHLER-ABZUG)
     // ----------------------------------------------------------------------
     function getPlayableCardFromSource(source) {
         if (!source) return null;
@@ -1084,7 +1350,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         return false;
     }
 
-    // Sucht bei Doppel-Tap automatisch den besten Ziel-Slot oben oder einen Pre-Stack-Partner im Tableau
     function attemptAutoMoveCard(source) {
         const card = getPlayableCardFromSource(source);
         if (!card) return false;
@@ -1099,7 +1364,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             if (matchingSlotIdx !== -1) {
                 return attemptMoveToFoundation(source, matchingSlotIdx);
             }
-            // Falls die Krankheit oben noch nicht offen liegt: Prüfen, ob im Tableau eine passende Karte zum Pre-Stacken liegt!
             for (let cIdx = 0; cIdx < gameState.tableau.length; cIdx++) {
                 if (source.zone === 'tableau' && source.colIdx === cIdx) continue;
                 const col = gameState.tableau[cIdx];
@@ -1159,7 +1423,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 10. POWER-UPS: HINT & JOKER
+    // 11. POWER-UPS: HINT & JOKER
     // ----------------------------------------------------------------------
     function useHint() {
         if (gameState.hintsLeft <= 0) {
@@ -1216,7 +1480,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         }
 
-        showToast('💡 Aktuell kein direkter Match offen – tippe auf den Nachziehstapel oben links oder nutze eine freie Spalte!', 'neutral');
+        showToast('💡 Aktuell kein direkter Match offen – tippe auf den Nachziehstapel oben links oder nutze eines der 6 Decks!', 'neutral');
     }
 
     function useJoker() {
@@ -1255,7 +1519,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         renderView();
         if (revealedCount > 0) {
-            showToast(`🃏 Joker eingesetzt: Alle verdeckten Spielkarten im Tableau aufgedeckt!`, 'positive');
+            showToast(`🃏 Joker eingesetzt: Alle verdeckten Spielkarten in den 6 Decks aufgedeckt!`, 'positive');
         } else {
             gameState.movesLeft += 5;
             renderView();
@@ -1264,7 +1528,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 11. UI FEEDBACK, DOSSIER-MODAL & LERN-DEPOT INTEGRATION
+    // 12. UI FEEDBACK, DOSSIER-MODAL & LERN-DEPOT INTEGRATION
     // ----------------------------------------------------------------------
     function showToast(htmlMsg, type = 'neutral') {
         const banner = document.getElementById('sol-feedback-banner');
@@ -1400,7 +1664,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 12. MANUELLER DECK-UPLOAD & SKILL-PROMPT EXPORT
+    // 13. MANUELLER DECK-UPLOAD & SKILL-PROMPT EXPORT
     // ----------------------------------------------------------------------
     function validateAndImportDeckJson(rawText) {
         const cleaned = rawText
@@ -1426,14 +1690,30 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             d.color_accent = d.color_accent || ACCENT_PALETTE[idx % ACCENT_PALETTE.length];
         });
 
+        removeHiddenCloudDeck(parsed.deck_id);
         const customDecks = getCustomDecks().filter(d => d.deck_id !== parsed.deck_id);
         customDecks.unshift(parsed);
         saveCustomDecks(customDecks);
         return parsed;
     }
 
-    function deleteCustomDeck(deckId) {
-        if (!window.confirm('Möchtest du dieses hochgeladene Kartendeck wirklich löschen?')) return;
+    async function deleteCustomDeck(deckId) {
+        const isCloud = cloudPublishedDeckIds.has(deckId);
+        const msg = isCloud
+            ? 'Dieses Deck ist aktuell online in der Cloud veröffentlicht.\n\nMöchtest du es lokal löschen (und falls du Creator bist, auch aus der Cloud entfernen)?'
+            : 'Möchtest du dieses lokale Kartendeck wirklich löschen?';
+
+        if (!window.confirm(msg)) return;
+
+        if (isCloud) {
+            addHiddenCloudDeck(deckId);
+            const sb = getSupabaseClient();
+            if (sb) {
+                await sb.from('cases').delete().eq('case_id', CLOUD_DECK_PREFIX + deckId).catch(() => {});
+                cloudPublishedDeckIds.delete(deckId);
+            }
+        }
+
         const updated = getCustomDecks().filter(d => d.deck_id !== deckId);
         saveCustomDecks(updated);
         renderView();
@@ -1453,12 +1733,13 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 13. RENDERING: LOBBY & HOCHKANT-SPIELKARTEN-TISCH (5:7 PORTRAIT)
+    // 14. RENDERING: LOBBY (INKL. "☁️ ONLINE STELLEN") & 6-DECK SPIELFELD
     // ----------------------------------------------------------------------
     function renderLobby(container) {
         container.classList.remove('sol-in-game-mode');
         const decks = getAllDecks();
         const stats = getDeckStats();
+        const unpublishedCount = getCustomDecks().filter(d => !d.is_builtin && !cloudPublishedDeckIds.has(d.deck_id)).length;
 
         container.innerHTML = `
             <div class="sol-lobby-wrapper">
@@ -1467,23 +1748,29 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div class="friends-kicker">CLINICAL DEDUCTION CARD GAME</div>
                         <h2 class="friends-main-title">🃏 Solitaire Associations Journey</h2>
                         <p class="friends-subtitle">
-                            Lege Krankheitsbilder als Kategorienkarten frei und ordne ihnen Pathophysiologie, Leitsymptome, Diagnostik und Therapie strategisch zu.
+                            6 Kartendecks im Tableau: Lege Krankheitsbilder als Kategorienkarten frei und stelle eigene Decks mit 1 Klick für alle Geräte online.
                         </p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        ${unpublishedCount > 0 ? `
+                            <button type="button" class="action-btn secondary btn-sm" style="border-color:rgba(56,189,248,0.45); color:var(--accent-blue);" onclick="window.SolitaireModule.publishAllLocalDecksToCloud(this)" title="Alle noch lokalen Kartendecks jetzt in Supabase veröffentlichen">
+                                ☁️ Alle lokalen Decks online stellen (${unpublishedCount})
+                            </button>
+                        ` : ''}
                         <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.generateDecksFromExistingCases()" title="Erstellt automatisch ein DDx-Deck aus deinen bestehenden MedCheck-Fällen">
-                            ⚡ Deck aus meinen App-Fällen generieren
+                            ⚡ Aus App-Fällen generieren
                         </button>
                         <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.toggleUploadPanel()">
-                            📥 Eigenes Krankheitsdeck hochladen
+                            📥 Eigenes Deck hochladen
                         </button>
                     </div>
                 </div>
 
+                <!-- Upload & Cloud-Import Panel -->
                 <div id="sol-upload-panel" class="sol-upload-panel hidden">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                         <div>
-                            <div style="font-weight:800; font-size:0.92rem; color:var(--text-main);">📦 Krankheitskartendeck importieren (.json)</div>
+                            <div style="font-weight:800; font-size:0.92rem; color:var(--text-main);">📦 Krankheitskartendeck importieren & online stellen (.json)</div>
                             <div style="font-size:0.76rem; color:var(--text-muted);">Ziehe eine JSON-Datei aus deinem Extraktions-Skill hierher oder füge den JSON-Code direkt ein.</div>
                         </div>
                         <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.copySkillMasterPrompt(this)">
@@ -1497,30 +1784,54 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     </div>
 
                     <textarea id="sol-json-textarea" class="forge-textarea" style="height:130px; margin-top:10px; margin-bottom:10px;" placeholder='Oder JSON-Code des Kartendecks hier direkt einfügen...'></textarea>
-                    <div style="display:flex; justify-content:flex-end; gap:8px;">
-                        <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.toggleUploadPanel()">Schließen</button>
-                        <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.handlePasteImport()">✓ Validieren & Deck speichern</button>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:700; color:var(--accent-blue); cursor:pointer;">
+                            <input type="checkbox" id="sol-auto-publish-checkbox" checked style="width:16px; height:16px; accent-color:var(--accent-blue);">
+                            <span>☁️ Beim Importieren direkt in die Cloud stellen (für Handy, iPad & Freunde)</span>
+                        </label>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.toggleUploadPanel()">Schließen</button>
+                            <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.handlePasteImport()">✓ Validieren & Speichern</button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="sol-rules-strip">
-                    <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> oben in freien Slot ziehen</div>
+                    <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> oben in einen der 4 Ziel-Slots ziehen</div>
                     <div class="sol-rule-pill"><span>ⓘ</span> <strong>Ecke oben rechts:</strong> Spoilerfreie Zusatzinfos öffnen</div>
-                    <div class="sol-rule-pill"><span>📱</span> <strong>Direct-Touch:</strong> Sofortiges Ziehen ohne Wartezeit oder Doppeltipp!</div>
+                    <div class="sol-rule-pill"><span>☁️</span> <strong>Cloud-Sync:</strong> Veröffentlichte Decks sind auf allen Geräten live!</div>
                 </div>
 
                 <div class="sol-decks-grid">
                     ${decks.map(deck => {
                         const dStat = stats[deck.deck_id] || { wins: 0, bestScore: 0 };
                         const totalTerms = (deck.diseases || []).reduce((acc, d) => acc + (d.cards?.length || 0), 0);
+                        const isCloudOnline = !!(deck.is_cloud_published || cloudPublishedDeckIds.has(deck.deck_id));
+
                         return `
                             <div class="sol-deck-card">
                                 <div>
                                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
-                                        <span class="tag">${escapeHtml(deck.medical_field || 'Medizin')}</span>
-                                        <div style="display:flex; align-items:center; gap:6px;">
-                                            ${dStat.wins > 0 ? `<span style="font-size:0.7rem; font-weight:800; color:var(--color-symptom);">✓ ${dStat.wins}x gelöst</span>` : ''}
-                                            ${!deck.is_builtin ? `<button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.SolitaireModule.deleteCustomDeck('${deck.deck_id}')" title="Deck löschen">🗑️</button>` : ''}
+                                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                            <span class="tag">${escapeHtml(deck.medical_field || 'Medizin')}</span>
+                                            ${deck.is_builtin ? `
+                                                <span class="cloud-badge is-local" title="Integriertes Standard-Deck">🏛️ System</span>
+                                            ` : isCloudOnline ? `
+                                                <span class="cloud-badge is-cloud" title="Dieses Deck ist live in der Supabase-Cloud veröffentlicht">☁️ Online</span>
+                                            ` : `
+                                                <span class="cloud-badge is-local" title="Nur lokal auf diesem Gerät gespeichert">💻 Lokal</span>
+                                            `}
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:4px;">
+                                            ${dStat.wins > 0 ? `<span style="font-size:0.68rem; font-weight:800; color:var(--color-symptom); margin-right:4px;">✓ ${dStat.wins}x</span>` : ''}
+                                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.exportDeckAsJsonFile('${deck.deck_id}')" title="Deck als .json Datei herunterladen">📤</button>
+                                            ${(!deck.is_builtin && isCloudOnline) ? `
+                                                <button type="button" class="unpublish-case-btn" onclick="event.stopPropagation(); window.SolitaireModule.unpublishDeckFromCloud('${deck.deck_id}')" title="Aus der Cloud nehmen (bleibt lokal erhalten)">☁️✕</button>
+                                            ` : ''}
+                                            ${!deck.is_builtin ? `
+                                                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.SolitaireModule.deleteCustomDeck('${deck.deck_id}')" title="Deck löschen">🗑️</button>
+                                            ` : ''}
                                         </div>
                                     </div>
                                     <h3 style="font-size:1.02rem; font-weight:800; color:var(--text-main); margin-bottom:6px;">${escapeHtml(deck.title)}</h3>
@@ -1535,13 +1846,20 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                                         `).join('')}
                                     </div>
                                 </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:10px; border-top:1px solid var(--divider-color);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--divider-color);">
                                     <span style="font-size:0.72rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">
-                                        ${deck.diseases?.length || 0} Diagnosen • ${totalTerms} Spielkarten
+                                        ${deck.diseases?.length || 0} Diagnosen • ${totalTerms} Karten
                                     </span>
-                                    <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.startNewGame('${deck.deck_id}')">
-                                        Spielen ➔
-                                    </button>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        ${(!deck.is_builtin && !isCloudOnline) ? `
+                                            <button type="button" class="action-btn secondary btn-sm" style="padding:6px 11px; font-size:0.74rem; border-color:rgba(56,189,248,0.45); color:var(--accent-blue);" onclick="event.stopPropagation(); window.SolitaireModule.publishDeckToCloud('${deck.deck_id}', this)" title="Dieses Deck in der Supabase-Cloud für alle Geräte veröffentlichen">
+                                                ☁️ Online stellen
+                                            </button>
+                                        ` : ''}
+                                        <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.startNewGame('${deck.deck_id}')">
+                                            Spielen ➔
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -1553,7 +1871,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         bindDropzoneEvents();
     }
 
-    // WICHTIG: Kein natives draggable="true" mehr! Unsere 0ms Pointer-Engine übernimmt Touch, Pencil & Maus verzögerungsfrei.
     function renderCardHtml(card, zone, colIdx, cardIdx, isPlayable) {
         const isSelected = gameState.selectedSource &&
             gameState.selectedSource.zone === zone &&
@@ -1694,7 +2011,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div style="min-width:0;">
                             <div style="font-size:0.86rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
                             <div style="font-size:0.68rem; color:var(--text-muted);">
-                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> • <em>Ziehen ohne Verzögerung oder 2x Tippen</em>
+                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> • <em>6 Kartendecks • Kein Move-Abzug bei Fehlern</em>
                             </div>
                         </div>
                     </div>
@@ -1723,7 +2040,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <!-- Kompaktes Feedback-Banner -->
                 <div id="sol-feedback-banner" class="sol-feedback-banner" style="display:none;"></div>
 
-                <!-- OBERE REIHE: 6 HOCHKANT-SPIELKARTEN-SLOTS -->
+                <!-- OBERE REIHE: 6 SYMMETRISCHE HOCHKANT-SLOTS -->
                 <div class="sol-upper-table-row">
                     <div class="sol-card-slot-frame sol-stock-slot ${gameState.stock.length > 0 ? 'has-cards' : 'is-empty'}" onclick="window.SolitaireModule.drawFromStock()" title="Karte ziehen (Leertaste)">
                         ${gameState.stock.length > 0 ? `
@@ -1735,7 +2052,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                             </div>
                         ` : `
                             <div class="sol-stock-empty-icon">
-                                <span style="font-size:1.3rem;">↻</span>
+                                <span style="font-size:1.25rem;">↻</span>
                                 <span>Neu wenden</span>
                             </div>
                         `}
@@ -1749,58 +2066,54 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         `}
                     </div>
 
-                    <div class="sol-table-divider"></div>
-
-                    <div class="sol-foundations-row">
-                        ${gameState.foundations.map((slot, sIdx) => {
-                            if (!slot) {
-                                return `
-                                    <div class="sol-card-slot-frame sol-foundation-slot is-empty-foundation" data-foundation-idx="${sIdx}">
-                                        <div class="sol-foundation-crown-icon">👑</div>
-                                        <div class="sol-foundation-empty-text">Krankheitsbild<br>hier ablegen</div>
-                                    </div>
-                                `;
-                            }
-                            const count = slot.collectedTerms.length;
-                            const pct = Math.min(100, Math.round((count / slot.totalRequired) * 100));
-                            const latestTerm = count > 0 ? slot.collectedTerms[count - 1] : null;
-                            const isHinted = gameState.hintHighlightIds.includes(slot.uid);
-                            const isJustMatched = gameState.lastSuccessAnim &&
-                                gameState.lastSuccessAnim.type === 'foundation' &&
-                                gameState.lastSuccessAnim.targetIdx === sIdx;
-
+                    ${gameState.foundations.map((slot, sIdx) => {
+                        if (!slot) {
                             return `
-                                <div class="sol-card-slot-frame sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-match-pop' : ''}"
-                                     style="--disease-accent: ${slot.accent};"
-                                     data-foundation-idx="${sIdx}">
-                                    <div class="sol-foundation-top">
-                                        <span class="sol-foundation-badge" style="background:${slot.accent}; color:#060913;">
-                                            👑 ${count}/${slot.totalRequired}
-                                        </span>
-                                        <button type="button" class="sol-card-info-btn" data-inspect-slot="${sIdx}" title="Krankheitsbild-Dossier öffnen">ⓘ</button>
-                                    </div>
-
-                                    <div class="sol-foundation-center">
-                                        <div class="sol-foundation-title" title="${escapeHtml(slot.diseaseName)}">${escapeHtml(slot.diseaseName)}</div>
-                                        <div class="sol-foundation-progress-track">
-                                            <div class="sol-foundation-progress-fill" style="width:${pct}%; background:${slot.accent};"></div>
-                                        </div>
-                                    </div>
-
-                                    <div class="sol-foundation-mini-stack">
-                                        ${!latestTerm ? `
-                                            <div class="sol-foundation-empty-sub">Karten zuordnen</div>
-                                        ` : `
-                                            <div class="sol-foundation-layered-card">
-                                                <span>${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).suit}</span>
-                                                <span class="sol-foundation-layered-text">${escapeHtml(latestTerm.term)}</span>
-                                            </div>
-                                        `}
-                                    </div>
+                                <div class="sol-card-slot-frame sol-foundation-slot is-empty-foundation" data-foundation-idx="${sIdx}">
+                                    <div class="sol-foundation-crown-icon">👑</div>
+                                    <div class="sol-foundation-empty-text">Krankheitsbild<br>hier ablegen</div>
                                 </div>
                             `;
-                        }).join('')}
-                    </div>
+                        }
+                        const count = slot.collectedTerms.length;
+                        const pct = Math.min(100, Math.round((count / slot.totalRequired) * 100));
+                        const latestTerm = count > 0 ? slot.collectedTerms[count - 1] : null;
+                        const isHinted = gameState.hintHighlightIds.includes(slot.uid);
+                        const isJustMatched = gameState.lastSuccessAnim &&
+                            gameState.lastSuccessAnim.type === 'foundation' &&
+                            gameState.lastSuccessAnim.targetIdx === sIdx;
+
+                        return `
+                            <div class="sol-card-slot-frame sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-match-pop' : ''}"
+                                 style="--disease-accent: ${slot.accent};"
+                                 data-foundation-idx="${sIdx}">
+                                <div class="sol-foundation-top">
+                                    <span class="sol-foundation-badge" style="background:${slot.accent}; color:#060913;">
+                                        👑 ${count}/${slot.totalRequired}
+                                    </span>
+                                    <button type="button" class="sol-card-info-btn" data-inspect-slot="${sIdx}" title="Krankheitsbild-Dossier öffnen">ⓘ</button>
+                                </div>
+
+                                <div class="sol-foundation-center">
+                                    <div class="sol-foundation-title" title="${escapeHtml(slot.diseaseName)}">${escapeHtml(slot.diseaseName)}</div>
+                                    <div class="sol-foundation-progress-track">
+                                        <div class="sol-foundation-progress-fill" style="width:${pct}%; background:${slot.accent};"></div>
+                                    </div>
+                                </div>
+
+                                <div class="sol-foundation-mini-stack">
+                                    ${!latestTerm ? `
+                                        <div class="sol-foundation-empty-sub">Karten zuordnen</div>
+                                    ` : `
+                                        <div class="sol-foundation-layered-card">
+                                            <span>${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).suit}</span>
+                                            <span class="sol-foundation-layered-text">${escapeHtml(latestTerm.term)}</span>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
 
                 <!-- Gelöste Krankheitsbilder Leiste -->
@@ -1815,20 +2128,32 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     </div>
                 ` : ''}
 
-                <!-- TABLEAU: 4 ZENTRIERTE HOCHKANT-KARTENSPALTEN -->
+                <!-- UNTERES TABLEAU: 6 SYMMETRISCHE HOCHKANT-KARTENDECKS -->
                 <div class="sol-tableau-grid">
-                    ${gameState.tableau.map((col, colIdx) => `
-                        <div class="sol-tableau-col" data-tableau-col="${colIdx}">
-                            ${col.length === 0 ? `
-                                <div class="sol-card-slot-frame sol-tableau-empty-dropzone" data-tableau-col="${colIdx}">
-                                    <span>Freier Slot</span>
+                    ${gameState.tableau.map((col, colIdx) => {
+                        const hiddenCount = col.filter(c => !c.faceUp).length;
+                        return `
+                            <div class="sol-tableau-col-wrap">
+                                <div class="sol-col-header-pill">
+                                    <span>Deck ${colIdx + 1}</span>
+                                    ${hiddenCount > 0
+                                        ? `<span class="sol-col-hidden-count" title="${hiddenCount} verdeckte Karte(n)">🔒 ${hiddenCount}</span>`
+                                        : `<span class="sol-col-clear-tag">✓ Frei</span>`
+                                    }
                                 </div>
-                            ` : col.map((card, cardIdx) => {
-                                const isBottomPlayable = (cardIdx === col.length - 1);
-                                return renderCardHtml(card, 'tableau', colIdx, cardIdx, isBottomPlayable);
-                            }).join('')}
-                        </div>
-                    `).join('')}
+                                <div class="sol-tableau-col" data-tableau-col="${colIdx}">
+                                    ${col.length === 0 ? `
+                                        <div class="sol-card-slot-frame sol-tableau-empty-dropzone" data-tableau-col="${colIdx}">
+                                            <span>Freies Deck<br><small>(Karte ablegen)</small></span>
+                                        </div>
+                                    ` : col.map((card, cardIdx) => {
+                                        const isBottomPlayable = (cardIdx === col.length - 1);
+                                        return renderCardHtml(card, 'tableau', colIdx, cardIdx, isBottomPlayable);
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
 
                 <!-- Inspect & Zusatzinfo Modal -->
@@ -1842,7 +2167,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 14. 0ms POINTER-DRAG & MAGNETIC DROP-SNAPPING ENGINE (HANDY, IPAD & DESKTOP)
+    // 15. 0ms POINTER-DRAG & MAGNETIC DROP-SNAPPING ENGINE
     // ----------------------------------------------------------------------
     function clearMagneticTargetHighlights() {
         document.querySelectorAll('.sol-magnetic-target').forEach(el => {
@@ -1850,24 +2175,20 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         });
     }
 
-    // Berechnet die Überlappungsfläche + Nähe zwischen dem gezogenen Karten-Rechteck und allen möglichen Ziel-Slots
     function findBestMagneticDropTarget(ghostRect, sourceObj) {
         const candidates = [];
-        const magneticPadding = 26; // 26px magnetischer Fangradius rund um jeden Slot für müheloses Touch-Dropping!
+        const magneticPadding = 24;
 
-        // 1. Alle 4 Foundation-Slots oben prüfen
         document.querySelectorAll('.sol-foundation-slot').forEach(slotEl => {
             const idx = parseInt(slotEl.dataset.foundationIdx, 10);
             const r = slotEl.getBoundingClientRect();
             candidates.push({ type: 'foundation', index: idx, el: slotEl, rect: r });
         });
 
-        // 2. Alle 4 Tableau-Spalten unten prüfen (außer der eigenen Ausgangsspalte)
         document.querySelectorAll('.sol-tableau-col').forEach(colEl => {
             const idx = parseInt(colEl.dataset.tableauCol, 10);
             if (sourceObj.zone === 'tableau' && sourceObj.colIdx === idx) return;
 
-            // Ziel-Rechteck ist entweder die unterste Karte in der Spalte oder die leere Dropzone
             const bottomTargetEl = colEl.querySelector('.sol-stacked-group:last-child, .sol-tableau-empty-dropzone') || colEl;
             const r = bottomTargetEl.getBoundingClientRect();
             candidates.push({ type: 'tableau', index: idx, el: colEl, rect: r });
@@ -1886,7 +2207,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             const expTop = r.top - magneticPadding;
             const expBottom = r.bottom + magneticPadding;
 
-            // Schnittfläche zwischen gezogener Karte und erweitertem Ziel-Rechteck berechnen
             const overlapX = Math.max(0, Math.min(ghostRect.right, expRight) - Math.max(ghostRect.left, expLeft));
             const overlapY = Math.max(0, Math.min(ghostRect.bottom, expBottom) - Math.max(ghostRect.top, expTop));
             const overlapArea = overlapX * overlapY;
@@ -1943,7 +2263,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             const dx = e.clientX - dragSession.startX;
             const dy = e.clientY - dragSession.startY;
 
-            // Sofort-Start ab 5px Fingerbewegung (0ms Long-Press Delay!)
             if (!dragSession.hasMoved) {
                 if (Math.hypot(dx, dy) < 5) return;
                 dragSession.hasMoved = true;
@@ -1964,7 +2283,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 dragSession.ghostEl.style.transform = `translate3d(${newLeft}px, ${newTop}px, 0) scale(1.06) rotate(2deg)`;
             }
 
-            // Magnetisches Ziel-Snapping anhand des aktuellen Karten-Rechtecks
             const currentGhostRect = {
                 left: newLeft,
                 top: newTop,
@@ -2005,21 +2323,18 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             document.body.classList.remove('sol-touch-dragging');
 
             if (wasDragging && !isCancel) {
-                // FALL A: Der Nutzer hat die Karte gezogen und über einem magnetischen Ziel losgelassen
                 if (target) {
                     if (ghostEl) ghostEl.remove();
                     if (originEl) originEl.classList.remove('is-dragging-source');
 
-                    let moveSucceeded = false;
                     if (target.type === 'foundation') {
-                        moveSucceeded = attemptMoveToFoundation(sourceObj, target.index);
+                        attemptMoveToFoundation(sourceObj, target.index);
                     } else if (target.type === 'tableau') {
-                        moveSucceeded = attemptMoveToTableauColumn(sourceObj, target.index);
+                        attemptMoveToTableauColumn(sourceObj, target.index);
                     }
                     return;
                 }
 
-                // Kein Ziel getroffen -> Karte gleitet sanft an ihren Ursprung zurück
                 animateGhostSpringBack(ghostEl, originRect, () => {
                     if (originEl) originEl.classList.remove('is-dragging-source');
                 });
@@ -2031,24 +2346,20 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
             if (isCancel) return;
 
-            // FALL B: Kurzer Tap / Klick ohne Ziehen (< 5px Bewegung)
             const now = Date.now();
             const isDoubleTap = (cardUid && dragSession.lastTapUid === cardUid && (now - dragSession.lastTapTime) < 380);
             dragSession.lastTapTime = now;
             dragSession.lastTapUid = cardUid;
 
             if (isDoubleTap) {
-                // Doppeltipp -> Sofortiger Auto-Move nach oben oder zum passenden Pre-Stack!
                 if (attemptAutoMoveCard(sourceObj)) return;
             }
 
-            // Wenn bereits eine andere Karte ausgewählt war und man auf diese Tableau-Karte tippt -> Pre-Stacking versuchen!
             if (gameState.selectedSource && sourceObj.zone === 'tableau') {
                 const isSameCard = gameState.selectedSource.zone === sourceObj.zone &&
                                    gameState.selectedSource.colIdx === sourceObj.colIdx &&
                                    gameState.selectedSource.cardIdx === sourceObj.cardIdx;
                 if (isSameCard) {
-                    // Zweiter Tipp auf bereits ausgewählte Karte versucht ebenfalls zuerst Auto-Move!
                     if (!attemptAutoMoveCard(sourceObj)) {
                         gameState.selectedSource = null;
                         gameState.lastSuccessAnim = null;
@@ -2107,7 +2418,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         initKeyboardShortcuts();
         initGlobalPointerDragListeners();
 
-        // 1. ⓘ Zusatzinfo-Buttons (stoppen PointerDown & Click sofort, damit kein Drag startet)
         container.querySelectorAll('[data-info-uid]').forEach(infoBtn => {
             infoBtn.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
@@ -2119,7 +2429,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
-        // 2. Spielbare Karten / Stacks -> Sofortige 0ms PointerDown-Registrierung
         const playableNodes = container.querySelectorAll('.sol-stacked-group.is-playable');
         playableNodes.forEach(nodeEl => {
             const zone = nodeEl.dataset.zone;
@@ -2127,12 +2436,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             const cardIdx = parseInt(nodeEl.dataset.idx, 10);
             const sourceObj = { zone, colIdx, cardIdx };
 
-            // Verhindert das iOS/iPadOS Long-Press-Kontextmenü komplett
             nodeEl.addEventListener('contextmenu', (e) => e.preventDefault());
 
             nodeEl.addEventListener('pointerdown', (e) => {
                 if (e.target.closest('[data-info-uid]')) return;
-                if (e.button !== undefined && e.button !== 0) return; // Nur Primärklick / Touch
+                if (e.button !== undefined && e.button !== 0) return;
 
                 e.preventDefault();
                 e.stopPropagation();
@@ -2153,7 +2461,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
-        // 3. Foundation-Slots oben (für Tap-to-Move & Dossier-Klick)
         const foundationSlots = container.querySelectorAll('.sol-foundation-slot');
         foundationSlots.forEach(slotEl => {
             const slotIdx = parseInt(slotEl.dataset.foundationIdx, 10);
@@ -2176,7 +2483,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
-        // 4. Leere Tableau-Spalten (für Tap-to-Move)
         const tableauCols = container.querySelectorAll('.sol-tableau-col');
         tableauCols.forEach(colEl => {
             const targetColIdx = parseInt(colEl.dataset.tableauCol, 10);
@@ -2217,24 +2523,35 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     async function handleUploadedFiles(fileList) {
-        let importedCount = 0;
+        const autoPublish = document.getElementById('sol-auto-publish-checkbox')?.checked;
+        let importedDecks = [];
+
         for (const file of Array.from(fileList)) {
             try {
                 const text = await file.text();
-                validateAndImportDeckJson(text);
-                importedCount++;
+                const deck = validateAndImportDeckJson(text);
+                importedDecks.push(deck);
             } catch (err) {
                 alert(`Fehler in Datei "${file.name}": ${err.message}`);
             }
         }
-        if (importedCount > 0) {
+
+        if (importedDecks.length > 0) {
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
             renderView();
+
+            if (autoPublish) {
+                for (const d of importedDecks) {
+                    await publishDeckToCloud(d.deck_id, null);
+                }
+            }
         }
     }
 
-    function handlePasteImport() {
+    async function handlePasteImport() {
         const ta = document.getElementById('sol-json-textarea');
+        const autoPublish = document.getElementById('sol-auto-publish-checkbox')?.checked;
+
         if (!ta || !ta.value.trim()) {
             alert('Bitte füge zuerst einen JSON-Code in das Textfeld ein.');
             return;
@@ -2244,7 +2561,15 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             ta.value = '';
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
             renderView();
-            alert(`Deck „${deck.title}“ mit ${deck.diseases.length} Krankheitsbildern erfolgreich gespeichert!`);
+
+            if (autoPublish) {
+                const ok = await publishDeckToCloud(deck.deck_id, null);
+                if (ok) {
+                    alert(`Deck „${deck.title}“ validiert, gespeichert und direkt in die Cloud gestellt!`);
+                    return;
+                }
+            }
+            alert(`Deck „${deck.title}“ mit ${deck.diseases.length} Krankheitsbildern lokal gespeichert!`);
         } catch (err) {
             alert(`Validierungsfehler: ${err.message}`);
         }
@@ -2265,10 +2590,21 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
+    // Automatischer Cloud-Sync beim ersten Laden des Scripts
+    setTimeout(() => {
+        syncDecksFromCloud();
+    }, 600);
+
     return {
         openView() {
+            syncDecksFromCloud();
             renderView();
         },
+        syncDecksFromCloud,
+        publishDeckToCloud,
+        publishAllLocalDecksToCloud,
+        unpublishDeckFromCloud,
+        exportDeckAsJsonFile,
         startNewGame,
         backToLobby() {
             currentViewMode = 'lobby';
