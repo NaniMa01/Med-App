@@ -1,13 +1,12 @@
 /* ==========================================================================
-   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V3.0 (js/solitaire.js)
+   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V3.1 (js/solitaire.js)
    ==========================================================================
-   FEATURES V3.0 (PORTRAIT PLAYING CARDS & ZERO-OVERFLOW):
-   01. Echte Hochkant-Spielkarten-Geometrie (5:7 Portrait Aspect Ratio)
-   02. Klassische Spielkarten-Anatomie (Corner-Pips, Medical Suits, Center Emblem, ⓘ)
-   03. Echte Solitaire-Überlappung: Untere Karten zeigen ihren oberen Index-Rand (28px),
-       vorderste Karte zeigt das volle Hochkant-Kartenblatt -> 100% Viewport-Fit!
-   04. Spoilerfreier ⓘ Info-Button auf jeder Karte (auch in gestapelten Karten!)
-   05. Zero-Move-Penalty bei Fehlern, SolitaireFX Partikel-Engine & Keyboard-Shortcuts
+   FEATURES V3.1 (ZERO-DELAY TOUCH/IPAD DRAG & MAGNETIC DROP ENGINE):
+   01. 0ms Instant Touch-Pickup via Pointer-Events & GPU translate3d() Ghost
+   02. Magnetisches Drop-Snapping (Berechnet Karten-Rechteck-Überlappung statt nur Fingerpunkt)
+   03. Elastischer Spring-Back-Effekt beim Loslassen im Leeren oder bei Fehlversuch
+   04. 1-Tap / Double-Tap Smart-Auto-Move für einhändiges Spielen auf dem Smartphone
+   05. Hochkant-Spielkarten (5:7 Portrait), Spoilerfreier ⓘ Button & Zero-Move-Penalty
    ========================================================================== */
 
 const SolitaireModule = (() => {
@@ -148,7 +147,7 @@ Deine Aufgabe: Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorl
 
 # 1. KRITISCHE TECHNISCHE REGELN (ZERO-TOLERANCE)
 1. REINES ROHTEXT-JSON: Antworte AUSSCHLIESSLICH mit dem validen JSON-Objekt (Erstes Zeichen {, letztes Zeichen }). KEIN einleitender oder abschließender Text, KEINE Markdown-Codeblöcke, KEINE Kommentare.
-2. STRIKTES ZITATIONS- & TAG-VERBOT: Verwende NIEMALS Zitationsmarker oder Tags wie, [1], (Quelle: ...), <span> oder HTML-Fragmente. Alle Strings müssen reiner Plain-Text sein.
+2. STRIKTES ZITATIONS- & TAG-VERBOT: Verwende NIEMALS Zitationsmarker oder Tags wie [1], (Quelle: ...), <span> oder HTML-Fragmente. Alle Strings müssen reiner Plain-Text sein.
 3. VOLLSTÄNDIGKEIT (100% EXTRACTION): Jedes im Quelltext behandelte Krankheitsbild (bzw. jede klinische Hauptentität/Subform) wird als eigenes Objekt im Array "diseases" angelegt (ideal: 4 bis 8 Krankheitsbilder pro Deck). Jedes Krankheitsbild erhält 5 bis 8 hochspezifische Begriffskarten im Array "cards".
 
 # 2. SPIELKARTEN-ERGONOMIE (HOCHKANT-FORMAT 5:7)
@@ -197,12 +196,13 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 }`;
 
     // ----------------------------------------------------------------------
-    // 02. RUNTIME STATE & MEDICAL SUITS (SPIELKARTEN-FARBEN)
+    // 02. RUNTIME STATE & POINTER-DRAG STATE
     // ----------------------------------------------------------------------
     let currentViewMode = 'lobby';
     let activeDeck = null;
     let hardMode = false;
     let keyboardBound = false;
+    let globalPointerBound = false;
 
     let gameState = {
         movesLeft: 0,
@@ -220,6 +220,24 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         hintHighlightIds: [],
         historyStack: [],
         lastSuccessAnim: null
+    };
+
+    // High-Precision Touch / Pointer Drag State (0ms Delay)
+    let dragSession = {
+        active: false,
+        hasMoved: false,
+        pointerId: null,
+        sourceObj: null,
+        originEl: null,
+        originRect: null,
+        startX: 0,
+        startY: 0,
+        offsetX: 0,
+        offsetY: 0,
+        ghostEl: null,
+        hoveredTarget: null, // { type: 'foundation' | 'tableau', index: number, el: HTMLElement }
+        lastTapTime: 0,
+        lastTapUid: null
     };
 
     const CATEGORY_COLORS = {
@@ -1066,6 +1084,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         return false;
     }
 
+    // Sucht bei Doppel-Tap automatisch den besten Ziel-Slot oben oder einen Pre-Stack-Partner im Tableau
     function attemptAutoMoveCard(source) {
         const card = getPlayableCardFromSource(source);
         if (!card) return false;
@@ -1079,6 +1098,14 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             const matchingSlotIdx = gameState.foundations.findIndex(s => s && s.diseaseId === card.diseaseId);
             if (matchingSlotIdx !== -1) {
                 return attemptMoveToFoundation(source, matchingSlotIdx);
+            }
+            // Falls die Krankheit oben noch nicht offen liegt: Prüfen, ob im Tableau eine passende Karte zum Pre-Stacken liegt!
+            for (let cIdx = 0; cIdx < gameState.tableau.length; cIdx++) {
+                if (source.zone === 'tableau' && source.colIdx === cIdx) continue;
+                const col = gameState.tableau[cIdx];
+                if (col.length > 0 && col[col.length - 1].diseaseId === card.diseaseId) {
+                    return attemptMoveToTableauColumn(source, cIdx);
+                }
             }
         }
         return false;
@@ -1157,7 +1184,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 gameState.hintsLeft--;
                 gameState.hintHighlightIds = [catCandidate.card.uid];
                 renderView();
-                showToast(`💡 Tipp: Lege die Krankheitsbild-Spielkarte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
+                showToast(`💡 Tipp: Ziehe die Krankheitsbild-Spielkarte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
                 return;
             }
         }
@@ -1189,7 +1216,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         }
 
-        showToast('💡 Aktuell kein direkter Match offen – ziehe eine Karte vom Nachziehstapel (Leertaste) oder nutze eine freie Spalte!', 'neutral');
+        showToast('💡 Aktuell kein direkter Match offen – tippe auf den Nachziehstapel oben links oder nutze eine freie Spalte!', 'neutral');
     }
 
     function useJoker() {
@@ -1477,9 +1504,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 </div>
 
                 <div class="sol-rules-strip">
-                    <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> oben in freien Slot legen</div>
+                    <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> oben in freien Slot ziehen</div>
                     <div class="sol-rule-pill"><span>ⓘ</span> <strong>Ecke oben rechts:</strong> Spoilerfreie Zusatzinfos öffnen</div>
-                    <div class="sol-rule-pill"><span>🃏</span> <strong>Pre-Stacking:</strong> Gleiche Krankheit schon im Tableau stapeln</div>
+                    <div class="sol-rule-pill"><span>📱</span> <strong>Direct-Touch:</strong> Sofortiges Ziehen ohne Wartezeit oder Doppeltipp!</div>
                 </div>
 
                 <div class="sol-decks-grid">
@@ -1526,7 +1553,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         bindDropzoneEvents();
     }
 
-    // Rendert eine echte Hochkant-Spielkarte (5:7 Portrait) bzw. einen überlappenden Spielkarten-Stack
+    // WICHTIG: Kein natives draggable="true" mehr! Unsere 0ms Pointer-Engine übernimmt Touch, Pencil & Maus verzögerungsfrei.
     function renderCardHtml(card, zone, colIdx, cardIdx, isPlayable) {
         const isSelected = gameState.selectedSource &&
             gameState.selectedSource.zone === zone &&
@@ -1538,7 +1565,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             gameState.lastSuccessAnim.type === 'tableau' &&
             gameState.lastSuccessAnim.uid === card.uid;
 
-        // VERDECKTE SPIELKARTE (Im Tableau zeigt nur die obere Kartenkante heraus)
         if (!card.faceUp) {
             return `
                 <div class="sol-playing-card sol-card-back" data-card-uid="${card.uid}">
@@ -1549,7 +1575,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             `;
         }
 
-        // FALL 1: OFFENE KATEGORIEN-SPIELKARTE (KRANKHEITSBILD / KING CARD)
         if (card.isCategoryCard) {
             const collected = card.collectedTerms || [];
             const collectedCount = collected.length;
@@ -1572,11 +1597,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                      data-card-uid="${card.uid}"
                      data-zone="${zone}"
                      data-col="${colIdx}"
-                     data-idx="${cardIdx}"
-                     draggable="${isPlayable ? 'true' : 'false'}">
+                     data-idx="${cardIdx}">
                     ${collectedCount > 0 ? `<div class="sol-stack-peeking-list">${peekingSlicesHtml}</div>` : ''}
                     <div class="sol-playing-card sol-card-category" title="${escapeHtml(card.diseaseName)}">
-                        <!-- Top Index Bar (Sichtbar auch wenn überlappt!) -->
                         <div class="sol-card-corner-top">
                             <div class="sol-corner-pip-group">
                                 <span class="sol-pip-symbol">👑</span>
@@ -1589,14 +1612,12 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                             </div>
                         </div>
 
-                        <!-- Center Playing Card Face -->
                         <div class="sol-card-center-art">
                             <div class="sol-card-watermark">👑</div>
                             <div class="sol-cat-kicker">KRANKHEITSBILD</div>
                             <div class="sol-cat-disease-title">${escapeHtml(card.diseaseName)}</div>
                         </div>
 
-                        <!-- Bottom Mirrored Playing Card Footer -->
                         <div class="sol-card-corner-bottom">
                             <span class="sol-icd-tag">${escapeHtml(card.icd10 || 'DDx')}</span>
                             <span class="sol-pip-bottom-mirror">👑</span>
@@ -1606,7 +1627,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             `;
         }
 
-        // FALL 2: OFFENE BEGRIFFS-SPIELKARTE (PORTRAIT 5:7)
         const catCfg = CATEGORY_COLORS[card.category] || CATEGORY_COLORS['Klinik'];
         const subCards = card.stackedCards || [];
         const stackCount = 1 + subCards.length;
@@ -1629,11 +1649,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                  data-card-uid="${card.uid}"
                  data-zone="${zone}"
                  data-col="${colIdx}"
-                 data-idx="${cardIdx}"
-                 draggable="${isPlayable ? 'true' : 'false'}">
+                 data-idx="${cardIdx}">
                 ${stackCount > 1 ? `<div class="sol-stack-peeking-list">${peekingTermsHtml}</div>` : ''}
                 <div class="sol-playing-card sol-card-term" style="--suit-color: ${catCfg.color}; --suit-bg: ${catCfg.bg};" title="${escapeHtml(card.term)}">
-                    <!-- Top Playing Card Index -->
                     <div class="sol-card-corner-top">
                         <div class="sol-corner-pip-group" style="color:${catCfg.color};">
                             <span class="sol-pip-symbol">${catCfg.suit}</span>
@@ -1646,13 +1664,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         </div>
                     </div>
 
-                    <!-- Center Playing Card Medallion & Term -->
                     <div class="sol-card-center-art">
                         <div class="sol-card-watermark" style="color:${catCfg.color};">${catCfg.suit}</div>
                         <div class="sol-term-main-text">${escapeHtml(card.term)}</div>
                     </div>
 
-                    <!-- Bottom Mirrored Pip -->
                     <div class="sol-card-corner-bottom">
                         <span class="sol-suit-line" style="background:${catCfg.color};"></span>
                         <span class="sol-pip-bottom-mirror" style="color:${catCfg.color};">${catCfg.suit}</span>
@@ -1678,7 +1694,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div style="min-width:0;">
                             <div style="font-size:0.86rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
                             <div style="font-size:0.68rem; color:var(--text-muted);">
-                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> • <em>Kein Move-Abzug bei Fehlern</em>
+                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> • <em>Ziehen ohne Verzögerung oder 2x Tippen</em>
                             </div>
                         </div>
                     </div>
@@ -1707,9 +1723,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <!-- Kompaktes Feedback-Banner -->
                 <div id="sol-feedback-banner" class="sol-feedback-banner" style="display:none;"></div>
 
-                <!-- OBERE REIHE: 6 HOCHKANT-SPIELKARTEN-SLOTS (STOCK + WASTE + 4 FOUNDATIONS) -->
+                <!-- OBERE REIHE: 6 HOCHKANT-SPIELKARTEN-SLOTS -->
                 <div class="sol-upper-table-row">
-                    <!-- 1. Stock Pile (Hochkant-Kartenstapel) -->
                     <div class="sol-card-slot-frame sol-stock-slot ${gameState.stock.length > 0 ? 'has-cards' : 'is-empty'}" onclick="window.SolitaireModule.drawFromStock()" title="Karte ziehen (Leertaste)">
                         ${gameState.stock.length > 0 ? `
                             <div class="sol-playing-card sol-card-back is-stock-deck">
@@ -1726,7 +1741,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         `}
                     </div>
 
-                    <!-- 2. Waste Pile (Offene gezogene Spielkarte) -->
                     <div class="sol-card-slot-frame sol-waste-slot">
                         ${topWasteCard ? renderCardHtml(topWasteCard, 'waste', 0, gameState.waste.length - 1, true) : `
                             <div class="sol-empty-card-outline">
@@ -1735,10 +1749,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         `}
                     </div>
 
-                    <!-- Vertikaler Tisch-Trenner -->
                     <div class="sol-table-divider"></div>
 
-                    <!-- 3.-6. Die 4 Hochkant-Foundation-Slots (Krankheitsbilder) -->
                     <div class="sol-foundations-row">
                         ${gameState.foundations.map((slot, sIdx) => {
                             if (!slot) {
@@ -1830,8 +1842,245 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 14. INTERAKTIONS-BINDINGS & TASTATUR-SHORTCUTS
+    // 14. 0ms POINTER-DRAG & MAGNETIC DROP-SNAPPING ENGINE (HANDY, IPAD & DESKTOP)
     // ----------------------------------------------------------------------
+    function clearMagneticTargetHighlights() {
+        document.querySelectorAll('.sol-magnetic-target').forEach(el => {
+            el.classList.remove('sol-magnetic-target');
+        });
+    }
+
+    // Berechnet die Überlappungsfläche + Nähe zwischen dem gezogenen Karten-Rechteck und allen möglichen Ziel-Slots
+    function findBestMagneticDropTarget(ghostRect, sourceObj) {
+        const candidates = [];
+        const magneticPadding = 26; // 26px magnetischer Fangradius rund um jeden Slot für müheloses Touch-Dropping!
+
+        // 1. Alle 4 Foundation-Slots oben prüfen
+        document.querySelectorAll('.sol-foundation-slot').forEach(slotEl => {
+            const idx = parseInt(slotEl.dataset.foundationIdx, 10);
+            const r = slotEl.getBoundingClientRect();
+            candidates.push({ type: 'foundation', index: idx, el: slotEl, rect: r });
+        });
+
+        // 2. Alle 4 Tableau-Spalten unten prüfen (außer der eigenen Ausgangsspalte)
+        document.querySelectorAll('.sol-tableau-col').forEach(colEl => {
+            const idx = parseInt(colEl.dataset.tableauCol, 10);
+            if (sourceObj.zone === 'tableau' && sourceObj.colIdx === idx) return;
+
+            // Ziel-Rechteck ist entweder die unterste Karte in der Spalte oder die leere Dropzone
+            const bottomTargetEl = colEl.querySelector('.sol-stacked-group:last-child, .sol-tableau-empty-dropzone') || colEl;
+            const r = bottomTargetEl.getBoundingClientRect();
+            candidates.push({ type: 'tableau', index: idx, el: colEl, rect: r });
+        });
+
+        let bestMatch = null;
+        let highestScore = 0;
+
+        const ghostCenterX = ghostRect.left + ghostRect.width / 2;
+        const ghostCenterY = ghostRect.top + ghostRect.height / 2;
+
+        candidates.forEach(cand => {
+            const r = cand.rect;
+            const expLeft = r.left - magneticPadding;
+            const expRight = r.right + magneticPadding;
+            const expTop = r.top - magneticPadding;
+            const expBottom = r.bottom + magneticPadding;
+
+            // Schnittfläche zwischen gezogener Karte und erweitertem Ziel-Rechteck berechnen
+            const overlapX = Math.max(0, Math.min(ghostRect.right, expRight) - Math.max(ghostRect.left, expLeft));
+            const overlapY = Math.max(0, Math.min(ghostRect.bottom, expBottom) - Math.max(ghostRect.top, expTop));
+            const overlapArea = overlapX * overlapY;
+
+            if (overlapArea > 0) {
+                const targetCenterX = r.left + r.width / 2;
+                const targetCenterY = r.top + r.height / 2;
+                const dist = Math.hypot(ghostCenterX - targetCenterX, ghostCenterY - targetCenterY);
+                const score = overlapArea - dist * 12;
+
+                if (score > highestScore) {
+                    highestScore = score;
+                    bestMatch = cand;
+                }
+            }
+        });
+
+        return bestMatch;
+    }
+
+    function createFloatingDragGhost(originEl, rect) {
+        const ghost = originEl.cloneNode(true);
+        ghost.className = originEl.className + ' sol-drag-ghost-floating';
+        ghost.classList.remove('is-selected', 'sol-anim-stack-snap');
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.height = `${rect.height}px`;
+        ghost.style.left = '0px';
+        ghost.style.top = '0px';
+        ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) scale(1.06) rotate(2deg)`;
+        document.body.appendChild(ghost);
+        return ghost;
+    }
+
+    function animateGhostSpringBack(ghostEl, originRect, onComplete) {
+        if (!ghostEl || !originRect) {
+            if (onComplete) onComplete();
+            return;
+        }
+        ghostEl.style.transition = 'transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease';
+        ghostEl.style.transform = `translate3d(${originRect.left}px, ${originRect.top}px, 0) scale(1) rotate(0deg)`;
+        setTimeout(() => {
+            ghostEl.remove();
+            if (onComplete) onComplete();
+        }, 220);
+    }
+
+    function initGlobalPointerDragListeners() {
+        if (globalPointerBound) return;
+        globalPointerBound = true;
+
+        window.addEventListener('pointermove', (e) => {
+            if (!dragSession.active || e.pointerId !== dragSession.pointerId) return;
+
+            const dx = e.clientX - dragSession.startX;
+            const dy = e.clientY - dragSession.startY;
+
+            // Sofort-Start ab 5px Fingerbewegung (0ms Long-Press Delay!)
+            if (!dragSession.hasMoved) {
+                if (Math.hypot(dx, dy) < 5) return;
+                dragSession.hasMoved = true;
+
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+
+                dragSession.ghostEl = createFloatingDragGhost(dragSession.originEl, dragSession.originRect);
+                dragSession.originEl.classList.add('is-dragging-source');
+                document.body.classList.add('sol-touch-dragging');
+            }
+
+            e.preventDefault();
+
+            const newLeft = e.clientX - dragSession.offsetX;
+            const newTop = e.clientY - dragSession.offsetY;
+
+            if (dragSession.ghostEl) {
+                dragSession.ghostEl.style.transform = `translate3d(${newLeft}px, ${newTop}px, 0) scale(1.06) rotate(2deg)`;
+            }
+
+            // Magnetisches Ziel-Snapping anhand des aktuellen Karten-Rechtecks
+            const currentGhostRect = {
+                left: newLeft,
+                top: newTop,
+                right: newLeft + dragSession.originRect.width,
+                bottom: newTop + dragSession.originRect.height,
+                width: dragSession.originRect.width,
+                height: dragSession.originRect.height
+            };
+
+            const bestTarget = findBestMagneticDropTarget(currentGhostRect, dragSession.sourceObj);
+            clearMagneticTargetHighlights();
+
+            if (bestTarget && bestTarget.el) {
+                bestTarget.el.classList.add('sol-magnetic-target');
+                dragSession.hoveredTarget = bestTarget;
+            } else {
+                dragSession.hoveredTarget = null;
+            }
+        }, { passive: false });
+
+        const finishPointerSession = (e, isCancel = false) => {
+            if (!dragSession.active || (e && e.pointerId !== dragSession.pointerId)) return;
+
+            const wasDragging = dragSession.hasMoved;
+            const sourceObj = dragSession.sourceObj;
+            const target = dragSession.hoveredTarget;
+            const ghostEl = dragSession.ghostEl;
+            const originEl = dragSession.originEl;
+            const originRect = dragSession.originRect;
+            const cardUid = originEl?.dataset?.cardUid;
+
+            dragSession.active = false;
+            dragSession.hasMoved = false;
+            dragSession.pointerId = null;
+            dragSession.hoveredTarget = null;
+
+            clearMagneticTargetHighlights();
+            document.body.classList.remove('sol-touch-dragging');
+
+            if (wasDragging && !isCancel) {
+                // FALL A: Der Nutzer hat die Karte gezogen und über einem magnetischen Ziel losgelassen
+                if (target) {
+                    if (ghostEl) ghostEl.remove();
+                    if (originEl) originEl.classList.remove('is-dragging-source');
+
+                    let moveSucceeded = false;
+                    if (target.type === 'foundation') {
+                        moveSucceeded = attemptMoveToFoundation(sourceObj, target.index);
+                    } else if (target.type === 'tableau') {
+                        moveSucceeded = attemptMoveToTableauColumn(sourceObj, target.index);
+                    }
+                    return;
+                }
+
+                // Kein Ziel getroffen -> Karte gleitet sanft an ihren Ursprung zurück
+                animateGhostSpringBack(ghostEl, originRect, () => {
+                    if (originEl) originEl.classList.remove('is-dragging-source');
+                });
+                return;
+            }
+
+            if (ghostEl) ghostEl.remove();
+            if (originEl) originEl.classList.remove('is-dragging-source');
+
+            if (isCancel) return;
+
+            // FALL B: Kurzer Tap / Klick ohne Ziehen (< 5px Bewegung)
+            const now = Date.now();
+            const isDoubleTap = (cardUid && dragSession.lastTapUid === cardUid && (now - dragSession.lastTapTime) < 380);
+            dragSession.lastTapTime = now;
+            dragSession.lastTapUid = cardUid;
+
+            if (isDoubleTap) {
+                // Doppeltipp -> Sofortiger Auto-Move nach oben oder zum passenden Pre-Stack!
+                if (attemptAutoMoveCard(sourceObj)) return;
+            }
+
+            // Wenn bereits eine andere Karte ausgewählt war und man auf diese Tableau-Karte tippt -> Pre-Stacking versuchen!
+            if (gameState.selectedSource && sourceObj.zone === 'tableau') {
+                const isSameCard = gameState.selectedSource.zone === sourceObj.zone &&
+                                   gameState.selectedSource.colIdx === sourceObj.colIdx &&
+                                   gameState.selectedSource.cardIdx === sourceObj.cardIdx;
+                if (isSameCard) {
+                    // Zweiter Tipp auf bereits ausgewählte Karte versucht ebenfalls zuerst Auto-Move!
+                    if (!attemptAutoMoveCard(sourceObj)) {
+                        gameState.selectedSource = null;
+                        gameState.lastSuccessAnim = null;
+                        renderView();
+                    }
+                    return;
+                }
+                attemptMoveToTableauColumn(gameState.selectedSource, sourceObj.colIdx);
+                return;
+            }
+
+            if (gameState.selectedSource && sourceObj.zone === 'waste') {
+                const isSameWaste = gameState.selectedSource.zone === 'waste';
+                if (isSameWaste) {
+                    if (!attemptAutoMoveCard(sourceObj)) {
+                        gameState.selectedSource = null;
+                        renderView();
+                    }
+                    return;
+                }
+            }
+
+            gameState.selectedSource = sourceObj;
+            gameState.lastSuccessAnim = null;
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+            renderView();
+        };
+
+        window.addEventListener('pointerup', (e) => finishPointerSession(e, false));
+        window.addEventListener('pointercancel', (e) => finishPointerSession(e, true));
+    }
+
     function initKeyboardShortcuts() {
         if (keyboardBound) return;
         keyboardBound = true;
@@ -1856,8 +2105,13 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
     function bindGameBoardEvents(container) {
         initKeyboardShortcuts();
+        initGlobalPointerDragListeners();
 
+        // 1. ⓘ Zusatzinfo-Buttons (stoppen PointerDown & Click sofort, damit kein Drag startet)
         container.querySelectorAll('[data-info-uid]').forEach(infoBtn => {
+            infoBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+            });
             infoBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1865,6 +2119,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
+        // 2. Spielbare Karten / Stacks -> Sofortige 0ms PointerDown-Registrierung
         const playableNodes = container.querySelectorAll('.sol-stacked-group.is-playable');
         playableNodes.forEach(nodeEl => {
             const zone = nodeEl.dataset.zone;
@@ -1872,58 +2127,40 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             const cardIdx = parseInt(nodeEl.dataset.idx, 10);
             const sourceObj = { zone, colIdx, cardIdx };
 
-            nodeEl.addEventListener('click', (e) => {
+            // Verhindert das iOS/iPadOS Long-Press-Kontextmenü komplett
+            nodeEl.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            nodeEl.addEventListener('pointerdown', (e) => {
                 if (e.target.closest('[data-info-uid]')) return;
+                if (e.button !== undefined && e.button !== 0) return; // Nur Primärklick / Touch
+
+                e.preventDefault();
                 e.stopPropagation();
 
-                if (gameState.selectedSource && zone === 'tableau') {
-                    const isSameCard = gameState.selectedSource.zone === zone &&
-                                       gameState.selectedSource.colIdx === colIdx &&
-                                       gameState.selectedSource.cardIdx === cardIdx;
-                    if (isSameCard) {
-                        gameState.selectedSource = null;
-                        gameState.lastSuccessAnim = null;
-                        renderView();
-                        return;
-                    }
-                    attemptMoveToTableauColumn(gameState.selectedSource, colIdx);
-                    return;
-                }
-
-                gameState.selectedSource = sourceObj;
-                gameState.lastSuccessAnim = null;
-                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
-                renderView();
-            });
-
-            nodeEl.addEventListener('dblclick', (e) => {
-                if (e.target.closest('[data-info-uid]')) return;
-                e.stopPropagation();
-                attemptAutoMoveCard(sourceObj);
-            });
-
-            nodeEl.addEventListener('dragstart', (e) => {
-                if (e.target.closest('[data-info-uid]')) {
-                    e.preventDefault();
-                    return;
-                }
-                gameState.selectedSource = sourceObj;
-                nodeEl.classList.add('is-dragging');
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', JSON.stringify(sourceObj));
-            });
-
-            nodeEl.addEventListener('dragend', () => {
-                nodeEl.classList.remove('is-dragging');
+                const rect = nodeEl.getBoundingClientRect();
+                dragSession.active = true;
+                dragSession.hasMoved = false;
+                dragSession.pointerId = e.pointerId;
+                dragSession.sourceObj = sourceObj;
+                dragSession.originEl = nodeEl;
+                dragSession.originRect = rect;
+                dragSession.startX = e.clientX;
+                dragSession.startY = e.clientY;
+                dragSession.offsetX = e.clientX - rect.left;
+                dragSession.offsetY = e.clientY - rect.top;
+                dragSession.ghostEl = null;
+                dragSession.hoveredTarget = null;
             });
         });
 
+        // 3. Foundation-Slots oben (für Tap-to-Move & Dossier-Klick)
         const foundationSlots = container.querySelectorAll('.sol-foundation-slot');
         foundationSlots.forEach(slotEl => {
             const slotIdx = parseInt(slotEl.dataset.foundationIdx, 10);
 
             const inspectBtn = slotEl.querySelector('[data-inspect-slot]');
             if (inspectBtn) {
+                inspectBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
                 inspectBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     openDiseaseInspectModal(gameState.foundations[slotIdx]);
@@ -1937,48 +2174,16 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     openDiseaseInspectModal(gameState.foundations[slotIdx]);
                 }
             });
-
-            slotEl.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                slotEl.classList.add('drag-over');
-            });
-            slotEl.addEventListener('dragleave', () => {
-                slotEl.classList.remove('drag-over');
-            });
-            slotEl.addEventListener('drop', (e) => {
-                e.preventDefault();
-                slotEl.classList.remove('drag-over');
-                try {
-                    const src = JSON.parse(e.dataTransfer.getData('text/plain'));
-                    attemptMoveToFoundation(src, slotIdx);
-                } catch (_err) {}
-            });
         });
 
+        // 4. Leere Tableau-Spalten (für Tap-to-Move)
         const tableauCols = container.querySelectorAll('.sol-tableau-col');
         tableauCols.forEach(colEl => {
             const targetColIdx = parseInt(colEl.dataset.tableauCol, 10);
-
             colEl.addEventListener('click', () => {
                 if (gameState.selectedSource && gameState.tableau[targetColIdx].length === 0) {
                     attemptMoveToTableauColumn(gameState.selectedSource, targetColIdx);
                 }
-            });
-
-            colEl.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                colEl.classList.add('drag-over-col');
-            });
-            colEl.addEventListener('dragleave', () => {
-                colEl.classList.remove('drag-over-col');
-            });
-            colEl.addEventListener('drop', (e) => {
-                e.preventDefault();
-                colEl.classList.remove('drag-over-col');
-                try {
-                    const src = JSON.parse(e.dataTransfer.getData('text/plain'));
-                    attemptMoveToTableauColumn(src, targetColIdx);
-                } catch (_err) {}
             });
         });
     }
