@@ -5298,3 +5298,603 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 [data-theme="tropical"] .friends-goal-bar {
     background: rgba(100, 116, 139, 0.16) !important;
 }
+
+/* ==========================================================================
+   25. SOLITAIRE ASSOCIATIONS JOURNEY (solitaire.js)
+   ========================================================================== */
+.sol-lobby-wrapper,
+.sol-game-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.sol-lobby-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 20px 24px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.78));
+    border: 1px solid var(--card-border);
+}
+
+.sol-upload-panel {
+    background: rgba(11, 17, 33, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 14px;
+    padding: 18px;
+    animation: fadeInUp 0.22s var(--ease-out) both;
+}
+
+.sol-file-dropzone {
+    border: 2px dashed rgba(56, 189, 248, 0.4);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    background: rgba(15, 23, 42, 0.55);
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.sol-file-dropzone:hover,
+.sol-file-dropzone.dragover {
+    border-color: var(--accent-blue);
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--text-main);
+}
+
+.sol-rules-strip {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.sol-rule-pill {
+    flex: 1;
+    min-width: 220px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--card-border);
+    border-radius: 11px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sol-rule-pill strong { color: var(--text-main); }
+
+.sol-decks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 16px;
+}
+.sol-deck-card {
+    background: var(--card-bg-gradient);
+    border: 1px solid var(--card-border);
+    border-radius: 15px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.22s var(--ease-spring), border-color 0.2s ease, box-shadow 0.22s ease;
+}
+.sol-deck-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent-blue);
+    box-shadow: var(--shadow-md);
+}
+
+/* --- GAME BOARD TOPBAR & HUD --- */
+.sol-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(10, 15, 29, 0.78);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+}
+
+.sol-hud-Controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sol-moves-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: var(--accent-blue);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+.sol-moves-pill strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    color: var(--text-main);
+}
+.sol-moves-pill.critical {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #fca5a5;
+    animation: pulseSuccess 0.8s infinite alternate;
+}
+
+.sol-power-btn {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    padding: 7px 12px;
+    border-radius: 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+.sol-power-btn:hover:not(:disabled) {
+    border-color: var(--accent-blue);
+    background: rgba(56, 189, 248, 0.16);
+    transform: translateY(-1px);
+}
+.sol-power-btn.active {
+    border-color: var(--warning);
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.15);
+}
+.sol-power-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.sol-feedback-banner {
+    padding: 12px 16px;
+    border-radius: 11px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    align-items: center;
+    justify-content: space-between;
+    animation: fadeInUp 0.2s ease both;
+}
+.sol-feedback-banner.positive { background: rgba(16, 185, 129, 0.16); border: 1px solid rgba(16, 185, 129, 0.4); color: #a7f3d0; }
+.sol-feedback-banner.error    { background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.45); color: #fecaca; }
+.sol-feedback-banner.neutral  { background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.35); color: #bae6fd; }
+
+/* --- OBERE REIHE: STOCK, WASTE & 4 FOUNDATION SLOTS --- */
+.sol-upper-deck-row {
+    display: grid;
+    grid-template-columns: 295px 1fr;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.sol-stock-waste-group {
+    display: grid;
+    grid-template-columns: 115px 1fr;
+    gap: 10px;
+    background: rgba(10, 15, 29, 0.55);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 10px;
+}
+
+.sol-stock-slot {
+    border-radius: 12px;
+    border: 2px dashed rgba(56, 189, 248, 0.4);
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.85));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    min-height: 132px;
+    transition: transform 0.18s var(--ease-spring), border-color 0.2s, box-shadow 0.2s;
+}
+.sol-stock-slot:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-blue);
+    box-shadow: 0 6px 18px rgba(56, 189, 248, 0.25);
+}
+.sol-stock-card-stack,
+.sol-stock-empty-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-weight: 800;
+}
+.sol-stock-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    color: var(--accent-blue);
+}
+
+.sol-waste-slot {
+    display: flex;
+    align-items: stretch;
+    min-height: 132px;
+}
+.sol-waste-slot .sol-card {
+    width: 100%;
+    margin: 0 !important;
+}
+.sol-empty-placeholder {
+    width: 100%;
+    border-radius: 12px;
+    border: 1.5px dashed rgba(148, 163, 184, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.76rem;
+    color: var(--text-dim);
+}
+
+.sol-foundations-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.sol-foundation-slot {
+    border-radius: 14px;
+    min-height: 136px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s var(--ease-out);
+    cursor: pointer;
+}
+.sol-foundation-slot.is-empty-foundation {
+    border: 2px dashed rgba(250, 204, 21, 0.35);
+    background: rgba(15, 23, 42, 0.45);
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 6px;
+}
+.sol-foundation-slot.is-empty-foundation:hover,
+.sol-foundation-slot.drag-over {
+    border-color: #facc15;
+    background: rgba(250, 204, 21, 0.1);
+    transform: translateY(-2px);
+}
+.sol-foundation-crown-icon { font-size: 1.45rem; opacity: 0.8; }
+.sol-foundation-empty-text { font-size: 0.74rem; font-weight: 700; color: var(--text-dim); line-height: 1.35; }
+
+.sol-foundation-slot.is-active-foundation {
+    background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.88));
+    border: 2px solid var(--disease-accent, #38bdf8);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+.sol-foundation-slot.is-active-foundation:hover {
+    transform: translateY(-2px);
+}
+.sol-foundation-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+.sol-foundation-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+.sol-inspect-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-main);
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.sol-inspect-btn:hover { border-color: var(--accent-blue); }
+
+.sol-foundation-title {
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.3;
+    margin: 6px 0;
+}
+.sol-foundation-progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.sol-foundation-progress-fill {
+    height: 100%;
+    transition: width 0.35s ease;
+}
+.sol-foundation-last-term {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 6px;
+}
+
+/* Gelöste Krankheitsbilder Leiste */
+.sol-completed-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 14px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 11px;
+}
+.sol-completed-pill {
+    background: rgba(16, 185, 129, 0.18);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #a7f3d0;
+    font-size: 0.74rem;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+/* --- TABLEAU SPALTEN & KARTEN-DESIGN --- */
+.sol-tableau-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    align-items: start;
+    min-height: 420px;
+    padding-bottom: 30px;
+}
+
+.sol-tableau-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 280px;
+    border-radius: 14px;
+    padding: 6px;
+    transition: background 0.18s ease;
+}
+.sol-tableau-col.drag-over-col {
+    background: rgba(56, 189, 248, 0.08);
+    outline: 2px dashed rgba(56, 189, 248, 0.45);
+}
+
+.sol-tableau-empty-dropzone {
+    min-height: 130px;
+    border: 2px dashed rgba(148, 163, 184, 0.22);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    cursor: pointer;
+}
+
+.sol-card {
+    border-radius: 13px;
+    padding: 12px 14px;
+    position: relative;
+    transition: transform 0.2s var(--ease-spring), box-shadow 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
+}
+
+/* Überlappungs-Geometrie im Tableau */
+.sol-tableau-col .sol-card:not(:first-child) {
+    margin-top: -18px;
+}
+.sol-tableau-col .sol-card-back + .sol-card {
+    margin-top: -22px;
+}
+
+/* Verdeckte Karte */
+.sol-card-back {
+    height: 52px;
+    background: repeating-linear-gradient(
+        135deg,
+        rgba(15, 23, 42, 0.95),
+        rgba(15, 23, 42, 0.95) 8px,
+        rgba(30, 41, 59, 0.95) 8px,
+        rgba(30, 41, 59, 0.95) 16px
+    );
+    border: 1.5px solid rgba(148, 163, 184, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 14px;
+    opacity: 0.85;
+}
+.sol-card-back-pattern {
+    font-size: 0.8rem;
+    color: rgba(56, 189, 248, 0.35);
+}
+
+/* Kategorienkarte (Krankheitsbild) */
+.sol-card-category {
+    background: linear-gradient(155deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+    border: 2px solid var(--disease-accent, #facc15);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 0 15px rgba(250, 204, 21, 0.08);
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.sol-cat-crown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+.sol-crown-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #fde047;
+    background: rgba(250, 204, 21, 0.16);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+.sol-cat-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+.sol-cat-disease-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.32;
+    margin: 8px 0;
+}
+.sol-cat-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: var(--accent-cyan);
+    font-weight: 700;
+}
+
+/* Begriffskarte (Child Card) */
+.sol-card-term {
+    background: rgba(16, 24, 46, 0.96);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+}
+.sol-term-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+.sol-term-cat-pill {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+}
+.sol-prestack-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 800;
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    padding: 1px 7px;
+    border-radius: 999px;
+}
+.sol-term-main-text {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.38;
+    word-break: break-word;
+}
+.sol-prestack-preview {
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    border-top: 1px dashed rgba(255, 255, 255, 0.12);
+    padding-top: 5px;
+}
+
+/* Interaktions-States (Playable, Selected, Hinted, Shake) */
+.sol-card.is-playable {
+    cursor: grab;
+}
+.sol-card.is-playable:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent-blue);
+    z-index: 10;
+}
+.sol-card.is-selected {
+    outline: 3px solid var(--accent-blue) !important;
+    transform: translateY(-5px) scale(1.02) !important;
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.45) !important;
+    z-index: 12;
+}
+.sol-card.is-hinted,
+.sol-foundation-slot.is-hinted {
+    outline: 3px solid #facc15 !important;
+    box-shadow: 0 0 24px rgba(250, 204, 21, 0.6) !important;
+}
+.sol-card-shake {
+    animation: shake 0.42s var(--ease-out);
+    border-color: #ef4444 !important;
+}
+
+/* Light-Mode Overrides (Daylight & Tropical) */
+[data-theme="daylight"] .sol-lobby-header,
+[data-theme="tropical"] .sol-lobby-header,
+[data-theme="daylight"] .sol-upload-panel,
+[data-theme="tropical"] .sol-upload-panel,
+[data-theme="daylight"] .sol-rule-pill,
+[data-theme="tropical"] .sol-rule-pill,
+[data-theme="daylight"] .sol-deck-card,
+[data-theme="tropical"] .sol-deck-card,
+[data-theme="daylight"] .sol-topbar,
+[data-theme="tropical"] .sol-topbar,
+[data-theme="daylight"] .sol-stock-waste-group,
+[data-theme="tropical"] .sol-stock-waste-group,
+[data-theme="daylight"] .sol-foundation-slot.is-active-foundation,
+[data-theme="tropical"] .sol-foundation-slot.is-active-foundation,
+[data-theme="daylight"] .sol-card-term,
+[data-theme="tropical"] .sol-card-term {
+    background: var(--bg-surface) !important;
+    color: var(--text-main) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .sol-card-category,
+[data-theme="tropical"] .sol-card-category {
+    background: linear-gradient(155deg, #fffbeb 0%, #ffffff 100%) !important;
+    color: var(--text-main) !important;
+}
+[data-theme="daylight"] .sol-cat-disease-title,
+[data-theme="tropical"] .sol-cat-disease-title {
+    color: var(--text-main) !important;
+}
+[data-theme="daylight"] .sol-power-btn,
+[data-theme="tropical"] .sol-power-btn {
+    background: var(--surface-secondary) !important;
+    color: var(--text-main) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1080px) {
+    .sol-upper-deck-row {
+        grid-template-columns: 1fr;
+    }
+    .sol-foundations-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 768px) {
+    .sol-tableau-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
