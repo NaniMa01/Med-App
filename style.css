@@ -2014,8 +2014,17 @@ topbar {
 }
 
 /* ==========================================================================
-   26. CLINICAL CASCADES V2.0 (0ms TOUCH DRAG, DIRECT SWAP & LOCK-IN)
+   26. CLINICAL CASCADES V2.1 (POINTER-EVENTS FIX, 0ms DRAG & TAP-TO-SWAP)
    ========================================================================== */
+/* KRITISCHER FIX: Überschreibt das globale ".drop-zone * { pointer-events: none; }"
+   aus Sektion 06 für alle Kaskaden-Dropzones, Karten und ↑/↓/✕ Buttons! */
+#cascades-wrapper .drop-zone,
+#cascades-wrapper .drop-zone *,
+.flow-path .drop-zone,
+.flow-path .drop-zone * {
+    pointer-events: auto !important;
+}
+
 body.cas-touch-dragging,
 body.cas-touch-dragging * {
     user-select: none !important;
@@ -2033,12 +2042,20 @@ body.cas-touch-dragging * {
     -webkit-touch-callout: none !important;
     -webkit-tap-highlight-color: transparent !important;
     position: relative;
+    cursor: grab !important;
+}
+
+/* Markierung, wenn eine eingerastete Karte per Tap zum Tauschen ausgewählt wurde */
+.cas-draggable-card.is-tap-selected {
+    outline: 2.5px solid var(--accent-blue, #38bdf8) !important;
+    background: rgba(56, 189, 248, 0.18) !important;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.45) !important;
 }
 
 .cas-drag-grip {
     color: var(--accent-blue, #38bdf8);
     font-size: 1rem;
-    opacity: 0.7;
+    opacity: 0.75;
     flex-shrink: 0;
 }
 
@@ -2048,47 +2065,52 @@ body.cas-touch-dragging * {
     line-height: 1.4;
 }
 
-/* Schnell-Buttons (↑, ↓, ✕) erscheinen nur, wenn die Karte in einer Dropzone liegt */
+/* Schnell-Buttons (↑, ↓, ✕) erscheinen auf jeder ungesperrten eingerasteten Karte */
 .cas-step-quick-actions {
     display: none;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     flex-shrink: 0;
+    z-index: 5;
 }
 
 .drop-zone:not(.correct) .cas-draggable-card .cas-step-quick-actions {
-    display: inline-flex;
+    display: inline-flex !important;
 }
 
 .cas-nudge-btn,
 .cas-remove-btn {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: 7px;
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    color: var(--text-muted, #94a3b8);
-    font-size: 0.78rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: var(--text-main, #f8fafc);
+    font-size: 0.82rem;
     font-weight: 800;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
+    cursor: pointer !important;
     padding: 0;
     touch-action: manipulation !important;
-    transition: all 0.15s ease;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.cas-nudge-btn:hover {
-    background: rgba(56, 189, 248, 0.22);
+.cas-nudge-btn:hover,
+.cas-nudge-btn:active {
+    background: rgba(56, 189, 248, 0.28);
     border-color: var(--accent-blue, #38bdf8);
     color: #ffffff;
+    transform: scale(1.08);
 }
 
-.cas-remove-btn:hover {
-    background: rgba(239, 68, 68, 0.22);
+.cas-remove-btn:hover,
+.cas-remove-btn:active {
+    background: rgba(239, 68, 68, 0.28);
     border-color: #ef4444;
     color: #fca5a5;
+    transform: scale(1.08);
 }
 
 /* Gesperrte korrekte Karte */
@@ -2096,8 +2118,9 @@ body.cas-touch-dragging * {
     cursor: default !important;
     touch-action: pan-y !important;
 }
-.cas-draggable-card.is-locked-card .cas-drag-grip {
-    display: none;
+.cas-draggable-card.is-locked-card .cas-drag-grip,
+.cas-draggable-card.is-locked-card .cas-step-quick-actions {
+    display: none !important;
 }
 
 /* 60fps Floating Ghost unter dem Finger */
@@ -2111,6 +2134,9 @@ body.cas-touch-dragging * {
     border: 2px solid var(--accent-blue, #38bdf8) !important;
     box-shadow: 0 18px 34px rgba(0, 0, 0, 0.65), 0 0 20px rgba(56, 189, 248, 0.35) !important;
     transition: none !important;
+}
+.cas-drag-ghost-floating .cas-step-quick-actions {
+    display: none !important;
 }
 
 .cas-is-dragging-source {
