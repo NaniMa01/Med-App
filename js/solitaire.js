@@ -1,12 +1,13 @@
 /* ==========================================================================
-   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V2.1 (js/solitaire.js)
+   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V3.0 (js/solitaire.js)
    ==========================================================================
-   FEATURES V2.1 (ZERO-OVERFLOW & SPOILER-FREE INSPECTOR):
-   01. Zero-Overflow Viewport-Fit: Kompakte, schlichte Karten passen immer auf 1 Screen
-   02. ⓘ Info-Button oben rechts auf jeder Karte mit Anti-Spoiler-Sanitizer
-   03. Gedeckeltes 3D-Kaskaden-Stacking (max. 3 sichtbare Peeking-Slices + Stack-Modal)
-   04. SolitaireFX Engine: Shockwave-Ringe, 22-Partikel-Bursts, Floating-Telemetry
-   05. Zero-Move-Penalty bei Fehlversuchen + Auto-Finish sobald alle Karten offen sind
+   FEATURES V3.0 (PORTRAIT PLAYING CARDS & ZERO-OVERFLOW):
+   01. Echte Hochkant-Spielkarten-Geometrie (5:7 Portrait Aspect Ratio)
+   02. Klassische Spielkarten-Anatomie (Corner-Pips, Medical Suits, Center Emblem, ⓘ)
+   03. Echte Solitaire-Überlappung: Untere Karten zeigen ihren oberen Index-Rand (28px),
+       vorderste Karte zeigt das volle Hochkant-Kartenblatt -> 100% Viewport-Fit!
+   04. Spoilerfreier ⓘ Info-Button auf jeder Karte (auch in gestapelten Karten!)
+   05. Zero-Move-Penalty bei Fehlern, SolitaireFX Partikel-Engine & Keyboard-Shortcuts
    ========================================================================== */
 
 const SolitaireModule = (() => {
@@ -48,11 +49,11 @@ const SolitaireModule = (() => {
                     clinical_pearl: 'Alpha-Synukleinopathie mit schwerer früher autonomer Dysfunktion sowie parkinsonoidem (MSA-P) oder zerebellärem (MSA-C) Phänotyp.',
                     cards: [
                         { term: 'Hot-Cross-Bun-Zeichen im Pons', category: 'Diagnostik', explanation: 'Kreuzförmige T2-Hyperintensität in der Brücke durch selektive Degeneration pontozerebellärer Fasern.' },
-                        { term: 'Gliale zytoplasmatische Einschlüsse (Papp-Lantos)', category: 'Pathophysiologie', explanation: 'Alpha-Synuklein-Aggregate lagern sich primär in Oligodendrozyten (Glia) statt nur in Neuronen ab.' },
-                        { term: 'Frühe schwere orthostatische Hypotonie & Inkontinenz', category: 'Klinik', explanation: 'Ausgeprägte autonome Beteiligung durch Degeneration präganglionärer sympathischer Neurone im Nucleus intermediolateralis und Onuf-Kern.' },
-                        { term: 'Inspiratorischer Larynxstridor (nächtlich)', category: 'Klinik', explanation: 'Gefährliche Stimmbandabduktionsparese (M. cricoarytaenoideus posterior) mit Risiko des plötzlichen nächtlichen Herztodes.' },
-                        { term: 'Putaminale Randatrophie (Hyperintenser Randsaum)', category: 'Diagnostik', explanation: 'Typisches dorsolaterales T2-MRT-Korrelat der striatonigralen Degeneration beim parkinsonoiden Subtyp.' },
-                        { term: 'Fludrocortison / Midodrin gegen Orthostase', category: 'Therapie', explanation: 'Symptomatische Volumensubstitution (Mineralokortikoid) und Alpha-1-Agonismus bei schwerer neurogener orthostatischer Hypotonie.' }
+                        { term: 'Gliale Einschlüsse (Papp-Lantos-Körper)', category: 'Pathophysiologie', explanation: 'Alpha-Synuklein-Aggregate lagern sich primär in Oligodendrozyten (Glia) statt nur in Neuronen ab.' },
+                        { term: 'Frühe schwere Orthostase & Inkontinenz', category: 'Klinik', explanation: 'Ausgeprägte autonome Beteiligung durch Degeneration präganglionärer sympathischer Neurone im Nucleus intermediolateralis und Onuf-Kern.' },
+                        { term: 'Nächtlicher inspiratorischer Larynxstridor', category: 'Klinik', explanation: 'Gefährliche Stimmbandabduktionsparese (M. cricoarytaenoideus posterior) mit Risiko des plötzlichen nächtlichen Herztodes.' },
+                        { term: 'Putaminale Randatrophie (T2-Randsaum)', category: 'Diagnostik', explanation: 'Typisches dorsolaterales T2-MRT-Korrelat der striatonigralen Degeneration beim parkinsonoiden Subtyp.' },
+                        { term: 'Fludrocortison / Midodrin', category: 'Therapie', explanation: 'Symptomatische Volumensubstitution (Mineralokortikoid) und Alpha-1-Agonismus bei schwerer neurogener orthostatischer Hypotonie.' }
                     ]
                 },
                 {
@@ -63,11 +64,11 @@ const SolitaireModule = (() => {
                     clinical_pearl: 'Synukleinopathie mit der 1-Jahres-Regel (Demenz vor oder gleichzeitig mit Parkinsonismus), optischen Halluzinationen und extremer Neuroleptika-Sensitivität.',
                     cards: [
                         { term: 'Szenische optische Halluzinationen', category: 'Klinik', explanation: 'Detaillierte, oft wiederkehrende visuelle Trugwahrnehmungen (z.B. Personen oder Tiere im Raum) bereits im Frühstadium.' },
-                        { term: 'Ausgeprägte Fluktuationen der Vigilanz', category: 'Klinik', explanation: 'Starke Tagesschwankungen zwischen nahezu luziden Phasen und ausgeprägter Verwirrtheit oder Tagesmüdigkeit.' },
-                        { term: 'Schwere paradoxe Neuroleptika-Überempfindlichkeit', category: 'Therapie', explanation: 'Klassische D2-Rezeptorantagonisten (z.B. Haloperidol) können schwerste akinetische Krisen und ein malignes neuroleptisches Syndrom auslösen!' },
+                        { term: 'Starke Fluktuationen der Vigilanz', category: 'Klinik', explanation: 'Ausgeprägte Tagesschwankungen zwischen nahezu luziden Phasen und starker Verwirrtheit oder Tagesmüdigkeit.' },
+                        { term: 'Paradoxe Neuroleptika-Überempfindlichkeit', category: 'Therapie', explanation: 'Klassische D2-Rezeptorantagonisten (z.B. Haloperidol) können schwerste akinetische Krisen und ein malignes neuroleptisches Syndrom auslösen!' },
                         { term: 'REM-Schlaf-Verhaltensstörung (RBD)', category: 'Klinik', explanation: 'Fehlende physiologische Muskelatonie im REM-Schlaf mit motorischem Ausagieren von Träumen (oft Jahre vor Demenzbeginn).' },
-                        { term: 'Relativer Erhalt des medialen Temporallappens', category: 'Diagnostik', explanation: 'Im cMRT wichtige strukturelle Abgrenzung zur Alzheimer-Demenz, welche frühzeitig eine Hippocampusatrophie zeigt.' },
-                        { term: 'Rivastigmin (Acetylcholinesterase-Hemmer)', category: 'Therapie', explanation: 'Durch das schwere kortikale cholinerge Defizit bessert die ChE-Hemmung sowohl Kognition als auch visuelle Halluzinationen.' }
+                        { term: 'Erhalt des medialen Temporallappens', category: 'Diagnostik', explanation: 'Im cMRT wichtige strukturelle Abgrenzung zur Alzheimer-Demenz, welche frühzeitig eine Hippocampusatrophie zeigt.' },
+                        { term: 'Rivastigmin (AChE-Hemmer)', category: 'Therapie', explanation: 'Durch das schwere kortikale cholinerge Defizit bessert die ChE-Hemmung sowohl Kognition als auch visuelle Halluzinationen.' }
                     ]
                 },
                 {
@@ -77,10 +78,10 @@ const SolitaireModule = (() => {
                     color_accent: '#f59e0b',
                     clinical_pearl: 'Stark asymmetrische 4R-Tauopathie mit Kombination aus basalganglionären und kortikalen Funktionsstörungen.',
                     cards: [
-                        { term: 'Alien-Limb-Phänomen (Fremde-Hand-Syndrom)', category: 'Klinik', explanation: 'Unwillkürliche, scheinbar zweckgebundene autonome Bewegungen einer Extremität, die vom Patienten als fremd erlebt wird.' },
-                        { term: 'Stark asymmetrische Gliedmaßen-Apraxie & Dystonie', category: 'Klinik', explanation: 'Einseitiger Beginn mit Unfähigkeit, erlernte zweckgerichtete Bewegungen auszuführen, trotz intakter Primärmotorik.' },
-                        { term: 'Astereognosie & kortikale Sensibilitätsstörung', category: 'Klinik', explanation: 'Unfähigkeit, Gegenstände allein durch Betasten zu erkennen, infolge einer Beteiligung des somatosensorischen Parietalkortex.' },
-                        { term: 'Asymmetrische frontoparietale Kortexatrophie', category: 'Diagnostik', explanation: 'Im MRT streng kontralateral zur klinisch stärker betroffenen Körperseite betonte Hirnrindenverschmächtigung.' },
+                        { term: 'Alien-Limb-Phänomen (Fremde Hand)', category: 'Klinik', explanation: 'Unwillkürliche, scheinbar zweckgebundene autonome Bewegungen einer Extremität, die vom Patienten als fremd erlebt wird.' },
+                        { term: 'Asymmetrische Apraxie & Dystonie', category: 'Klinik', explanation: 'Einseitiger Beginn mit Unfähigkeit, erlernte zweckgerichtete Bewegungen auszuführen, trotz intakter Primärmotorik.' },
+                        { term: 'Astereognosie (kortikale Sensibilität ↓)', category: 'Klinik', explanation: 'Unfähigkeit, Gegenstände allein durch Betasten zu erkennen, infolge einer Beteiligung des somatosensorischen Parietalkortex.' },
+                        { term: 'Asymmetrische frontoparietale Atrophie', category: 'Diagnostik', explanation: 'Im MRT streng kontralateral zur klinisch stärker betroffenen Körperseite betonte Hirnrindenverschmächtigung.' },
                         { term: 'Astrocytic Plaques & Ballonierte Neurone', category: 'Pathophysiologie', explanation: 'Charakteristisches histopathologisches Korrelat der 4R-Tau-Pathologie im frontoparietalen Kortex und Striatum.' },
                         { term: 'Kortikaler aktionsinduzierter Myoklonus', category: 'Klinik', explanation: 'Durch Berührung oder Willkürbewegung ausgelöstes, blitzartiges Muskelzucken der betroffenen Extremität.' }
                     ]
@@ -104,8 +105,8 @@ const SolitaireModule = (() => {
                     cards: [
                         { term: 'Dissoziierte Sensibilitätsstörung', category: 'Klinik', explanation: 'Bilaterales Erlöschen des Schmerz- und Temperaturempfindens (Tractus spinothalamicus) bei intaktem Lagesinn und Vibrationsempfinden (Hinterstränge).' },
                         { term: 'Eulenaugen-Zeichen (Snake-Eyes) im MRT', category: 'Diagnostik', explanation: 'Bilaterale punktförmige T2-Hyperintensität der metabolisch besonders vulnerablen Vorderhörner im axialen Schnittbild.' },
-                        { term: 'Verlegung der A. radicularis magna (Adamkiewicz)', category: 'Pathophysiologie', explanation: 'Häufig durch ein Aortenaneurysma oder eine Aortendissektion ausgelöste Unterbrechung des wichtigsten thorakolumbalen Zuflusses.' },
-                        { term: 'Perakuter gürtelförmiger Schmerz & Paraparese', category: 'Klinik', explanation: 'Schlagartiger Beginn innerhalb von Minuten mit initialem spinalem Schock (schlaffe Parese, Areflexie und Harnverhalt).' },
+                        { term: 'Verlegung der A. radicularis magna', category: 'Pathophysiologie', explanation: 'Häufig durch ein Aortenaneurysma oder eine Aortendissektion ausgelöste Unterbrechung des wichtigsten thorakolumbalen Zuflusses (Adamkiewicz).' },
+                        { term: 'Perakuter Schmerz & schlaffe Paraparese', category: 'Klinik', explanation: 'Schlagartiger Beginn innerhalb von Minuten mit initialem spinalem Schock (schlaffe Parese, Areflexie und Harnverhalt).' },
                         { term: 'Sofortiges Angio-CT Thorax/Abdomen', category: 'Diagnostik', explanation: 'Zwingender notfallmäßiger Ausschluss einer zugrundeliegenden Aortendissektion vor jeder gerinnungsaktiven Therapie.' }
                     ]
                 },
@@ -116,10 +117,10 @@ const SolitaireModule = (() => {
                     color_accent: '#38bdf8',
                     clinical_pearl: 'Primäre Autoimmun-Astrozytopathie (AQP4-IgG) mit langstreckiger Myelitis und schwerer Optikusneuritis.',
                     cards: [
-                        { term: 'LETM (Myelonläsion ≥ 3 Wirbelsegmente)', category: 'Diagnostik', explanation: 'Longitudinale extensive transversale Myelitis, die sich im sagittalen Spinal-MRT zentral über 3 oder mehr Segmente erstreckt.' },
-                        { term: 'Anti-Aquaporin-4-Antikörper (AQP4-IgG)', category: 'Diagnostik', explanation: 'Hochspezifischer Serum-Autoantikörper gegen Wasserkanäle auf den Astrozyten-Endfüßchen der Blut-Hirn-Schranke.' },
-                        { term: 'CAVE: Interferon-beta triggert schwere Schübe!', category: 'Therapie', explanation: 'Klassische MS-Basistherapeutika (Interferon-beta, Fingolimod, Natalizumab) führen zu fatalen Exazerbationen und sind kontraindiziert.' },
-                        { term: 'Area-postrema-Syndrom (Singultus & Erbrechen)', category: 'Klinik', explanation: 'Unstillbarer Schluckauf und Übelkeit durch Entzündung des Brechzentrums am Boden des 4. Ventrikels.' },
+                        { term: 'LETM (Myelonläsion ≥ 3 Segmente)', category: 'Diagnostik', explanation: 'Longitudinale extensive transversale Myelitis, die sich im sagittalen Spinal-MRT zentral über 3 oder mehr Wirbelkörpersegmente erstreckt.' },
+                        { term: 'Anti-Aquaporin-4-IgG (AQP4-Ak)', category: 'Diagnostik', explanation: 'Hochspezifischer Serum-Autoantikörper gegen Wasserkanäle auf den Astrozyten-Endfüßchen der Blut-Hirn-Schranke.' },
+                        { term: 'CAVE: Interferon-beta triggert Schübe!', category: 'Therapie', explanation: 'Klassische MS-Basistherapeutika (Interferon-beta, Fingolimod, Natalizumab) führen zu fatalen Exazerbationen und sind kontraindiziert.' },
+                        { term: 'Area-postrema-Syndrom (Singultus)', category: 'Klinik', explanation: 'Unstillbarer Schluckauf und Erbrechen durch Entzündung des Brechzentrums am Boden des 4. Ventrikels.' },
                         { term: 'Neutrophile Pleozytose meist OHNE OKB', category: 'Diagnostik', explanation: 'Im akuten Schub oft ausgeprägte Zellzahlerhöhung im Liquor bei typischerweise fehlenden oligoklonalen Banden.' }
                     ]
                 },
@@ -130,11 +131,11 @@ const SolitaireModule = (() => {
                     color_accent: '#10b981',
                     clinical_pearl: 'Subakute kombinierte Degeneration der Hinterstränge und Pyramidenbahnen durch Cobalaminmangel oder Lachgas-Abusus.',
                     cards: [
-                        { term: 'Umgekehrtes V-Zeichen (Inverted V-Sign)', category: 'Diagnostik', explanation: 'Symmetrische dorsale T2-Hyperintensität der Hinterstränge (Fasciculus gracilis und cuneatus) im axialen Spinal-MRT.' },
-                        { term: 'Lachgas (N2O) oxidiert Cobalt-Ion irreversibel', category: 'Pathophysiologie', explanation: 'Inaktiviert die Methionin-Synthase und provoziert einen akuten funktionellen Substratmangel trotz oft noch normalem Gesamt-B12 im Serum.' },
-                        { term: 'Methylmalonsäure (MMA) & Homocystein ↑↑', category: 'Diagnostik', explanation: 'Hochsensitive metabolische Frühmarker eines intrazellulären Mangels, noch bevor eine megaloblastäre Anämie auftritt.' },
-                        { term: 'Spinale Ataxie + Babinski positiv + ASR erloschen', category: 'Klinik', explanation: 'Klassische Trias aus Hinterstrangschädigung, Pyramidenbahnzeichen und gleichzeitiger peripherer Polyneuropathie.' },
-                        { term: 'Parenterale Hydroxocobalamin-Hochdosisgabe', category: 'Therapie', explanation: 'Muss zwingend vor einer etwaigen Folsäure-Gabe erfolgen, um eine Dekompensation der neurologischen Symptomatik zu verhindern.' }
+                        { term: 'Umgekehrtes V-Zeichen dorsal im MRT', category: 'Diagnostik', explanation: 'Symmetrische dorsale T2-Hyperintensität der Hinterstränge (Fasciculus gracilis und cuneatus) im axialen Spinal-MRT.' },
+                        { term: 'Lachgas (N2O) oxidiert Cobalt-Ion', category: 'Pathophysiologie', explanation: 'Inaktiviert die Methionin-Synthase und provoziert einen akuten funktionellen Substratmangel trotz oft noch normalem Gesamt-B12 im Serum.' },
+                        { term: 'Methylmalonsäure (MMA) sensitiv ↑↑', category: 'Diagnostik', explanation: 'Hochsensitiver metabolischer Frühmarker eines intrazellulären Mangels, noch bevor eine megaloblastäre Anämie auftritt.' },
+                        { term: 'Spinale Ataxie + Babinski + ASR ↓', category: 'Klinik', explanation: 'Klassische Trias aus Hinterstrangschädigung, Pyramidenbahnzeichen und gleichzeitiger peripherer Polyneuropathie.' },
+                        { term: 'Parenterales Hydroxocobalamin', category: 'Therapie', explanation: 'Muss zwingend vor einer etwaigen Folsäure-Gabe erfolgen, um eine Dekompensation der neurologischen Symptomatik zu verhindern.' }
                     ]
                 }
             ]
@@ -142,36 +143,53 @@ const SolitaireModule = (() => {
     ];
 
     const SKILL_EXTRACTION_PROMPT = `# ROLLE & AUFGABE
-Du bist ein medizinischer Facharzt und Didaktik-Architekt für den Spielmodus "Solitaire Associations Journey" in MedCheck.
-Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript ALLE relevanten Krankheitsbilder (Entitäten) und ihre zugehörigen klinischen Fakten zu 100 % vollständig in ein valides JSON-Kartendeck.
+Du bist ein medizinischer Facharzt, IMPP/SMPP-Prüfungsarchitekt und Senior Game-Designer für den Spielmodus "Solitaire Associations Journey" in MedCheck.
+Deine Aufgabe: Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript / Leitlinientext ALLE relevanten Krankheitsbilder (Entitäten) und ihre zugehörigen klinischen Fakten zu 100 % vollständig in ein direkt spielbares, syntaktisch valides JSON-Kartendeck.
 
-# REGELN FÜR KOMPAKTE KARTEN & SPOILERFREIE ZUSATZINFOS
-1. Antworte AUSSCHLIESSLICH mit validem JSON (Erstes Zeichen {, letztes Zeichen }).
-2. Jedes Krankheitsbild wird ein Objekt im Array "diseases" (mindestens 3 bis 8 Krankheitsbilder pro Deck).
-3. Jedes Krankheitsbild enthält 5 bis 8 präzise Begriffskarten im Array "cards".
-4. "term" auf der Karte: Kompakter, prägnanter Stichpunkt (ideal 2 bis 6 Wörter, max. 45 Zeichen!), damit die Karte im Solitaire-Board schön schlicht und übersichtlich bleibt.
-5. "category": Wähle exakt eine aus: "Pathophysiologie", "Klinik", "Diagnostik", "Therapie", "Komplikation".
-6. "explanation": Ausführliche, hochspezifische Erklärung (1-2 Sätze auf Staatsexamensniveau) für den Zusatzinfo-Button (ⓘ). WICHTIG: Nenne in "explanation" NIEMALS den Namen des Krankheitsbildes selbst, sondern erkläre rein den pathophysiologischen Mechanismus, das anatomische Korrelat oder die klinische Bedeutung, damit der Info-Button die Ziel-Krankheit nicht spoilert!
+# 1. KRITISCHE TECHNISCHE REGELN (ZERO-TOLERANCE)
+1. REINES ROHTEXT-JSON: Antworte AUSSCHLIESSLICH mit dem validen JSON-Objekt (Erstes Zeichen {, letztes Zeichen }). KEIN einleitender oder abschließender Text, KEINE Markdown-Codeblöcke, KEINE Kommentare.
+2. STRIKTES ZITATIONS- & TAG-VERBOT: Verwende NIEMALS Zitationsmarker oder Tags wie, [1], (Quelle: ...), <span> oder HTML-Fragmente. Alle Strings müssen reiner Plain-Text sein.
+3. VOLLSTÄNDIGKEIT (100% EXTRACTION): Jedes im Quelltext behandelte Krankheitsbild (bzw. jede klinische Hauptentität/Subform) wird als eigenes Objekt im Array "diseases" angelegt (ideal: 4 bis 8 Krankheitsbilder pro Deck). Jedes Krankheitsbild erhält 5 bis 8 hochspezifische Begriffskarten im Array "cards".
 
-# JSON-SCHEMA
+# 2. SPIELKARTEN-ERGONOMIE (HOCHKANT-FORMAT 5:7)
+Da die Karten im Spiel als rechteckige Hochkant-Spielkarten (Portrait-Ratio 5:7) dargestellt werden, gelten für das Feld "term" strikte Längenregeln:
+- "term": Prägnanter klinischer Stichpunkt, Befund, Zeichen, Gen/Antikörper, Laborparameter oder Wirkstoff.
+- LÄNGEN-LIMIT FÜR "term": Maximal 2 bis 6 Wörter (strikt max. 42 Zeichen!), damit der Begriff auf dem Hochkant-Kartenblatt perfekt lesbar zentriert sitzt.
+- Alle ausführlichen Details, Grenzwerte, Dosierungen und Mechanismen gehören NICHT in "term", sondern zwingend in das Feld "explanation"!
+
+# 3. STRIKTES ANTI-SPOILER-PROTOKOLL FÜR "explanation" (ⓘ BUTTON)
+Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mit dem der Studierende vor dem Zuordnen mehr über den Begriff erfahren kann.
+- ABSOLUTES SPOILER-VERBOT: Im Feld "explanation" einer Karte darf NIEMALS der Name des zugehörigen Krankheitsbildes ("name"), dessen Abkürzung (z.B. "PSP", "NMOSD", "MSA"), dessen direkter Eigenname oder ICD-10-Code genannt werden!
+- STATTDESSEN: Erkläre in "explanation" (1 bis 2 dichte Sätze auf Staatsexamensniveau) präzise die zugrundeliegende Pathophysiologie, das anatomische Korrelat, den Rezeptor-/Wirkmechanismus oder die genaue klinische Bedeutung des Befundes, sodass der Studierende durch medizinisches Mitdenken selbst deduzieren kann, zu welchem Krankheitsbild die Karte gehört!
+
+# 4. KATEGORIEN & FARBEN
+- "category" jeder Karte MUSS exakt einer dieser 5 Werte sein:
+  1. "Pathophysiologie" (Ätiologie, Genetik, Erreger, Molekularpathologie, Histologie)
+  2. "Klinik" (Leitsymptome, klinische Zeichen, Red Flags, Verlauf)
+  3. "Diagnostik" (Goldstandard, MRT/CT-Zeichen, Labor, Antikörper, Liquor, Funktionstests)
+  4. "Therapie" (Erstlinientherapie, Notfallmanagement, spezifische Kontraindikationen / Cave)
+  5. "Komplikation" (Prognose, spezifische Organkomplikationen, Spätfolgen)
+- "color_accent": Vergib für jedes Krankheitsbild im Deck eine visuell gut unterscheidbare Hex-Akzentfarbe aus dieser Palette: "#38bdf8", "#a855f7", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6".
+
+# 5. JSON-SCHEMA (EXAKTES TEMPLATE)
 {
-  "deck_id": "eindeutige_id_mit_unterstrichen",
-  "title": "Prägnanter Titel des DDx-Decks",
-  "medical_field": "Fachgebiet (z.B. Neurologie, Innere Medizin, Hämatologie)",
+  "deck_id": "ddx_fachgebiet_thema_01",
+  "title": "DDx: Prägnanter Titel des Kartendecks",
+  "medical_field": "Fachgebiet (z.B. Neurologie, Innere Medizin, Kardiologie)",
   "difficulty": "Staatsexamen",
-  "description": "Kurze Beschreibung des differentialdiagnostischen Fokus.",
+  "description": "1-2 Sätze zum differentialdiagnostischen Fokus dieses Decks.",
   "diseases": [
     {
-      "disease_id": "kurze_id",
+      "disease_id": "eindeutige_kurz_id",
       "name": "Exakter Name des Krankheitsbildes",
       "icd10": "ICD-10 Code",
       "color_accent": "#38bdf8",
-      "clinical_pearl": "Klinische Kernaussage (1-2 Sätze) zur Gesamtsynthese.",
+      "clinical_pearl": "Prägnante klinische Synthese / Merksatz (1-2 Sätze) zum gesamten Krankheitsbild.",
       "cards": [
         {
-          "term": "Kompakter Stichpunkt (max. 45 Zeichen)",
+          "term": "Kompakter Begriff (max. 42 Zeichen)",
           "category": "Diagnostik",
-          "explanation": "Spoilerfreie pathophysiologische oder klinische Detailerklärung für das Info-Popup (ohne Nennung der Diagnose!)."
+          "explanation": "Spoilerfreie, tiefgehende pathophysiologische oder klinische Erklärung dieses Befundes (OHNE den Namen der Krankheit zu verraten!)."
         }
       ]
     }
@@ -179,11 +197,12 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 }`;
 
     // ----------------------------------------------------------------------
-    // 02. RUNTIME STATE
+    // 02. RUNTIME STATE & MEDICAL SUITS (SPIELKARTEN-FARBEN)
     // ----------------------------------------------------------------------
     let currentViewMode = 'lobby';
     let activeDeck = null;
     let hardMode = false;
+    let keyboardBound = false;
 
     let gameState = {
         movesLeft: 0,
@@ -204,11 +223,11 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
     };
 
     const CATEGORY_COLORS = {
-        'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.16)', label: 'Patho' },
-        'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)', label: 'Klinik' },
-        'Diagnostik':       { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)', label: 'Diagnostik' },
-        'Therapie':         { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)', label: 'Therapie' },
-        'Komplikation':     { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)', label: 'Kompl.' }
+        'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.16)', label: 'Patho', suit: '🧬' },
+        'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)', label: 'Klinik', suit: '🩺' },
+        'Diagnostik':       { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)', label: 'Diag.',  suit: '🔬' },
+        'Therapie':         { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)', label: 'Ther.',  suit: '💊' },
+        'Komplikation':     { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)', label: 'Kompl.', suit: '⚡' }
     };
 
     const ACCENT_PALETTE = ['#38bdf8', '#a855f7', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f97316'];
@@ -220,17 +239,14 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         if (!explanationText) return 'Klinischer Befund im Rahmen der Differentialdiagnose.';
         let clean = String(explanationText);
 
-        // Alle Krankheitsnamen des aktiven Decks + Klammer-Abkürzungen maskieren
         const allDiseases = activeDeck?.diseases || [];
         allDiseases.forEach(d => {
             const rawName = (d.name || '').trim();
             if (!rawName) return;
 
-            // 1. Vollen Namen maskieren
             const escapedFull = rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             clean = clean.replace(new RegExp(escapedFull, 'gi'), '[Gesuchte Entität]');
 
-            // 2. Namen ohne Klammerzusatz und Klammer-Abkürzungen (z.B. "PSP", "NMOSD", "MSA-P") maskieren
             const parts = rawName.split(/[\(\)\/–-]/).map(s => s.trim()).filter(s => s.length >= 3);
             parts.forEach(part => {
                 const escapedPart = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -246,7 +262,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         return clean;
     }
 
-    // Öffnet das spoilerfreie Zusatzinfo-Modal für eine einzelne Karte oder einen Tableau-Stack
     function openCardInfoByUid(cardUid) {
         let foundCard = null;
 
@@ -269,7 +284,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         if (!modal || !body) return;
 
         if (foundCard.isCategoryCard) {
-            // Zusatzinfo für eine Krankheitsbild-Kategorienkarte (ohne die noch fehlenden Karten zu verraten!)
             const collected = foundCard.collectedTerms || [];
             body.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--card-border); padding-bottom:10px; margin-bottom:12px;">
@@ -284,7 +298,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     <div class="sm-callout-body">${escapeHtml(foundCard.clinicalPearl || 'Lege diese Kategorienkarte in einen freien Slot oben, um die zugehörigen Befunde darauf zu sammeln.')}</div>
                 </div>
                 <div style="font-size:0.78rem; color:var(--text-muted);">
-                    Benötigte Assoziationskarten in diesem Deck: <strong>${collected.length} / ${foundCard.totalRequired}</strong> bereits gekoppelt.
+                    Bereits zugeordnete Karten in diesem Stapel: <strong>${collected.length} / ${foundCard.totalRequired}</strong>
                 </div>
                 ${collected.length > 0 ? `
                     <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:35vh; overflow-y:auto;">
@@ -297,7 +311,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 ` : ''}
             `;
         } else {
-            // Zusatzinfo für eine Begriffskarte (oder einen Pre-Stack aus mehreren Begriffskarten)
             const allCardsInBundle = [
                 { term: foundCard.term, category: foundCard.category, explanation: foundCard.explanation },
                 ...(foundCard.stackedCards || [])
@@ -307,10 +320,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--card-border); padding-bottom:10px; margin-bottom:12px;">
                     <div>
                         <div style="font-size:0.7rem; font-weight:800; text-transform:uppercase; color:var(--accent-cyan); letter-spacing:0.06em;">
-                            ⓘ KLINISCHE ZUSATZINFO (OHNE DIAGNOSE-SPOILER)
+                            ⓘ SPIELKARTEN-ZUSATZINFO (OHNE DIAGNOSE-SPOILER)
                         </div>
                         <h3 style="margin:4px 0 0 0; font-size:1.08rem; color:var(--text-main);">
-                            ${allCardsInBundle.length > 1 ? `Gebündelter ${allCardsInBundle.length}er Karten-Stack` : escapeHtml(foundCard.term)}
+                            ${allCardsInBundle.length > 1 ? `Gebündelter ${allCardsInBundle.length}er Spielkarten-Stack` : escapeHtml(foundCard.term)}
                         </h3>
                     </div>
                     <button type="button" class="action-btn secondary btn-sm" onclick="document.getElementById('sol-inspect-modal').style.display='none'">✕</button>
@@ -323,7 +336,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                         return `
                             <div style="background:rgba(15,23,42,0.65); border:1px solid var(--card-border); border-left:4px solid ${catCfg.color}; border-radius:10px; padding:12px 14px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
-                                    <strong style="font-size:0.9rem; color:var(--text-main);">${idx + 1}. ${escapeHtml(item.term)}</strong>
+                                    <strong style="font-size:0.9rem; color:var(--text-main);">${catCfg.suit} ${idx + 1}. ${escapeHtml(item.term)}</strong>
                                     <span style="font-size:0.66rem; font-weight:800; padding:2px 8px; border-radius:999px; background:${catCfg.bg}; color:${catCfg.color};">
                                         ${escapeHtml(item.category)}
                                     </span>
@@ -629,11 +642,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         const remainingCats = shuffledCats.slice(2);
         const generalPool = shuffleArray([...remainingCats, ...shuffledTerms]);
 
-        // Kompakte Starthand im Tableau (max. 4 Karten pro Spalte zu Beginn), damit alles perfekt auf den Screen passt!
         const numCols = 4;
         const tableau = [[], [], [], []];
         const totalCardsCount = categoryCards.length + termCards.length;
-        const targetTableauCount = Math.min(generalPool.length, 13);
+        const targetTableauCount = Math.min(generalPool.length, 12);
 
         for (let i = 0; i < targetTableauCount; i++) {
             const colIdx = i % numCols;
@@ -847,7 +859,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 gameState.comboStreak = 0;
                 triggerWrongMoveFeedback(
                     source,
-                    `In einen freien Ziel-Slot oben muss zuerst eine <strong>Krankheitsbild-Kategorienkarte (👑)</strong> gelegt werden. <em>(Kein Move abgezogen)</em>`,
+                    `In einen freien Ziel-Slot oben muss zuerst eine <strong>Krankheitsbild-Spielkarte (👑)</strong> gelegt werden. <em>(Kein Move abgezogen)</em>`,
                     slotDom
                 );
                 return false;
@@ -871,7 +883,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             }
 
             renderView();
-            showToast(`👑 <strong>${escapeHtml(movedCatCard.diseaseName)}</strong> freigeschaltet! Ordne nun die passenden Befunde zu.`, 'positive');
+            showToast(`👑 <strong>${escapeHtml(movedCatCard.diseaseName)}</strong> freigeschaltet! Ordne nun die passenden Spielkarten zu.`, 'positive');
             checkGameOverState();
             return true;
         }
@@ -890,7 +902,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             if (typeof trackSkill === 'function') trackSkill('Diagnostik', false);
             triggerWrongMoveFeedback(
                 source,
-                `<strong>Differentialdiagnostischer Konflikt (Kein Move-Abzug):</strong> „${escapeHtml(card.term)}“ gehört <u>nicht</u> zu <strong>${escapeHtml(targetSlot.diseaseName)}</strong>. Klicke auf <strong>ⓘ</strong> für einen Hinweis!`,
+                `<strong>Differentialdiagnostischer Konflikt (Kein Move-Abzug):</strong> „${escapeHtml(card.term)}“ gehört <u>nicht</u> zu <strong>${escapeHtml(targetSlot.diseaseName)}</strong>. Klicke auf <strong>ⓘ</strong> oben rechts auf der Karte für Details!`,
                 slotDom
             );
             return false;
@@ -955,7 +967,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         const targetCol = gameState.tableau[targetColIdx];
         const colDom = document.querySelector(`.sol-tableau-col[data-tableau-col="${targetColIdx}"]`);
-        const lastCardInColDom = colDom ? colDom.querySelector('.sol-card:last-child, .sol-stacked-group:last-child') : null;
+        const lastCardInColDom = colDom ? colDom.querySelector('.sol-stacked-group:last-child, .sol-card:last-child') : null;
         const targetRect = (lastCardInColDom || colDom)?.getBoundingClientRect();
 
         if (targetCol.length === 0) {
@@ -1016,7 +1028,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 const totalInStack = 1 + topTargetCard.stackedCards.length;
                 spawnMatchCelebrationFX(targetRect, topTargetCard.accent, `📚 ${totalInStack}er DDx-Stack!`, false);
                 renderView();
-                showToast(`📚 <strong>Optischer ${totalInStack}er-Stack gebildet!</strong> Klicke auf <strong>ⓘ</strong> oben rechts auf der Karte, um alle gebündelten Karten einzusehen.`, 'positive');
+                showToast(`📚 <strong>Optischer ${totalInStack}er-Spielkarten-Stack gebildet!</strong> Klicke auf <strong>ⓘ</strong> oben rechts für alle Details.`, 'positive');
                 checkGameOverState();
                 return true;
             }
@@ -1039,7 +1051,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
                 spawnMatchCelebrationFX(targetRect, movedCat.accent, `👑 Stack übernommen!`, false);
                 renderView();
-                showToast(`👑 <strong>${escapeHtml(movedCat.diseaseName)}</strong> hat den Begriffs-Stack im Tableau aufgenommen!`, 'positive');
+                showToast(`👑 <strong>${escapeHtml(movedCat.diseaseName)}</strong> hat den Spielkarten-Stack im Tableau aufgenommen!`, 'positive');
                 checkGameOverState();
                 return true;
             }
@@ -1048,7 +1060,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         gameState.comboStreak = 0;
         triggerWrongMoveFeedback(
             source,
-            `<strong>Nicht kombinierbar (Kein Move-Abzug):</strong> Diese beiden Karten gehören zu <u>unterschiedlichen Krankheitsbildern</u>. Nutze <strong>ⓘ</strong> oben rechts für Details!`,
+            `<strong>Nicht kombinierbar (Kein Move-Abzug):</strong> Diese beiden Spielkarten gehören zu <u>unterschiedlichen Krankheitsbildern</u>. Nutze <strong>ⓘ</strong> oben rechts für Details!`,
             lastCardInColDom
         );
         return false;
@@ -1145,7 +1157,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 gameState.hintsLeft--;
                 gameState.hintHighlightIds = [catCandidate.card.uid];
                 renderView();
-                showToast(`💡 Tipp: Lege die Krankheitsbild-Karte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
+                showToast(`💡 Tipp: Lege die Krankheitsbild-Spielkarte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
                 return;
             }
         }
@@ -1171,13 +1183,13 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     gameState.hintsLeft--;
                     gameState.hintHighlightIds = [a.card.uid, b.card.uid];
                     renderView();
-                    showToast(`💡 Pre-Stack-Tipp: Diese beiden markierten Karten gehören zur selben Erkrankung und können direkt im Tableau aufeinandergestapelt werden!`, 'positive');
+                    showToast(`💡 Pre-Stack-Tipp: Diese beiden markierten Spielkarten gehören zur selben Erkrankung und können im Tableau gestapelt werden!`, 'positive');
                     return;
                 }
             }
         }
 
-        showToast('💡 Aktuell kein direkter Match offen – ziehe eine Karte vom Nachziehstapel oder nutze eine freie Spalte!', 'neutral');
+        showToast('💡 Aktuell kein direkter Match offen – ziehe eine Karte vom Nachziehstapel (Leertaste) oder nutze eine freie Spalte!', 'neutral');
     }
 
     function useJoker() {
@@ -1216,7 +1228,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         renderView();
         if (revealedCount > 0) {
-            showToast(`🃏 Joker eingesetzt: Alle verdeckten Karten im Tableau aufgedeckt!`, 'positive');
+            showToast(`🃏 Joker eingesetzt: Alle verdeckten Spielkarten im Tableau aufgedeckt!`, 'positive');
         } else {
             gameState.movesLeft += 5;
             renderView();
@@ -1267,7 +1279,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--card-border); padding-bottom:12px; margin-bottom:14px;">
                 <div>
                     <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:${diseaseSlotObj.accent}; letter-spacing:0.06em;">
-                        👑 Krankheitsbild-Dossier (${terms.length}/${diseaseSlotObj.totalRequired} Begriffe)
+                        👑 Krankheitsbild-Dossier (${terms.length}/${diseaseSlotObj.totalRequired} Karten)
                     </div>
                     <h3 style="margin:4px 0 0 0; font-size:1.15rem; color:var(--text-main);">${escapeHtml(diseaseSlotObj.diseaseName)}</h3>
                 </div>
@@ -1282,7 +1294,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             ` : ''}
 
             <div style="font-size:0.76rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">
-                Zugeordnete Begriffe & Pathophysiologie:
+                Zugeordnete Spielkarten & Pathophysiologie:
             </div>
 
             ${terms.length === 0 ? `
@@ -1296,7 +1308,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                         return `
                             <div style="background:rgba(15,23,42,0.6); border:1px solid var(--card-border); border-left:4px solid ${catCfg.color}; border-radius:10px; padding:10px 12px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px;">
-                                    <strong style="font-size:0.88rem; color:var(--text-main);">${escapeHtml(t.term)}</strong>
+                                    <strong style="font-size:0.88rem; color:var(--text-main);">${catCfg.suit} ${escapeHtml(t.term)}</strong>
                                     <div style="display:flex; align-items:center; gap:6px;">
                                         <span style="font-size:0.65rem; font-weight:800; padding:2px 7px; border-radius:999px; background:${catCfg.bg}; color:${catCfg.color};">
                                             ${escapeHtml(t.category)}
@@ -1405,7 +1417,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             await navigator.clipboard.writeText(SKILL_EXTRACTION_PROMPT);
             if (btnEl) {
                 const orig = btnEl.innerHTML;
-                btnEl.innerHTML = '✓ Skill-Prompt & JSON-Schema kopiert!';
+                btnEl.innerHTML = '✓ Mega-Prompt kopiert!';
                 setTimeout(() => { btnEl.innerHTML = orig; }, 2200);
             }
         } catch (_e) {
@@ -1414,7 +1426,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
     }
 
     // ----------------------------------------------------------------------
-    // 13. RENDERING: LOBBY & SCHLICHTES VIEWPORT-FIT SPIELFELD
+    // 13. RENDERING: LOBBY & HOCHKANT-SPIELKARTEN-TISCH (5:7 PORTRAIT)
     // ----------------------------------------------------------------------
     function renderLobby(container) {
         container.classList.remove('sol-in-game-mode');
@@ -1448,7 +1460,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                             <div style="font-size:0.76rem; color:var(--text-muted);">Ziehe eine JSON-Datei aus deinem Extraktions-Skill hierher oder füge den JSON-Code direkt ein.</div>
                         </div>
                         <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.copySkillMasterPrompt(this)">
-                            📋 JSON-Schema & Prompt für deinen Skill kopieren
+                            📋 Skill Mega-Prompt & JSON-Schema kopieren
                         </button>
                     </div>
 
@@ -1465,9 +1477,9 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 </div>
 
                 <div class="sol-rules-strip">
-                    <div class="sol-rule-pill"><span>1️⃣</span> <strong>Krankheitsbild (👑)</strong> oben in freien Slot legen</div>
-                    <div class="sol-rule-pill"><span>2️⃣</span> <strong>ⓘ Button oben rechts:</strong> Öffnet spoilerfreie Zusatzinfos</div>
-                    <div class="sol-rule-pill"><span>3️⃣</span> <strong>Pre-Stacking:</strong> Gleiche Krankheit schon im Tableau stapeln</div>
+                    <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> oben in freien Slot legen</div>
+                    <div class="sol-rule-pill"><span>ⓘ</span> <strong>Ecke oben rechts:</strong> Spoilerfreie Zusatzinfos öffnen</div>
+                    <div class="sol-rule-pill"><span>🃏</span> <strong>Pre-Stacking:</strong> Gleiche Krankheit schon im Tableau stapeln</div>
                 </div>
 
                 <div class="sol-decks-grid">
@@ -1498,7 +1510,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                                 </div>
                                 <div style="display:flex; justify-content:space-between; align-items:center; padding-top:10px; border-top:1px solid var(--divider-color);">
                                     <span style="font-size:0.72rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">
-                                        ${deck.diseases?.length || 0} Diagnosen • ${totalTerms} Karten
+                                        ${deck.diseases?.length || 0} Diagnosen • ${totalTerms} Spielkarten
                                     </span>
                                     <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.startNewGame('${deck.deck_id}')">
                                         Spielen ➔
@@ -1514,7 +1526,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         bindDropzoneEvents();
     }
 
-    // Rendert eine kompakte, schlichte Karte mit ⓘ-Button oben rechts und gedeckelter Stack-Höhe (max 3 sichtbare Peeking-Slices)
+    // Rendert eine echte Hochkant-Spielkarte (5:7 Portrait) bzw. einen überlappenden Spielkarten-Stack
     function renderCardHtml(card, zone, colIdx, cardIdx, isPlayable) {
         const isSelected = gameState.selectedSource &&
             gameState.selectedSource.zone === zone &&
@@ -1526,33 +1538,36 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             gameState.lastSuccessAnim.type === 'tableau' &&
             gameState.lastSuccessAnim.uid === card.uid;
 
+        // VERDECKTE SPIELKARTE (Im Tableau zeigt nur die obere Kartenkante heraus)
         if (!card.faceUp) {
             return `
-                <div class="sol-card sol-card-back" data-card-uid="${card.uid}">
-                    <span class="sol-card-back-pattern">✚</span>
+                <div class="sol-playing-card sol-card-back" data-card-uid="${card.uid}">
+                    <div class="sol-card-back-inner">
+                        <span class="sol-card-back-pip">✚</span>
+                    </div>
                 </div>
             `;
         }
 
-        // FALL 1: KATEGORIENKARTE (KRANKHEITSBILD)
+        // FALL 1: OFFENE KATEGORIEN-SPIELKARTE (KRANKHEITSBILD / KING CARD)
         if (card.isCategoryCard) {
             const collected = card.collectedTerms || [];
             const collectedCount = collected.length;
-            const visibleSlices = collected.slice(-3); // Maximal 3 Slices optisch zeigen, damit nichts überläuft!
+            const visibleSlices = collected.slice(-3);
             const hiddenExtraCount = Math.max(0, collectedCount - visibleSlices.length);
 
             const peekingSlicesHtml = visibleSlices.map((subCard, sIdx) => {
                 const subCatCfg = CATEGORY_COLORS[subCard.category] || CATEGORY_COLORS['Klinik'];
                 return `
                     <div class="sol-stack-peek-slice" style="--slice-accent: ${card.accent}; --slice-index: ${sIdx};">
-                        <span class="sol-peek-dot" style="background:${subCatCfg.color};"></span>
+                        <span class="sol-peek-suit" style="color:${subCatCfg.color};">${subCatCfg.suit}</span>
                         <span class="sol-peek-term">${escapeHtml(subCard.term)}</span>
                     </div>
                 `;
             }).join('');
 
             return `
-                <div class="sol-stacked-group ${collectedCount > 0 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : 'is-covered'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
+                <div class="sol-stacked-group ${collectedCount > 0 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : 'is-covered-faceup'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
                      style="--disease-accent: ${card.accent};"
                      data-card-uid="${card.uid}"
                      data-zone="${zone}"
@@ -1560,39 +1575,56 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                      data-idx="${cardIdx}"
                      draggable="${isPlayable ? 'true' : 'false'}">
                     ${collectedCount > 0 ? `<div class="sol-stack-peeking-list">${peekingSlicesHtml}</div>` : ''}
-                    <div class="sol-card sol-card-category" title="${escapeHtml(card.diseaseName)}">
-                        <div class="sol-card-header-row">
-                            <span class="sol-crown-badge">👑 ${collectedCount}/${card.totalRequired}</span>
-                            <div class="sol-card-header-right">
+                    <div class="sol-playing-card sol-card-category" title="${escapeHtml(card.diseaseName)}">
+                        <!-- Top Index Bar (Sichtbar auch wenn überlappt!) -->
+                        <div class="sol-card-corner-top">
+                            <div class="sol-corner-pip-group">
+                                <span class="sol-pip-symbol">👑</span>
+                                <span class="sol-pip-label">${collectedCount}/${card.totalRequired}</span>
+                            </div>
+                            <span class="sol-collapsed-inline-title">${escapeHtml(card.diseaseName)}</span>
+                            <div class="sol-card-corner-actions">
                                 ${hiddenExtraCount > 0 ? `<span class="sol-prestack-badge">+${hiddenExtraCount}</span>` : ''}
-                                <button type="button" class="sol-card-info-btn" data-info-uid="${card.uid}" title="Zusatzinfo (ohne Spoiler)">ⓘ</button>
+                                <button type="button" class="sol-card-info-btn" data-info-uid="${card.uid}" title="Krankheitsbild-Info (ohne Spoiler)">ⓘ</button>
                             </div>
                         </div>
-                        <div class="sol-cat-disease-title">${escapeHtml(card.diseaseName)}</div>
+
+                        <!-- Center Playing Card Face -->
+                        <div class="sol-card-center-art">
+                            <div class="sol-card-watermark">👑</div>
+                            <div class="sol-cat-kicker">KRANKHEITSBILD</div>
+                            <div class="sol-cat-disease-title">${escapeHtml(card.diseaseName)}</div>
+                        </div>
+
+                        <!-- Bottom Mirrored Playing Card Footer -->
+                        <div class="sol-card-corner-bottom">
+                            <span class="sol-icd-tag">${escapeHtml(card.icd10 || 'DDx')}</span>
+                            <span class="sol-pip-bottom-mirror">👑</span>
+                        </div>
                     </div>
                 </div>
             `;
         }
 
-        // FALL 2: SCHLICHTE, KOMPAKTE BEGRIFFSKARTE
+        // FALL 2: OFFENE BEGRIFFS-SPIELKARTE (PORTRAIT 5:7)
         const catCfg = CATEGORY_COLORS[card.category] || CATEGORY_COLORS['Klinik'];
         const subCards = card.stackedCards || [];
         const stackCount = 1 + subCards.length;
-        const visibleSubCards = subCards.slice(-3); // Maximal 3 Peeking-Tabs für garantierten Viewport-Fit
+        const visibleSubCards = subCards.slice(-3);
         const hiddenSubCount = Math.max(0, subCards.length - visibleSubCards.length);
 
         const peekingTermsHtml = visibleSubCards.map((sub, sIdx) => {
             const subCat = CATEGORY_COLORS[sub.category] || CATEGORY_COLORS['Klinik'];
             return `
                 <div class="sol-stack-peek-slice" style="--slice-accent: ${subCat.color}; --slice-index: ${sIdx};">
-                    <span class="sol-peek-dot" style="background:${subCat.color};"></span>
+                    <span class="sol-peek-suit" style="color:${subCat.color};">${subCat.suit}</span>
                     <span class="sol-peek-term">${escapeHtml(sub.term)}</span>
                 </div>
             `;
         }).join('');
 
         return `
-            <div class="sol-stacked-group ${stackCount > 1 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : 'is-covered'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
+            <div class="sol-stacked-group ${stackCount > 1 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : 'is-covered-faceup'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
                  style="--disease-accent: ${catCfg.color};"
                  data-card-uid="${card.uid}"
                  data-zone="${zone}"
@@ -1600,20 +1632,31 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                  data-idx="${cardIdx}"
                  draggable="${isPlayable ? 'true' : 'false'}">
                 ${stackCount > 1 ? `<div class="sol-stack-peeking-list">${peekingTermsHtml}</div>` : ''}
-                <div class="sol-card sol-card-term" title="${escapeHtml(card.term)}">
-                    <div class="sol-card-header-row">
-                        ${!hardMode ? `
-                            <span class="sol-term-cat-pill" style="background:${catCfg.bg}; color:${catCfg.color};">
-                                <span class="sol-peek-dot" style="background:${catCfg.color};"></span>
-                                ${escapeHtml(catCfg.label)}
-                            </span>
-                        ` : `<span class="sol-term-cat-pill" style="background:rgba(148,163,184,0.12); color:var(--text-dim);">🎓 DDx</span>`}
-                        <div class="sol-card-header-right">
-                            ${stackCount > 1 ? `<span class="sol-prestack-badge" title="${stackCount} gestapelte Karten">${stackCount}x${hiddenSubCount > 0 ? ` (+${hiddenSubCount})` : ''}</span>` : ''}
-                            <button type="button" class="sol-card-info-btn" data-info-uid="${card.uid}" title="Klinische Zusatzinfo öffnen (ohne Spoiler)">ⓘ</button>
+                <div class="sol-playing-card sol-card-term" style="--suit-color: ${catCfg.color}; --suit-bg: ${catCfg.bg};" title="${escapeHtml(card.term)}">
+                    <!-- Top Playing Card Index -->
+                    <div class="sol-card-corner-top">
+                        <div class="sol-corner-pip-group" style="color:${catCfg.color};">
+                            <span class="sol-pip-symbol">${catCfg.suit}</span>
+                            ${!hardMode ? `<span class="sol-pip-label">${escapeHtml(catCfg.label)}</span>` : ''}
+                        </div>
+                        <span class="sol-collapsed-inline-title">${escapeHtml(card.term)}</span>
+                        <div class="sol-card-corner-actions">
+                            ${stackCount > 1 ? `<span class="sol-prestack-badge" title="${stackCount} gestapelte Spielkarten">${stackCount}x${hiddenSubCount > 0 ? `+` : ''}</span>` : ''}
+                            <button type="button" class="sol-card-info-btn" data-info-uid="${card.uid}" title="Zusatzinfo öffnen (ohne Spoiler)">ⓘ</button>
                         </div>
                     </div>
-                    <div class="sol-term-main-text">${escapeHtml(card.term)}</div>
+
+                    <!-- Center Playing Card Medallion & Term -->
+                    <div class="sol-card-center-art">
+                        <div class="sol-card-watermark" style="color:${catCfg.color};">${catCfg.suit}</div>
+                        <div class="sol-term-main-text">${escapeHtml(card.term)}</div>
+                    </div>
+
+                    <!-- Bottom Mirrored Pip -->
+                    <div class="sol-card-corner-bottom">
+                        <span class="sol-suit-line" style="background:${catCfg.color};"></span>
+                        <span class="sol-pip-bottom-mirror" style="color:${catCfg.color};">${catCfg.suit}</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -1631,10 +1674,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 <!-- Kompakte Topbar -->
                 <div class="sol-topbar">
                     <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-                        <button type="button" class="back-btn" style="padding:5px 11px; font-size:0.76rem;" onclick="window.SolitaireModule.backToLobby()">← Decks</button>
+                        <button type="button" class="back-btn" style="padding:4px 10px; font-size:0.74rem;" onclick="window.SolitaireModule.backToLobby()">← Decks</button>
                         <div style="min-width:0;">
-                            <div style="font-size:0.88rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
-                            <div style="font-size:0.7rem; color:var(--text-muted);">
+                            <div style="font-size:0.86rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
+                            <div style="font-size:0.68rem; color:var(--text-muted);">
                                 Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> • <em>Kein Move-Abzug bei Fehlern</em>
                             </div>
                         </div>
@@ -1642,7 +1685,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
                     <div class="sol-hud-Controls">
                         ${showAutoFinish ? `
-                            <button type="button" class="action-btn btn-sm" style="padding:5px 12px; font-size:0.75rem; background:linear-gradient(135deg,#10b981,#059669);" onclick="window.SolitaireModule.triggerAutoFinish()">
+                            <button type="button" class="action-btn btn-sm" style="padding:4px 11px; font-size:0.74rem; background:linear-gradient(135deg,#10b981,#059669);" onclick="window.SolitaireModule.triggerAutoFinish()">
                                 ⚡ Auto-Finish
                             </button>
                         ` : ''}
@@ -1653,10 +1696,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                             <span>MOVES</span>
                             <strong>${gameState.movesLeft}</strong>
                         </div>
-                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.undoLastMove()" ${gameState.historyStack.length === 0 ? 'disabled' : ''} title="Letzten Zug rückgängig machen">↩</button>
-                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useHint()" title="Hinweis anzeigen">💡 ${gameState.hintsLeft}</button>
+                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.undoLastMove()" ${gameState.historyStack.length === 0 ? 'disabled' : ''} title="Rückgängig (Shortcut: Z)">↩</button>
+                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useHint()" title="Hinweis (Shortcut: H)">💡 ${gameState.hintsLeft}</button>
                         <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useJoker()" title="Joker einsetzen">🃏 ${gameState.jokersLeft}</button>
-                        <button type="button" class="sol-power-btn ${hardMode ? 'active' : ''}" onclick="window.SolitaireModule.toggleHardMode()" title="Kategorie-Tags ein-/ausblenden">🎓</button>
+                        <button type="button" class="sol-power-btn ${hardMode ? 'active' : ''}" onclick="window.SolitaireModule.toggleHardMode()" title="Kategorie-Label ein-/ausblenden">🎓</button>
                         <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.startNewGame('${activeDeck.deck_id}')" title="Neu mischen">🔄</button>
                     </div>
                 </div>
@@ -1664,34 +1707,45 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 <!-- Kompaktes Feedback-Banner -->
                 <div id="sol-feedback-banner" class="sol-feedback-banner" style="display:none;"></div>
 
-                <!-- OBERE REIHE: NACHZIEHSTAPEL (LINKS) & 4 KOMPAKTE ZIELSLOTS (RECHTS) -->
-                <div class="sol-upper-deck-row">
-                    <div class="sol-stock-waste-group">
-                        <div class="sol-stock-slot ${gameState.stock.length > 0 ? 'has-cards' : 'is-empty'}" onclick="window.SolitaireModule.drawFromStock()" title="Karte ziehen (1 Move)">
-                            ${gameState.stock.length > 0 ? `
-                                <div class="sol-stock-card-stack">
+                <!-- OBERE REIHE: 6 HOCHKANT-SPIELKARTEN-SLOTS (STOCK + WASTE + 4 FOUNDATIONS) -->
+                <div class="sol-upper-table-row">
+                    <!-- 1. Stock Pile (Hochkant-Kartenstapel) -->
+                    <div class="sol-card-slot-frame sol-stock-slot ${gameState.stock.length > 0 ? 'has-cards' : 'is-empty'}" onclick="window.SolitaireModule.drawFromStock()" title="Karte ziehen (Leertaste)">
+                        ${gameState.stock.length > 0 ? `
+                            <div class="sol-playing-card sol-card-back is-stock-deck">
+                                <div class="sol-card-back-inner">
                                     <span class="sol-stock-count">${gameState.stock.length}</span>
-                                    <span style="font-size:0.64rem; color:var(--text-muted);">Ziehen</span>
+                                    <span class="sol-stock-sub">ZIEHEN</span>
                                 </div>
-                            ` : `
-                                <div class="sol-stock-empty-icon">↻<span style="font-size:0.62rem;">Flip</span></div>
-                            `}
-                        </div>
-
-                        <div class="sol-waste-slot">
-                            ${topWasteCard ? renderCardHtml(topWasteCard, 'waste', 0, gameState.waste.length - 1, true) : `
-                                <div class="sol-empty-placeholder">Ablage</div>
-                            `}
-                        </div>
+                            </div>
+                        ` : `
+                            <div class="sol-stock-empty-icon">
+                                <span style="font-size:1.3rem;">↻</span>
+                                <span>Neu wenden</span>
+                            </div>
+                        `}
                     </div>
 
-                    <div class="sol-foundations-grid">
+                    <!-- 2. Waste Pile (Offene gezogene Spielkarte) -->
+                    <div class="sol-card-slot-frame sol-waste-slot">
+                        ${topWasteCard ? renderCardHtml(topWasteCard, 'waste', 0, gameState.waste.length - 1, true) : `
+                            <div class="sol-empty-card-outline">
+                                <span>Ablage</span>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Vertikaler Tisch-Trenner -->
+                    <div class="sol-table-divider"></div>
+
+                    <!-- 3.-6. Die 4 Hochkant-Foundation-Slots (Krankheitsbilder) -->
+                    <div class="sol-foundations-row">
                         ${gameState.foundations.map((slot, sIdx) => {
                             if (!slot) {
                                 return `
-                                    <div class="sol-foundation-slot is-empty-foundation" data-foundation-idx="${sIdx}">
+                                    <div class="sol-card-slot-frame sol-foundation-slot is-empty-foundation" data-foundation-idx="${sIdx}">
                                         <div class="sol-foundation-crown-icon">👑</div>
-                                        <div class="sol-foundation-empty-text">Krankheitsbild<br>ablegen</div>
+                                        <div class="sol-foundation-empty-text">Krankheitsbild<br>hier ablegen</div>
                                     </div>
                                 `;
                             }
@@ -1704,25 +1758,29 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                                 gameState.lastSuccessAnim.targetIdx === sIdx;
 
                             return `
-                                <div class="sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-match-pop' : ''}"
+                                <div class="sol-card-slot-frame sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-match-pop' : ''}"
                                      style="--disease-accent: ${slot.accent};"
                                      data-foundation-idx="${sIdx}">
                                     <div class="sol-foundation-top">
                                         <span class="sol-foundation-badge" style="background:${slot.accent}; color:#060913;">
-                                            ${count}/${slot.totalRequired}
+                                            👑 ${count}/${slot.totalRequired}
                                         </span>
-                                        <button type="button" class="sol-card-info-btn" data-inspect-slot="${sIdx}" title="Krankheitsbild-Dossier & alle zugeordneten Karten öffnen">ⓘ</button>
+                                        <button type="button" class="sol-card-info-btn" data-inspect-slot="${sIdx}" title="Krankheitsbild-Dossier öffnen">ⓘ</button>
                                     </div>
-                                    <div class="sol-foundation-title" title="${escapeHtml(slot.diseaseName)}">${escapeHtml(slot.diseaseName)}</div>
-                                    <div class="sol-foundation-progress-track">
-                                        <div class="sol-foundation-progress-fill" style="width:${pct}%; background:${slot.accent};"></div>
+
+                                    <div class="sol-foundation-center">
+                                        <div class="sol-foundation-title" title="${escapeHtml(slot.diseaseName)}">${escapeHtml(slot.diseaseName)}</div>
+                                        <div class="sol-foundation-progress-track">
+                                            <div class="sol-foundation-progress-fill" style="width:${pct}%; background:${slot.accent};"></div>
+                                        </div>
                                     </div>
+
                                     <div class="sol-foundation-mini-stack">
                                         ${!latestTerm ? `
-                                            <div class="sol-foundation-empty-sub">Begriffe zuordnen</div>
+                                            <div class="sol-foundation-empty-sub">Karten zuordnen</div>
                                         ` : `
                                             <div class="sol-foundation-layered-card">
-                                                <span class="sol-peek-dot" style="background:${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).color};"></span>
+                                                <span>${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).suit}</span>
                                                 <span class="sol-foundation-layered-text">${escapeHtml(latestTerm.term)}</span>
                                             </div>
                                         `}
@@ -1733,10 +1791,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 </div>
 
-                <!-- Gelöste Krankheitsbilder Leiste (falls vorhanden) -->
+                <!-- Gelöste Krankheitsbilder Leiste -->
                 ${gameState.completedDiseases.length > 0 ? `
                     <div class="sol-completed-strip">
-                        <span style="font-size:0.68rem; font-weight:800; text-transform:uppercase; color:var(--color-symptom);">✓ Gelöst:</span>
+                        <span style="font-size:0.66rem; font-weight:800; text-transform:uppercase; color:var(--color-symptom);">✓ Gemeistert:</span>
                         ${gameState.completedDiseases.map((cd, cIdx) => `
                             <button type="button" class="sol-completed-pill" onclick="window.SolitaireModule.inspectCompletedDisease(${cIdx})">
                                 👑 ${escapeHtml(cd.diseaseName)}
@@ -1745,13 +1803,13 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 ` : ''}
 
-                <!-- TABLEAU: 4 KOMPAKTE SPALTEN (GARANTIERT IM VIEWPORT) -->
+                <!-- TABLEAU: 4 ZENTRIERTE HOCHKANT-KARTENSPALTEN -->
                 <div class="sol-tableau-grid">
                     ${gameState.tableau.map((col, colIdx) => `
                         <div class="sol-tableau-col" data-tableau-col="${colIdx}">
                             ${col.length === 0 ? `
-                                <div class="sol-tableau-empty-dropzone" data-tableau-col="${colIdx}">
-                                    <span>Freie Spalte</span>
+                                <div class="sol-card-slot-frame sol-tableau-empty-dropzone" data-tableau-col="${colIdx}">
+                                    <span>Freier Slot</span>
                                 </div>
                             ` : col.map((card, cardIdx) => {
                                 const isBottomPlayable = (cardIdx === col.length - 1);
@@ -1772,10 +1830,33 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
     }
 
     // ----------------------------------------------------------------------
-    // 14. INTERAKTIONS-BINDINGS (INKL. ⓘ BUTTON ISOLATION)
+    // 14. INTERAKTIONS-BINDINGS & TASTATUR-SHORTCUTS
     // ----------------------------------------------------------------------
+    function initKeyboardShortcuts() {
+        if (keyboardBound) return;
+        keyboardBound = true;
+
+        document.addEventListener('keydown', (e) => {
+            const solView = document.getElementById('solitaire-view');
+            if (!solView || solView.style.display === 'none' || currentViewMode !== 'game') return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                drawFromStock();
+            } else if (e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undoLastMove();
+            } else if (e.key.toLowerCase() === 'h') {
+                e.preventDefault();
+                useHint();
+            }
+        });
+    }
+
     function bindGameBoardEvents(container) {
-        // 1. ⓘ Zusatzinfo-Buttons auf den Karten (verhindern Klick-Weitergabe an die Karte!)
+        initKeyboardShortcuts();
+
         container.querySelectorAll('[data-info-uid]').forEach(infoBtn => {
             infoBtn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -1784,7 +1865,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             });
         });
 
-        // 2. Spielbare Karten / Stacks
         const playableNodes = container.querySelectorAll('.sol-stacked-group.is-playable');
         playableNodes.forEach(nodeEl => {
             const zone = nodeEl.dataset.zone;
@@ -1838,7 +1918,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             });
         });
 
-        // 3. Foundation-Slots oben
         const foundationSlots = container.querySelectorAll('.sol-foundation-slot');
         foundationSlots.forEach(slotEl => {
             const slotIdx = parseInt(slotEl.dataset.foundationIdx, 10);
@@ -1876,7 +1955,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             });
         });
 
-        // 4. Tableau-Spalten
         const tableauCols = container.querySelectorAll('.sol-tableau-col');
         tableauCols.forEach(colEl => {
             const targetColIdx = parseInt(colEl.dataset.tableauCol, 10);
