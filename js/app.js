@@ -604,8 +604,182 @@ function registerDynamicFolder(folderName, targetSuperFolder = null) {
 }
 
 // ==========================================================================
-// 06. TOMBSTONE-ENGINE & PERSISTENTE ORDNER-OVERRIDES (SUPABASE-SYNC)
+// 06. CLOUD FOLDER SYNC ENGINE & PERSISTENTE ORDNER-OVERRIDES (SUPABASE)
 // ==========================================================================
+const FOLDER_CONFIG_CLOUD_ID = '__MEDCHECK_FOLDER_CONFIG_V1__';
+const FOLDER_SYNC_TIMESTAMP_KEY = 'medcheck_folder_sync_updated_at_v1';
+const SOLITAIRE_DECK_CLOUD_PREFIX = '__SOL_DECK__';
+let folderSyncDebounceTimer = null;
+
+function getLocalFolderSyncTimestamp() {
+    return parseInt(localStorage.getItem(FOLDER_SYNC_TIMESTAMP_KEY) || '0', 10);
+}
+
+function setLocalFolderSyncTimestamp(ts = Date.now()) {
+    localStorage.setItem(FOLDER_SYNC_TIMESTAMP_KEY, String(ts));
+    return ts;
+}
+
+
+function isSystemOrSolitaireCloudRow(caseIdOrObj) {
+    if (!caseIdOrObj) return false;
+    const cId = typeof caseIdOrObj === 'string' ? caseIdOrObj : (caseIdOrObj.case_id || caseIdOrObj.id || '');
+    const field = typeof caseIdOrObj === 'object' ? (caseIdOrObj.medical_field || caseIdOrObj.folder_name || '') : '';
+    return cId === FOLDER_CONFIG_CLOUD_ID ||
+           cId.startsWith(SOLITAIRE_DECK_CLOUD_PREFIX) ||
+           field === '__SOLITAIRE_DECK__' ||
+           field === '__SYSTEM__';
+}
+
+// Baut das komplette Ordner-Konfigurationspaket dieses Geräts zusammen
+function exportLocalFolderConfigPayload(customTimestamp = null) {
+    const ts = customTimestamp || Date.now();
+    return {
+        schema_version: 1,
+        updatedAt: ts,
+        superFolderOrder: getSuperFolderOrder(),
+        folderSuperMapping: getFolderSuperMapping(),
+        subFolderOrder: JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]'),
+        dashboardFolderOrder: getDashboardFolderOrder(),
+        caseFolderOverrides: getCaseFolderOverrides(),
+        deletedFolders: Array.from(getDeletedFoldersSet()),
+        hiddenCloudCases: getHiddenCloudCaseIds()
+    };
+}
+
+// Übernimmt das Cloud-Ordner-Paket in den lokalen Speicher (wenn die Cloud neuer ist oder erzwungen wird)
+function applyCloudFolderConfigIfNewer(cloudPayload, forceApply = false) {
+    if (!cloudPayload || typeof cloudPayload !== 'object') return false;
+
+    const cloudTs = parseInt(cloudPayload.updatedAt || '0', 10);
+    const localTs = getLocalFolderSyncTimestamp();
+
+    // Wenn dieses Gerät bereits einen neueren Stand hat und kein Force-Pull aktiv ist, behalten wir den lokalen Stand
+    if (!forceApply && localTs > 0 && cloudTs <= localTs) {
+        return false;
+    }
+
+    try {
+        if (Array.isArray(cloudPayload.superFolderOrder) && cloudPayload.superFolderOrder.length > 0) {
+            saveSuperFolderOrder(cloudPayload.superFolderOrder);
+        }
+        if (cloudPayload.folderSuperMapping && typeof cloudPayload.folderSuperMapping === 'object') {
+            saveFolderSuperMapping(cloudPayload.folderSuperMapping);
+        }
+        if (Array.isArray(cloudPayload.subFolderOrder)) {
+            localStorage.setItem('medcheck_folder_order', JSON.stringify(cloudPayload.subFolderOrder));
+        }
+        if (Array.isArray(cloudPayload.dashboardFolderOrder)) {
+            saveDashboardFolderOrder(cloudPayload.dashboardFolderOrder);
+        }
+        if (cloudPayload.caseFolderOverrides && typeof cloudPayload.caseFolderOverrides === 'object') {
+            saveCaseFolderOverrides(cloudPayload.caseFolderOverrides);
+        }
+        if (Array.isArray(cloudPayload.deletedFolders)) {
+            localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(cloudPayload.deletedFolders));
+        }
+        if (Array.isArray(cloudPayload.hiddenCloudCases)) {
+            localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(cloudPayload.hiddenCloudCases));
+        }
+
+        setLocalFolderSyncTimestamp(cloudTs || Date.now());
+        initCustomSuperFoldersState();
+        updateFolderSyncStatusBadge('synced');
+        return true;
+    } catch (err) {
+        console.error('[FolderSync] Fehler beim Anwenden der Cloud-Ordnerstruktur:', err);
+        return false;
+    }
+}
+
+function updateFolderSyncStatusBadge(state = 'synced') {
+    const btn = document.getElementById('folder-cloud-sync-btn');
+    if (!btn) return;
+    if (state === 'syncing') {
+        btn.innerHTML = '⏳ Synchronisiere...';
+        btn.style.borderColor = 'var(--warning)';
+        btn.style.color = 'var(--warning)';
+    } else if (state === 'error') {
+        btn.innerHTML = '⚠️ Lokal (Cloud-Login prüfen)';
+        btn.style.borderColor = 'var(--error)';
+        btn.style.color = '#fca5a5';
+    } else {
+        btn.innerHTML = '☁️ Ordner synchron';
+        btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        btn.style.color = '#6ee7b7';
+    }
+}
+
+// Speichert jede lokale Ordner-Änderung sofort mit Zeitstempel und pusht sie nach Supabase
+async function pushFolderConfigToSupabase(immediate = false) {
+    const ts = setLocalFolderSyncTimestamp(Date.now());
+    const payload = exportLocalFolderConfigPayload(ts);
+    updateFolderSyncStatusBadge('syncing');
+
+    const executePush = async () => {
+        const sb = getActiveSupabaseClient();
+        if (!sb || !sb.auth) {
+            updateFolderSyncStatusBadge('error');
+            return;
+        }
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            const currentUser = session?.user;
+
+            // 1. In die globale cases-Tabelle als System-Konfiguration schreiben (für alle Geräte sofort lesbar)
+            if (currentUser) {
+                const { error } = await sb
+                    .from('cases')
+                    .upsert({
+                        case_id: FOLDER_CONFIG_CLOUD_ID,
+                        title: '__SYSTEM_FOLDER_CONFIG__',
+                        medical_field: '__SYSTEM__',
+                        is_public: true,
+                        user_id: currentUser.id,
+                        created_by: currentUser.id,
+                        content: payload
+                    }, { onConflict: 'case_id' });
+
+                if (error) throw error;
+
+                // 2. Zusätzlich als Backup in den User-Metadaten sichern
+                await sb.auth.updateUser({
+                    data: { medcheck_folder_config_v1: payload }
+                }).catch(() => {});
+
+                updateFolderSyncStatusBadge('synced');
+            } else {
+                updateFolderSyncStatusBadge('error');
+            }
+        } catch (err) {
+            console.warn('[FolderSync] Cloud-Push fehlgeschlagen:', err);
+            updateFolderSyncStatusBadge('error');
+        }
+    };
+
+    if (immediate) {
+        if (folderSyncDebounceTimer) clearTimeout(folderSyncDebounceTimer);
+        await executePush();
+    } else {
+        if (folderSyncDebounceTimer) clearTimeout(folderSyncDebounceTimer);
+        folderSyncDebounceTimer = setTimeout(executePush, 350);
+    }
+}
+
+window.forceSyncFoldersAcrossDevices = async function() {
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+    updateFolderSyncStatusBadge('syncing');
+
+    // Wenn wir am aktuellen Gerät bereits Ordner organisiert haben, pushen wir diesen Stand als Master
+    // und holen gleichzeitig alle Fälle frisch aus der Datenbank:
+    await pushFolderConfigToSupabase(true);
+    await loadCasesFromDatabase();
+
+    if (typeof showScorePopup === 'function') {
+        showScorePopup('☁️ Ordnerstruktur für alle Geräte synchronisiert!', 'positive');
+    }
+};
+
 function getCaseFolderOverrides() {
     try {
         return JSON.parse(localStorage.getItem(CASE_FOLDER_OVERRIDES_KEY) || '{}');
@@ -621,7 +795,7 @@ function saveCaseFolderOverrides(map) {
 }
 
 function setCaseFolderOverride(caseId, folderName) {
-    if (!caseId || !folderName) return;
+    if (!caseId || !folderName || caseId === FOLDER_CONFIG_CLOUD_ID) return;
     const map = getCaseFolderOverrides();
     map[caseId] = folderName.trim();
     saveCaseFolderOverrides(map);
@@ -657,6 +831,8 @@ function unmarkFolderAsDeleted(folderName) {
 function applyFolderOverridesToCase(caseObj) {
     if (!caseObj) return caseObj;
     const cId = caseObj.case_id || caseObj.id;
+    if (cId === FOLDER_CONFIG_CLOUD_ID) return caseObj;
+
     const overrides = getCaseFolderOverrides();
     const deletedFolders = getDeletedFoldersSet();
 
@@ -684,10 +860,11 @@ function applyFolderOverridesToCase(caseObj) {
 function getActiveSupabaseClient() {
     return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
 }
-// Alias für Rückwärtskompatibilität
 const getSupabaseInstance = getActiveSupabaseClient;
 
 async function syncModifiedCasesToSupabase(casesList) {
+    await pushFolderConfigToSupabase(false);
+
     if (!Array.isArray(casesList) || casesList.length === 0) return;
     const sb = getActiveSupabaseClient();
     if (!sb || !sb.auth) return;
@@ -699,7 +876,7 @@ async function syncModifiedCasesToSupabase(casesList) {
 
         for (const c of casesList) {
             const cId = c.case_id || c.id;
-            if (!cId || cId === BUILTIN_DEMO_CASE.case_id) continue;
+            if (!cId || cId === BUILTIN_DEMO_CASE.case_id || cId === FOLDER_CONFIG_CLOUD_ID) continue;
             const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
             const title = c.metadata?.title || c.title || cId;
 
@@ -725,12 +902,12 @@ async function syncModifiedCasesToSupabase(casesList) {
             }
         }
     } catch (err) {
-        console.warn('[Sync] Hintergrund-Sync zu Supabase übersprungen (lokale Overrides greifen trotzdem):', err);
+        console.warn('[Sync] Hintergrund-Sync zu Supabase übersprungen:', err);
     }
 }
 
 // ==========================================================================
-// 07. FALL- & ORDNER-VERWALTUNG (CREATE, RENAME, DELETE, MOVE)
+// 07. FALL- & ORDNER-VERWALTUNG (CREATE, RENAME, DELETE, MOVE, STEP-ORDER)
 // ==========================================================================
 function createCustomSuperFolder(folderName) {
     if (!folderName || !folderName.trim()) return;
@@ -756,9 +933,8 @@ function createCustomSuperFolder(folderName) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    pushFolderConfigToSupabase();
 }
 window.createCustomSuperFolder = createCustomSuperFolder;
 
@@ -826,9 +1002,8 @@ window.renameSuperFolder = function(oldTitle) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    pushFolderConfigToSupabase();
 };
 
 function removeCustomSuperFolder(superTitle) {
@@ -862,9 +1037,8 @@ function removeCustomSuperFolder(superTitle) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    pushFolderConfigToSupabase();
 }
 window.removeCustomSuperFolder = removeCustomSuperFolder;
 window.deleteSuperFolder = removeCustomSuperFolder;
@@ -882,11 +1056,21 @@ function reorderSuperFolders(draggedTitle, targetTitle) {
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    pushFolderConfigToSupabase();
 }
 window.reorderSuperFolders = reorderSuperFolders;
+
+// NEU: Touch-freundliches Umsortieren per Button (für iPad & Handy)
+window.stepSuperFolderOrder = function(superTitle, directionDelta) {
+    const order = getSuperFolderOrder();
+    const idx = order.indexOf(superTitle);
+    if (idx === -1) return;
+    const newIdx = idx + directionDelta;
+    if (newIdx < 0 || newIdx >= order.length) return;
+    const targetTitle = order[newIdx];
+    reorderSuperFolders(superTitle, targetTitle);
+};
 
 window.createSubfolderInSuperFolder = function(superTitle) {
     const targetSuper = superTitle || 'Allgemein';
@@ -913,9 +1097,8 @@ window.createSubfolderInSuperFolder = function(superTitle) {
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    pushFolderConfigToSupabase();
 };
 
 function toggleBookshelfSuperGroup(superTitle) {
@@ -952,6 +1135,20 @@ function ensureBookshelfHeaderButtons() {
             window.createNewSuperFolderModal();
         });
         addFolderBtn.parentNode.insertBefore(superBtn, addFolderBtn);
+    }
+
+    // Cloud-Sync-Button in der Dashboard-Subbar ergänzen
+    const quickBtns = document.querySelector('.dashboard-quick-folder-btns');
+    if (quickBtns && !document.getElementById('folder-cloud-sync-btn')) {
+        const syncBtn = document.createElement('button');
+        syncBtn.type = 'button';
+        syncBtn.id = 'folder-cloud-sync-btn';
+        syncBtn.className = 'ghost-tool-btn';
+        syncBtn.title = 'Ordnerstruktur jetzt über alle Geräte (Laptop, iPad, Handy) synchronisieren';
+        syncBtn.style.cssText = 'border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7;';
+        syncBtn.innerHTML = '☁️ Ordner synchron';
+        syncBtn.onclick = () => window.forceSyncFoldersAcrossDevices();
+        quickBtns.prepend(syncBtn);
     }
 }
 
@@ -1009,9 +1206,8 @@ function createNewFolder(folderName, targetSuperFolder = null) {
     openFolders[cleanName] = true;
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    pushFolderConfigToSupabase();
 }
 window.createNewFolder = createNewFolder;
 
@@ -1040,10 +1236,9 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
     bookshelfSuperFolderState[cleanSuper] = true;
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+    pushFolderConfigToSupabase();
 };
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
 
@@ -1100,6 +1295,10 @@ window.renameFolder = async function(oldName, newName) {
     if (mapping[cleanOld]) {
         mapping[cleanNew] = mapping[cleanOld];
         delete mapping[cleanOld];
+        saveFolderSuperMapping(mapping);
+    } else {
+        // Wichtig: Bisher impliziten Überordner beim Umbenennen explizit mappen!
+        mapping[cleanNew] = getSuperFolderForCategory(cleanOld);
         saveFolderSuperMapping(mapping);
     }
 
@@ -1213,7 +1412,7 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
 };
 
 window.moveCaseToFolder = async function(caseId, targetFolder) {
-    if (!caseId || !targetFolder) return;
+    if (!caseId || !targetFolder || caseId === FOLDER_CONFIG_CLOUD_ID) return;
     const cleanFolder = targetFolder.trim();
 
     unmarkFolderAsDeleted(cleanFolder);
@@ -1254,12 +1453,8 @@ window.moveCaseToFolder = async function(caseId, targetFolder) {
     openFolders[cleanFolder] = true;
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
-    if (typeof window.triggerHaptic === 'function') {
-        window.triggerHaptic(14);
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
 
     await syncModifiedCasesToSupabase([targetCase]);
 };
@@ -1291,7 +1486,6 @@ async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
     await window.moveCaseToFolder(caseId, destinationSubfolder);
 }
 
-// Fall Löschen & Ausblenden (Inkl. Cloud-Protection)
 function getHiddenCloudCaseIds() {
     try {
         return JSON.parse(localStorage.getItem(HIDDEN_CLOUD_CASES_KEY) || '[]');
@@ -1323,14 +1517,14 @@ window.deleteCaseById = async function(caseId) {
     const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
 
     const confirmMsg = isCloudCase
-        ? `Möchtest du den Fall „${title}“ lokal von diesem Gerät entfernen?\n\n(Hinweis: Da es ein Cloud-Fall ist, wird er für dein lokales Dashboard ausgeblendet.)`
+        ? `Möchtest du den Fall „${title}“ entfernen?`
         : `Möchtest du den lokalen Fall „${title}“ (${caseId}) wirklich löschen?\n\nDein Lernfortschritt für diesen Fall wird dabei ebenfalls zurückgesetzt.`;
 
     if (!window.confirm(confirmMsg)) return;
 
     if (isCloudCase && isCurrentUserCreator) {
         const alsoUnpublish = window.confirm(
-            `Creator-Option: Dieser Fall ist in der Supabase-Cloud veröffentlicht.\n\nSoll „${title}“ AUCH komplett aus der Cloud für alle Nutzer gelöscht werden?\n(Klicke „Abbrechen“, um ihn nur lokal bei dir zu löschen.)`
+            `Creator-Option: Dieser Fall ist in der Supabase-Cloud veröffentlicht.\n\nSoll „${title}“ AUCH komplett aus der Cloud für alle Geräte gelöscht werden?\n(Klicke „Abbrechen“, um ihn nur lokal auszublenden.)`
         );
         if (alsoUnpublish) {
             const sb = getActiveSupabaseClient();
@@ -1370,18 +1564,14 @@ window.deleteCaseById = async function(caseId) {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
 
     renderDashboardCases();
-    if (typeof renderSubjectProgressDrawer === 'function') {
-        renderSubjectProgressDrawer();
-    }
-    if (typeof window.renderSpecialtyHub === 'function') {
-        window.renderSpecialtyHub();
-    }
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
     if (window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.renderDashboardWidget === 'function') {
         const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
         window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
     }
+    pushFolderConfigToSupabase();
 };
-
 // ==========================================================================
 // 08. ALLGEMEINE UI-UTILS, NAVIGATION & SIDEBAR-RESIZER
 // ==========================================================================
@@ -1493,8 +1683,9 @@ window.switchTab = function(tab, el) {
             solView.classList.remove('hidden');
             solView.style.display = 'block';
         }
-        if (window.SolitaireModule && typeof window.SolitaireModule.openView === 'function') {
-            window.SolitaireModule.openView();
+        // Solitaire-Decks in der Cloud direkt an das Solitaire-Modul weiterleiten
+        if (window.SolitaireModule && typeof window.SolitaireModule.syncDecksFromCloud === 'function') {
+            window.SolitaireModule.syncDecksFromCloud();
         }
         return;
     }
@@ -1886,6 +2077,8 @@ function reorderDashboardFolders(draggedCat, targetCat) {
     }
 
     let bsOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    if (!bsOrder.includes(draggedCat)) bsOrder.push(draggedCat);
+    if (!bsOrder.includes(targetCat)) bsOrder.push(targetCat);
     const bsFrom = bsOrder.indexOf(draggedCat);
     const bsTo = bsOrder.indexOf(targetCat);
     if (bsFrom !== -1 && bsTo !== -1) {
@@ -1895,6 +2088,7 @@ function reorderDashboardFolders(draggedCat, targetCat) {
     }
 
     renderDashboardCases();
+    pushFolderConfigToSupabase();
 }
 
 function toggleFolder(category) {
@@ -2735,7 +2929,9 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
 function getCustomCases() {
     try {
         const raw = JSON.parse(localStorage.getItem('custom_cases')) || [];
-        return raw.map(c => applyFolderOverridesToCase(c));
+        return raw
+            .filter(c => c && !isSystemOrSolitaireCloudRow(c))
+            .map(c => applyFolderOverridesToCase(c));
     } catch (_e) {
         return [];
     }
@@ -4625,25 +4821,51 @@ async function loadCasesFromDatabase() {
             return;
         }
 
-        window.cloudCaseIds = new Set((data || []).map(d => d.case_id));
+        // 1. ZUERST CLOUD-ORDNER-KONFIGURATION AUSLESEN & SYNCHRONISIEREN
+        const configRow = (data || []).find(d => d.case_id === FOLDER_CONFIG_CLOUD_ID);
+        if (configRow && configRow.content) {
+            applyCloudFolderConfigIfNewer(configRow.content);
+        } else {
+            // Falls in der Cloud noch gar keine Ordner-Konfiguration liegt, aber dieses Gerät (z.B. Laptop)
+            // bereits eigene Überordner oder Mappings hat -> initial als Master in die Cloud pushen!
+            const localMappingKeys = Object.keys(getFolderSuperMapping());
+            const localSupers = getSuperFolderOrder();
+            if (localMappingKeys.length > 0 || localSupers.length > DEFAULT_SUPER_FOLDERS.length) {
+                pushFolderConfigToSupabase(false);
+            }
+        }
 
-        if (data && data.length > 0) {
-            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        // 2. NORMALE KLINISCHE FÄLLE VERARBEITEN (OHNE DAS SYSTEM-KONFIGURATIONSOBJEKT)
+       const realCaseRows = (data || []).filter(d => !isSystemOrSolitaireCloudRow(d));
+        window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
+
+        if (realCaseRows.length > 0) {
+            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]')
+                .filter(c => (c.case_id || c.id) !== FOLDER_CONFIG_CLOUD_ID);
             const hiddenCloudIds = getHiddenCloudCaseIds();
             const deletedFolders = getDeletedFoldersSet();
+            const overrides = getCaseFolderOverrides();
 
-            data.forEach(dbCase => {
+            realCaseRows.forEach(dbCase => {
                 const cloudCase = dbCase.content;
                 if (!cloudCase) return;
                 const cId = cloudCase.case_id || cloudCase.id;
-                if (hiddenCloudIds.includes(cId)) return;
+                if (!cId || cId === FOLDER_CONFIG_CLOUD_ID || hiddenCloudIds.includes(cId)) return;
 
+                // Cloud-Feldname hat Vorrang, sofern er nicht im synchronisierten Override überschrieben wurde
                 if (dbCase.medical_field && !deletedFolders.has(dbCase.medical_field.trim())) {
-                    cloudCase.folder_name = dbCase.medical_field.trim();
-                    if (cloudCase.metadata) cloudCase.metadata.medical_field = dbCase.medical_field.trim();
+                    const cloudFolder = dbCase.medical_field.trim();
+                    cloudCase.folder_name = cloudFolder;
+                    if (cloudCase.metadata) cloudCase.metadata.medical_field = cloudFolder;
+
+                    // Falls noch kein Override existiert, mit Cloud-Ordner synchron halten
+                    if (!overrides[cId]) {
+                        overrides[cId] = cloudFolder;
+                    }
                 }
 
                 applyFolderOverridesToCase(cloudCase);
+                registerDynamicFolder(cloudCase.folder_name);
 
                 const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
                 if (idx !== -1) {
@@ -4654,6 +4876,7 @@ async function loadCasesFromDatabase() {
                 window.registerCaseDDs(cloudCase);
             });
 
+            saveCaseFolderOverrides(overrides);
             localStorage.setItem('custom_cases', JSON.stringify(customCases));
         }
 
@@ -4675,6 +4898,12 @@ async function loadCasesFromDatabase() {
     }
 }
 
+// Automatischer Re-Sync, sobald die App auf iPhone / iPad aus dem Hintergrund geholt wird
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        loadCasesFromDatabase();
+    }
+});
 // ==========================================================================
 // 16. MOBILE CHALLENGE-PICKER, AUTO-SCROLL & EDITORIAL UX ENGINE
 // ==========================================================================
