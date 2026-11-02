@@ -3,13 +3,16 @@
    ========================================================================== */
 
 const FriendsModule = (() => {
-    const FRIENDS_LIST_KEY    = 'medcheck_friends_list_v1';
+    const LEGACY_FRIENDS_KEY  = 'medcheck_friends_list_v1';
+    const FRIENDS_LIST_KEY    = 'medcheck_friends_list_v2';
     const TELEMETRY_STATS_KEY = 'medcheck_telemetry_stats_v1';
     const FRIEND_CODE_KEY     = 'medcheck_my_friend_code';
 
     let currentSortBy = 'xp'; // 'xp' | 'monthly' | 'streak'
     let currentSearchTerm = '';
-    let cloudProfilesCache = [];
+    let syncState = 'idle'; // 'idle' | 'syncing' | 'synced' | 'offline' | 'error'
+    let syncErrorMessage = '';
+    let authListenerAttached = false;
 
     const CHALLENGE_LABELS = {
         audit:          { name: 'Klinisches Audit', icon: '📋', color: '#38bdf8' },
@@ -21,48 +24,32 @@ const FriendsModule = (() => {
         flashcards:     { name: 'Flashcards',       icon: '🗂️', color: '#ec4899' }
     };
 
-    // Realistische Kollegen-Profile für den sofortigen Start (und Offline-Modus)
-    const DEFAULT_COLLEAGUES = [
-        {
-            id: 'col_clara',
-            name: 'Clara M. Radu',
-            email: 'clara.radu@stud.unibas.ch',
-            avatar: '🩺',
-            xp: 1840,
-            monthlyCases: 14,
-            streak: 9,
-            favoriteChallenge: 'synapses',
-            challengeCounts: { audit: 18, quiz: 15, synapses: 29, cascades: 12, categorization: 9, doctordle: 21, flashcards: 24 },
-            statusText: 'Löst gerade Neuro-Fälle',
-            isOnline: true
-        },
-        {
-            id: 'col_benjamin',
-            name: 'Benjamin Inauen',
-            email: 'b.inauen@stud.unibas.ch',
-            avatar: '🔪',
-            xp: 1420,
-            monthlyCases: 11,
-            streak: 5,
-            favoriteChallenge: 'audit',
-            challengeCounts: { audit: 27, quiz: 14, synapses: 11, cascades: 16, categorization: 8, doctordle: 12, flashcards: 15 },
-            statusText: 'Chirurgie & Triage Fokus',
-            isOnline: true
-        },
-        {
-            id: 'col_elias',
-            name: 'Elias (Klinik-Team)',
-            email: 'elias.med@unibas.ch',
-            avatar: '🚑',
-            xp: 980,
-            monthlyCases: 8,
-            streak: 3,
-            favoriteChallenge: 'doctordle',
-            challengeCounts: { audit: 11, quiz: 12, synapses: 9, cascades: 7, categorization: 6, doctordle: 22, flashcards: 18 },
-            statusText: 'Vor 2 Std. in der Notaufnahme',
-            isOnline: false
+    // ======================================================================
+    // 0. LEGACY-CLEANUP (Entfernt alte Mock-User wie Benjamin, Elias, Clara)
+    // ======================================================================
+    function purgeLegacyMockData() {
+        try {
+            if (localStorage.getItem(LEGACY_FRIENDS_KEY) !== null) {
+                localStorage.removeItem(LEGACY_FRIENDS_KEY);
+            }
+            const current = JSON.parse(localStorage.getItem(FRIENDS_LIST_KEY) || '[]');
+            if (Array.isArray(current)) {
+                // Behalte ausschließlich verifizierte Cloud-Profile mit echter Supabase-ID
+                const cleaned = current.filter(f =>
+                    f &&
+                    f.isCloudVerified === true &&
+                    f.id &&
+                    !String(f.id).startsWith('col_') &&
+                    !String(f.id).startsWith('friend_')
+                );
+                if (cleaned.length !== current.length) {
+                    localStorage.setItem(FRIENDS_LIST_KEY, JSON.stringify(cleaned));
+                }
+            }
+        } catch (_e) {
+            localStorage.removeItem(FRIENDS_LIST_KEY);
         }
-    ];
+    }
 
     // ======================================================================
     // 1. TELEMETRIE & EIGENE MONATS-/CHALLENGE-STATISTIK
@@ -70,6 +57,38 @@ const FriendsModule = (() => {
     function getCurrentMonthKey() {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getSolvedCasesCountFallback() {
+        try {
+            const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+            return Array.isArray(solved) ? solved.length : 0;
+        } catch (_e) {
+            return 0;
+        }
+    }
+
+    function createInitialTelemetry(monthKey) {
+        const counts = { audit: 0, quiz: 0, synapses: 0, cascades: 0, categorization: 0, doctordle: 0, flashcards: 0 };
+        try {
+            const allProg = window.ProgressManager ? window.ProgressManager.getAll() : {};
+            Object.values(allProg).forEach(caseState => {
+                if (!caseState || typeof caseState !== 'object') return;
+                Object.keys(counts).forEach(k => {
+                    if (caseState[k]) counts[k] += 1;
+                });
+            });
+        } catch (_e) {}
+
+        const initial = {
+            monthlySolved: { [monthKey]: getSolvedCasesCountFallback() },
+            challengeCounts: counts,
+            pokesSent: 0
+        };
+        try {
+            localStorage.setItem(TELEMETRY_STATS_KEY, JSON.stringify(initial));
+        } catch (_e) {}
+        return initial;
     }
 
     function getMyTelemetry() {
@@ -91,37 +110,6 @@ const FriendsModule = (() => {
         } catch (_e) {
             return createInitialTelemetry(getCurrentMonthKey());
         }
-    }
-
-    function getSolvedCasesCountFallback() {
-        try {
-            const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-            return Array.isArray(solved) ? solved.length : 0;
-        } catch (_e) {
-            return 0;
-        }
-    }
-
-    function createInitialTelemetry(monthKey) {
-        // Initialisiert die Statistik intelligent anhand bereits vorhandener ProgressManager-Daten
-        const counts = { audit: 0, quiz: 0, synapses: 0, cascades: 0, categorization: 0, doctordle: 0, flashcards: 0 };
-        try {
-            const allProg = window.ProgressManager ? window.ProgressManager.getAll() : {};
-            Object.values(allProg).forEach(caseState => {
-                if (!caseState || typeof caseState !== 'object') return;
-                Object.keys(counts).forEach(k => {
-                    if (caseState[k]) counts[k] += 1;
-                });
-            });
-        } catch (_e) {}
-
-        const initial = {
-            monthlySolved: { [monthKey]: getSolvedCasesCountFallback() },
-            challengeCounts: counts,
-            pokesSent: 0
-        };
-        localStorage.setItem(TELEMETRY_STATS_KEY, JSON.stringify(initial));
-        return initial;
     }
 
     function saveMyTelemetry(data) {
@@ -151,7 +139,6 @@ const FriendsModule = (() => {
         syncMyStatsToCloud();
     }
 
-    // Klinkt sich automatisch in ProgressManager & finishCase ein
     function installTelemetryHooks() {
         if (window.ProgressManager && !window.ProgressManager._friendsHookInstalled) {
             const origSave = window.ProgressManager.saveCaseState.bind(window.ProgressManager);
@@ -180,10 +167,18 @@ const FriendsModule = (() => {
     // ======================================================================
     // 2. SPIELER-PROFIL & FREUNDESLISTE VERWALTEN
     // ======================================================================
-    function getMyFriendCode() {
+    function getMyFriendCode(userId) {
+        // Deterministischer Code anhand der Supabase-User-ID (identisch auf allen Geräten)
+        const uid = userId || window.currentSessionUser?.id;
+        if (uid && typeof uid === 'string' && uid.length >= 6) {
+            const deterministic = 'MC-BS-' + uid.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
+            localStorage.setItem(FRIEND_CODE_KEY, deterministic);
+            return deterministic;
+        }
+
         let code = localStorage.getItem(FRIEND_CODE_KEY);
         if (!code) {
-            const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
             code = `MC-BS-${randomPart}`;
             localStorage.setItem(FRIEND_CODE_KEY, code);
         }
@@ -209,6 +204,15 @@ const FriendsModule = (() => {
         return bestKey;
     }
 
+    function formatDisplayNameFromEmail(email) {
+        if (!email) return 'MedCheck User';
+        const prefix = email.split('@')[0] || email;
+        return prefix
+            .replace(/[._-]+/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase())
+            .trim();
+    }
+
     function getMyProfile() {
         const xp = parseInt(localStorage.getItem('user_xp') || '0', 10);
         const telemetry = getMyTelemetry();
@@ -221,17 +225,19 @@ const FriendsModule = (() => {
         const parsedStreak = parseInt(streakText, 10);
         if (!isNaN(parsedStreak) && parsedStreak > 0) streak = parsedStreak;
 
-        const userEmail = window.currentSessionUser?.email || 'du@stud.unibas.ch';
-        const displayName = window.currentSessionUser?.email
-            ? window.currentSessionUser.email.split('@')[0] + ' (Du)'
-            : 'Marco Nani (Du)';
+        const sessionUser = window.currentSessionUser || null;
+        const userEmail = (sessionUser?.email || '').toLowerCase();
+        const rawName = sessionUser?.user_metadata?.display_name ||
+                        sessionUser?.user_metadata?.full_name ||
+                        (userEmail ? formatDisplayNameFromEmail(userEmail) : 'Du');
 
         return {
-            id: 'me_user',
+            id: sessionUser?.id || 'me_local',
             isMe: true,
-            name: displayName,
-            email: userEmail,
-            friendCode: getMyFriendCode(),
+            name: `${rawName} (Du)`,
+            rawDisplayName: rawName,
+            email: userEmail || 'Nicht eingeloggt',
+            friendCode: getMyFriendCode(sessionUser?.id),
             avatar: '⚡',
             xp: xp,
             monthlyCases: monthlyCases,
@@ -245,21 +251,19 @@ const FriendsModule = (() => {
 
     function getFriendsList() {
         try {
-            const saved = JSON.parse(localStorage.getItem(FRIENDS_LIST_KEY) || 'null');
-            if (!Array.isArray(saved)) {
-                localStorage.setItem(FRIENDS_LIST_KEY, JSON.stringify(DEFAULT_COLLEAGUES));
-                return [...DEFAULT_COLLEAGUES];
-            }
-            return saved;
+            const saved = JSON.parse(localStorage.getItem(FRIENDS_LIST_KEY) || '[]');
+            if (!Array.isArray(saved)) return [];
+            return saved.filter(f => f && f.isCloudVerified === true);
         } catch (_e) {
-            return [...DEFAULT_COLLEAGUES];
+            return [];
         }
     }
 
     function saveFriendsList(list) {
         try {
-            localStorage.setItem(FRIENDS_LIST_KEY, JSON.stringify(list));
-            updateSidebarBadge(list.length);
+            const validList = Array.isArray(list) ? list.filter(f => f && f.isCloudVerified === true) : [];
+            localStorage.setItem(FRIENDS_LIST_KEY, JSON.stringify(validList));
+            updateSidebarBadge(validList.length);
         } catch (_e) {}
     }
 
@@ -272,28 +276,104 @@ const FriendsModule = (() => {
     }
 
     // ======================================================================
-    // 3. SUPABASE CLOUD-SYNC (FALLBACK-SICHER)
+    // 3. SUPABASE CLOUD-SYNC (PROFIL + FREUNDESLISTE + LIVE-STATS)
     // ======================================================================
     function getSupabase() {
-        return window.supabaseClient || window.supabase || window.sb || null;
+        // Wichtig: Prüfe auf .from (echte Client-Instanz), nicht auf das globale CDN-Namespace-Objekt!
+        if (window.supabaseClient && typeof window.supabaseClient.from === 'function') {
+            return window.supabaseClient;
+        }
+        if (window.sb && typeof window.sb.from === 'function') {
+            return window.sb;
+        }
+        if (window.supabase && typeof window.supabase.from === 'function') {
+            return window.supabase;
+        }
+        return null;
     }
 
-async function syncMyStatsToCloud() {
-        const sb = getSupabase();
-        if (!sb || !sb.auth) return;
+    async function waitForSupabase(maxWaitMs = 5000) {
+        const start = Date.now();
+        while (Date.now() - start < maxWaitMs) {
+            const sb = getSupabase();
+            if (sb && sb.auth) return sb;
+            await new Promise(r => setTimeout(r, 150));
+        }
+        return getSupabase();
+    }
+
+    function computeOnlineStatus(updatedAtIso) {
+        if (!updatedAtIso) {
+            return { isOnline: false, statusText: 'Verifiziertes Cloud-Profil' };
+        }
+        const diffMs = Date.now() - new Date(updatedAtIso).getTime();
+        const diffMin = Math.floor(diffMs / 60000);
+
+        if (diffMin < 15) {
+            return { isOnline: true, statusText: '🟢 Gerade aktiv im Dienst' };
+        }
+        if (diffMin < 60) {
+            return { isOnline: false, statusText: `Vor ${Math.max(1, diffMin)} Min. aktiv` };
+        }
+        const diffHours = Math.floor(diffMin / 60);
+        if (diffHours < 24) {
+            return { isOnline: false, statusText: `Vor ${diffHours} Std. aktiv` };
+        }
+        const diffDays = Math.floor(diffHours / 24);
+        return { isOnline: false, statusText: `Vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''} aktiv` };
+    }
+
+    function mapCloudRowToFriend(row, existingFriend = null) {
+        const avatars = ['🩺', '🧠', '🫀', '🔬', '🩻', '💉', '🧬'];
+        const deterministicAvatarIdx = (row.id || row.email || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % avatars.length;
+        const presence = computeOnlineStatus(row.updated_at);
+
+        const defaultCounts = { audit: 0, quiz: 0, synapses: 0, cascades: 0, categorization: 0, doctordle: 0, flashcards: 0 };
+        const counts = (row.challenge_counts && typeof row.challenge_counts === 'object')
+            ? { ...defaultCounts, ...row.challenge_counts }
+            : defaultCounts;
+
+        return {
+            id: row.id,
+            name: row.display_name || formatDisplayNameFromEmail(row.email),
+            email: (row.email || '').toLowerCase(),
+            friendCode: row.friend_code || getMyFriendCode(row.id),
+            avatar: existingFriend?.avatar || avatars[deterministicAvatarIdx] || '🩺',
+            xp: Number(row.xp) || 0,
+            monthlyCases: Number(row.monthly_cases) || 0,
+            streak: Number(row.streak) || 1,
+            favoriteChallenge: row.favorite_challenge || getMyFavoriteChallenge(counts),
+            challengeCounts: counts,
+            statusText: presence.statusText,
+            isOnline: presence.isOnline,
+            updatedAt: row.updated_at || null,
+            isCloudVerified: true
+        };
+    }
+
+    async function syncMyStatsToCloud() {
+        const sb = await waitForSupabase(3500);
+        if (!sb || !sb.auth) {
+            syncState = 'offline';
+            return false;
+        }
 
         try {
             const { data: { session } } = await sb.auth.getSession();
-            if (!session?.user) return;
+            if (!session?.user) {
+                syncState = 'offline';
+                return false;
+            }
 
+            window.currentSessionUser = session.user;
             const me = getMyProfile();
             const uid = session.user.id;
-            
-            const payload = {
+            const friendIds = getFriendsList().map(f => f.id).filter(Boolean);
+
+            const basePayload = {
                 id: uid,
-                user_id: uid,
                 email: (session.user.email || me.email || '').toLowerCase(),
-                display_name: (me.name || '').replace(' (Du)', '').trim(),
+                display_name: me.rawDisplayName || formatDisplayNameFromEmail(session.user.email),
                 friend_code: me.friendCode,
                 xp: Number(me.xp) || 0,
                 monthly_cases: Number(me.monthlyCases) || 0,
@@ -303,135 +383,271 @@ async function syncMyStatsToCloud() {
                 updated_at: new Date().toISOString()
             };
 
-            // Wir versuchen das Upsert. Wenn die Tabelle nicht existiert, fangen wir den Fehler ab.
-            const { error } = await sb.from('user_profiles').upsert(payload, { 
-                onConflict: 'id' 
-            });
+            // Versuch 1: Upsert mit friend_ids (falls Spalte in user_profiles existiert)
+            let { error } = await sb.from('user_profiles').upsert(
+                { ...basePayload, friend_ids: friendIds },
+                { onConflict: 'id' }
+            );
+
+            // Fallback: Falls friend_ids als Spalte noch nicht angelegt wurde, ohne friend_ids speichern
+            if (error && error.message && error.message.includes('friend_ids')) {
+                const retry = await sb.from('user_profiles').upsert(basePayload, { onConflict: 'id' });
+                error = retry.error;
+            }
 
             if (error) {
-                // Nur dezent in der Konsole loggen, damit die App nicht blockiert
-                console.debug("[Friends] Cloud-Sync im lokalen Fallback-Modus aktiv:", error.message);
+                syncState = 'error';
+                syncErrorMessage = error.message || 'Unbekannter Datenbankfehler';
+                console.warn('[Friends] Fehler beim Upsert in user_profiles:', error.message);
+                return false;
             }
+
+            syncState = 'synced';
+            syncErrorMessage = '';
+            return true;
         } catch (err) {
-            console.debug('[Friends] Supabase nicht erreichbar, nutze lokalen Speicher.');
+            syncState = 'error';
+            syncErrorMessage = err.message || 'Netzwerkfehler';
+            console.warn('[Friends] Cloud-Sync fehlgeschlagen:', err);
+            return false;
         }
+    }
+
+    // Speichert die Freundes-IDs zusätzlich in den Supabase User-Metadaten (100% Schema-unabhängig)
+    async function syncFriendIdsToAuthMetadata(friendsArray) {
+        const sb = getSupabase();
+        if (!sb || !sb.auth) return;
+
+        try {
+            const friendRefs = friendsArray.map(f => ({
+                id: f.id,
+                email: f.email,
+                friendCode: f.friendCode
+            }));
+            await sb.auth.updateUser({
+                data: { medcheck_friends_v2: friendRefs }
+            });
+        } catch (_e) {}
     }
 
     async function fetchFriendsFromCloud() {
-        const sb = getSupabase();
-        if (!sb) return;
+        const sb = await waitForSupabase(3500);
+        if (!sb || !sb.auth) {
+            syncState = 'offline';
+            return;
+        }
 
+        syncState = 'syncing';
         try {
-            const { data, error } = await sb
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session?.user) {
+                syncState = 'offline';
+                return;
+            }
+            window.currentSessionUser = session.user;
+            const myUid = session.user.id;
+
+            // 1. Eigenes Profil vorher pushen, damit unsere aktuellen Stats in der DB stehen
+            await syncMyStatsToCloud();
+
+            // 2. Lokale Freunde + evtl. in der Cloud gespeicherte Freunde (aus Auth-Metadata oder user_profiles) zusammenführen
+            const localFriends = getFriendsList();
+            const metaFriends = Array.isArray(session.user.user_metadata?.medcheck_friends_v2)
+                ? session.user.user_metadata.medcheck_friends_v2
+                : [];
+
+            // Prüfe auch, ob in user_profiles.friend_ids IDs hinterlegt sind
+            let profileFriendIds = [];
+            const { data: myRow } = await sb
                 .from('user_profiles')
-                .select('*')
-                .order('xp', { ascending: false })
-                .limit(50);
+                .select('friend_ids')
+                .eq('id', myUid)
+                .maybeSingle();
 
-            if (!error && Array.isArray(data) && data.length > 0) {
-                cloudProfilesCache = data;
-                const localFriends = getFriendsList();
-                let updated = false;
+            if (Array.isArray(myRow?.friend_ids)) {
+                profileFriendIds = myRow.friend_ids;
+            }
 
-                localFriends.forEach(friend => {
-                    const match = data.find(d =>
-                        (d.email && friend.email && d.email.toLowerCase() === friend.email.toLowerCase()) ||
-                        (d.friend_code && friend.friendCode && d.friend_code === friend.friendCode)
-                    );
-                    if (match) {
-                        friend.xp = match.xp ?? friend.xp;
-                        friend.monthlyCases = match.monthly_cases ?? friend.monthlyCases;
-                        friend.streak = match.streak ?? friend.streak;
-                        friend.favoriteChallenge = match.favorite_challenge || friend.favoriteChallenge;
-                        if (match.challenge_counts) friend.challengeCounts = match.challenge_counts;
-                        updated = true;
-                    }
+            // Alle bekannten Identifier (IDs & E-Mails) unserer hinzugefügten Freunde sammeln
+            const targetIds = new Set([
+                ...localFriends.map(f => f.id).filter(Boolean),
+                ...metaFriends.map(f => f.id).filter(Boolean),
+                ...profileFriendIds.filter(Boolean)
+            ]);
+            targetIds.delete(myUid); // Mich selbst nie als Freund führen
+
+            const targetEmails = new Set([
+                ...localFriends.map(f => (f.email || '').toLowerCase()).filter(Boolean),
+                ...metaFriends.map(f => (f.email || '').toLowerCase()).filter(Boolean)
+            ]);
+            if (session.user.email) targetEmails.delete(session.user.email.toLowerCase());
+
+            // Wenn der User noch gar keine Freunde geaddet hat -> Liste bleibt leer!
+            if (targetIds.size === 0 && targetEmails.size === 0) {
+                saveFriendsList([]);
+                syncState = 'synced';
+                return;
+            }
+
+            // 3. Live-Daten dieser Freunde aus Supabase abrufen
+            const idList = Array.from(targetIds);
+            const emailList = Array.from(targetEmails);
+
+            let matchedRows = [];
+
+            if (idList.length > 0) {
+                const { data: byIdData, error: idErr } = await sb
+                    .from('user_profiles')
+                    .select('*')
+                    .in('id', idList);
+
+                if (!idErr && Array.isArray(byIdData)) {
+                    matchedRows.push(...byIdData);
+                }
+            }
+
+            if (emailList.length > 0) {
+                const { data: byEmailData, error: emailErr } = await sb
+                    .from('user_profiles')
+                    .select('*')
+                    .in('email', emailList);
+
+                if (!emailErr && Array.isArray(byEmailData)) {
+                    byEmailData.forEach(row => {
+                        if (!matchedRows.some(r => r.id === row.id)) {
+                            matchedRows.push(row);
+                        }
+                    });
+                }
+            }
+
+            // 4. Nur tatsächlich in Supabase existierende Profile übernehmen & aktualisieren
+            const syncedFriends = matchedRows
+                .filter(row => row.id !== myUid)
+                .map(row => {
+                    const existing = localFriends.find(f => f.id === row.id || (f.email && row.email && f.email.toLowerCase() === row.email.toLowerCase()));
+                    return mapCloudRowToFriend(row, existing);
                 });
 
-                if (updated) saveFriendsList(localFriends);
-            }
-        } catch (_e) {
-            // Keine harten Exceptions im UI werfen
+            saveFriendsList(syncedFriends);
+            syncState = 'synced';
+        } catch (err) {
+            console.warn('[Friends] Fehler beim Abrufen der Freundesdaten:', err);
+            syncState = 'error';
+            syncErrorMessage = err.message || 'Synchronisationsfehler';
         }
     }
+
     // ======================================================================
-    // 4. FREUND HINZUFÜGEN, ENTFERNEN, ANFUNKEN & DUELLIEREN
+    // 4. FREUND HINZUFÜGEN (NUR ECHTE SUPABASE-USER), ENTFERNEN & INTERAKTION
     // ======================================================================
     async function addFriendByInput() {
         const inputEl = document.getElementById('friends-add-input');
-        const fbEl = document.getElementById('friends-add-feedback');
+        const addBtn = document.getElementById('friends-add-btn');
         if (!inputEl) return;
 
         const raw = inputEl.value.trim();
         if (!raw) {
-            showAddFeedback('Bitte gib eine E-Mail-Adresse, einen Namen oder einen Freundes-Code (z. B. MC-BS-...) ein.', 'error');
+            showAddFeedback('Bitte gib eine E-Mail-Adresse, einen Namen oder einen Pager-Code (z. B. MC-BS-...) ein.', 'error');
+            return;
+        }
+
+        const sb = await waitForSupabase(2500);
+        if (!sb || !sb.auth) {
+            showAddFeedback('Keine Verbindung zu Supabase. Bitte stelle sicher, dass du online und eingeloggt bist.', 'error');
+            return;
+        }
+
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session?.user) {
+            showAddFeedback('Bitte logge dich zuerst mit deinem MedCheck-Account ein, um Freunde hinzuzufügen.', 'error');
+            return;
+        }
+
+        const me = getMyProfile();
+        if (
+            raw.toLowerCase() === me.email.toLowerCase() ||
+            raw.toUpperCase() === me.friendCode.toUpperCase()
+        ) {
+            showAddFeedback('Das bist du selbst! Gib den Pager-Code oder die E-Mail eines Kollegen ein.', 'error');
             return;
         }
 
         const friends = getFriendsList();
-        const exists = friends.some(f =>
-            f.email.toLowerCase() === raw.toLowerCase() ||
-            f.name.toLowerCase() === raw.toLowerCase() ||
+        const alreadyAdded = friends.some(f =>
+            (f.email && f.email.toLowerCase() === raw.toLowerCase()) ||
+            (f.name && f.name.toLowerCase() === raw.toLowerCase()) ||
             (f.friendCode && f.friendCode.toLowerCase() === raw.toLowerCase())
         );
 
-        if (exists) {
-            showAddFeedback(`„${raw}“ befindet sich bereits in deinem Kollegium!`, 'error');
+        if (alreadyAdded) {
+            showAddFeedback(`„${raw}“ befindet sich bereits in deiner Freundesliste!`, 'error');
             return;
         }
 
-        // Prüfen, ob das Profil in Supabase existiert
-        const cloudMatch = cloudProfilesCache.find(d =>
-            (d.email && d.email.toLowerCase() === raw.toLowerCase()) ||
-            (d.friend_code && d.friend_code.toLowerCase() === raw.toLowerCase()) ||
-            (d.display_name && d.display_name.toLowerCase() === raw.toLowerCase())
-        );
+        if (addBtn) {
+            addBtn.disabled = true;
+            addBtn.textContent = 'Suche in Cloud...';
+        }
 
-        const avatars = ['🩺', '🧠', '🫀', '🔬', '🩻', '💉', '🧬'];
-        const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
-        const challengeKeys = Object.keys(CHALLENGE_LABELS);
-        const favKey = cloudMatch?.favorite_challenge || challengeKeys[Math.floor(Math.random() * challengeKeys.length)];
+        try {
+            // Suche den User live in der Supabase-Tabelle user_profiles
+            // Wir prüfen exakt/case-insensitive auf email, friend_code oder display_name
+            const cleanQuery = raw.replace(/[,()]/g, '').trim();
+            const { data: candidates, error } = await sb
+                .from('user_profiles')
+                .select('*')
+                .or(`email.ilike.${cleanQuery},friend_code.ilike.${cleanQuery},display_name.ilike.%${cleanQuery}%`)
+                .limit(5);
 
-        // Erzeuge sinnvolle Initialwerte (oder übernehme echte Cloud-Werte)
-        const cleanName = cloudMatch?.display_name || (raw.includes('@')
-            ? raw.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-            : raw);
+            if (error) {
+                showAddFeedback(`Datenbank-Abfrage fehlgeschlagen: ${error.message}. Prüfe bitte die Supabase-Tabelle 'user_profiles'.`, 'error');
+                return;
+            }
 
-        const cleanEmail = cloudMatch?.email || (raw.includes('@') ? raw.toLowerCase() : `${raw.toLowerCase().replace(/[^a-z0-9]/g, '')}@stud.unibas.ch`);
+            // Eigenes Profil aus den Treffern herausfiltern
+            const validMatches = (candidates || []).filter(row => row.id !== session.user.id);
 
-        const newFriend = {
-            id: 'friend_' + Date.now(),
-            name: cleanName,
-            email: cleanEmail,
-            friendCode: cloudMatch?.friend_code || null,
-            avatar: randomAvatar,
-            xp: cloudMatch?.xp ?? Math.floor(450 + Math.random() * 1100),
-            monthlyCases: cloudMatch?.monthly_cases ?? Math.floor(4 + Math.random() * 12),
-            streak: cloudMatch?.streak ?? Math.floor(1 + Math.random() * 7),
-            favoriteChallenge: favKey,
-            challengeCounts: cloudMatch?.challenge_counts || {
-                audit: Math.floor(5 + Math.random() * 18),
-                quiz: Math.floor(5 + Math.random() * 18),
-                synapses: Math.floor(5 + Math.random() * 18),
-                cascades: Math.floor(3 + Math.random() * 12),
-                categorization: Math.floor(3 + Math.random() * 10),
-                doctordle: Math.floor(4 + Math.random() * 16),
-                flashcards: Math.floor(6 + Math.random() * 20)
-            },
-            statusText: cloudMatch ? 'Verifiziertes Cloud-Profil' : 'Neu im Kollegium',
-            isOnline: true
-        };
+            if (validMatches.length === 0) {
+                showAddFeedback(`Kein registrierter MedCheck-User für „${raw}“ gefunden. Dein Kollege muss sich mindestens einmal in der App eingeloggt haben.`, 'error');
+                return;
+            }
 
-        friends.push(newFriend);
-        saveFriendsList(friends);
-        inputEl.value = '';
+            // Bevorzuge exakten Treffer auf E-Mail oder Pager-Code, sonst ersten Namens-Treffer
+            const exactMatch = validMatches.find(row =>
+                (row.email && row.email.toLowerCase() === cleanQuery.toLowerCase()) ||
+                (row.friend_code && row.friend_code.toLowerCase() === cleanQuery.toLowerCase()) ||
+                (row.display_name && row.display_name.toLowerCase() === cleanQuery.toLowerCase())
+            ) || validMatches[0];
 
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 30, 10]);
-        renderView();
-        showAddFeedback(`✓ ${cleanName} wurde erfolgreich zu deinem Kollegium hinzugefügt!`, 'success');
+            if (friends.some(f => f.id === exactMatch.id)) {
+                showAddFeedback(`„${exactMatch.display_name || exactMatch.email}“ ist bereits in deiner Freundesliste!`, 'error');
+                return;
+            }
+
+            const newFriend = mapCloudRowToFriend(exactMatch);
+            friends.push(newFriend);
+            saveFriendsList(friends);
+
+            // Synchronisiere die aktualisierte Freundesliste sofort in die Cloud
+            await syncFriendIdsToAuthMetadata(friends);
+            await syncMyStatsToCloud();
+
+            inputEl.value = '';
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 30, 10]);
+            renderView();
+            showAddFeedback(`✓ ${newFriend.name} (${newFriend.friendCode}) wurde verifiziert und hinzugefügt!`, 'success');
+        } catch (err) {
+            showAddFeedback(`Fehler bei der Benutzersuche: ${err.message || 'Unbekannter Fehler'}`, 'error');
+        } finally {
+            if (addBtn) {
+                addBtn.disabled = false;
+                addBtn.textContent = '+ Freund hinzufügen';
+            }
+        }
     }
 
-    function removeFriend(friendId) {
+    async function removeFriend(friendId) {
         const friends = getFriendsList();
         const target = friends.find(f => f.id === friendId);
         if (!target) return;
@@ -441,6 +657,17 @@ async function syncMyStatsToCloud() {
         const filtered = friends.filter(f => f.id !== friendId);
         saveFriendsList(filtered);
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+        renderView();
+
+        await syncFriendIdsToAuthMetadata(filtered);
+        await syncMyStatsToCloud();
+    }
+
+    async function manualSync() {
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+        syncState = 'syncing';
+        renderView();
+        await fetchFriendsFromCloud();
         renderView();
     }
 
@@ -456,7 +683,6 @@ async function syncMyStatsToCloud() {
             }, 2500);
         }
 
-        // Zeige MedCheck Toast
         const toast = document.createElement('div');
         toast.className = 'gamification-toast joker';
         toast.innerHTML = `📟 Pager-Funk an <strong>${escapeSafe(friendName)}</strong> gesendet: „Zeit für eine Schicht in MedCheck!“`;
@@ -468,9 +694,10 @@ async function syncMyStatsToCloud() {
     function challengeFriendToDuel(friendEmail) {
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
         const navDuel = document.getElementById('nav-duel');
-        window.switchTab('duel', navDuel);
+        if (typeof window.switchTab === 'function') {
+            window.switchTab('duel', navDuel);
+        }
 
-        // Übergibt die E-Mail direkt in das Suchfeld der Klinik-Duell-Arena
         setTimeout(() => {
             const emailInput = document.querySelector('.duel-email-input') || document.getElementById('duel-opponent-email');
             if (emailInput) {
@@ -481,7 +708,7 @@ async function syncMyStatsToCloud() {
     }
 
     function copyMyFriendCode(btnEl) {
-        const code = getMyFriendCode();
+        const code = getMyProfile().friendCode;
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(code).catch(() => {});
         }
@@ -499,7 +726,7 @@ async function syncMyStatsToCloud() {
         fbEl.className = `friends-feedback ${type}`;
         fbEl.textContent = msg;
         fbEl.classList.remove('hidden');
-        setTimeout(() => fbEl.classList.add('hidden'), 4000);
+        setTimeout(() => fbEl.classList.add('hidden'), 5000);
     }
 
     // ======================================================================
@@ -537,12 +764,13 @@ async function syncMyStatsToCloud() {
             });
         });
 
-        const totalChallengeRuns = Object.values(combinedChallenges).reduce((a, b) => a + b, 0) || 1;
+        const rawTotalRuns = Object.values(combinedChallenges).reduce((a, b) => a + b, 0);
+        const divisor = rawTotalRuns || 1;
         const sortedChallenges = Object.entries(combinedChallenges)
             .map(([key, count]) => ({
                 key,
                 count,
-                pct: Math.round((count / totalChallengeRuns) * 100),
+                pct: rawTotalRuns > 0 ? Math.round((count / divisor) * 100) : 0,
                 meta: CHALLENGE_LABELS[key] || { name: key, icon: '⚡', color: '#38bdf8' }
             }))
             .sort((a, b) => b.count - a.count);
@@ -550,10 +778,23 @@ async function syncMyStatsToCloud() {
         return {
             totalMonthlyCases,
             totalXp,
-            totalChallengeRuns,
+            totalChallengeRuns: rawTotalRuns,
             topChallenge: sortedChallenges[0],
             sortedChallenges
         };
+    }
+
+    function getSyncBadgeHtml() {
+        if (syncState === 'syncing') {
+            return `<span style="font-size:0.75rem; color:#38bdf8;">🔄 Synchronisiere...</span>`;
+        }
+        if (syncState === 'synced') {
+            return `<span style="font-size:0.75rem; color:#10b981;">🟢 Cloud synchronisiert</span>`;
+        }
+        if (syncState === 'error') {
+            return `<span style="font-size:0.75rem; color:#f43f5e;" title="${escapeSafe(syncErrorMessage)}">⚠️ Sync-Fehler (Prüfe DB)</span>`;
+        }
+        return `<span style="font-size:0.75rem; color:var(--text-muted);">🟠 Offline / Lokal</span>`;
     }
 
     function renderView() {
@@ -561,13 +802,12 @@ async function syncMyStatsToCloud() {
         if (!container) return;
 
         const me = getMyProfile();
-        const friends = getFriendsList();
+        const friends = getFriendsList(); // Enthält NUR echte, hinzugefügte Freunde!
         updateSidebarBadge(friends.length);
 
         const allParticipants = [me, ...friends];
         const stats = computeCommunityStats(allParticipants);
 
-        // Sortieren für das Scoreboard
         const sortedBoard = [...allParticipants]
             .filter(p => !currentSearchTerm || p.name.toLowerCase().includes(currentSearchTerm) || p.email.toLowerCase().includes(currentSearchTerm))
             .sort((a, b) => {
@@ -579,31 +819,36 @@ async function syncMyStatsToCloud() {
         const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
         const currentMonthName = monthNames[new Date().getMonth()];
 
-        // Gemeinsames Monatsziel (z. B. 50 Fälle im Monat)
-        const teamGoalTarget = Math.max(50, allParticipants.length * 12);
+        const teamGoalTarget = Math.max(20, allParticipants.length * 12);
         const teamGoalPct = Math.min(100, Math.round((stats.totalMonthlyCases / teamGoalTarget) * 100));
 
-        // Top 3 Podium (aus der ungefilterten Sortierung)
         const fullSorted = [...allParticipants].sort((a, b) => {
             if (currentSortBy === 'monthly') return (b.monthlyCases || 0) - (a.monthlyCases || 0);
             if (currentSortBy === 'streak')  return (b.streak || 0) - (a.streak || 0);
             return (b.xp || 0) - (a.xp || 0);
         });
 
+        // Podium-Reihenfolge: Wenn 3+ Personen -> [Platz 2, Platz 1, Platz 3], sonst absteigend
+        const podiumOrder = fullSorted.length >= 3 ? [1, 0, 2] : fullSorted.map((_, i) => i);
+
         container.innerHTML = `
             <div class="friends-wrapper">
                 <!-- 1. HEADER & FREUNDES-CODE -->
                 <div class="friends-header-card">
                     <div>
-                        <div class="friends-kicker">KLINISCHES KOLLEGIUM & TELEMETRIE</div>
+                        <div class="friends-kicker" style="display:flex; align-items:center; gap:12px;">
+                            <span>KLINISCHES KOLLEGIUM & TELEMETRIE</span>
+                            ${getSyncBadgeHtml()}
+                        </div>
                         <h2 class="friends-main-title">👥 Freunde & Scoreboard</h2>
-                        <p class="friends-subtitle">Vergleiche deinen monatlichen Fall-Durchsatz, sieh dir die beliebtesten Challenges an und fordere Kollegen heraus.</p>
+                        <p class="friends-subtitle">Verbinde dich über E-Mail oder Pager-Code mit echten Kommilitonen, vergleiche euren Fall-Durchsatz und fordere sie heraus.</p>
                     </div>
                     <div class="friends-code-box">
                         <span class="friends-code-label">Dein Pager-Code:</span>
                         <div class="friends-code-row">
                             <code id="my-friend-code-display">${escapeSafe(me.friendCode)}</code>
                             <button type="button" class="action-btn secondary btn-sm" onclick="window.FriendsModule.copyMyFriendCode(this)">📋 Kopieren</button>
+                            <button type="button" class="action-btn secondary btn-sm" onclick="window.FriendsModule.manualSync()" title="Jetzt mit Supabase synchronisieren">🔄 Sync</button>
                         </div>
                     </div>
                 </div>
@@ -613,9 +858,9 @@ async function syncMyStatsToCloud() {
                     <div class="friends-add-row">
                         <div class="friends-input-wrap">
                             <span class="friends-input-icon">🔍</span>
-                            <input type="text" id="friends-add-input" class="friends-add-input" placeholder="Kommilitonen per E-Mail (z.B. name@stud.unibas.ch), Name oder Pager-Code hinzufügen..." onkeydown="if(event.key==='Enter') window.FriendsModule.addFriendByInput()">
+                            <input type="text" id="friends-add-input" class="friends-add-input" placeholder="Registrierten User per E-Mail, Name oder Pager-Code (z.B. MC-BS-...) suchen..." onkeydown="if(event.key==='Enter') window.FriendsModule.addFriendByInput()">
                         </div>
-                        <button type="button" class="action-btn" onclick="window.FriendsModule.addFriendByInput()">+ Freund hinzufügen</button>
+                        <button type="button" id="friends-add-btn" class="action-btn" onclick="window.FriendsModule.addFriendByInput()">+ Freund hinzufügen</button>
                     </div>
                     <div id="friends-add-feedback" class="friends-feedback hidden"></div>
                 </div>
@@ -669,7 +914,7 @@ async function syncMyStatsToCloud() {
                     <div class="friends-board-card">
                         <div class="friends-board-header">
                             <div>
-                                <h3 style="margin: 0; font-size: 1.1rem;">🏆 Kollegiums-Scoreboard</h3>
+                                <h3 style="margin: 0; font-size: 1.1rem;">🏆 Kollegiums-Scoreboard (${friends.length} ${friends.length === 1 ? 'Freund' : 'Freunde'})</h3>
                                 <span style="font-size: 0.78rem; color: var(--text-muted);">Sortiert nach ${currentSortBy === 'xp' ? 'Gesamt-XP' : (currentSortBy === 'monthly' ? `Fällen im ${currentMonthName}` : 'Dienst-Streak')}</span>
                             </div>
                             <div class="segmented-control" style="margin: 0;">
@@ -679,9 +924,9 @@ async function syncMyStatsToCloud() {
                             </div>
                         </div>
 
-                        <!-- Top 3 Podium -->
+                        <!-- Top Podium -->
                         <div class="friends-podium-row">
-                            ${[1, 0, 2].map(posIdx => {
+                            ${podiumOrder.map(posIdx => {
                                 const p = fullSorted[posIdx];
                                 if (!p) return '';
                                 const rankNum = posIdx + 1;
@@ -753,6 +998,16 @@ async function syncMyStatsToCloud() {
                                     </div>
                                 `;
                             }).join('')}
+
+                            ${friends.length === 0 ? `
+                                <div style="margin-top: 14px; padding: 18px; border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 12px; text-align: center; background: rgba(15, 23, 42, 0.4);">
+                                    <div style="font-size: 1.5rem; margin-bottom: 6px;">📟</div>
+                                    <strong style="display: block; margin-bottom: 4px; color: var(--text-main);">Noch keine Kollegen in deiner Freundesliste</strong>
+                                    <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted);">
+                                        Teile deinen Pager-Code <code>${escapeSafe(me.friendCode)}</code> oder gib oben die E-Mail-Adresse bzw. den Code eines registrierten Kommilitonen ein.
+                                    </p>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
 
@@ -771,12 +1026,12 @@ async function syncMyStatsToCloud() {
                                             <span class="popularity-name">
                                                 <span>${item.meta.icon}</span>
                                                 <strong>${escapeSafe(item.meta.name)}</strong>
-                                                ${idx === 0 ? '<span class="top-choice-pill">★ Nr. 1</span>' : ''}
+                                                ${idx === 0 && item.count > 0 ? '<span class="top-choice-pill">★ Nr. 1</span>' : ''}
                                             </span>
                                             <span class="popularity-numbers">${item.count}× (${item.pct}%)</span>
                                         </div>
                                         <div class="popularity-bar-track">
-                                            <div class="popularity-bar-fill" style="width: ${Math.max(6, item.pct)}%; background: ${item.meta.color};"></div>
+                                            <div class="popularity-bar-fill" style="width: ${item.count > 0 ? Math.max(6, item.pct) : 0}%; background: ${item.meta.color};"></div>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -791,7 +1046,7 @@ async function syncMyStatsToCloud() {
                             </p>
                             <div class="monthly-comparison-list">
                                 ${[...allParticipants].sort((a, b) => (b.monthlyCases || 0) - (a.monthlyCases || 0)).map(p => {
-                                    const maxCases = Math.max(15, ...allParticipants.map(x => x.monthlyCases || 0));
+                                    const maxCases = Math.max(10, ...allParticipants.map(x => x.monthlyCases || 0));
                                     const widthPct = Math.min(100, Math.round(((p.monthlyCases || 0) / maxCases) * 100));
                                     return `
                                         <div class="monthly-comp-row">
@@ -800,7 +1055,7 @@ async function syncMyStatsToCloud() {
                                                 <strong>${p.monthlyCases || 0} Fälle</strong>
                                             </div>
                                             <div class="popularity-bar-track">
-                                                <div class="popularity-bar-fill" style="width: ${Math.max(5, widthPct)}%; background: ${p.isMe ? 'var(--accent-blue)' : 'var(--color-symptom)'};"></div>
+                                                <div class="popularity-bar-fill" style="width: ${(p.monthlyCases || 0) > 0 ? Math.max(5, widthPct) : 0}%; background: ${p.isMe ? 'var(--accent-blue)' : 'var(--color-symptom)'};"></div>
                                             </div>
                                         </div>
                                     `;
@@ -815,17 +1070,36 @@ async function syncMyStatsToCloud() {
     }
 
     async function openView() {
+        purgeLegacyMockData();
         installTelemetryHooks();
         renderView();
         await fetchFriendsFromCloud();
         renderView();
     }
 
-    function init() {
+    async function init() {
+        purgeLegacyMockData();
         installTelemetryHooks();
         const friends = getFriendsList();
         updateSidebarBadge(friends.length);
-        syncMyStatsToCloud();
+
+        const sb = await waitForSupabase(5000);
+        if (sb && sb.auth && !authListenerAttached) {
+            authListenerAttached = true;
+            sb.auth.onAuthStateChange((event, session) => {
+                if (session?.user) {
+                    window.currentSessionUser = session.user;
+                    fetchFriendsFromCloud().then(() => {
+                        const container = document.getElementById('friends-view');
+                        if (container && !container.classList.contains('hidden')) {
+                            renderView();
+                        }
+                    });
+                }
+            });
+        }
+
+        await fetchFriendsFromCloud();
     }
 
     return {
@@ -839,6 +1113,7 @@ async function syncMyStatsToCloud() {
         pokeFriend,
         challengeFriendToDuel,
         copyMyFriendCode,
+        manualSync,
         recordChallengeActivity,
         recordMonthlyCaseSolved
     };
