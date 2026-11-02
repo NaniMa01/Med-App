@@ -5428,3 +5428,115 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+
+
+// ==========================================================================
+// 18. CLINICAL UI EMOJI-SANITIZER (GLOBALER ZERO-EMOJI DOM-FILTER)
+// ==========================================================================
+const ClinicalUISanitizer = (() => {
+    // 1. Gezielte Ersetzungen für funktionale Icon-Buttons, damit Buttons ohne Text weiterhin ein klares Symbol haben
+    const FUNCTIONAL_REPLACEMENTS = [
+        [/☁️✕|☁✕/g, 'Unpublish'],
+        [/✏️|✏/g, '✎'],
+        [/🗑️|🗑/g, '×'],
+        [/➕/g, '+'],
+        [/🔄/g, '↻']
+    ];
+
+    // 2. Umfassendes Regex für alle dekorativen Emojis (inkl. Variation Selectors & Surrogate Pairs)
+    const DECORATIVE_EMOJI_REGEX = /(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uFE0F|\u200D)+/gu;
+
+    function sanitizeString(rawStr) {
+        if (!rawStr || typeof rawStr !== 'string') return rawStr;
+        let out = rawStr;
+
+        for (const [pattern, replacement] of FUNCTIONAL_REPLACEMENTS) {
+            out = out.replace(pattern, replacement);
+        }
+
+        // Bewahrt normale mathematische/klinische Symbole (→, ←, ↑, ↓, ✓, ✕, ×, ≥, ≤, ±, ▸, ▾, ⠿, ⓘ, ◆, ●, ▲, ■, ✦)
+        out = out.replace(DECORATIVE_EMOJI_REGEX, '');
+
+        // Bereinigt doppelte Leerzeichen, die nach dem Entfernen eines Emojis am Wortanfang entstehen
+        return out.replace(/^ +/, '').replace(/ {2,}/g, ' ');
+    }
+
+    function sanitizeTextNodesInSubtree(rootNode) {
+        if (!rootNode) return;
+
+        if (rootNode.nodeType === Node.TEXT_NODE) {
+            const parentTag = rootNode.parentElement?.tagName;
+            if (parentTag === 'SCRIPT' || parentTag === 'STYLE' || parentTag === 'TEXTAREA') return;
+            const cleaned = sanitizeString(rootNode.nodeValue);
+            if (cleaned !== rootNode.nodeValue) {
+                rootNode.nodeValue = cleaned;
+            }
+            return;
+        }
+
+        const walker = document.createTreeWalker(
+            rootNode,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode(node) {
+                    const tag = node.parentElement?.tagName;
+                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA' || tag === 'CODE') {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+
+        let currentNode = walker.nextNode();
+        while (currentNode) {
+            const orig = currentNode.nodeValue;
+            if (orig && orig.trim().length > 0) {
+                const cleaned = sanitizeString(orig);
+                if (cleaned !== orig) {
+                    currentNode.nodeValue = cleaned;
+                }
+            }
+            currentNode = walker.nextNode();
+        }
+    }
+
+    function init() {
+        // Initialer Durchlauf über das gesamte Dokument
+        sanitizeTextNodesInSubtree(document.body);
+
+        // Echtzeit-Überwachung für alle dynamisch nachgeladenen Module (Friends, Duel, Mindmap, Spaced Repetition, Toasts)
+        const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                if (m.type === 'characterData') {
+                    sanitizeTextNodesInSubtree(m.target);
+                } else if (m.type === 'childList' && m.addedNodes.length > 0) {
+                    m.addedNodes.forEach(node => sanitizeTextNodesInSubtree(node));
+                }
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+
+        // Bereinigt auch native Browser-Alerts/Confirms automatisch von Emojis
+        const origAlert = window.alert;
+        window.alert = function(msg) {
+            return origAlert.call(window, sanitizeString(String(msg || '')));
+        };
+        const origConfirm = window.confirm;
+        window.confirm = function(msg) {
+            return origConfirm.call(window, sanitizeString(String(msg || '')));
+        };
+    }
+
+    return { init, sanitizeString };
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+    ClinicalUISanitizer.init();
+});
