@@ -4788,6 +4788,19 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     }
 }
 
+/* Auf Touch-Geräten (iPad & iPhone) Ordner-Werkzeuge im Dashboard immer dezent einblenden */
+@media (hover: none), (pointer: coarse) {
+    .super-folder-header .folder-hover-tools,
+    .category-header .folder-hover-tools {
+        opacity: 0.9 !important;
+        pointer-events: auto !important;
+    }
+    .case-card .delete-case-btn,
+    .case-card .unpublish-case-btn {
+        opacity: 0.75 !important;
+    }
+}
+
 /* ==========================================================================
    24. FREUNDE, SCOREBOARD & KLINIK-TELEMETRIE (friends.js)
    ========================================================================== */
