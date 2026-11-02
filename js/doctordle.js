@@ -294,9 +294,9 @@ class DoctordleController {
 
                 // Critical Hit bei Stufe 1: +100% XP Bonus!
                 if (isFirstTryCrit) {
-                    baseXP *= 2;
+                    baseXP *= 1.4;
                     if (window.Gamification && typeof window.Gamification.triggerCriticalHit === 'function') {
-                        window.Gamification.triggerCriticalHit('Doctordle auf Stufe 1 geknackt (+100% XP)');
+                        window.Gamification.triggerCriticalHit('Doctordle auf Stufe 1 geknackt (++ XP)');
                     }
                 }
 
@@ -310,7 +310,7 @@ class DoctordleController {
                 this.resultBox.style.color = isFirstTryCrit ? '#fef08a' : '#86efac';
 
                 this.resultBox.innerHTML = `
-                    <strong>${isFirstTryCrit ? '⚡ CRITICAL HIT – BLITZ-DEDUKTION AUF STUFE 1!' : 'Exzellent diagnostiziert!'}</strong><br>
+                    <strong>${isFirstTryCrit ? '⚡ CRITICAL HIT – BLITZ-DIAGNOSE AUF STUFE 1!' : 'Exzellent diagnostiziert!'}</strong><br>
                     Diagnose: <em>${p.target_diagnosis}</em> im ${this.currentAttempt + 1}. Versuch erkannt.<br>
                     <strong>+${finalEarnedXP} XP erhalten ${isFirstTryCrit ? '(inkl. 2x Critical-Hit-Bonus!)' : ''}.</strong>
                     ${p.learning_pearl ? `<div style="margin-top:8px; font-size:0.85rem; color:#f1f5f9;">💡 ${p.learning_pearl}</div>` : ''}
