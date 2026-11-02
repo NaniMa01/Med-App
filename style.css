@@ -5300,7 +5300,7 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 }
 
 /* ==========================================================================
-   25. SOLITAIRE ASSOCIATIONS JOURNEY (solitaire.js)
+   25. SOLITAIRE ASSOCIATIONS JOURNEY V2.0 (3D STACKING & FX ENGINE)
    ========================================================================== */
 .sol-lobby-wrapper,
 .sol-game-wrapper {
@@ -5411,6 +5411,18 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     flex-wrap: wrap;
 }
 
+.sol-combo-pill {
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(239, 68, 68, 0.22));
+    border: 1px solid #f59e0b;
+    color: #fde047;
+    font-size: 0.78rem;
+    font-weight: 800;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+    animation: solMatchPop 0.35s var(--ease-spring) both;
+}
+
 .sol-moves-pill {
     display: flex;
     align-items: center;
@@ -5432,7 +5444,6 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     background: rgba(239, 68, 68, 0.2);
     border-color: #ef4444;
     color: #fca5a5;
-    animation: pulseSuccess 0.8s infinite alternate;
 }
 
 .sol-power-btn {
@@ -5497,7 +5508,7 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    min-height: 132px;
+    min-height: 148px;
     transition: transform 0.18s var(--ease-spring), border-color 0.2s, box-shadow 0.2s;
 }
 .sol-stock-slot:hover {
@@ -5522,9 +5533,9 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 .sol-waste-slot {
     display: flex;
     align-items: stretch;
-    min-height: 132px;
+    min-height: 148px;
 }
-.sol-waste-slot .sol-card {
+.sol-waste-slot .sol-stacked-group {
     width: 100%;
     margin: 0 !important;
 }
@@ -5547,12 +5558,13 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 
 .sol-foundation-slot {
     border-radius: 14px;
-    min-height: 136px;
+    min-height: 152px;
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: all 0.2s var(--ease-out);
+    position: relative;
+    transition: transform 0.22s var(--ease-spring), box-shadow 0.22s ease, border-color 0.2s ease;
     cursor: pointer;
 }
 .sol-foundation-slot.is-empty-foundation {
@@ -5566,19 +5578,25 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 .sol-foundation-slot.is-empty-foundation:hover,
 .sol-foundation-slot.drag-over {
     border-color: #facc15;
-    background: rgba(250, 204, 21, 0.1);
-    transform: translateY(-2px);
+    background: rgba(250, 204, 21, 0.12);
+    transform: translateY(-3px) scale(1.01);
 }
 .sol-foundation-crown-icon { font-size: 1.45rem; opacity: 0.8; }
 .sol-foundation-empty-text { font-size: 0.74rem; font-weight: 700; color: var(--text-dim); line-height: 1.35; }
 
+/* Physische 3D-Kartenstapel-Schatten unter aktiven Foundation-Slots */
 .sol-foundation-slot.is-active-foundation {
-    background: linear-gradient(160deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.88));
+    background: linear-gradient(160deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.92));
     border: 2px solid var(--disease-accent, #38bdf8);
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    box-shadow:
+        0 3px 0 -1px rgba(15, 23, 42, 0.98),
+        0 3px 0 0 var(--disease-accent, #38bdf8),
+        0 6px 0 -1px rgba(15, 23, 42, 0.98),
+        0 6px 0 0 rgba(56, 189, 248, 0.45),
+        0 12px 26px rgba(0, 0, 0, 0.45);
 }
 .sol-foundation-slot.is-active-foundation:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 .sol-foundation-top {
     display: flex;
@@ -5606,30 +5624,54 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 .sol-inspect-btn:hover { border-color: var(--accent-blue); }
 
 .sol-foundation-title {
-    font-size: 0.86rem;
+    font-size: 0.85rem;
     font-weight: 800;
     color: var(--text-main);
-    line-height: 1.3;
-    margin: 6px 0;
+    line-height: 1.28;
+    margin: 4px 0;
 }
 .sol-foundation-progress-track {
     width: 100%;
-    height: 6px;
+    height: 5px;
     background: rgba(255, 255, 255, 0.09);
     border-radius: 999px;
     overflow: hidden;
+    margin-bottom: 6px;
 }
 .sol-foundation-progress-fill {
     height: 100%;
     transition: width 0.35s ease;
 }
-.sol-foundation-last-term {
-    font-size: 0.7rem;
-    color: var(--text-muted);
+
+/* Aufgeschichtete Mini-Karten im Foundation-Slot */
+.sol-foundation-mini-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: auto;
+}
+.sol-foundation-empty-sub {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    font-style: italic;
+}
+.sol-foundation-layered-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 7px;
+    background: rgba(6, 9, 19, 0.68);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    font-size: 0.69rem;
+    font-weight: 700;
+    color: var(--text-main);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+}
+.sol-foundation-layered-text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 6px;
 }
 
 /* Gelöste Krankheitsbilder Leiste */
@@ -5652,29 +5694,31 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     padding: 4px 10px;
     border-radius: 999px;
     cursor: pointer;
+    transition: transform 0.15s ease;
 }
+.sol-completed-pill:hover { transform: scale(1.04); }
 
-/* --- TABLEAU SPALTEN & KARTEN-DESIGN --- */
+/* --- TABLEAU SPALTEN & OPTISCHES KASKADEN-STACKING --- */
 .sol-tableau-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 14px;
     align-items: start;
-    min-height: 420px;
-    padding-bottom: 30px;
+    min-height: 440px;
+    padding-bottom: 36px;
 }
 
 .sol-tableau-col {
     display: flex;
     flex-direction: column;
-    min-height: 280px;
+    min-height: 300px;
     border-radius: 14px;
     padding: 6px;
     transition: background 0.18s ease;
 }
 .sol-tableau-col.drag-over-col {
-    background: rgba(56, 189, 248, 0.08);
-    outline: 2px dashed rgba(56, 189, 248, 0.45);
+    background: rgba(56, 189, 248, 0.09);
+    outline: 2px dashed rgba(56, 189, 248, 0.5);
 }
 
 .sol-tableau-empty-dropzone {
@@ -5690,20 +5734,91 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     cursor: pointer;
 }
 
+/* Container für eine Karte oder einen physisch geschichteten Kartenstapel */
+.sol-stacked-group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.22s var(--ease-spring), filter 0.2s ease;
+}
+
+/* Vertikale Solitaire-Überlappung in den Spalten */
+.sol-tableau-col > *:not(:first-child) {
+    margin-top: -18px;
+}
+.sol-tableau-col > .sol-card-back + * {
+    margin-top: -22px;
+}
+
+/* PHYSISCHE KARTEN-KASKADE (PEEKING SLICES OBEN AUS DEM STAPEL) */
+.sol-stack-peeking-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0 4px;
+    margin-bottom: -10px;
+    z-index: 1;
+}
+
+.sol-stack-peek-slice {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px 14px 11px;
+    margin-bottom: -8px;
+    border-radius: 11px 11px 0 0;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.96) 100%);
+    border: 1.5px solid rgba(56, 189, 248, 0.38);
+    border-left: 4px solid var(--slice-accent, #38bdf8);
+    box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.35);
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-main);
+    transition: margin-bottom 0.24s var(--ease-spring), transform 0.24s var(--ease-spring), background 0.2s ease;
+}
+
+/* Hover-Fan-Out: Beim Überfahren fächert sich der physische Kartenstapel sanft auseinander! */
+.sol-stacked-group.has-physical-stack:hover .sol-stack-peek-slice {
+    margin-bottom: -2px;
+    background: rgba(30, 41, 59, 1);
+}
+
+.sol-peek-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.sol-peek-term {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sol-peek-cat {
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+/* 3D-Kartenkanten unter einem mehrteiligen Stapel */
+.sol-stacked-group.has-physical-stack > .sol-card {
+    z-index: 2;
+    border-color: var(--disease-accent, rgba(56, 189, 248, 0.55));
+    box-shadow:
+        0 3px 0 -1px rgba(10, 15, 29, 0.98),
+        0 3px 0 0 var(--disease-accent, #38bdf8),
+        0 6px 0 -2px rgba(10, 15, 29, 0.98),
+        0 6px 0 -1px rgba(56, 189, 248, 0.45),
+        0 12px 24px rgba(0, 0, 0, 0.5);
+}
+
 .sol-card {
     border-radius: 13px;
     padding: 12px 14px;
     position: relative;
     transition: transform 0.2s var(--ease-spring), box-shadow 0.2s ease, border-color 0.2s ease;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
-}
-
-/* Überlappungs-Geometrie im Tableau */
-.sol-tableau-col .sol-card:not(:first-child) {
-    margin-top: -18px;
-}
-.sol-tableau-col .sol-card-back + .sol-card {
-    margin-top: -22px;
 }
 
 /* Verdeckte Karte */
@@ -5800,9 +5915,9 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
 }
 .sol-prestack-badge {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 800;
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.22);
     color: #6ee7b7;
     border: 1px solid rgba(16, 185, 129, 0.45);
     padding: 1px 7px;
@@ -5815,36 +5930,129 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     line-height: 1.38;
     word-break: break-word;
 }
-.sol-prestack-preview {
-    font-size: 0.7rem;
+.sol-stack-bottom-hint {
+    font-size: 0.68rem;
+    font-weight: 700;
     color: var(--accent-cyan);
     border-top: 1px dashed rgba(255, 255, 255, 0.12);
     padding-top: 5px;
 }
 
-/* Interaktions-States (Playable, Selected, Hinted, Shake) */
-.sol-card.is-playable {
+/* Interaktions-States */
+.sol-stacked-group.is-playable {
     cursor: grab;
 }
-.sol-card.is-playable:hover {
+.sol-stacked-group.is-playable:hover {
     transform: translateY(-4px);
+    z-index: 15;
+}
+.sol-stacked-group.is-playable:hover > .sol-card {
     border-color: var(--accent-blue);
-    z-index: 10;
 }
-.sol-card.is-selected {
+.sol-stacked-group.is-selected > .sol-card {
     outline: 3px solid var(--accent-blue) !important;
-    transform: translateY(-5px) scale(1.02) !important;
-    box-shadow: 0 0 22px rgba(56, 189, 248, 0.45) !important;
-    z-index: 12;
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.5) !important;
 }
-.sol-card.is-hinted,
+.sol-stacked-group.is-selected {
+    transform: translateY(-6px) scale(1.02) !important;
+    z-index: 18;
+}
+.sol-stacked-group.is-hinted > .sol-card,
 .sol-foundation-slot.is-hinted {
     outline: 3px solid #facc15 !important;
-    box-shadow: 0 0 24px rgba(250, 204, 21, 0.6) !important;
+    box-shadow: 0 0 26px rgba(250, 204, 21, 0.65) !important;
 }
 .sol-card-shake {
-    animation: shake 0.42s var(--ease-out);
+    animation: shake 0.44s var(--ease-out);
+}
+.sol-card-shake > .sol-card,
+.sol-card-shake.sol-foundation-slot {
     border-color: #ef4444 !important;
+}
+
+/* --- KEYFRAME ANIMATIONS & SOLITAIRE FX ENGINE --- */
+@keyframes solMatchPop {
+    0%   { transform: scale(0.92); }
+    45%  { transform: scale(1.055); box-shadow: 0 0 32px var(--disease-accent, #38bdf8); }
+    100% { transform: scale(1); }
+}
+
+@keyframes solStackSnap {
+    0%   { transform: translateY(-14px) scale(0.95); }
+    55%  { transform: translateY(3px) scale(1.03); }
+    100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes solShockwaveExpand {
+    0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0.95; }
+    100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+}
+
+@keyframes solParticleBurst {
+    0%   { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.15); opacity: 0; }
+}
+
+@keyframes solFloatingBadgeUp {
+    0%   { opacity: 0; transform: translate(-50%, 6px) scale(0.85); }
+    20%  { opacity: 1; transform: translate(-50%, -6px) scale(1.04); }
+    80%  { opacity: 1; transform: translate(-50%, -26px) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -38px) scale(0.92); }
+}
+
+.sol-anim-match-pop {
+    animation: solMatchPop 0.44s var(--ease-spring) both;
+}
+
+.sol-anim-stack-snap {
+    animation: solStackSnap 0.38s var(--ease-spring) both;
+}
+
+.sol-fx-overlay-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.sol-fx-shockwave {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 3px solid #38bdf8;
+    animation: solShockwaveExpand 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.sol-fx-shockwave.is-grand {
+    width: 140px;
+    height: 140px;
+    border-width: 4px;
+}
+
+.sol-fx-particle {
+    position: absolute;
+    border-radius: 50%;
+    animation: solParticleBurst 0.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.sol-fx-floating-badge {
+    position: absolute;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(10, 15, 29, 0.92);
+    border: 1.5px solid #38bdf8;
+    color: #ffffff;
+    font-size: 0.76rem;
+    font-weight: 800;
+    white-space: nowrap;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+    animation: solFloatingBadgeUp 1.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.sol-fx-floating-badge.is-grand {
+    font-size: 0.88rem;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(15, 23, 42, 0.95));
 }
 
 /* Light-Mode Overrides (Daylight & Tropical) */
@@ -5867,6 +6075,14 @@ html[data-theme="tropical"] .mm-edge-html-badge { background: #ffffff !important
     background: var(--bg-surface) !important;
     color: var(--text-main) !important;
     box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="daylight"] .sol-stack-peek-slice,
+[data-theme="tropical"] .sol-stack-peek-slice,
+[data-theme="daylight"] .sol-foundation-layered-card,
+[data-theme="tropical"] .sol-foundation-layered-card {
+    background: var(--surface-secondary) !important;
+    color: var(--text-main) !important;
+    border-color: var(--card-border) !important;
 }
 [data-theme="daylight"] .sol-card-category,
 [data-theme="tropical"] .sol-card-category {
