@@ -1439,7 +1439,9 @@ window.switchTab = function(tab, el) {
         'pharmacology-view',
         'mindmap-view',
         'duel-view',
+       'solitaire-view',
        'friends-view'
+
     ];
 
     allViews.forEach(viewId => {
@@ -1484,6 +1486,19 @@ window.switchTab = function(tab, el) {
         return;
     }
 
+   if (tab === 'solitaire') {
+        window.isSpecialtyBlindMode = false;
+        const solView = document.getElementById('solitaire-view');
+        if (solView) {
+            solView.classList.remove('hidden');
+            solView.style.display = 'block';
+        }
+        if (window.SolitaireModule && typeof window.SolitaireModule.openView === 'function') {
+            window.SolitaireModule.openView();
+        }
+        return;
+    }
+   
     if (tab === 'friends') {
         window.isSpecialtyBlindMode = false;
         const friendsView = document.getElementById('friends-view');
