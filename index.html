@@ -24,6 +24,7 @@
         window.ENV_SUPABASE_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
         window.ENV_SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
+        // Sofortige Theme-Initialisierung vor dem ersten Browser-Paint (verhindert Dark-Mode-Flackern)
         (function applyEarlyTheme() {
             try {
                 var savedTheme = localStorage.getItem('medcheck_ui_theme');
@@ -33,6 +34,7 @@
             } catch (_e) {}
         })();
 
+        // Globale Schutz-Stubs gegen frühe Klicks vor Script-Ladeende
         window.switchTab = window.switchTab || function(t) { console.warn("App lädt noch...", t); };
         window.toggleSidebar = window.toggleSidebar || function() {};
     </script>
@@ -57,8 +59,8 @@
         <!-- Brand Header -->
         <div class="brand">
             <div class="brand-icon-wrap">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                 </svg>
             </div>
             <span>MediChecker</span>
@@ -69,35 +71,33 @@
         <div class="nav-section-label">Navigation</div>
         <ul class="nav-links">
             <li class="nav-item active" data-view="dashboard" id="nav-dashboard" onclick="switchTab('dashboard', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
-                    <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
-                    <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
-                    <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
                 <span>Dashboard</span>
             </li>
 
             <li class="nav-item" data-view="player" id="nav-player" onclick="switchTab('player', this)" style="display: none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
                 <span>Challenge Hub</span>
             </li>
 
             <li class="nav-item" data-view="forge" id="nav-forge" onclick="switchTab('forge', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="16 18 22 12 16 6"></polyline>
                     <polyline points="8 6 2 12 8 18"></polyline>
                 </svg>
-                <span>Fall-Generator</span>
+                <span>Fall-Generator (Dev)</span>
             </li>
 
             <li class="nav-item" data-view="depot" id="nav-depot" onclick="switchTab('depot', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                 </svg>
                 <span>Lern-Depot</span>
@@ -105,7 +105,7 @@
             </li>
 
             <li class="nav-item" data-view="mindmap" id="nav-mindmap" onclick="switchTab('mindmap', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <circle cx="19" cy="5" r="2"></circle>
                     <circle cx="5" cy="5" r="2"></circle>
@@ -120,7 +120,7 @@
             </li>
 
             <li class="nav-item" data-view="pharmacology" id="nav-pharmacology" onclick="switchTab('pharmacology', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10.5 20.5 3.5 13.5a4.95 4.95 0 1 1 7-7l7 7a4.95 4.95 0 1 1-7 7Z"></path>
                     <path d="m8.5 8.5 7 7"></path>
                 </svg>
@@ -128,29 +128,29 @@
             </li>
 
             <li class="nav-item" data-view="solitaire" id="nav-solitaire" onclick="switchTab('solitaire', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="4" width="13" height="17" rx="2"></rect>
-                    <path d="M8 2h11a2 2 0 0 1 2 2v15"></path>
-                    <line x1="9.5" y1="10" x2="9.5" y2="15"></line>
-                    <line x1="7" y1="12.5" x2="12" y2="12.5"></line>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="14" height="17" rx="2"></rect>
+                    <path d="M6 2h12a2 2 0 0 1 2 2v15"></path>
+                    <path d="M9 10h4"></path>
+                    <path d="M11 8v4"></path>
                 </svg>
                 <span>Solitaire Journey</span>
-                <span class="depot-nav-badge" id="nav-solitaire-badge" style="background: rgba(56, 189, 248, 0.14); color: var(--accent-blue); border-color: rgba(56, 189, 248, 0.3);">DDx</span>
+                <span class="depot-nav-badge" id="nav-solitaire-badge" style="background: rgba(56, 189, 248, 0.18); color: var(--accent-blue); border-color: rgba(56, 189, 248, 0.35);">DDx</span>
             </li>
-
-            <li class="nav-item" data-view="friends" id="nav-friends" onclick="switchTab('friends', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-                <span>Freunde & Scoreboard</span>
-                <span class="depot-nav-badge" id="nav-friends-badge" style="display: none; background: var(--accent-blue); color: #060913;">0</span>
-            </li>
-
+            
+<li class="nav-item" data-view="friends" id="nav-friends" onclick="switchTab('friends', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    </svg>
+    <span>Freunde & Scoreboard</span>
+    <span class="depot-nav-badge" id="nav-friends-badge" style="display: none; background: var(--accent-blue); color: #060913;">0</span>
+</li>
+            
             <li class="nav-item" data-view="duel" id="nav-duel" onclick="switchTab('duel', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                 </svg>
                 <span>Klinik-Duell</span>
@@ -158,7 +158,7 @@
             </li>
 
             <li class="nav-item" data-view="settings" id="nav-settings" onclick="switchTab('settings', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
@@ -185,8 +185,8 @@
         <!-- Dynamischer Sidebar-Resizer -->
         <div class="sidebar-resizer" id="sidebar-resizer" title="Ziehen zum Vergrößern/Verkleinern oder Pfeile klicken">
             <div class="resizer-handle-pill">
-                <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(-30)" title="Schmälern">‹</button>
-                <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(30)" title="Verbreitern">›</button>
+                <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(-30)" title="Schmälern">◀</button>
+                <button type="button" class="resizer-btn-step" onclick="stepSidebarWidth(30)" title="Verbreitern">▶</button>
             </div>
         </div>
     </sidebar>
@@ -200,7 +200,7 @@
         <topbar>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <button type="button" class="menu-toggle" onclick="toggleSidebar()" aria-label="Menü öffnen">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="3" y1="12" x2="21" y2="12"></line>
                         <line x1="3" y1="6" x2="21" y2="6"></line>
                         <line x1="3" y1="18" x2="21" y2="18"></line>
@@ -214,7 +214,7 @@
 
             <div class="user-hud">
                 <div class="hud-stat streak-stat" title="Täglicher Dienst-Streak">
-                    <span class="hud-label-mono">STREAK</span>
+                    <span>🔥</span>
                     <strong id="stat-streak">0d</strong>
                 </div>
                 <div class="hud-stat rank-stat">
@@ -235,15 +235,15 @@
         <!-- Sticky Bar für den Blind-Modus (Fachrichtungen) -->
         <header id="specialty-sticky-bar" class="specialty-sticky-bar hidden">
             <div class="specialty-bar-left">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-exit-specialty">Beenden</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-exit-specialty">✕ Beenden</button>
                 <div class="specialty-meta">
                     <span class="specialty-pill" id="specialty-pill-name">Fachrichtung</span>
                     <span class="case-counter-pill" id="specialty-pill-counter">Fall 1 / 5</span>
                 </div>
             </div>
             <div class="specialty-bar-right">
-                <button type="button" class="btn btn-outline" id="btn-reveal-diagnosis">Diagnose aufdecken</button>
-                <button type="button" class="btn btn-primary" id="btn-next-specialty-case">Nächstes Krankheitsbild →</button>
+                <button type="button" class="btn btn-outline" id="btn-reveal-diagnosis">🔍 Diagnose enthüllen</button>
+                <button type="button" class="btn btn-primary" id="btn-next-specialty-case">Nächstes Krankheitsbild ➔</button>
             </div>
         </header>
 
@@ -261,10 +261,10 @@
                             <div class="panel-subtitle" style="margin-bottom: 0;">Klinische Fälle, Spaced Repetition & Schwerpunkte</div>
                         </div>
 
-                        <!-- Aktionsleiste rechts oben: Suche + Notfall-Modus + Themen-Fortschritt -->
+                        <!-- Aktionsleiste rechts oben: Suche + Notfall-Sirene + Themen-Fortschritt -->
                         <div class="dashboard-header-actions">
                             <button type="button" id="dashboard-search-toggle-btn" class="dashboard-search-toggle-btn" onclick="window.toggleDashboardSearch()" title="Fälle durchsuchen (Shortcut: Cmd/Ctrl + K)">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="11" cy="11" r="8"></circle>
                                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                                 </svg>
@@ -273,18 +273,12 @@
                             </button>
 
                             <button type="button" class="emergency-siren-btn" onclick="window.startEmergencyMode()" title="Notaufnahme-Modus starten (Akut-Training unter Zeitdruck)">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: #ef4444;">
-                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                                </svg>
+                                <span class="siren-icon">🚨</span>
                                 <span class="siren-pulse-ring"></span>
                             </button>
 
                             <button type="button" class="dashboard-tool-icon-btn" onclick="window.toggleSubjectProgressModal(true)" title="Themen- und Fächerfortschritt anzeigen">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-blue);">
-                                    <line x1="18" y1="20" x2="18" y2="10"></line>
-                                    <line x1="12" y1="20" x2="12" y2="4"></line>
-                                    <line x1="6" y1="20" x2="6" y2="14"></line>
-                                </svg>
+                                <span class="tool-icon">📊</span>
                             </button>
                         </div>
                     </div>
@@ -292,28 +286,28 @@
                     <!-- Ausklappbare Echtzeit-Suchleiste -->
                     <div id="dashboard-search-panel" class="dashboard-search-panel hidden">
                         <div class="dashboard-search-input-wrap">
-                            <svg class="search-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg class="search-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                             </svg>
                             <input type="text" id="dashboard-case-search-input" class="dashboard-case-search-input" placeholder="Suche nach Diagnose, Symptom, Laborwert, Medikament oder Ordner..." autocomplete="off" oninput="window.handleDashboardSearchInput(this.value)">
                             <span id="dashboard-search-stats" class="dashboard-search-stats"></span>
-                            <button type="button" id="dashboard-search-clear-btn" class="dashboard-search-clear-btn hidden" onclick="window.clearDashboardSearch()" title="Suche zurücksetzen (ESC)">×</button>
+                            <button type="button" id="dashboard-search-clear-btn" class="dashboard-search-clear-btn hidden" onclick="window.clearDashboardSearch()" title="Suche zurücksetzen (ESC)">✕</button>
                         </div>
                         <div class="dashboard-search-filters">
                             <span class="search-filter-label">Status:</span>
                             <button type="button" class="search-status-pill active" data-status-filter="all" onclick="window.setDashboardSearchStatus('all', this)">Alle</button>
-                            <button type="button" class="search-status-pill" data-status-filter="open" onclick="window.setDashboardSearchStatus('open', this)">Offen</button>
-                            <button type="button" class="search-status-pill" data-status-filter="progress" onclick="window.setDashboardSearchStatus('progress', this)">In Arbeit</button>
-                            <button type="button" class="search-status-pill" data-status-filter="solved" onclick="window.setDashboardSearchStatus('solved', this)">Gelöst</button>
+                            <button type="button" class="search-status-pill" data-status-filter="open" onclick="window.setDashboardSearchStatus('open', this)">● Offen</button>
+                            <button type="button" class="search-status-pill" data-status-filter="progress" onclick="window.setDashboardSearchStatus('progress', this)">↻ In Arbeit</button>
+                            <button type="button" class="search-status-pill" data-status-filter="solved" onclick="window.setDashboardSearchStatus('solved', this)">✓ Gelöst</button>
                         </div>
                     </div>
 
-                    <!-- Creator Case Upload Dropzone -->
+                    <!-- Creator Case Upload Dropzone (Nur für Creator sichtbar) -->
                     <section id="creatorUploadSection" class="creator-upload-section" style="display: none;">
                         <div class="creator-upload-card">
                             <div id="dropZone" class="drop-zone">
-                                <span class="drop-zone-text"><strong>Creator Upload:</strong> JSON-Falldateien hier ablegen oder <span class="browse-link">durchsuchen</span></span>
+                                <span class="drop-zone-text">⚡ <strong>Creator Upload:</strong> JSON-Falldateien hier ablegen oder <span class="browse-link">durchsuchen</span></span>
                                 <input type="file" id="caseFileInput" accept=".json" multiple style="display: none;">
                             </div>
                             <div id="uploadStatusList" class="upload-status-list"></div>
@@ -343,12 +337,12 @@
                         <div class="super-folder" id="topic-grid">
                             <div class="super-folder-header" onclick="toggleSuperFolder('Nervensystem und Sinnesorgane')">
                                 <div class="super-folder-title">
-                                    <svg class="super-folder-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                    <svg class="super-folder-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                                     </svg>
                                     <span>Nervensystem und Sinnesorgane</span>
                                 </div>
-                                <span style="font-size: 0.72rem; color: var(--text-muted);" id="super-folder-arrow">▾</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);" id="super-folder-arrow">▼</span>
                             </div>
                             <div class="super-folder-body" id="dashboard-folders-container">Lade Fall-Bibliothek...</div>
                         </div>
@@ -363,46 +357,46 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
                         <button type="button" class="back-btn" onclick="switchTab('dashboard', document.getElementById('nav-dashboard'))">← Zurück</button>
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2);">
-                                Fall: <span id="player-case-badge-title">Lädt...</span>
+                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--accent-blue); padding: 5px 12px; border-radius: 20px; background: rgba(56, 189, 248, 0.1);">
+                                Aktiver Fall: <span id="player-case-badge-title">Lädt...</span>
                             </div>
-                            <button type="button" class="action-btn secondary btn-sm" onclick="window.resetCurrentCaseEntirely()" title="Alle Challenges dieses Falls zurücksetzen" style="padding: 5px 10px; font-size: 0.75rem;">
-                                ↺ Fall neu starten
+                            <button type="button" class="action-btn secondary btn-sm" onclick="window.resetCurrentCaseEntirely()" title="Alle Challenges dieses Falls für eine Wiederholung zurücksetzen" style="padding: 5px 10px; font-size: 0.75rem;">
+                                🔄 Fall neu starten
                             </button>
                         </div>
                     </div>
 
-                    <!-- Schlichte, moderne Challenge-Tabs Navigation (ohne Emojis) -->
+                    <!-- Challenge-Tabs Navigation -->
                     <div class="challenge-nav-bar">
                         <button type="button" class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')">
-                            <span>Übersicht</span>
+                            <span>🧭 Übersicht</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-audit" onclick="switchPlayerMode('audit')">
-                            <span>Audit</span>
+                            <span>📋 Audit</span>
                             <span class="tab-badge" id="badge-mode-audit">0/0</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-synapses" onclick="switchPlayerMode('synapses')" style="display: none;">
-                            <span>Synapsen</span>
+                            <span>🧠 Synapsen</span>
                             <span class="tab-badge" id="badge-mode-synapses">0/4</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-cascade" onclick="switchPlayerMode('cascade')" style="display: none;">
-                            <span>Kaskade</span>
+                            <span>🔗 Kaskade</span>
                             <span class="tab-badge" id="badge-mode-cascade">0/0</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-cat" onclick="switchPlayerMode('cat')" style="display: none;">
-                            <span>Taxonomie</span>
+                            <span>🏷️ Taxonomie</span>
                             <span class="tab-badge" id="badge-mode-cat">Offen</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-quiz" onclick="switchPlayerMode('quiz')" style="display: none;">
-                            <span>Exam</span>
+                            <span>🎓 Exam</span>
                             <span class="tab-badge" id="badge-mode-quiz">0/5</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-doctordle" onclick="switchPlayerMode('doctordle')" style="display: none;">
-                            <span>Doctordle</span>
+                            <span>🔍 Doctordle</span>
                             <span class="tab-badge" id="badge-mode-doctordle">0/3</span>
                         </button>
                         <button type="button" class="challenge-tab-btn" id="tab-btn-flashcards" onclick="switchPlayerMode('flashcards')" style="display: none;">
-                            <span>Flashcards</span>
+                            <span>🗂️ Flash Cards</span>
                             <span class="tab-badge" id="badge-mode-flashcards">0/0</span>
                         </button>
                     </div>
@@ -422,7 +416,7 @@
                         <div class="synapses-container">
                             <div class="panel-title">
                                 <span>Synapsen-Matrix</span>
-                                <button type="button" class="tutor-btn" onclick="showTutorHint('synapses_matrix')" title="Sokratischer Hinweis">?</button>
+                                <button type="button" class="tutor-btn" onclick="showTutorHint('synapses_matrix')">💡</button>
                             </div>
                             <div class="panel-subtitle" id="synapses-desc"></div>
                             <div class="synapses-legend">
@@ -441,20 +435,20 @@
                     <div class="player-mode-pane" id="mode-container-cascade" style="display: none;">
                         <div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);">
                             <div class="panel-title" style="margin-bottom: 6px;">
-                                <span>Clinical Cascades</span>
-                                <button type="button" class="tutor-btn" onclick="showTutorHint('clinical_cascades')" title="Sokratischer Hinweis">?</button>
+                                <span>Clinical Cascades (Flow-Charts)</span>
+                                <button type="button" class="tutor-btn" onclick="showTutorHint('clinical_cascades')">💡</button>
                             </div>
                             <div class="panel-subtitle">Bringe die Elemente aus der Bank in die chronologische Reihenfolge der Kaskade.</div>
                             <div id="cascades-wrapper"></div>
                         </div>
                     </div>
 
-                    <!-- Pane 2.5: Taxonomie -->
+                    <!-- Pane 2.5: Taxonomie (Kategorisierung) -->
                     <div class="player-mode-pane" id="mode-container-cat" style="display: none;">
                         <div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);">
                             <div class="panel-title" style="margin-bottom: 6px;">
                                 <span>Taxonomie</span>
-                                <button type="button" class="tutor-btn" onclick="showTutorHint('categorization')" title="Sokratischer Hinweis">?</button>
+                                <button type="button" class="tutor-btn" onclick="showTutorHint('categorization')">💡</button>
                             </div>
                             <div class="panel-subtitle" id="cat-desc"></div>
                             <div id="categorization-task"></div>
@@ -463,7 +457,7 @@
                         </div>
                     </div>
 
-                    <!-- Pane 2.6: Master-Quiz -->
+                    <!-- Pane 2.6: Master-Quiz (IMPP/NBME Exam) -->
                     <div class="player-mode-pane" id="mode-container-quiz" style="display: none;">
                         <div style="background: rgba(11, 17, 33, 0.5); padding: 22px; border-radius: 14px; border: 1px solid var(--card-border);">
                             <div class="panel-title" style="margin-bottom: 6px;">Master-Exam (Fachwissen-Prüfung)</div>
@@ -474,7 +468,7 @@
                         </div>
                     </div>
 
-                    <!-- Pane 2.7: Doctordle -->
+                    <!-- Pane 2.7: Doctordle (Deduktionsrätsel) -->
                     <div class="player-mode-pane" id="mode-container-doctordle" style="display: none;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                             <div>
@@ -506,6 +500,7 @@
                         </div>
                     </div>
 
+                    <!-- Fall-Abschluss-Button (wird durch window.checkFinalCompletion eingeblendet) -->
                     <button type="button" class="action-btn" id="finish-case-btn" onclick="window.finishCase()" style="display: none; width: 100%; margin-top: 22px; padding: 14px; font-size: 0.95rem;">
                         Fall abschließen & XP sichern
                     </button>
@@ -515,27 +510,28 @@
                      VIEW 3: FORGE (FALL-SCHMIEDE & MASTERPROMPT EXPORT)
                      ======================================================== -->
                 <div class="panel" id="forge-view" style="display: none;">
-                    <div class="panel-title">In-App Fall-Schmiede</div>
+                    <div class="panel-title">In-App Fall-Schmiede (Dev)</div>
                     <div class="panel-subtitle">Generiere einen Fall per Gemini oder füge den JSON-Code manuell ein.</div>
 
                     <div class="forge-generator-controls">
                         <label for="forge-topic" class="forge-label">Thema / Prompt</label>
                         <textarea id="forge-topic" class="forge-topic-input" placeholder="Beispiel: Akute Thoraxschmerzen bei 58-jährigem Patienten mit Risikofaktoren..."></textarea>
-                        <button type="button" class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">Mit Gemini generieren</button>
+                        <button type="button" class="action-btn" id="forge-generate-btn" onclick="generateCaseWithGemini()">✨ Mit Gemini generieren</button>
                     </div>
 
                     <!-- KI-Masterprompt Export-Karte -->
                     <div class="forge-prompt-export-card" style="margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: rgba(16, 24, 46, 0.6); border: 1px dashed rgba(56, 189, 248, 0.35); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                         <div>
-                            <div style="font-size: 0.86rem; font-weight: 700; color: var(--text-main);">
-                                System-Masterprompt für externe KIs (Gemini, Claude, GPT)
+                            <div style="font-size: 0.86rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                                <span>📋</span>
+                                <span>System-Masterprompt für externe KIs (Gemini, Claude, GPT)</span>
                             </div>
                             <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
                                 Kopiert die strikten IMPP/NBME-Vorgaben, Cornell Notes, 9-Schritte-Audits, Synapsen und Master-Quiz.
                             </div>
                         </div>
-                        <button type="button" class="action-btn secondary btn-sm" id="btn-copy-masterprompt" onclick="copyMasterPromptToClipboard(this)" style="background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.35); color: var(--accent-blue); font-weight: 700;">
-                            KI-Prompt kopieren
+                        <button type="button" class="action-btn secondary btn-sm" id="btn-copy-masterprompt" onclick="copyMasterPromptToClipboard(this)" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue); font-weight: 700;">
+                            📋 KI-Prompt zur Fallgenerierung kopieren
                         </button>
                     </div>
 
@@ -552,7 +548,7 @@
 
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button type="button" class="action-btn" onclick="validateAndSaveCustomCase()">Validieren & Speichern</button>
-                        <button type="button" class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Leeren</button>
+                        <button type="button" class="action-btn secondary" onclick="document.getElementById('forge-input').value='';">Löschen</button>
                     </div>
                     <div class="feedback-box" id="forge-fb"></div>
                 </div>
@@ -563,7 +559,7 @@
                 <div class="panel" id="depot-view" style="display: none;">
                     <div class="depot-header-row">
                         <div>
-                            <div class="panel-title">Persönliches Lern-Depot</div>
+                            <div class="panel-title">📌 Persönliches Lern-Depot</div>
                             <div class="panel-subtitle" style="margin-bottom: 0;">Deine markierten High-Yield-Passagen aus den Fall-Übersichten zur gezielten Wiederholung.</div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -572,7 +568,7 @@
                                 <span class="depot-stat-pill mastered"><strong id="depot-count-mastered">0</strong> Gemeistert</span>
                             </div>
                             <button type="button" class="action-btn btn-sm" id="btn-generate-depot-quiz" onclick="generateDepotQuizWithAI()">
-                                KI-Prüfung aus Lücken starten
+                                ✨ KI-Prüfung aus Lücken starten
                             </button>
                         </div>
                     </div>
@@ -582,13 +578,13 @@
                         <div class="depot-quiz-header">
                             <div>
                                 <div class="panel-title" style="font-size: 1.02rem; margin-bottom: 2px; color: var(--accent-cyan);">
-                                    Adaptives Lücken-Examen
+                                    🎓 Adaptives Lücken-Examen
                                 </div>
                                 <div id="depot-quiz-subtitle" style="font-size: 0.78rem; color: var(--text-muted);">
                                     Generiert aus deinen offenen Depot-Einträgen
                                 </div>
                             </div>
-                            <button type="button" class="action-btn secondary btn-sm" onclick="closeDepotQuizArena()">Schließen</button>
+                            <button type="button" class="action-btn secondary btn-sm" onclick="closeDepotQuizArena()">✕ Schließen</button>
                         </div>
                         <div id="depot-quiz-body" class="depot-quiz-body"></div>
                     </div>
@@ -609,7 +605,7 @@
 
                     <div class="depot-quick-add">
                         <input type="text" id="depot-manual-input" class="depot-search-input" style="flex: 1;" placeholder="Eigene klinische Eselsbrücke oder Lernlücke schnell notieren...">
-                        <button type="button" class="action-btn btn-sm" onclick="addManualDepotEntry()">+ Hinzufügen</button>
+                        <button type="button" class="action-btn btn-sm" onclick="addManualDepotEntry()">+ Merken</button>
                     </div>
 
                     <div id="depot-items-container" class="depot-items-grid"></div>
@@ -693,13 +689,12 @@
                             </button>
 
                             <button type="button" class="theme-card" data-theme-value="tropical" onclick="applyAppTheme('tropical')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #fff8ed 50%, #ccfbf1 50%); border-color: #0d9488;">
-                                    <span class="theme-dot" style="background: #0d9488;"></span>
-                                    <span class="theme-dot" style="background: #ea580c;"></span>
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #fff8ed 0%, #99f6e4 55%, #fdba74 100%); border-color: rgba(217, 119, 6, 0.45); font-size: 1.25rem;">
+                                    🌴
                                 </div>
                                 <div class="theme-info">
-                                    <div class="theme-name">Warm Paper</div>
-                                    <div class="theme-desc">Warmes Sand- & Lagunen-Thema</div>
+                                    <div class="theme-name">Tropical Sunday</div>
+                                    <div class="theme-desc">Warm Sand & Lagoon</div>
                                 </div>
                             </button>
                         </div>
@@ -742,14 +737,16 @@
                      VIEW 8B: SOLITAIRE ASSOCIATIONS JOURNEY (DDx CARD GAME)
                      ======================================================== -->
                 <section class="panel view-section hidden" id="solitaire-view" style="display: none;"></section>
-
+                
                 <!-- ========================================================
                      VIEW 9: FREUNDE, SCOREBOARD & KLINIK-STATISTIK
                      ======================================================== -->
                 <section class="panel view-section hidden" id="friends-view" style="display: none;"></section>
 
-            </div>
+                      </div>
         </div>
+
+        
 
         <!-- ================================================================
              06. GLOBALE MODALS, POPUPS & POPOVERS
@@ -759,10 +756,11 @@
         <div id="subject-progress-modal" class="reveal-modal" style="display: none;" onclick="if(event.target === this) window.toggleSubjectProgressModal(false)">
             <div class="reveal-card" style="max-width: 480px; padding: 22px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px;">
-                    <div style="font-size: 1.02rem; font-weight: 800; color: var(--text-main);">
-                        Themen-Fortschritt
+                    <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        <span>📊</span>
+                        <span>Themen-Fortschritt</span>
                     </div>
-                    <button type="button" class="action-btn secondary btn-sm" onclick="window.toggleSubjectProgressModal(false)" style="padding: 4px 10px;">×</button>
+                    <button type="button" class="action-btn secondary btn-sm" onclick="window.toggleSubjectProgressModal(false)" style="padding: 4px 10px;">✕</button>
                 </div>
                 <div id="dynamic-subjects-list" class="subjects-progress-list" style="max-height: 60vh; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 10px;"></div>
                 <div class="progress-drawer-legend" style="display: flex; justify-content: space-between; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--card-border); font-size: 0.72rem; color: var(--text-muted);">
@@ -773,18 +771,18 @@
             </div>
         </div>
 
-        <!-- Diagnose-Reveal Modal -->
+        <!-- Diagnose-Reveal Modal (Fachrichtungs-Modus) -->
         <div id="reveal-modal" class="reveal-modal" style="display: none;">
             <div class="reveal-card" id="reveal-card"></div>
         </div>
 
         <!-- Sokratischer Tutor Popup -->
         <div id="tutor-modal" class="tutor-popup">
-            <div style="font-weight: 800; margin-bottom: 8px; color: var(--accent-blue); text-transform: uppercase; font-size: 0.76rem; letter-spacing: 0.06em;">
-                Sokratischer Tutor
+            <div style="font-weight: 800; margin-bottom: 8px; color: var(--accent-blue); display: flex; align-items: center; gap: 6px;">
+                <span>💡 Sokratischer Tutor</span>
             </div>
             <div id="tutor-text"></div>
-            <button type="button" onclick="document.getElementById('tutor-modal').style.display='none'" style="margin-top: 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid var(--accent-blue); color: var(--text-main); padding: 7px 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 700;">
+            <button type="button" onclick="document.getElementById('tutor-modal').style.display='none'" style="margin-top: 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid var(--accent-blue); color: var(--text-main); padding: 6px 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 700;">
                 Verstanden
             </button>
         </div>
@@ -792,7 +790,7 @@
         <!-- Text-Markierungs-Popover für das Lern-Depot -->
         <div id="depot-selection-popover" class="depot-selection-popover hidden">
             <button type="button" class="depot-popover-btn" onmousedown="saveCurrentSelectionToDepot(event)">
-                <span>+ Ins Lern-Depot</span>
+                <span>📌 Ins Lern-Depot</span>
             </button>
         </div>
 
