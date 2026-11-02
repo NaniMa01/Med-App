@@ -1,20 +1,22 @@
 /* ==========================================================================
-   MEDCHECK – CLINICAL CASCADES MODULE V2.0 (js/cascade.js)
+   MEDCHECK – CLINICAL CASCADES MODULE V2.1 (js/cascade.js)
    ==========================================================================
-   FEATURES V2.0:
-   01. 0ms Instant Touch/iPad/Desktop Pointer-Drag (kein iOS Long-Press-Delay)
-   02. Magnetisches Drop-Snapping & sanfter Spring-Back-Effekt
-   03. Automatischer Viewport-Edge-Scroll beim Ziehen über lange 8-Stufen-Kaskaden
-   04. Direkter Slot-zu-Slot-Tausch (Swap) per Drag & Drop oder ↑/↓ Buttons
-   05. Sokratisches Teil-Lock-In: Korrekte Stufen rasten bei Prüfung grün ein
-   06. Volle ProgressManager-Persistenz (speichert & restauriert gelöste Kaskaden)
+   CHANGELOG V2.1:
+   01. Fix gegen globales ".drop-zone * { pointer-events: none; }" aus style.css
+   02. Eingerastete Karten lassen sich jederzeit wieder per 0ms-Drag greifen & tauschen
+   03. Zuverlässige ↑ / ↓ / ✕ Buttons (funktionieren mit belegten & leeren Nachbar-Stufen)
+   04. Smart Tap-to-Swap: Karte antippen -> Zielstufe antippen -> Sofortiger Platztausch
+   05. Sokratisches Teil-Lock-In & Auto-Scroll bei langen 8-Stufen-Kaskaden
    ========================================================================== */
 
 (function initClinicalCascadesModule() {
     let globalCascadePointerBound = false;
     let autoScrollRaf = null;
 
-    // Status für das verzögerungsfreie Pointer-Dragging
+    // Auswahl-State für Smart Tap-to-Swap (2-Klick-Tausch auf Touch & Desktop)
+    let selectedCascadeCard = null; // { cIndex: number, itemEl: HTMLElement }
+
+    // Status für das verzögerungsfreie 0ms Pointer-Dragging
     let casDrag = {
         active: false,
         hasMoved: false,
@@ -39,6 +41,13 @@
         return String(str).replace(/[&<>'"]/g, tag => (
             { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag
         ));
+    }
+
+    function clearSelectedCascadeCard() {
+        selectedCascadeCard = null;
+        document.querySelectorAll('.cas-draggable-card.is-tap-selected').forEach(el => {
+            el.classList.remove('is-tap-selected');
+        });
     }
 
     function getSavedCascadeState() {
@@ -68,6 +77,8 @@
         const wrapper = document.getElementById('cascades-wrapper');
         if (!wrapper) return;
 
+        clearSelectedCascadeCard();
+
         const cascades = activeCaseData?.extra_tasks?.clinical_cascades || [];
         totalCascades = cascades.length;
 
@@ -94,10 +105,8 @@
             const isAlreadySolved = solvedIndices.includes(cIndex);
             const rawStages = cData.cascade || [];
 
-            // Stufen kopieren und mit Original-Index versehen
             let items = rawStages.map((c, i) => ({ ...c, originalIndex: i }));
 
-            // Nur mischen, wenn die Kaskade noch nicht gelöst ist
             if (!isAlreadySolved) {
                 for (let i = items.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -105,17 +114,19 @@
                 }
             }
 
+            // WICHTIG: Inline pointer-events: auto überschreibt garantiert das globale ".drop-zone * { pointer-events: none }"!
             const renderDragCardHtml = (it, isLocked = false) => `
                 <div class="drag-item cas-draggable-card ${isLocked ? 'is-locked-card' : ''}"
+                     style="pointer-events: auto !important;"
                      data-cindex="${cIndex}"
                      data-orig-index="${it.originalIndex}"
                      id="drag-${cIndex}-${it.originalIndex}">
-                    <span class="cas-drag-grip" title="Ziehen oder Antippen">⠿</span>
-                    <span class="cas-drag-text">${escapeCasHtml(it.content)}</span>
-                    <div class="cas-step-quick-actions">
-                        <button type="button" class="cas-nudge-btn" data-nudge-dir="-1" title="Eine Stufe nach oben tauschen">↑</button>
-                        <button type="button" class="cas-nudge-btn" data-nudge-dir="1" title="Eine Stufe nach unten tauschen">↓</button>
-                        <button type="button" class="cas-remove-btn" data-remove-card="true" title="Zurück in die Bank legen">✕</button>
+                    <span class="cas-drag-grip" style="pointer-events: auto !important;" title="Ziehen oder zum Tauschen antippen">⠿</span>
+                    <span class="cas-drag-text" style="pointer-events: auto !important;">${escapeCasHtml(it.content)}</span>
+                    <div class="cas-step-quick-actions" style="pointer-events: auto !important;">
+                        <button type="button" class="cas-nudge-btn" style="pointer-events: auto !important;" onclick="window.cascadeNudgeStep(event, ${cIndex}, ${it.originalIndex}, -1)" title="Eine Stufe nach oben schieben">↑</button>
+                        <button type="button" class="cas-nudge-btn" style="pointer-events: auto !important;" onclick="window.cascadeNudgeStep(event, ${cIndex}, ${it.originalIndex}, 1)" title="Eine Stufe nach unten schieben">↓</button>
+                        <button type="button" class="cas-remove-btn" style="pointer-events: auto !important;" onclick="window.cascadeRemoveStep(event, ${cIndex}, ${it.originalIndex})" title="Zurück in die Bank legen">✕</button>
                     </div>
                 </div>
             `;
@@ -141,7 +152,8 @@
                                 ${isAlreadySolved ? '✓ Gesichert' : ''}
                             </span>
                         </div>
-                        <div class="drop-zone ${isAlreadySolved ? 'correct' : ''}"
+                        <div class="drop-zone cas-drop-slot ${isAlreadySolved ? 'correct' : ''}"
+                             style="pointer-events: auto !important;"
                              data-cindex="${cIndex}"
                              data-drop-idx="${i}"
                              data-expected="${i}">
@@ -163,7 +175,7 @@
                     </div>
 
                     <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
-                        Ziehe die Stufen ohne Verzögerung in den Ablauf (oder tippe sie an). Bereits platzierte Stufen lassen sich direkt untereinander tauschen:
+                        Ziehe die Stufen frei in den Ablauf (auch bereits eingerastete Stufen lassen sich jederzeit weiterziehen oder mit ↑ / ↓ verschieben):
                     </div>
 
                     <div class="drag-bank ${isAlreadySolved ? 'hidden' : ''}" id="bank-${cIndex}" data-cindex="${cIndex}">
@@ -206,7 +218,6 @@
             pill.classList.remove('is-complete');
         }
 
-        // Bank optisch komprimieren, wenn alle Elemente platziert sind
         const bank = document.getElementById(`bank-${cIndex}`);
         if (bank) {
             bank.classList.toggle('is-empty-bank', bank.querySelectorAll('.drag-item').length === 0);
@@ -214,10 +225,13 @@
     }
 
     // ======================================================================
-    // 02. PLATZIERUNGS- & SWAP-LOGIK (INKL. SLOT-ZU-SLOT TAUSCH)
+    // 02. PLATZIERUNGS-, SWAP- & BUTTON-LOGIK
     // ======================================================================
     function moveCardToDropZone(itemEl, targetZone, cIndex) {
         if (!itemEl || !targetZone || targetZone.classList.contains('correct')) return;
+        if (itemEl.classList.contains('is-locked-card')) return;
+
+        clearSelectedCascadeCard();
 
         const originParent = itemEl.parentElement;
         if (originParent === targetZone) return;
@@ -225,19 +239,22 @@
         const bank = document.getElementById(`bank-${cIndex}`);
         const existingOccupant = targetZone.querySelector('.drag-item');
 
-        // Wenn in der Ziel-Dropzone bereits ein Element liegt:
         if (existingOccupant && existingOccupant !== itemEl) {
             // Kam die gezogene Karte aus einer anderen Dropzone -> Direkter Platztausch (Swap)!
             if (originParent && originParent.classList.contains('drop-zone') && !originParent.classList.contains('correct')) {
+                originParent.classList.remove('cas-wrong-shake');
                 originParent.appendChild(existingOccupant);
                 triggerSnapAnimation(existingOccupant);
             } else if (bank) {
-                // Kam die gezogene Karte aus der Bank -> Altes Element zurück in die Bank
+                // Kam die gezogene Karte aus der Bank -> Bisherige Karte zurück in die Bank
                 bank.appendChild(existingOccupant);
                 triggerSnapAnimation(existingOccupant);
             }
         }
 
+        if (originParent && originParent.classList.contains('drop-zone')) {
+            originParent.classList.remove('cas-wrong-shake');
+        }
         targetZone.classList.remove('cas-wrong-shake');
         targetZone.appendChild(itemEl);
         triggerSnapAnimation(itemEl);
@@ -248,19 +265,29 @@
 
     function moveCardToBank(itemEl, cIndex) {
         const bank = document.getElementById(`bank-${cIndex}`);
-        if (!itemEl || !bank) return;
+        if (!itemEl || !bank || itemEl.classList.contains('is-locked-card')) return;
+
+        clearSelectedCascadeCard();
+
         const parentZone = itemEl.closest('.drop-zone');
         if (parentZone && parentZone.classList.contains('correct')) return;
         if (parentZone) parentZone.classList.remove('cas-wrong-shake');
 
         bank.appendChild(itemEl);
         triggerSnapAnimation(itemEl);
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
         updateCascadeCounterPill(cIndex);
     }
 
-    // Schiebt eine platzierte Stufe per ↑ oder ↓ Button um 1 Position nach oben/unten
-    function nudgePlacedCard(itemEl, cIndex, delta) {
+    // Globale Direkt-Handler für die ↑ / ↓ / ✕ Buttons auf jeder eingerasteten Karte
+    window.cascadeNudgeStep = function(event, cIndex, origIndex, delta) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const itemEl = document.getElementById(`drag-${cIndex}-${origIndex}`);
+        if (!itemEl || itemEl.classList.contains('is-locked-card')) return;
+
         const currentZone = itemEl.closest('.drop-zone');
         const container = document.getElementById(`cascade-box-${cIndex}`);
         if (!currentZone || !container || currentZone.classList.contains('correct')) return;
@@ -269,7 +296,7 @@
         const curIdx = allZones.indexOf(currentZone);
         if (curIdx === -1) return;
 
-        // Nächste nicht-gesperrte Zone in Richtung delta suchen
+        // Nächste ungesperrte Stufe in Richtung delta (-1 = hoch, +1 = runter) suchen
         let targetIdx = curIdx + delta;
         while (targetIdx >= 0 && targetIdx < allZones.length && allZones[targetIdx].classList.contains('correct')) {
             targetIdx += delta;
@@ -278,7 +305,17 @@
         if (targetIdx >= 0 && targetIdx < allZones.length) {
             moveCardToDropZone(itemEl, allZones[targetIdx], cIndex);
         }
-    }
+    };
+
+    window.cascadeRemoveStep = function(event, cIndex, origIndex) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const itemEl = document.getElementById(`drag-${cIndex}-${origIndex}`);
+        if (!itemEl) return;
+        moveCardToBank(itemEl, cIndex);
+    };
 
     function triggerSnapAnimation(el) {
         if (!el) return;
@@ -287,7 +324,6 @@
         el.classList.add('cas-anim-snap');
     }
 
-    // Legacy-Funktionen für Abwärtskompatibilität erhalten
     window.clickPlaceItem = function(cIndex, origIndex) {
         const item = document.getElementById(`drag-${cIndex}-${origIndex}`);
         if (!item || item.parentElement.classList.contains('drop-zone')) return;
@@ -321,16 +357,14 @@
         const container = document.getElementById(`cascade-box-${cIndex}`);
         if (!container) return null;
 
-        const magneticPadding = 18;
+        const magneticPadding = 20;
         const candidates = [];
 
-        // 1. Alle ungesperrten Drop-Zones dieser Kaskade prüfen
         container.querySelectorAll('.drop-zone:not(.correct)').forEach(zoneEl => {
             if (zoneEl === originZone) return;
             candidates.push({ type: 'zone', el: zoneEl, rect: zoneEl.getBoundingClientRect() });
         });
 
-        // 2. Auch die Bank als Rückgabe-Ziel prüfen (falls die Karte aus einer Dropzone kommt)
         const bankEl = document.getElementById(`bank-${cIndex}`);
         if (bankEl && originZone !== bankEl) {
             candidates.push({ type: 'bank', el: bankEl, rect: bankEl.getBoundingClientRect() });
@@ -406,27 +440,53 @@
     }
 
     function bindCascadePointerEvents(wrapper) {
-        // Event-Delegation für Karten und Nudge-Buttons innerhalb des Wrappers
         if (wrapper.dataset.pointerBound !== 'true') {
             wrapper.dataset.pointerBound = 'true';
 
             wrapper.addEventListener('contextmenu', (e) => {
-                if (e.target.closest('.cas-draggable-card')) e.preventDefault();
+                if (e.target.closest('.cas-draggable-card') || e.target.closest('.drop-zone')) {
+                    e.preventDefault();
+                }
             });
 
             wrapper.addEventListener('pointerdown', (e) => {
-                const cardEl = e.target.closest('.cas-draggable-card');
-                if (!cardEl) return;
-
-                // Gesperrte (bereits als korrekt bestätigte) Stufen nicht mehr verschieben
-                if (cardEl.classList.contains('is-locked-card') || cardEl.closest('.drop-zone.correct')) return;
-
-                // Falls auf einen der Schnell-Buttons (↑, ↓, ✕) geklickt wurde -> nicht ziehen, sondern Button ausführen!
+                // 1. Prüfen, ob einer der Schnell-Buttons (↑, ↓, ✕) gedrückt wurde -> nicht als Drag starten!
                 if (e.target.closest('.cas-nudge-btn') || e.target.closest('.cas-remove-btn')) {
                     e.stopPropagation();
                     return;
                 }
 
+                // 2. Karte ermitteln (auch wenn der Nutzer leicht an den Rand der .drop-zone tippt!)
+                let cardEl = e.target.closest('.cas-draggable-card');
+                const clickedDropZone = e.target.closest('.drop-zone');
+
+                if (!cardEl && clickedDropZone && !clickedDropZone.classList.contains('correct')) {
+                    cardEl = clickedDropZone.querySelector('.cas-draggable-card');
+                }
+
+                // Falls auf eine komplett leere Drop-Zone getippt wurde, während eine Karte per Tap ausgewählt ist -> Karte dorthin bewegen!
+                if (!cardEl && clickedDropZone && !clickedDropZone.classList.contains('correct') && selectedCascadeCard) {
+                    const zoneCIndex = parseInt(clickedDropZone.dataset.cindex, 10);
+                    if (selectedCascadeCard.cIndex === zoneCIndex) {
+                        e.preventDefault();
+                        moveCardToDropZone(selectedCascadeCard.itemEl, clickedDropZone, zoneCIndex);
+                        return;
+                    }
+                }
+
+                // Falls auf die Bank getippt wurde, während eine eingerastete Karte ausgewählt ist -> zurück in die Bank!
+                const clickedBank = e.target.closest('.drag-bank');
+                if (!cardEl && clickedBank && selectedCascadeCard) {
+                    const bankCIndex = parseInt(clickedBank.dataset.cindex, 10);
+                    if (selectedCascadeCard.cIndex === bankCIndex) {
+                        e.preventDefault();
+                        moveCardToBank(selectedCascadeCard.itemEl, bankCIndex);
+                        return;
+                    }
+                }
+
+                if (!cardEl) return;
+                if (cardEl.classList.contains('is-locked-card') || cardEl.closest('.drop-zone.correct')) return;
                 if (e.button !== undefined && e.button !== 0) return;
 
                 e.preventDefault();
@@ -450,33 +510,6 @@
                 casDrag.ghostEl = null;
                 casDrag.hoveredTarget = null;
             });
-
-            // Klick-Listener für die ↑ / ↓ / ✕ Schnell-Buttons auf platzierten Karten
-            wrapper.addEventListener('click', (e) => {
-                const nudgeBtn = e.target.closest('.cas-nudge-btn');
-                if (nudgeBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const cardEl = nudgeBtn.closest('.cas-draggable-card');
-                    if (cardEl) {
-                        const cIndex = parseInt(cardEl.dataset.cindex, 10);
-                        const dir = parseInt(nudgeBtn.dataset.nudgeDir, 10);
-                        nudgePlacedCard(cardEl, cIndex, dir);
-                    }
-                    return;
-                }
-
-                const removeBtn = e.target.closest('.cas-remove-btn');
-                if (removeBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const cardEl = removeBtn.closest('.cas-draggable-card');
-                    if (cardEl) {
-                        const cIndex = parseInt(cardEl.dataset.cindex, 10);
-                        moveCardToBank(cardEl, cIndex);
-                    }
-                }
-            });
         }
 
         if (globalCascadePointerBound) return;
@@ -491,15 +524,16 @@
             const dx = e.clientX - casDrag.startX;
             const dy = e.clientY - casDrag.startY;
 
-            // Sofortiges Aufheben ab 5px Bewegung (0ms Wartezeit!)
+            // Sofortiges Aufheben ab 5px Bewegung (auch aus einer eingerasteten .drop-zone heraus!)
             if (!casDrag.hasMoved) {
                 if (Math.hypot(dx, dy) < 5) return;
                 casDrag.hasMoved = true;
 
+                clearSelectedCascadeCard();
                 if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
 
                 const ghost = casDrag.itemEl.cloneNode(true);
-                ghost.className = 'drag-item cas-drag-ghost-floating';
+                ghost.className = 'drag-item cas-draggable-card cas-drag-ghost-floating';
                 ghost.style.width = `${casDrag.originRect.width}px`;
                 ghost.style.height = `${casDrag.originRect.height}px`;
                 ghost.style.left = '0px';
@@ -581,7 +615,7 @@
                     return;
                 }
 
-                // Im Leeren losgelassen -> Sanfter Spring-Back zur Ursprungsposition
+                // Im Leeren losgelassen -> Sanfter Spring-Back zur Ausgangsstufe
                 if (ghostEl && itemEl) {
                     const currentOriginRect = itemEl.getBoundingClientRect();
                     ghostEl.style.transition = 'transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
@@ -602,13 +636,34 @@
 
             if (isCancel) return;
 
-            // Kurzer Tap (< 5px Bewegung):
-            // Liegt die Karte in der Bank -> In die erste freie Stufe legen!
-            // Liegt die Karte bereits in einer Stufe -> Zurück in die Bank legen!
+            // ==============================================================
+            // KURZER TAP (< 5px Bewegung) -> SMART PLACE ODER TAP-TO-SWAP
+            // ==============================================================
             if (originZone && originZone.classList.contains('drag-bank')) {
+                // Falls bereits eine eingerastete Karte ausgewählt war, tauschen wir sie mit dieser Bank-Karte!
+                if (selectedCascadeCard && selectedCascadeCard.cIndex === cIndex && selectedCascadeCard.itemEl !== itemEl) {
+                    const targetZone = selectedCascadeCard.itemEl.closest('.drop-zone');
+                    if (targetZone) {
+                        moveCardToDropZone(itemEl, targetZone, cIndex);
+                        return;
+                    }
+                }
                 window.clickPlaceItem(cIndex, origIndex);
             } else if (originZone && originZone.classList.contains('drop-zone') && !originZone.classList.contains('correct')) {
-                moveCardToBank(itemEl, cIndex);
+                // Karte liegt bereits in einer Stufe:
+                // 1. Wenn noch keine Karte ausgewählt ist -> Diese Karte zum Tauschen auswählen!
+                if (!selectedCascadeCard || selectedCascadeCard.cIndex !== cIndex) {
+                    clearSelectedCascadeCard();
+                    selectedCascadeCard = { cIndex, itemEl };
+                    itemEl.classList.add('is-tap-selected');
+                    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+                } else if (selectedCascadeCard.itemEl === itemEl) {
+                    // 2. Zweiter Tipp auf dieselbe Karte -> Auswahl aufheben
+                    clearSelectedCascadeCard();
+                } else {
+                    // 3. Tipp auf eine andere eingerastete Karte -> Beide Stufen sofort tauschen!
+                    moveCardToDropZone(selectedCascadeCard.itemEl, originZone, cIndex);
+                }
             }
         };
 
@@ -635,6 +690,8 @@
         const container = document.getElementById(`cascade-box-${cIndex}`);
         if (!container) return;
 
+        clearSelectedCascadeCard();
+
         const zones = Array.from(container.querySelectorAll('.drop-zone'));
         const fb = document.getElementById(`cascade-fb-${cIndex}`);
         let filledCount = 0;
@@ -651,7 +708,6 @@
 
             if (expected === actual) {
                 correctCount++;
-                // Korrekte Stufen direkt grün sichern (Lock-In)!
                 zone.classList.add('correct');
                 zone.classList.remove('cas-wrong-shake');
                 item.classList.add('is-locked-card');
@@ -717,7 +773,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                     <div>
                         <strong>Fast geschafft (${correctCount} von ${zones.length} Stufen korrekt gesichert!):</strong><br>
-                        Noch <strong>${wrongCount} Stufe(n)</strong> befinden sich an der falschen kausalen Stelle. Ziehe die rot markierten Stufen direkt aufeinander, um sie zu tauschen!
+                        Noch <strong>${wrongCount} Stufe(n)</strong> befinden sich an der falschen kausalen Stelle. Ziehe die rot markierten Stufen direkt aufeinander oder nutze ↑ / ↓ zum Tauschen!
                     </div>
                     <button type="button" class="action-btn secondary btn-sm" onclick="window.returnWrongCascadeStepsToBank(${cIndex})">
                         🔄 Falsche Stufen in Bank zurücklegen
