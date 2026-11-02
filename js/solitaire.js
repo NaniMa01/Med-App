@@ -1,15 +1,13 @@
 /* ==========================================================================
-   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE (js/solitaire.js)
+   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V2.0 (js/solitaire.js)
    ==========================================================================
-   FEATURES:
-   01. Original Solitaire Associations Journey Mechanik (Hitapps-Style)
-   02. Kategorienkarten (Krankheitsbilder) & Begriffskarten (Klinik, Patho, Diagnostik, Therapie)
-   03. Tableau Pre-Stacking (Gleichnamige Krankheitsbegriffe im Tableau vorab bündeln)
-   04. Smart Anti-Deadlock Deal-Algorithmus (Garantiert lösbare Starthand)
-   05. Dual-Control: Drag & Drop + Click-to-Move + Doppelklick-Auto-Play
-   06. Power-Ups: Undo (Snapshot-Stack), Hint, Joker & Staatsexamen-Hard-Mode
-   07. Inspect-Modal mit Pathophysiologie-Erklärungen & 1-Klick Lern-Depot-Pin
-   08. Deck-Manager: JSON File-Dropzone, Copy/Paste-Import, Auto-Case-Converter & Skill-Schema
+   FEATURES V2.0:
+   01. Physisches 3D-Karten-Stacking im Tableau (Kaskaden-Tabs + Hover-Fan-Out)
+   02. Physisch wachsende Kartenstapel in den Foundation-Slots oben
+   03. SolitaireFX Engine: Shockwave-Ringe, 22-Partikel-Bursts, Floating-Telemetry
+   04. Zero-Move-Penalty bei Fehlversuchen (Sokratisches Lernen ohne Zugverlust)
+   05. Live Pathophysiologie-Pearl bei jedem korrekten Match + Flow-Combo-System
+   06. Smart Anti-Deadlock Deal-Algorithmus & Deck-Manager (JSON + Auto-Converter)
    ========================================================================== */
 
 const SolitaireModule = (() => {
@@ -17,7 +15,7 @@ const SolitaireModule = (() => {
     const STORAGE_STATS_KEY = 'medcheck_solitaire_stats_v1';
 
     // ----------------------------------------------------------------------
-    // 01. INTEGRIERTE STAATSEXAMENS-DEMODECKS (SOFORT SPIELBAR)
+    // 01. INTEGRIERTE STAATSEXAMENS-DEMODECKS
     // ----------------------------------------------------------------------
     const BUILTIN_DECKS = [
         {
@@ -25,7 +23,7 @@ const SolitaireModule = (() => {
             title: 'DDx: Atypische Parkinson-Syndrome & Demenzen',
             medical_field: 'Neurologie',
             difficulty: 'Staatsexamen',
-            description: 'Differentialdiagnostische Abgrenzung von PSP, MSA, Lewy-Body-Demenz und Morbus Parkinson anhand Klinik, MRT-Zeichen und Neuropathologie.',
+            description: 'Differentialdiagnostische Abgrenzung von PSP, MSA, Lewy-Body-Demenz und Kortikobasaler Degeneration anhand Klinik, MRT-Zeichen und Neuropathologie.',
             is_builtin: true,
             diseases: [
                 {
@@ -144,9 +142,6 @@ const SolitaireModule = (() => {
         }
     ];
 
-    // ----------------------------------------------------------------------
-    // 02. JSON-PROMPT FÜR DEINEN EXTRACTION-SKILL
-    // ----------------------------------------------------------------------
     const SKILL_EXTRACTION_PROMPT = `# ROLLE & AUFGABE
 Du bist ein medizinischer Facharzt und Didaktik-Architekt für den Spielmodus "Solitaire Associations Journey" in MedCheck.
 Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript ALLE relevanten Krankheitsbilder (Entitäten) und ihre zugehörigen klinischen Fakten zu 100 % vollständig in ein valides JSON-Kartendeck.
@@ -185,40 +180,102 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 }`;
 
     // ----------------------------------------------------------------------
-    // 03. RUNTIME STATE DES SPIELS
+    // 02. RUNTIME STATE
     // ----------------------------------------------------------------------
-    let currentViewMode = 'lobby'; // 'lobby' | 'game'
+    let currentViewMode = 'lobby';
     let activeDeck = null;
-    let hardMode = false; // Blendet Kategorie-Badges auf den Karten aus
+    let hardMode = false;
 
     let gameState = {
         movesLeft: 0,
         maxMoves: 0,
         score: 0,
+        comboStreak: 0,
         hintsLeft: 3,
         jokersLeft: 2,
-        foundations: [null, null, null, null], // 4 Ziel-Slots oben
-        completedDiseases: [], // Vollständig gelöste Krankheitsbilder
-        tableau: [[], [], [], []], // 4 Spalten
-        stock: [], // Verdeckter Nachziehstapel
-        waste: [], // Offener Ablagestapel
-        selectedSource: null, // { zone: 'waste'|'tableau', colIdx, cardIdx }
+        foundations: [null, null, null, null],
+        completedDiseases: [],
+        tableau: [[], [], [], []],
+        stock: [],
+        waste: [],
+        selectedSource: null,
         hintHighlightIds: [],
-        historyStack: [] // Für Undo-Funktion
+        historyStack: [],
+        lastSuccessAnim: null // { type: 'foundation'|'tableau', targetIdx: number, uid: string }
     };
 
     const CATEGORY_COLORS = {
-        'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.14)', label: 'Patho' },
-        'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.14)', label: 'Klinik' },
-        'Diagnostik':       { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.14)', label: 'Diagnostik' },
-        'Therapie':         { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.14)', label: 'Therapie' },
-        'Komplikation':     { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.14)', label: 'Komplikation' }
+        'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.16)', label: 'Patho' },
+        'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)', label: 'Klinik' },
+        'Diagnostik':       { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)', label: 'Diagnostik' },
+        'Therapie':         { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)', label: 'Therapie' },
+        'Komplikation':     { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)', label: 'Komplikation' }
     };
 
     const ACCENT_PALETTE = ['#38bdf8', '#a855f7', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f97316'];
 
     // ----------------------------------------------------------------------
-    // 04. PERSISTENZ & DECK-VERWALTUNG
+    // 03. SOLITAIRE FX ENGINE (PARTIKEL, SHOCKWAVE & FLOATING TELEMETRY)
+    // ----------------------------------------------------------------------
+    function spawnMatchCelebrationFX(rect, accentColor = '#38bdf8', floatingLabel = '+Match!', isDiseaseComplete = false) {
+        if (!rect) return;
+
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const fxLayer = document.createElement('div');
+        fxLayer.className = 'sol-fx-overlay-container';
+        document.body.appendChild(fxLayer);
+
+        // 1. Shockwave Glow Ring am Zielort
+        const ring = document.createElement('div');
+        ring.className = `sol-fx-shockwave ${isDiseaseComplete ? 'is-grand' : ''}`;
+        ring.style.left = `${centerX}px`;
+        ring.style.top = `${centerY}px`;
+        ring.style.borderColor = accentColor;
+        ring.style.boxShadow = `0 0 28px ${accentColor}, inset 0 0 14px ${accentColor}`;
+        fxLayer.appendChild(ring);
+
+        // 2. Physikalische Leuchtpartikel
+        const particleCount = isDiseaseComplete ? 36 : 20;
+        const colors = [accentColor, '#ffffff', '#38bdf8', '#10b981', '#facc15'];
+
+        for (let i = 0; i < particleCount; i++) {
+            const p = document.createElement('div');
+            p.className = 'sol-fx-particle';
+            const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.4;
+            const distance = (isDiseaseComplete ? 130 : 75) + Math.random() * 65;
+            const tx = Math.cos(angle) * distance;
+            const ty = Math.sin(angle) * distance - (isDiseaseComplete ? 25 : 10);
+            const size = (isDiseaseComplete ? 7 : 5) + Math.random() * 5;
+
+            p.style.left = `${centerX}px`;
+            p.style.top = `${centerY}px`;
+            p.style.width = `${size}px`;
+            p.style.height = `${size}px`;
+            p.style.background = colors[i % colors.length];
+            p.style.boxShadow = `0 0 10px ${colors[i % colors.length]}`;
+            p.style.setProperty('--tx', `${tx}px`);
+            p.style.setProperty('--ty', `${ty}px`);
+            fxLayer.appendChild(p);
+        }
+
+        // 3. Schwebendes Erfolgs-Badge
+        const floater = document.createElement('div');
+        floater.className = `sol-fx-floating-badge ${isDiseaseComplete ? 'is-grand' : ''}`;
+        floater.style.left = `${centerX}px`;
+        floater.style.top = `${ Math.max(40, rect.top - 10) }px`;
+        floater.style.borderColor = accentColor;
+        floater.innerHTML = floatingLabel;
+        fxLayer.appendChild(floater);
+
+        setTimeout(() => {
+            fxLayer.remove();
+        }, 1250);
+    }
+
+    // ----------------------------------------------------------------------
+    // 04. PERSISTENZ & DECK-HELPER
     // ----------------------------------------------------------------------
     function getCustomDecks() {
         try {
@@ -288,7 +345,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             const tasks = c.extra_tasks || {};
             const field = c.folder_name || c.metadata?.medical_field || 'Allgemein';
 
-            // 1. Aus Synapsen-Matrix extrahieren
             if (tasks.synapses_matrix && Array.isArray(tasks.synapses_matrix.variables)) {
                 const groups = Array.isArray(tasks.synapses_matrix.groups) ? tasks.synapses_matrix.groups : [];
                 tasks.synapses_matrix.variables.forEach(v => {
@@ -321,7 +377,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 });
             }
 
-            // 2. Aus Taxonomie (Categorization) ergänzen
             if (tasks.categorization && Array.isArray(tasks.categorization.items)) {
                 tasks.categorization.items.forEach(item => {
                     if (!item.category || !item.term) return;
@@ -347,7 +402,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             }
         });
 
-        // Nur Krankheitsbilder mit mindestens 4 Begriffskarten übernehmen
         const validDiseases = Array.from(diseasesMap.values())
             .filter(d => d.cards.length >= 4)
             .map((d, idx) => ({
@@ -360,7 +414,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             }));
 
         if (validDiseases.length < 2) {
-            showToast('Noch nicht genügend Falldaten (mind. 2 Krankheiten mit je ≥4 Begriffen) vorhanden.', 'error');
+            alert('Noch nicht genügend Falldaten (mind. 2 Krankheiten mit je ≥4 Begriffen) vorhanden.');
             return;
         }
 
@@ -378,7 +432,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         saveCustomDecks(customDecks);
 
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
-        showToast(`Deck mit ${generatedDeck.diseases.length} Krankheitsbildern erfolgreich generiert!`, 'positive');
         renderView();
     }
 
@@ -402,7 +455,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         activeDeck = JSON.parse(JSON.stringify(found));
         currentViewMode = 'game';
 
-        // 1. Alle Karten erzeugen (1 Kategorienkarte + N Begriffskarten pro Krankheit)
         const categoryCards = [];
         const termCards = [];
 
@@ -411,7 +463,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             const accent = disease.color_accent || ACCENT_PALETTE[dIdx % ACCENT_PALETTE.length];
             const totalTerms = (disease.cards || []).length;
 
-            // Parent Card (Krankheitsbild)
             categoryCards.push({
                 uid: `cat_${dId}`,
                 isCategoryCard: true,
@@ -421,11 +472,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 accent: accent,
                 clinicalPearl: disease.clinical_pearl || '',
                 totalRequired: totalTerms,
-                collectedTerms: [], // Bereits im Tableau oder Slot gesammelte Begriffe
+                collectedTerms: [],
                 faceUp: false
             });
 
-            // Child Cards (Assoziierte Begriffe)
             (disease.cards || []).forEach((c, cIdx) => {
                 termCards.push({
                     uid: `term_${dId}_${cIdx}`,
@@ -436,7 +486,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     term: c.term,
                     category: c.category || 'Klinik',
                     explanation: c.explanation || '',
-                    stackedCards: [], // Für Tableau Pre-Stacking!
+                    stackedCards: [],
                     faceUp: false
                 });
             });
@@ -445,15 +495,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         const shuffledCats = shuffleArray(categoryCards);
         const shuffledTerms = shuffleArray(termCards);
 
-        // 2. Smart Anti-Deadlock Verteilung:
-        // Wir garantieren, dass mindestens 2 Kategorienkarten direkt spielbar (oberste Tableau-Karte oder frühe Stock-Karte) sind,
-        // damit der Spieler sofort loslegen und kombinieren kann.
         const guaranteedCats = shuffledCats.slice(0, 2);
         const remainingCats = shuffledCats.slice(2);
-
         const generalPool = shuffleArray([...remainingCats, ...shuffledTerms]);
 
-        // 4 Tableau-Spalten aufbauen (z.B. je 3 bis 5 Karten je nach Deckgröße)
         const numCols = 4;
         const tableau = [[], [], [], []];
         const totalCardsCount = categoryCards.length + termCards.length;
@@ -468,21 +513,18 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             }
         }
 
-        // Die erste garantierte Kategorienkarte legen wir offen ganz nach unten (spielbar) auf Spalte 0 oder 1
         const openCol = Math.floor(Math.random() * numCols);
         if (guaranteedCats[0]) {
             guaranteedCats[0].faceUp = true;
             tableau[openCol].push(guaranteedCats[0]);
         }
 
-        // Oberste (letzte) Karte jeder Tableau-Spalte aufdecken
         tableau.forEach(col => {
             if (col.length > 0) {
                 col[col.length - 1].faceUp = true;
             }
         });
 
-        // Stock Pile: Die zweite garantierte Kategorienkarte kommt unter die ersten 2 Stock-Karten
         const stock = [...generalPool];
         if (guaranteedCats[1]) {
             const insertIdx = Math.min(stock.length, 1);
@@ -490,13 +532,13 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         }
         stock.forEach(c => { c.faceUp = false; });
 
-        // Move-Budget großzügig, aber herausfordernd kalkulieren
         const calculatedMaxMoves = Math.ceil(totalCardsCount * 1.55) + 14;
 
         gameState = {
             movesLeft: calculatedMaxMoves,
             maxMoves: calculatedMaxMoves,
             score: 0,
+            comboStreak: 0,
             hintsLeft: 3,
             jokersLeft: 2,
             foundations: [null, null, null, null],
@@ -506,7 +548,8 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             waste: [],
             selectedSource: null,
             hintHighlightIds: [],
-            historyStack: []
+            historyStack: [],
+            lastSuccessAnim: null
         };
 
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
@@ -520,6 +563,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         const snapshot = JSON.stringify({
             movesLeft: gameState.movesLeft,
             score: gameState.score,
+            comboStreak: gameState.comboStreak,
             foundations: gameState.foundations,
             completedDiseases: gameState.completedDiseases,
             tableau: gameState.tableau,
@@ -540,6 +584,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         const prev = JSON.parse(gameState.historyStack.pop());
         gameState.movesLeft = prev.movesLeft;
         gameState.score = prev.score;
+        gameState.comboStreak = prev.comboStreak || 0;
         gameState.foundations = prev.foundations;
         gameState.completedDiseases = prev.completedDiseases;
         gameState.tableau = prev.tableau;
@@ -547,13 +592,14 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         gameState.waste = prev.waste;
         gameState.selectedSource = null;
         gameState.hintHighlightIds = [];
+        gameState.lastSuccessAnim = null;
 
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
         renderView();
     }
 
     // ----------------------------------------------------------------------
-    // 08. SPIELZÜGE, PRE-STACKING & VALIDIERUNG
+    // 08. SPIELZÜGE, OPTISCHES PRE-STACKING & VALIDIERUNG (OHNE FEHLER-ABZUG)
     // ----------------------------------------------------------------------
     function getPlayableCardFromSource(source) {
         if (!source) return null;
@@ -564,7 +610,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         if (source.zone === 'tableau') {
             const col = gameState.tableau[source.colIdx];
             if (!col || col.length === 0) return null;
-            return col[col.length - 1]; // Nur die unterste (freie) Karte einer Spalte ist spielbar
+            return col[col.length - 1];
         }
         return null;
     }
@@ -576,7 +622,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         if (source.zone === 'tableau') {
             const col = gameState.tableau[source.colIdx];
             const removed = col.pop();
-            // Falls darunter eine verdeckte Karte liegt -> automatisch aufdecken!
             if (col.length > 0 && !col[col.length - 1].faceUp) {
                 col[col.length - 1].faceUp = true;
             }
@@ -585,7 +630,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         return null;
     }
 
-    // Ziehen vom Nachziehstapel (Stock -> Waste)
     function drawFromStock() {
         if (gameState.movesLeft <= 0) {
             checkGameOverState();
@@ -594,6 +638,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         gameState.selectedSource = null;
         gameState.hintHighlightIds = [];
+        gameState.lastSuccessAnim = null;
 
         if (gameState.stock.length > 0) {
             saveHistorySnapshot();
@@ -605,7 +650,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             renderView();
             checkGameOverState();
         } else if (gameState.waste.length > 0) {
-            // Waste Pile zurück in den Stock mischen/umdrehen
             saveHistorySnapshot();
             gameState.stock = gameState.waste.reverse().map(c => ({ ...c, faceUp: false }));
             gameState.waste = [];
@@ -617,19 +661,23 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         }
     }
 
-    // Versuch, eine Karte in einen Foundation-Slot (oben) zu legen
+    // Bewegung in einen der 4 oberen Foundation-Slots
     function attemptMoveToFoundation(source, slotIdx) {
         const card = getPlayableCardFromSource(source);
         if (!card) return false;
 
         const targetSlot = gameState.foundations[slotIdx];
+        const slotDom = document.querySelector(`[data-foundation-idx="${slotIdx}"]`);
+        const targetRect = slotDom ? slotDom.getBoundingClientRect() : null;
 
-        // FALL A: Ziel-Slot ist leer -> Nur eine Krankheitsbild-Kategorienkarte darf hinein!
+        // FALL A: Freier Slot oben -> Nur Kategorienkarte (Krankheitsbild) erlaubt
         if (!targetSlot) {
             if (!card.isCategoryCard) {
+                gameState.comboStreak = 0;
                 triggerWrongMoveFeedback(
                     source,
-                    `In einen freien Ziel-Slot oben muss zuerst eine <strong>Krankheitsbild-Kategorienkarte</strong> (👑) gelegt werden, bevor du Begriffe zuordnen kannst.`
+                    `In einen freien Ziel-Slot oben muss zuerst eine <strong>Krankheitsbild-Kategorienkarte (👑)</strong> gelegt werden. <em>(Kein Move abgezogen)</em>`,
+                    slotDom
                 );
                 return false;
             }
@@ -638,37 +686,44 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             const movedCatCard = removeCardFromSource(source);
             gameState.foundations[slotIdx] = movedCatCard;
             gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
+            gameState.comboStreak++;
             gameState.score += 50;
             gameState.selectedSource = null;
             gameState.hintHighlightIds = [];
+            gameState.lastSuccessAnim = { type: 'foundation', targetIdx: slotIdx };
 
-            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 
-            // Prüfen, ob die Kategorienkarte schon im Tableau komplett vor-gestapelt wurde
-            checkFoundationSlotCompletion(slotIdx);
+            const wasCompletedImmediately = checkFoundationSlotCompletion(slotIdx, targetRect);
+            if (!wasCompletedImmediately) {
+                spawnMatchCelebrationFX(targetRect, movedCatCard.accent, `👑 ${escapeHtml(movedCatCard.diseaseName)} eröffnet!`, false);
+            }
+
             renderView();
+            showToast(`👑 <strong>${escapeHtml(movedCatCard.diseaseName)}</strong> freigeschaltet! Ordne nun die passenden Befunde zu.`, 'positive');
             checkGameOverState();
             return true;
         }
 
-        // FALL B: Ziel-Slot hat bereits ein Krankheitsbild -> Begriffskarte (oder Mini-Stapel) zuordnen
+        // FALL B: Slot ist bereits mit einem Krankheitsbild belegt
         if (card.isCategoryCard) {
             triggerWrongMoveFeedback(
                 source,
-                `Dieser Slot ist bereits durch <strong>${escapeHtml(targetSlot.diseaseName)}</strong> belegt. Lege diese Krankheitsbild-Karte in einen freien Ziel-Slot.`
+                `Dieser Slot ist bereits durch <strong>${escapeHtml(targetSlot.diseaseName)}</strong> belegt. Wähle einen freien Ziel-Slot oben! <em>(Kein Move abgezogen)</em>`,
+                slotDom
             );
             return false;
         }
 
+        // FEHLVERSUCH: Karte gehört zu einer anderen Erkrankung -> KEIN Move-Abzug!
         if (card.diseaseId !== targetSlot.diseaseId) {
-            // Fehlzuordnung! Sokratisches Feedback + 1 Zug Abzug
-            gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
+            gameState.comboStreak = 0;
             if (typeof trackSkill === 'function') trackSkill('Diagnostik', false);
             triggerWrongMoveFeedback(
                 source,
-                `<strong>Differentialdiagnostischer Konflikt (-1 Move):</strong><br>„${escapeHtml(card.term)}“ (${escapeHtml(card.category)}) gehört <u>nicht</u> zu <strong>${escapeHtml(targetSlot.diseaseName)}</strong>. Überlege: Für welche andere Entität im Deck ist dieser Befund pathognomonisch?`
+                `<strong>Differentialdiagnostischer Konflikt (Kein Move-Abzug):</strong><br>„${escapeHtml(card.term)}“ (${escapeHtml(card.category)}) gehört <u>nicht</u> zu <strong>${escapeHtml(targetSlot.diseaseName)}</strong>. Überlege: Welche andere Entität im Deck zeigt genau diesen Befund?`,
+                slotDom
             );
-            checkGameOverState();
             return false;
         }
 
@@ -676,7 +731,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         saveHistorySnapshot();
         const movedTermCard = removeCardFromSource(source);
 
-        // Hauptkarte + alle evtl. im Tableau vorab gestapelten Karten (Pre-Stacking) übertragen!
         const allTermsToAdd = [
             { term: movedTermCard.term, category: movedTermCard.category, explanation: movedTermCard.explanation },
             ...(movedTermCard.stackedCards || [])
@@ -684,23 +738,44 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         targetSlot.collectedTerms.push(...allTermsToAdd);
         gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
-        gameState.score += 35 * allTermsToAdd.length;
+        gameState.comboStreak++;
+
+        const comboMultiplier = gameState.comboStreak >= 3 ? 1.5 : 1;
+        const earnedPts = Math.round(35 * allTermsToAdd.length * comboMultiplier);
+        gameState.score += earnedPts;
+
         gameState.selectedSource = null;
         gameState.hintHighlightIds = [];
+        gameState.lastSuccessAnim = { type: 'foundation', targetIdx: slotIdx };
 
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 30, 10]);
         if (typeof trackSkill === 'function') trackSkill('Diagnostik', true);
         if (typeof applyXpDelta === 'function') {
-            applyXpDelta(15 * allTermsToAdd.length, allTermsToAdd.length > 1 ? `Combo +${allTermsToAdd.length} Karten` : 'Assoziation');
+            applyXpDelta(15 * allTermsToAdd.length, allTermsToAdd.length > 1 ? `Stack +${allTermsToAdd.length}` : 'DDx-Match');
         }
 
-        checkFoundationSlotCompletion(slotIdx);
+        const wasCompleted = checkFoundationSlotCompletion(slotIdx, targetRect);
+        if (!wasCompleted) {
+            const badgeLabel = allTermsToAdd.length > 1
+                ? `📚 +${allTermsToAdd.length} Stack-Match! (+${earnedPts})`
+                : `✓ +${earnedPts} Pkt ${gameState.comboStreak >= 2 ? `🔥${gameState.comboStreak}x` : ''}`;
+            spawnMatchCelebrationFX(targetRect, targetSlot.accent, badgeLabel, false);
+        }
+
         renderView();
+
+        if (!wasCompleted) {
+            showToast(
+                `✓ <strong>${escapeHtml(movedTermCard.term)}</strong> → ${escapeHtml(targetSlot.diseaseName)}: <em>${escapeHtml(movedTermCard.explanation || 'Korrekt zugeordnet.')}</em>`,
+                'positive'
+            );
+        }
+
         checkGameOverState();
         return true;
     }
 
-    // Versuch, eine Karte innerhalb des Tableaus auf eine andere Spalte zu legen (Pre-Stacking oder leere Spalte)
+    // Bewegung / Optisches Stacking innerhalb des Tableaus
     function attemptMoveToTableauColumn(source, targetColIdx) {
         if (source.zone === 'tableau' && source.colIdx === targetColIdx) {
             gameState.selectedSource = null;
@@ -712,8 +787,11 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         if (!card) return false;
 
         const targetCol = gameState.tableau[targetColIdx];
+        const colDom = document.querySelector(`.sol-tableau-col[data-tableau-col="${targetColIdx}"]`);
+        const lastCardInColDom = colDom ? colDom.querySelector('.sol-card:last-child, .sol-stacked-group:last-child') : null;
+        const targetRect = (lastCardInColDom || colDom)?.getBoundingClientRect();
 
-        // FALL 1: Ziel-Spalte im Tableau ist komplett leer -> Jede spielbare Karte (oder Mini-Stack) darf dorthin!
+        // FALL 1: Leere Tableau-Spalte -> Jede spielbare Karte (oder Stack) darf abgelegt werden
         if (targetCol.length === 0) {
             saveHistorySnapshot();
             const moved = removeCardFromSource(source);
@@ -721,6 +799,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
             gameState.selectedSource = null;
             gameState.hintHighlightIds = [];
+            gameState.lastSuccessAnim = { type: 'tableau', targetIdx: targetColIdx, uid: moved.uid };
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
             renderView();
             checkGameOverState();
@@ -729,9 +808,9 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         const topTargetCard = targetCol[targetCol.length - 1];
 
-        // FALL 2: Gleiches Krankheitsbild im Tableau zusammenführen (Tableau Pre-Stacking!)
+        // FALL 2: Gleiche Krankheit im Tableau zusammenlegen (Optisches Pre-Stacking!)
         if (topTargetCard.diseaseId === card.diseaseId) {
-            // 2a: Zielkarte im Tableau ist die Krankheitsbild-Kategorienkarte, gezogene Karte ist Begriffskarte
+            // 2a: Ziel im Tableau ist die Kategorienkarte, gezogene Karte ist Begriffskarte
             if (topTargetCard.isCategoryCard && !card.isCategoryCard) {
                 saveHistorySnapshot();
                 const movedTerm = removeCardFromSource(source);
@@ -741,16 +820,20 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 ];
                 topTargetCard.collectedTerms.push(...termsToMerge);
                 gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
-                gameState.score += 25 * termsToMerge.length;
+                gameState.comboStreak++;
+                gameState.score += 30 * termsToMerge.length;
                 gameState.selectedSource = null;
                 gameState.hintHighlightIds = [];
-                showToast(`🔗 Im Tableau an „${topTargetCard.diseaseName}“ gekoppelt!`, 'positive');
+                gameState.lastSuccessAnim = { type: 'tableau', targetIdx: targetColIdx, uid: topTargetCard.uid };
+
+                spawnMatchCelebrationFX(targetRect, topTargetCard.accent, `🔗 Pre-Stack (${topTargetCard.collectedTerms.length}/${topTargetCard.totalRequired})`, false);
                 renderView();
+                showToast(`🔗 <strong>${escapeHtml(movedTerm.term)}</strong> direkt an „${escapeHtml(topTargetCard.diseaseName)}“ gestapelt!`, 'positive');
                 checkGameOverState();
                 return true;
             }
 
-            // 2b: Beide Karten sind Begriffskarten derselben Krankheit -> Mini-Stack bilden!
+            // 2b: Beide Karten sind Begriffskarten derselben Krankheit -> Physischen Mini-Stack aufbauen!
             if (!topTargetCard.isCategoryCard && !card.isCategoryCard) {
                 saveHistorySnapshot();
                 const movedTerm = removeCardFromSource(source);
@@ -760,17 +843,22 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     ...(movedTerm.stackedCards || [])
                 );
                 gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
+                gameState.comboStreak++;
                 gameState.score += 30;
                 gameState.selectedSource = null;
                 gameState.hintHighlightIds = [];
-                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
-                showToast(`📚 Pre-Stack gebildet (${1 + topTargetCard.stackedCards.length} Begriffe derselben Krankheit)!`, 'positive');
+                gameState.lastSuccessAnim = { type: 'tableau', targetIdx: targetColIdx, uid: topTargetCard.uid };
+
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic([8, 25, 8]);
+                const totalInStack = 1 + topTargetCard.stackedCards.length;
+                spawnMatchCelebrationFX(targetRect, topTargetCard.accent, `📚 ${totalInStack}er DDx-Stack!`, false);
                 renderView();
+                showToast(`📚 <strong>Optischer ${totalInStack}er-Stack gebildet!</strong> Beide Begriffe gehören zu <em>${escapeHtml(topTargetCard.diseaseName)}</em>.`, 'positive');
                 checkGameOverState();
                 return true;
             }
 
-            // 2c: Gezogene Karte ist die Kategorienkarte und wird auf einen passenden Begriff im Tableau gelegt
+            // 2c: Gezogene Karte ist die Kategorienkarte und wird im Tableau auf passende Begriffskarte gelegt
             if (card.isCategoryCard && !topTargetCard.isCategoryCard) {
                 saveHistorySnapshot();
                 const movedCat = removeCardFromSource(source);
@@ -781,26 +869,30 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 );
                 targetCol.push(movedCat);
                 gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
-                gameState.score += 30;
+                gameState.comboStreak++;
+                gameState.score += 35;
                 gameState.selectedSource = null;
                 gameState.hintHighlightIds = [];
+                gameState.lastSuccessAnim = { type: 'tableau', targetIdx: targetColIdx, uid: movedCat.uid };
+
+                spawnMatchCelebrationFX(targetRect, movedCat.accent, `👑 Stack übernommen!`, false);
                 renderView();
+                showToast(`👑 <strong>${escapeHtml(movedCat.diseaseName)}</strong> hat den Begriffs-Stack im Tableau aufgenommen!`, 'positive');
                 checkGameOverState();
                 return true;
             }
         }
 
-        // Fehlversuch im Tableau (verschiedene Krankheiten)
-        gameState.movesLeft = Math.max(0, gameState.movesLeft - 1);
+        // FEHLVERSUCH IM TABLEAU -> KEIN Move-Abzug!
+        gameState.comboStreak = 0;
         triggerWrongMoveFeedback(
             source,
-            `<strong>Nicht kombinierbar (-1 Move):</strong><br>Im Tableau lassen sich nur Karten stapeln, die zum <u>selben Krankheitsbild</u> gehören (oder auf eine freie Spalte verschoben werden).`
+            `<strong>Nicht kombinierbar (Kein Move-Abzug):</strong><br>„${escapeHtml(card.term || card.diseaseName)}“ und „${escapeHtml(topTargetCard.term || topTargetCard.diseaseName)}“ gehören zu <u>unterschiedlichen Krankheitsbildern</u>.`,
+            lastCardInColDom
         );
-        checkGameOverState();
         return false;
     }
 
-    // Doppelklick / Schnell-Zuordnung (sucht automatisch den passenden Slot oben)
     function attemptAutoMoveCard(source) {
         const card = getPlayableCardFromSource(source);
         if (!card) return false;
@@ -819,43 +911,45 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         return false;
     }
 
-    function checkFoundationSlotCompletion(slotIdx) {
+    function checkFoundationSlotCompletion(slotIdx, targetRect) {
         const slot = gameState.foundations[slotIdx];
-        if (!slot) return;
+        if (!slot) return false;
 
         if (slot.collectedTerms.length >= slot.totalRequired) {
-            // Krankheitsbild komplett gelöst!
-            gameState.completedDiseases.push(JSON.parse(JSON.stringify(slot)));
-            gameState.foundations[slotIdx] = null; // Slot wird wieder frei für das nächste Krankheitsbild!
-            gameState.score += 200;
+            const completedCopy = JSON.parse(JSON.stringify(slot));
+            gameState.completedDiseases.push(completedCopy);
+            gameState.foundations[slotIdx] = null;
+            gameState.score += 250;
 
-            if (typeof window.triggerHaptic === 'function') window.triggerHaptic([15, 50, 20]);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic([20, 60, 30]);
             if (typeof applyXpDelta === 'function') {
-                applyXpDelta(150, `${slot.diseaseName} gemeistert!`);
+                applyXpDelta(150, `${completedCopy.diseaseName} komplett!`);
             }
-            showToast(`🎉 ${slot.diseaseName} vollständig gelöst (+150 XP)! Slot ist wieder frei.`, 'positive');
+
+            spawnMatchCelebrationFX(targetRect, completedCopy.accent, `🏆 ${escapeHtml(completedCopy.diseaseName)} GEMEISTERT! (+150 XP)`, true);
+            showToast(`🎉 <strong>${escapeHtml(completedCopy.diseaseName)} (${completedCopy.totalRequired}/${completedCopy.totalRequired})</strong> vollständig gelöst! Der Ziel-Slot ist wieder frei.`, 'positive');
+            return true;
         }
+        return false;
     }
 
     function checkGameOverState() {
         const totalDiseases = activeDeck?.diseases?.length || 0;
         if (gameState.completedDiseases.length >= totalDiseases && totalDiseases > 0) {
-            // SIEG!
             const bonusScore = gameState.movesLeft * 25;
             gameState.score += bonusScore;
             recordDeckWin(activeDeck.deck_id, gameState.movesLeft, gameState.score);
             if (typeof applyXpDelta === 'function') {
                 applyXpDelta(300, 'Solitaire Deck komplett gelöst!');
             }
-            setTimeout(() => showVictoryModal(), 250);
+            setTimeout(() => showVictoryModal(), 450);
             return;
         }
 
         if (gameState.movesLeft <= 0) {
             setTimeout(() => {
-                if (window.confirm('Keine Züge (Moves) mehr übrig! Möchtest du mit +10 Extra-Moves weiterspielen (-50 XP) oder das Deck neu starten?')) {
+                if (window.confirm('Keine Züge (Moves) mehr übrig! Möchtest du kostenlos +10 Extra-Moves erhalten, um die Runde zu Ende zu bringen?')) {
                     gameState.movesLeft += 10;
-                    if (typeof applyXpDelta === 'function') applyXpDelta(-50, '+10 Extra-Moves');
                     renderView();
                 } else {
                     startNewGame(activeDeck.deck_id);
@@ -883,34 +977,31 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             }
         });
 
-        // 1. Prüfen, ob eine Kategorienkarte in einen freien Foundation-Slot kann
         const hasFreeFoundation = gameState.foundations.some(s => s === null);
         if (hasFreeFoundation) {
             const catCandidate = playable.find(p => p.card.isCategoryCard);
             if (catCandidate) {
                 gameState.hintsLeft--;
                 gameState.hintHighlightIds = [catCandidate.card.uid];
-                showToast(`💡 Tipp: Lege die Krankheitsbild-Karte „${catCandidate.card.diseaseName}“ oben in einen freien Ziel-Slot!`, 'positive');
                 renderView();
+                showToast(`💡 Tipp: Lege die Krankheitsbild-Karte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
                 return;
             }
         }
 
-        // 2. Prüfen, ob eine spielbare Begriffskarte in einen aktiven Foundation-Slot passt
         for (const p of playable) {
             if (!p.card.isCategoryCard) {
                 const matchSlot = gameState.foundations.find(s => s && s.diseaseId === p.card.diseaseId);
                 if (matchSlot) {
                     gameState.hintsLeft--;
                     gameState.hintHighlightIds = [p.card.uid, matchSlot.uid];
-                    showToast(`💡 Tipp: „${p.card.term}“ gehört zu einem bereits geöffneten Krankheitsbild oben!`, 'positive');
                     renderView();
+                    showToast(`💡 Tipp: „${escapeHtml(p.card.term)}“ passt zu <strong>${escapeHtml(matchSlot.diseaseName)}</strong> oben!`, 'positive');
                     return;
                 }
             }
         }
 
-        // 3. Prüfen, ob zwei Karten im Tableau / Waste zur selben Krankheit gehören (Pre-Stacking!)
         for (let i = 0; i < playable.length; i++) {
             for (let j = i + 1; j < playable.length; j++) {
                 const a = playable[i];
@@ -918,8 +1009,8 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 if (a.card.diseaseId === b.card.diseaseId && (a.zone === 'tableau' || b.zone === 'tableau')) {
                     gameState.hintsLeft--;
                     gameState.hintHighlightIds = [a.card.uid, b.card.uid];
-                    showToast(`💡 Pre-Stack-Tipp: Diese beiden markierten Karten gehören zur selben Erkrankung und können im Tableau gestapelt werden!`, 'positive');
                     renderView();
+                    showToast(`💡 Pre-Stack-Tipp: Diese beiden markierten Karten gehören zur selben Erkrankung (${escapeHtml(a.card.diseaseName)}) und können direkt im Tableau aufeinandergestapelt werden!`, 'positive');
                     return;
                 }
             }
@@ -937,7 +1028,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         saveHistorySnapshot();
         gameState.jokersLeft--;
 
-        // Wenn im Tableau noch verdeckte Karten liegen, deckt der Joker alle zweituntersten Karten auf
         let revealedCount = 0;
         gameState.tableau.forEach(col => {
             col.forEach(c => {
@@ -948,7 +1038,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             });
         });
 
-        // Zusätzlich: Falls ein Foundation-Slot frei ist und eine Kategorienkarte im Stock/Tableau schlummert, holen wir sie nach oben
         const emptySlotIdx = gameState.foundations.findIndex(s => s === null);
         if (emptySlotIdx !== -1) {
             const stockCatIdx = gameState.stock.findIndex(c => c.isCategoryCard);
@@ -956,20 +1045,22 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 const [catCard] = gameState.stock.splice(stockCatIdx, 1);
                 catCard.faceUp = true;
                 gameState.foundations[emptySlotIdx] = catCard;
+                gameState.lastSuccessAnim = { type: 'foundation', targetIdx: emptySlotIdx };
                 if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
-                showToast(`🃏 Joker eingesetzt: „${catCard.diseaseName}“ direkt freigeschaltet!`, 'positive');
                 renderView();
+                showToast(`🃏 Joker eingesetzt: „${escapeHtml(catCard.diseaseName)}“ direkt freigeschaltet!`, 'positive');
                 return;
             }
         }
 
+        renderView();
         if (revealedCount > 0) {
-            showToast(`🃏 Joker eingesetzt: Alle verdeckten Karten im Tableau zur besseren Planung aufgedeckt!`, 'positive');
+            showToast(`🃏 Joker eingesetzt: Alle verdeckten Karten im Tableau aufgedeckt!`, 'positive');
         } else {
             gameState.movesLeft += 5;
+            renderView();
             showToast(`🃏 Joker eingesetzt: +5 Extra-Moves erhalten!`, 'positive');
         }
-        renderView();
     }
 
     // ----------------------------------------------------------------------
@@ -983,19 +1074,24 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         banner.style.display = 'flex';
     }
 
-    function triggerWrongMoveFeedback(source, htmlReason) {
+    function triggerWrongMoveFeedback(source, htmlReason, targetDomEl = null) {
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic([20, 40, 20]);
+        const card = getPlayableCardFromSource(source);
         gameState.selectedSource = null;
+        gameState.lastSuccessAnim = null;
         renderView();
         showToast(htmlReason, 'error');
 
-        const card = getPlayableCardFromSource(source);
         if (card) {
             const el = document.querySelector(`[data-card-uid="${card.uid}"]`);
             if (el) {
                 el.classList.add('sol-card-shake');
-                setTimeout(() => el.classList.remove('sol-card-shake'), 500);
+                setTimeout(() => el.classList.remove('sol-card-shake'), 520);
             }
+        }
+        if (targetDomEl) {
+            targetDomEl.classList.add('sol-card-shake');
+            setTimeout(() => targetDomEl.classList.remove('sol-card-shake'), 520);
         }
     }
 
@@ -1025,7 +1121,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             ` : ''}
 
             <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">
-                Bereits zugeordnete Begriffe & Pathophysiologie:
+                Zugeordnete Begriffe & Pathophysiologie:
             </div>
 
             ${terms.length === 0 ? `
@@ -1034,7 +1130,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 </div>
             ` : `
                 <div style="display:flex; flex-direction:column; gap:10px; max-height:48vh; overflow-y:auto; padding-right:4px;">
-                    ${terms.map((t, idx) => {
+                    ${terms.map(t => {
                         const catCfg = CATEGORY_COLORS[t.category] || CATEGORY_COLORS['Klinik'];
                         return `
                             <div style="background:rgba(15,23,42,0.6); border:1px solid var(--card-border); border-left:4px solid ${catCfg.color}; border-radius:10px; padding:12px 14px;">
@@ -1070,7 +1166,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 cue_context: `${diseaseName} – ${term}`,
                 highlighted_text: `${term}: ${explanation}`
             });
-            showToast(`📌 „${term}“ im Lern-Depot gespeichert!`, 'positive');
+            showToast(`📌 „${escapeHtml(term)}“ im Lern-Depot gespeichert!`, 'positive');
         }
     }
 
@@ -1081,10 +1177,10 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         body.innerHTML = `
             <div style="text-align:center; padding:12px 6px;">
-                <div style="font-size:3rem; margin-bottom:8px;">🏆</div>
+                <div style="font-size:3.2rem; margin-bottom:8px;">🏆</div>
                 <h3 style="font-size:1.4rem; color:var(--text-main); margin-bottom:6px;">Deck vollständig gemeistert!</h3>
                 <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:18px;">
-                    Du hast alle <strong>${gameState.completedDiseases.length} Krankheitsbilder</strong> differentialdiagnostisch sauber zugeordnet.
+                    Du hast alle <strong>${gameState.completedDiseases.length} Krankheitsbilder</strong> differentialdiagnostisch perfekt zugeordnet.
                 </p>
                 <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-bottom:20px;">
                     <div class="hud-stat"><strong style="color:var(--accent-blue);">${gameState.score}</strong> <span>Punkte</span></div>
@@ -1157,7 +1253,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
     }
 
     // ----------------------------------------------------------------------
-    // 12. RENDERING: LOBBY (DECK-MANAGER) & SPIELFELD (JOURNEY BOARD)
+    // 12. RENDERING: LOBBY & OPTISCH GESTACKTES SPIELFELD
     // ----------------------------------------------------------------------
     function renderLobby(container) {
         const decks = getAllDecks();
@@ -1165,7 +1261,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
 
         container.innerHTML = `
             <div class="sol-lobby-wrapper">
-                <!-- Header -->
                 <div class="sol-lobby-header">
                     <div>
                         <div class="friends-kicker">CLINICAL DEDUCTION CARD GAME</div>
@@ -1184,7 +1279,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 </div>
 
-                <!-- Ausklappbarer Deck-Uploader & Skill-Schema -->
                 <div id="sol-upload-panel" class="sol-upload-panel hidden">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                         <div>
@@ -1208,14 +1302,12 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 </div>
 
-                <!-- Spielregeln Kurz-Strip -->
                 <div class="sol-rules-strip">
                     <div class="sol-rule-pill"><span>1️⃣</span> <strong>Krankheitsbild (👑)</strong> in freien Slot oben legen</div>
                     <div class="sol-rule-pill"><span>2️⃣</span> Passende <strong>Befunde & Begriffe</strong> darauf sammeln</div>
-                    <div class="sol-rule-pill"><span>3️⃣</span> <strong>Pre-Stacking:</strong> Gleiche Krankheit schon im Tableau bündeln, um Moves zu sparen!</div>
+                    <div class="sol-rule-pill"><span>3️⃣</span> <strong>Optisches Pre-Stacking:</strong> Gleiche Krankheit schon im Tableau physisch übereinanderstapeln!</div>
                 </div>
 
-                <!-- Deck-Karten Grid -->
                 <div class="sol-decks-grid">
                     ${decks.map(deck => {
                         const dStat = stats[deck.deck_id] || { wins: 0, bestScore: 0 };
@@ -1260,6 +1352,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         bindDropzoneEvents();
     }
 
+    // Rendert eine einzelne Karte ODER einen physisch geschichteten Kartenstapel (Pre-Stack)
     function renderCardHtml(card, zone, colIdx, cardIdx, isPlayable) {
         const isSelected = gameState.selectedSource &&
             gameState.selectedSource.zone === zone &&
@@ -1267,6 +1360,9 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             gameState.selectedSource.cardIdx === cardIdx;
 
         const isHinted = gameState.hintHighlightIds.includes(card.uid);
+        const isJustMatched = gameState.lastSuccessAnim &&
+            gameState.lastSuccessAnim.type === 'tableau' &&
+            gameState.lastSuccessAnim.uid === card.uid;
 
         if (!card.faceUp) {
             return `
@@ -1276,55 +1372,88 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             `;
         }
 
-        // KATEGORIENKARTE (KRANKHEITSBILD / PARENT CARD)
+        // FALL 1: KATEGORIENKARTE (KRANKHEITSBILD / PARENT CARD)
         if (card.isCategoryCard) {
-            const collectedCount = (card.collectedTerms || []).length;
+            const collected = card.collectedTerms || [];
+            const collectedCount = collected.length;
+
+            // Falls auf der Kategorienkarte schon im Tableau Begriffe vor-gestapelt wurden -> Physische Stapel-Kaskade rendern!
+            const peekingSlicesHtml = collected.map((subCard, sIdx) => {
+                const subCatCfg = CATEGORY_COLORS[subCard.category] || CATEGORY_COLORS['Klinik'];
+                return `
+                    <div class="sol-stack-peek-slice" style="--slice-accent: ${card.accent}; --slice-index: ${sIdx};">
+                        <span class="sol-peek-dot" style="background:${subCatCfg.color};"></span>
+                        <span class="sol-peek-term">${escapeHtml(subCard.term)}</span>
+                        <span class="sol-peek-cat" style="color:${subCatCfg.color};">${escapeHtml(subCatCfg.label)}</span>
+                    </div>
+                `;
+            }).join('');
+
             return `
-                <div class="sol-card sol-card-category ${isPlayable ? 'is-playable' : ''} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''}"
-                     style="--disease-accent: ${card.accent};"
+                <div class="sol-stacked-group ${collectedCount > 0 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : ''} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
+                     style="--disease-accent: ${card.accent}; --stack-depth: ${Math.min(collectedCount, 5)};"
                      data-card-uid="${card.uid}"
                      data-zone="${zone}"
                      data-col="${colIdx}"
                      data-idx="${cardIdx}"
                      draggable="${isPlayable ? 'true' : 'false'}">
-                    <div class="sol-cat-crown-row">
-                        <span class="sol-crown-badge">👑 KRANKHEITSBILD</span>
-                        <span class="sol-cat-counter">${collectedCount}/${card.totalRequired}</span>
-                    </div>
-                    <div class="sol-cat-disease-title">${escapeHtml(card.diseaseName)}</div>
-                    <div class="sol-cat-footer">
-                        <span>${escapeHtml(card.icd10 || 'DDx-Kategorie')}</span>
-                        <span>In Ziel-Slot legen ⬆</span>
+                    ${collectedCount > 0 ? `<div class="sol-stack-peeking-list">${peekingSlicesHtml}</div>` : ''}
+                    <div class="sol-card sol-card-category">
+                        <div class="sol-cat-crown-row">
+                            <span class="sol-crown-badge">👑 KRANKHEITSBILD</span>
+                            <span class="sol-cat-counter">${collectedCount}/${card.totalRequired}</span>
+                        </div>
+                        <div class="sol-cat-disease-title">${escapeHtml(card.diseaseName)}</div>
+                        <div class="sol-cat-footer">
+                            <span>${escapeHtml(card.icd10 || 'DDx-Kategorie')}</span>
+                            <span>${collectedCount > 0 ? `📚 +${collectedCount} gestapelt` : 'In Slot legen ⬆'}</span>
+                        </div>
                     </div>
                 </div>
             `;
         }
 
-        // BEGRIFFSKARTE (CHILD CARD)
+        // FALL 2: BEGRIFFSKARTE (INKL. PHYSISCHER KASKADEN-DARSTELLUNG BEI GESTAPELTEN KARTEN)
         const catCfg = CATEGORY_COLORS[card.category] || CATEGORY_COLORS['Klinik'];
-        const stackCount = 1 + (card.stackedCards?.length || 0);
+        const subCards = card.stackedCards || [];
+        const stackCount = 1 + subCards.length;
+
+        const peekingTermsHtml = subCards.map((sub, sIdx) => {
+            const subCat = CATEGORY_COLORS[sub.category] || CATEGORY_COLORS['Klinik'];
+            return `
+                <div class="sol-stack-peek-slice" style="--slice-accent: ${card.accent}; --slice-index: ${sIdx};">
+                    <span class="sol-peek-dot" style="background:${subCat.color};"></span>
+                    <span class="sol-peek-term">${escapeHtml(sub.term)}</span>
+                    ${!hardMode ? `<span class="sol-peek-cat" style="color:${subCat.color};">${escapeHtml(subCat.label)}</span>` : ''}
+                </div>
+            `;
+        }).join('');
 
         return `
-            <div class="sol-card sol-card-term ${isPlayable ? 'is-playable' : ''} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''}"
+            <div class="sol-stacked-group ${stackCount > 1 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : ''} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
+                 style="--disease-accent: ${card.accent}; --stack-depth: ${Math.min(subCards.length, 5)};"
                  data-card-uid="${card.uid}"
                  data-zone="${zone}"
                  data-col="${colIdx}"
                  data-idx="${cardIdx}"
                  draggable="${isPlayable ? 'true' : 'false'}">
-                <div class="sol-term-top-row">
-                    ${!hardMode ? `
-                        <span class="sol-term-cat-pill" style="background:${catCfg.bg}; color:${catCfg.color};">
-                            ${escapeHtml(catCfg.label)}
-                        </span>
-                    ` : `<span class="sol-term-cat-pill" style="background:rgba(148,163,184,0.12); color:var(--text-dim);">🎓 Exam</span>`}
-                    ${stackCount > 1 ? `<span class="sol-prestack-badge" title="Gestapelte Begriffe derselben Krankheit">📚 ${stackCount}x</span>` : ''}
-                </div>
-                <div class="sol-term-main-text">${escapeHtml(card.term)}</div>
-                ${stackCount > 1 ? `
-                    <div class="sol-prestack-preview">
-                        + ${card.stackedCards.map(s => escapeHtml(s.term)).join(' • ')}
+                ${stackCount > 1 ? `<div class="sol-stack-peeking-list" title="Hover zum Auffächern des Stapels">${peekingTermsHtml}</div>` : ''}
+                <div class="sol-card sol-card-term">
+                    <div class="sol-term-top-row">
+                        ${!hardMode ? `
+                            <span class="sol-term-cat-pill" style="background:${catCfg.bg}; color:${catCfg.color};">
+                                ${escapeHtml(catCfg.label)}
+                            </span>
+                        ` : `<span class="sol-term-cat-pill" style="background:rgba(148,163,184,0.12); color:var(--text-dim);">🎓 Exam</span>`}
+                        ${stackCount > 1 ? `<span class="sol-prestack-badge">📚 ${stackCount}er Stack</span>` : ''}
                     </div>
-                ` : ''}
+                    <div class="sol-term-main-text">${escapeHtml(card.term)}</div>
+                    ${stackCount > 1 ? `
+                        <div class="sol-stack-bottom-hint">
+                            <span>🔗 ${stackCount} Karten derselben Entität gebündelt</span>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
         `;
     }
@@ -1343,12 +1472,17 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                         <div>
                             <div style="font-size:0.95rem; font-weight:800; color:var(--text-main);">${escapeHtml(activeDeck.title)}</div>
                             <div style="font-size:0.74rem; color:var(--text-muted);">
-                                Gelöste Krankheitsbilder: <strong>${solvedDiseasesCount} / ${totalDiseases}</strong>
+                                Gelöste Krankheitsbilder: <strong>${solvedDiseasesCount} / ${totalDiseases}</strong> • <em>Fehlversuche kosten keine Moves!</em>
                             </div>
                         </div>
                     </div>
 
                     <div class="sol-hud-Controls">
+                        ${gameState.comboStreak >= 2 ? `
+                            <div class="sol-combo-pill">
+                                🔥 Flow ${gameState.comboStreak}x
+                            </div>
+                        ` : ''}
                         <div class="sol-moves-pill ${gameState.movesLeft <= 8 ? 'critical' : ''}">
                             <span>MOVES</span>
                             <strong>${gameState.movesLeft}</strong>
@@ -1371,12 +1505,11 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 </div>
 
-                <!-- Sokratisches Feedback-Banner -->
+                <!-- Sokratisches & Pathophysiologisches Feedback-Banner -->
                 <div id="sol-feedback-banner" class="sol-feedback-banner" style="display:none;"></div>
 
-                <!-- OBERE REIHE: NACHZIEHSTAPEL (LINKS) & 4 KRANKHEITS-ZIELSLOTS (RECHTS) -->
+                <!-- OBERE REIHE: NACHZIEHSTAPEL (LINKS) & 4 OPTISCH GESTACKTE KRANKHEITS-ZIELSLOTS (RECHTS) -->
                 <div class="sol-upper-deck-row">
-                    <!-- Stock & Waste Area -->
                     <div class="sol-stock-waste-group">
                         <div class="sol-stock-slot ${gameState.stock.length > 0 ? 'has-cards' : 'is-empty'}" onclick="window.SolitaireModule.drawFromStock()" title="Karte ziehen (1 Move)">
                             ${gameState.stock.length > 0 ? `
@@ -1396,7 +1529,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                         </div>
                     </div>
 
-                    <!-- 4 Foundation-Slots für Krankheitsbilder -->
+                    <!-- 4 Foundation-Slots mit physischer Stapel-Tiefe -->
                     <div class="sol-foundations-grid">
                         ${gameState.foundations.map((slot, sIdx) => {
                             if (!slot) {
@@ -1409,16 +1542,19 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                             }
                             const count = slot.collectedTerms.length;
                             const pct = Math.min(100, Math.round((count / slot.totalRequired) * 100));
-                            const lastTerm = count > 0 ? slot.collectedTerms[count - 1].term : 'Noch keine Begriffe zugeordnet';
+                            const recentTerms = slot.collectedTerms.slice(-2);
                             const isHinted = gameState.hintHighlightIds.includes(slot.uid);
+                            const isJustMatched = gameState.lastSuccessAnim &&
+                                gameState.lastSuccessAnim.type === 'foundation' &&
+                                gameState.lastSuccessAnim.targetIdx === sIdx;
 
                             return `
-                                <div class="sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''}"
-                                     style="--disease-accent: ${slot.accent};"
+                                <div class="sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-match-pop' : ''}"
+                                     style="--disease-accent: ${slot.accent}; --foundation-layers: ${Math.min(count, 6)};"
                                      data-foundation-idx="${sIdx}">
                                     <div class="sol-foundation-top">
                                         <span class="sol-foundation-badge" style="background:${slot.accent}; color:#060913;">
-                                            ${count} / ${slot.totalRequired}
+                                            📚 ${count} / ${slot.totalRequired}
                                         </span>
                                         <button type="button" class="sol-inspect-btn" data-inspect-slot="${sIdx}" title="Zugeordnete Begriffe & Pathophysiologie inspizieren">
                                             🔍 Dossier
@@ -1428,8 +1564,20 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                                     <div class="sol-foundation-progress-track">
                                         <div class="sol-foundation-progress-fill" style="width:${pct}%; background:${slot.accent};"></div>
                                     </div>
-                                    <div class="sol-foundation-last-term">
-                                        Zuletzt: <em>${escapeHtml(lastTerm)}</em>
+
+                                    <!-- Optisch aufgeschichtete Mini-Karten im Ziel-Slot -->
+                                    <div class="sol-foundation-mini-stack">
+                                        ${recentTerms.length === 0 ? `
+                                            <div class="sol-foundation-empty-sub">Ziehe passende Begriffe hierher</div>
+                                        ` : recentTerms.map(rt => {
+                                            const cCfg = CATEGORY_COLORS[rt.category] || CATEGORY_COLORS['Klinik'];
+                                            return `
+                                                <div class="sol-foundation-layered-card">
+                                                    <span class="sol-peek-dot" style="background:${cCfg.color};"></span>
+                                                    <span class="sol-foundation-layered-text">${escapeHtml(rt.term)}</span>
+                                                </div>
+                                            `;
+                                        }).join('')}
                                     </div>
                                 </div>
                             `;
@@ -1437,7 +1585,7 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 </div>
 
-                <!-- BEREITS VOLLSTÄNDIG GELÖSTE KRANKHEITSBILDER (TROPHY BAR) -->
+                <!-- BEREITS VOLLSTÄNDIG GELÖSTE KRANKHEITSBILDER -->
                 ${gameState.completedDiseases.length > 0 ? `
                     <div class="sol-completed-strip">
                         <span style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:var(--color-symptom);">✓ Gemeistert (Klicken für Dossier):</span>
@@ -1449,13 +1597,13 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                     </div>
                 ` : ''}
 
-                <!-- TABLEAU: 4 SOLITAIRE-SPALTEN -->
+                <!-- TABLEAU: 4 SOLITAIRE-SPALTEN MIT OPTISCHER STAPELUNG -->
                 <div class="sol-tableau-grid">
                     ${gameState.tableau.map((col, colIdx) => `
                         <div class="sol-tableau-col" data-tableau-col="${colIdx}">
                             ${col.length === 0 ? `
                                 <div class="sol-tableau-empty-dropzone" data-tableau-col="${colIdx}">
-                                    <span>Freie Spalte<br><small>(Beliebige Karte ablegen)</small></span>
+                                    <span>Freie Spalte<br><small>(Beliebige Karte / Stack ablegen)</small></span>
                                 </div>
                             ` : col.map((card, cardIdx) => {
                                 const isBottomPlayable = (cardIdx === col.length - 1);
@@ -1476,28 +1624,26 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
     }
 
     // ----------------------------------------------------------------------
-    // 13. INTERAKTIONS-BINDINGS (DRAG & DROP + CLICK + DOUBLECLICK)
+    // 13. INTERAKTIONS-BINDINGS
     // ----------------------------------------------------------------------
     function bindGameBoardEvents(container) {
-        // 1. Spielbare Karten (Waste + unterste Tableau-Karten)
-        const playableCards = container.querySelectorAll('.sol-card.is-playable');
-        playableCards.forEach(cardEl => {
-            const zone = cardEl.dataset.zone;
-            const colIdx = parseInt(cardEl.dataset.col, 10);
-            const cardIdx = parseInt(cardEl.dataset.idx, 10);
+        const playableNodes = container.querySelectorAll('.sol-stacked-group.is-playable');
+        playableNodes.forEach(nodeEl => {
+            const zone = nodeEl.dataset.zone;
+            const colIdx = parseInt(nodeEl.dataset.col, 10);
+            const cardIdx = parseInt(nodeEl.dataset.idx, 10);
             const sourceObj = { zone, colIdx, cardIdx };
 
-            // Klick zum Auswählen ODER zum Stapeln auf eine bereits ausgewählte Karte im Tableau
-            cardEl.addEventListener('click', (e) => {
+            nodeEl.addEventListener('click', (e) => {
                 e.stopPropagation();
 
-                // Wenn bereits eine andere Karte ausgewählt ist und man auf eine Tableau-Karte klickt -> Pre-Stacking versuchen!
                 if (gameState.selectedSource && zone === 'tableau') {
                     const isSameCard = gameState.selectedSource.zone === zone &&
                                        gameState.selectedSource.colIdx === colIdx &&
                                        gameState.selectedSource.cardIdx === cardIdx;
                     if (isSameCard) {
                         gameState.selectedSource = null;
+                        gameState.lastSuccessAnim = null;
                         renderView();
                         return;
                     }
@@ -1506,35 +1652,32 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 }
 
                 gameState.selectedSource = sourceObj;
+                gameState.lastSuccessAnim = null;
                 if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
                 renderView();
             });
 
-            // Doppelklick -> Sofortige Auto-Zuordnung in passenden Foundation-Slot oben
-            cardEl.addEventListener('dblclick', (e) => {
+            nodeEl.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 attemptAutoMoveCard(sourceObj);
             });
 
-            // Drag Start
-            cardEl.addEventListener('dragstart', (e) => {
+            nodeEl.addEventListener('dragstart', (e) => {
                 gameState.selectedSource = sourceObj;
-                cardEl.classList.add('is-dragging');
+                nodeEl.classList.add('is-dragging');
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', JSON.stringify(sourceObj));
             });
 
-            cardEl.addEventListener('dragend', () => {
-                cardEl.classList.remove('is-dragging');
+            nodeEl.addEventListener('dragend', () => {
+                nodeEl.classList.remove('is-dragging');
             });
         });
 
-        // 2. Foundation-Slots (Oben)
         const foundationSlots = container.querySelectorAll('.sol-foundation-slot');
         foundationSlots.forEach(slotEl => {
             const slotIdx = parseInt(slotEl.dataset.foundationIdx, 10);
 
-            // Inspect-Dossier Button
             const inspectBtn = slotEl.querySelector('[data-inspect-slot]');
             if (inspectBtn) {
                 inspectBtn.addEventListener('click', (e) => {
@@ -1543,7 +1686,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 });
             }
 
-            // Klick auf Foundation-Slot
             slotEl.addEventListener('click', () => {
                 if (gameState.selectedSource) {
                     attemptMoveToFoundation(gameState.selectedSource, slotIdx);
@@ -1552,7 +1694,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
                 }
             });
 
-            // Drag & Drop auf Foundation-Slot
             slotEl.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 slotEl.classList.add('drag-over');
@@ -1570,7 +1711,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
             });
         });
 
-        // 3. Tableau-Spalten (für Drag & Drop & Klick auf leere Spalten)
         const tableauCols = container.querySelectorAll('.sol-tableau-col');
         tableauCols.forEach(colEl => {
             const targetColIdx = parseInt(colEl.dataset.tableauCol, 10);
@@ -1676,9 +1816,6 @@ Extrahiere aus dem bereitgestellten medizinischen Fachtext / Vorlesungsskript AL
         }
     }
 
-    // ----------------------------------------------------------------------
-    // 14. PUBLIC API
-    // ----------------------------------------------------------------------
     return {
         openView() {
             renderView();
