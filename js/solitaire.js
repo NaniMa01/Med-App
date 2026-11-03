@@ -1,16 +1,19 @@
 /* ==========================================================================
-   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V4.0 (js/solitaire.js)
+   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V4.1 (js/solitaire.js)
    ==========================================================================
-   FEATURES V4.0 (IM ORIGINALEN V3.3+ DESIGN):
+   FEATURES V4.1 (IM ORIGINALEN V3.3+ DESIGN):
    01. 100% Originaler V3.3+ Style (5:7 Hochkant-Spielkarten, 👑/🧬/🩺/🔬/💊/⚡ Icons)
-   02. Dashboard-Ordner-Architektur (Überordner & Unterordner inkl. Drag & Drop,
+   02. Klassische Solitaire-Treppenform im unteren Tableau:
+       Links kleinster Stapel (Deck 1 = 1 Karte) bis rechts größter Stapel
+       (Deck 6 = 6 Karten: 5 verdeckt + 1 offen).
+   03. Dashboard-Ordner-Architektur (Überordner & Unterordner inkl. Drag & Drop,
        ✏️ Umbenennen, 🗑️ Löschen, ⇄ Verschieben & Supabase-Cloud-Sync)
-   03. Modus "🎲 Zufälliges Deck ziehen" (Global über alle Decks oder pro Ordner)
-   04. Modus "🔀 Kategorien-Mixer" (Mischt Krankheitsbilder quer über Decks hinweg):
+   04. Modus "🎲 Zufälliges Deck ziehen" (Global über alle Decks oder pro Ordner)
+   05. Modus "🔀 Kategorien-Mixer" (Mischt Krankheitsbilder quer über Decks hinweg):
        - Einfach:   mind. 35 Karten (35–42 Karten, ~5–6 Krankheitsbilder)
        - Mittel:    ca. 50 Karten   (48–56 Karten, ~7–8 Krankheitsbilder)
        - Schwierig: bis 70 Karten   (64–70 Karten, ~10–11 Krankheitsbilder)
-   05. NEUE REGEL: Auf Krankheitsbild-Karten (👑) kann in den 6 unteren Stapeln
+   06. NEUE REGEL: Auf Krankheitsbild-Karten (👑) kann in den 6 unteren Stapeln
        NICHTS abgelegt werden. Oben in den 4 Ziel-Slots muss die Krankheitsbild-
        Karte zwingend zuunterst liegen, bevor Begriffe darauf gesammelt werden.
    ========================================================================== */
@@ -133,7 +136,7 @@ const SolitaireModule = (() => {
             medical_field: 'Neurologie / Notfallmedizin',
             folder_name: 'Neurologie',
             difficulty: 'Staatsexamen',
-            description: 'Triage und Differenzierung vaskulärer, autoimmun-entzündlicher und metabolischer Rückenmarksläsionen.',
+            description: 'Triage und Differenzierung vaskulärer, autoimmun-entzündlicher, metabolischer und kompressiver Rückenmarksläsionen.',
             is_builtin: true,
             diseases: [
                 {
@@ -176,6 +179,20 @@ const SolitaireModule = (() => {
                         { term: 'Methylmalonsäure (MMA) sensitiv ↑↑', category: 'Diagnostik', explanation: 'Hochsensitiver metabolischer Frühmarker eines intrazellulären Mangels, noch bevor eine megaloblastäre Anämie auftritt.' },
                         { term: 'Spinale Ataxie + Babinski + ASR ↓', category: 'Klinik', explanation: 'Klassische Trias aus Hinterstrangschädigung, Pyramidenbahnzeichen und gleichzeitiger peripherer Polyneuropathie.' },
                         { term: 'Parenterales Hydroxocobalamin', category: 'Therapie', explanation: 'Muss zwingend vor einer etwaigen Folsäure-Gabe erfolgen, um eine Dekompensation der neurologischen Symptomatik zu verhindern.' }
+                    ]
+                },
+                {
+                    disease_id: 'spinaler_epiduralabszess',
+                    name: 'Spinaler Epiduralabszess (SEA)',
+                    icd10: 'G06.1',
+                    color_accent: '#f59e0b',
+                    clinical_pearl: 'Neurochirurgischer Notfall (meist S. aureus) mit klassischer Trias aus lokalem Rückenschmerz, Fieber und progredientem neurologischem Defizit.',
+                    cards: [
+                        { term: 'Trias: Klopfschmerz + Fieber + Parese', category: 'Klinik', explanation: 'Typische klinische Befundkonstellation bei raumfordernder Eiteransammlung zwischen Dura mater und Wirbelperiost.' },
+                        { term: 'Staphylococcus aureus (häufigster Erreger)', category: 'Pathophysiologie', explanation: 'Hämatogene Streuung (z.B. bei i.v.-Drogenabusus, Endokarditis) oderFortleitung einer Spondylodiszitis.' },
+                        { term: 'Ringförmiges KM-Enhancement epidural', category: 'Diagnostik', explanation: 'Beweisender Befund im Kontrastmittel-MRT der gesamten Wirbelsäule mit Kompression des Duralsacks.' },
+                        { term: 'CAVE: Keine LP durch infiziertes Gewebe!', category: 'Komplikation', explanation: 'Eine Lumbalpunktion auf Höhe der Läsion birgt das hohe Risiko einer iatrogenen Keimverschleppung in den Subarachnoidalraum.' },
+                        { term: 'Notfall-Laminektomie + i.v.-Antibiose', category: 'Therapie', explanation: 'Sofortige chirurgische Dekompression innerhalb weniger Stunden kombiniert mit kalkulierter bakterizider Antibiotikatherapie.' }
                     ]
                 }
             ]
@@ -350,7 +367,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         lastTapUid: null
     };
 
-    // Originaler V3.3+ CATEGORY_COLORS Style mit den medizinischen Suit-Icons
     const CATEGORY_COLORS = {
         'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.16)', label: 'Patho', suit: '🧬' },
         'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)', label: 'Klinik', suit: '🩺' },
@@ -923,7 +939,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         localStorage.setItem(STORAGE_HIDDEN_CLOUD_DECKS_KEY, JSON.stringify(list));
     }
 
-    // Lädt alle veröffentlichten Solitaire-Decks aus Supabase herunter und merged sie mit den lokalen Decks
     async function syncDecksFromCloud() {
         const solView = document.getElementById('solitaire-view');
         if (solView && solView.style.display !== 'none' && solView.innerHTML.trim() === '') {
@@ -991,7 +1006,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
-    // Veröffentlicht ein einzelnes Deck per Klick in der Supabase-Cloud ("Online stellen")
     async function publishDeckToCloud(deckId, btnEl = null) {
         const sb = getSupabaseClient();
         if (!sb || !sb.auth) {
@@ -1073,7 +1087,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
-    // Stellt alle noch lokalen eigenen Decks in einem Rutsch online
     async function publishAllLocalDecksToCloud(btnEl = null) {
         const customDecks = getCustomDecks();
         const unpublished = customDecks.filter(d => !d.is_builtin && !cloudPublishedDeckIds.has(d.deck_id));
@@ -1105,7 +1118,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
-    // Nimmt ein veröffentlichtes Deck wieder aus der Cloud (behält es aber lokal)
     async function unpublishDeckFromCloud(deckId) {
         const allDecks = getAllDecks();
         const targetDeck = allDecks.find(d => d.deck_id === deckId);
@@ -1145,7 +1157,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
-    // Exportiert ein Deck als herunterladbare .json-Datei
     function exportDeckAsJsonFile(deckId) {
         const deck = getAllDecks().find(d => d.deck_id === deckId);
         if (!deck) return;
@@ -1437,7 +1448,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 10. MULTI-WAVE DEAL ALGORITHMUS (FÜR 35 BIS 70 KARTEN OHNE DEADLOCK)
+    // 10. KLASSISCHE SOLITAIRE-TREPPENFORM (1 BIS 6 KARTEN VON LINKS NACH RECHTS)
     // ----------------------------------------------------------------------
     function shuffleArray(arr) {
         const copy = [...arr];
@@ -1446,6 +1457,27 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             [copy[i], copy[j]] = [copy[j], copy[i]];
         }
         return copy;
+    }
+
+    // Berechnet die exakte Solitaire-Treppenform [1, 2, 3, 4, 5, 6] (links kleinster, rechts größter Stapel)
+    function computeSolitaireStaircaseSizes(numCols, maxTableauCards) {
+        const colSizes = Array(numCols).fill(0);
+        let cardsAllocated = 0;
+
+        // Klassischer Klondike-Durchlauf:
+        // Pass 0 legt je 1 Karte in Spalte 0..5
+        // Pass 1 legt je 1 Karte in Spalte 1..5
+        // ...
+        // Pass 5 legt 1 Karte in Spalte 5 -> Ergebnis bei ≥21 Karten: [1, 2, 3, 4, 5, 6]
+        for (let pass = 0; pass < numCols; pass++) {
+            for (let col = pass; col < numCols; col++) {
+                if (cardsAllocated < maxTableauCards) {
+                    colSizes[col]++;
+                    cardsAllocated++;
+                }
+            }
+        }
+        return colSizes;
     }
 
     function startNewGame(deckId) {
@@ -1520,34 +1552,48 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             generalPool.push(...waveChunk);
         });
 
-        const numCols = TABLEAU_COLS_COUNT;
+        const numCols = TABLEAU_COLS_COUNT; // 6 Spalten
         const tableau = Array.from({ length: numCols }, () => []);
         const totalCardsCount = guaranteedInitialCats.length + generalPool.length;
 
-        const maxInitialTableau = totalCardsCount >= 55 ? 20 : 17;
-        const targetTableauCount = Math.min(Math.max(numCols * 2, generalPool.length - 3), maxInitialTableau);
+        // Klassische Solitaire-Treppe benötigt 1 + 2 + 3 + 4 + 5 + 6 = 21 Karten.
+        // Wir lassen mindestens 2 Karten aus generalPool (+ guaranteedInitialCats[1]) für den Nachziehstapel übrig.
+        const availableForTableau = generalPool.length + (guaranteedInitialCats[0] ? 1 : 0);
+        const maxTableauBudget = Math.min(21, Math.max(numCols, availableForTableau - 2));
+        const staircaseSizes = computeSolitaireStaircaseSizes(numCols, maxTableauBudget);
 
-        for (let i = 0; i < targetTableauCount; i++) {
-            const colIdx = i % numCols;
-            const card = generalPool.shift();
-            if (card) {
-                card.faceUp = false;
-                tableau[colIdx].push(card);
+        // Zufällige Spalte auswählen, deren oberste (offene) Karte die erste garantierte Krankheitsbild-Karte (👑) ist
+        const openCatCol = Math.floor(Math.random() * numCols);
+
+        for (let colIdx = 0; colIdx < numCols; colIdx++) {
+            const targetColSize = staircaseSizes[colIdx];
+            const faceDownCount = Math.max(0, targetColSize - 1);
+
+            // 1. Verdeckte Basiskarten für diese Spalte legen (0 in Deck 1 ... bis 5 in Deck 6)
+            for (let d = 0; d < faceDownCount; d++) {
+                const downCard = generalPool.shift();
+                if (downCard) {
+                    downCard.faceUp = false;
+                    tableau[colIdx].push(downCard);
+                }
+            }
+
+            // 2. Oberste (offene) Spielkarte auf diesen Stapel legen
+            if (targetColSize > 0) {
+                if (colIdx === openCatCol && guaranteedInitialCats[0]) {
+                    guaranteedInitialCats[0].faceUp = true;
+                    tableau[colIdx].push(guaranteedInitialCats[0]);
+                } else {
+                    const topCard = generalPool.shift();
+                    if (topCard) {
+                        topCard.faceUp = true;
+                        tableau[colIdx].push(topCard);
+                    }
+                }
             }
         }
 
-        const openCol = Math.floor(Math.random() * numCols);
-        if (guaranteedInitialCats[0]) {
-            guaranteedInitialCats[0].faceUp = true;
-            tableau[openCol].push(guaranteedInitialCats[0]);
-        }
-
-        tableau.forEach(col => {
-            if (col.length > 0) {
-                col[col.length - 1].faceUp = true;
-            }
-        });
-
+        // Restliche Karten in den Nachziehstapel (Stock) legen
         const stock = [...generalPool];
         if (guaranteedInitialCats[1]) {
             const insertIdx = Math.min(stock.length, 1);
@@ -1690,8 +1736,10 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         if (source.zone === 'tableau') {
             const col = gameState.tableau[source.colIdx];
             const removed = col.pop();
+            // Wenn darunter eine verdeckte Karte lag -> aufdecken + kleiner Entdecker-Bonus!
             if (col.length > 0 && !col[col.length - 1].faceUp) {
                 col[col.length - 1].faceUp = true;
+                gameState.score += 5;
             }
             return removed;
         }
@@ -2558,7 +2606,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div class="friends-kicker">CLINICAL DEDUCTION CARD GAME</div>
                         <h2 class="friends-main-title">🃏 Solitaire Associations Journey</h2>
                         <p class="friends-subtitle">
-                            6 Kartendecks im Tableau: Lege Krankheitsbilder als Kategorienkarten frei, organisiere deine Decks in Ordnern oder mische Kategorien quer durch alle Decks.
+                            Klassische Solitaire-Treppe (1 bis 6 Karten von links nach rechts): Lege Krankheitsbilder frei, organisiere Decks in Ordnern oder mische Kategorien quer durch alle Decks.
                         </p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -2650,7 +2698,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
                 <div class="sol-rules-strip">
                     <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> zuerst oben in einen der 4 Ziel-Slots ziehen (unten nicht bestapelbar!)</div>
-                    <div class="sol-rule-pill"><span>ⓘ</span> <strong>Ecke oben rechts:</strong> Spoilerfreie Zusatzinfos öffnen</div>
+                    <div class="sol-rule-pill"><span>📐</span> <strong>Solitaire-Treppe:</strong> Links kleinster Stapel (1 Karte), rechts größter Stapel (6 Karten)</div>
                     <div class="sol-rule-pill"><span>☁️</span> <strong>Cloud-Sync:</strong> Veröffentlichte Decks sind auf allen Geräten live!</div>
                 </div>
 
@@ -2919,7 +2967,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div style="min-width:0;">
                             <div style="font-size:0.86rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
                             <div style="font-size:0.68rem; color:var(--text-muted);">
-                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> (${gameState.totalCardsInSession || 0} Karten) • <em>6 Kartendecks • Kein Move-Abzug bei Fehlern</em>
+                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> (${gameState.totalCardsInSession || 0} Karten) • <em>6 Kartendecks (Treppe 1–6) • Kein Move-Abzug bei Fehlern</em>
                             </div>
                         </div>
                     </div>
@@ -3036,7 +3084,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     </div>
                 ` : ''}
 
-                <!-- UNTERES TABLEAU: 6 SYMMETRISCHE HOCHKANT-KARTENDECKS -->
+                <!-- UNTERES TABLEAU: 6 SYMMETRISCHE HOCHKANT-KARTENDECKS IN SOLITAIRE-TREPPENFORM -->
                 <div class="sol-tableau-grid">
                     ${gameState.tableau.map((col, colIdx) => {
                         const hiddenCount = col.filter(c => !c.faceUp).length;
