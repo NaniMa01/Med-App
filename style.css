@@ -6558,6 +6558,61 @@ body.sol-touch-dragging * {
 }
 
 /* ==========================================================================
+   SOLITAIRE V4.0 – CROSS-DECK KATEGORIEN-MIXER LAUNCHPAD
+   ========================================================================== */
+.sol-mixer-launchpad {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(22, 33, 58, 0.82));
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    border-left: 4px solid #facc15;
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.sol-mixer-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.sol-mixer-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #facc15;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+
+.sol-mixer-title {
+    font-size: 1.02rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 2px;
+}
+
+.sol-mixer-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.sol-mixer-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+[data-theme="daylight"] .sol-mixer-launchpad,
+[data-theme="tropical"] .sol-mixer-launchpad {
+    background: var(--bg-surface) !important;
+    border-color: var(--card-border) !important;
+    border-left: 4px solid var(--warning) !important;
+}
+/* ==========================================================================
    27. CLINICAL PRECISION UI – MINIMALIST DESIGN REFINEMENT (NO-KITSCH LAYER)
    ========================================================================== */
 
