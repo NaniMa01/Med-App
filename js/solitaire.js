@@ -1,18 +1,18 @@
 /* ==========================================================================
    MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V4.0 (js/solitaire.js)
    ==========================================================================
-   CHANGELOG V4.0:
-   01. Dashboard-Ordner-Architektur (Überordner & Unterordner inkl. Drag & Drop,
-       Umbenennen, Löschen, Verschieben & Supabase-Cloud-Sync).
-   02. Modus "Zufälliges Deck ziehen" (Global über alle Decks oder pro Ordner).
-   03. Modus "Kategorien-Mixer" (Mischt Krankheitsbilder quer über importierte
-       Decks hinweg):
+   FEATURES V4.0 (IM ORIGINALEN V3.3+ DESIGN):
+   01. 100% Originaler V3.3+ Style (5:7 Hochkant-Spielkarten, 👑/🧬/🩺/🔬/💊/⚡ Icons)
+   02. Dashboard-Ordner-Architektur (Überordner & Unterordner inkl. Drag & Drop,
+       ✏️ Umbenennen, 🗑️ Löschen, ⇄ Verschieben & Supabase-Cloud-Sync)
+   03. Modus "🎲 Zufälliges Deck ziehen" (Global über alle Decks oder pro Ordner)
+   04. Modus "🔀 Kategorien-Mixer" (Mischt Krankheitsbilder quer über Decks hinweg):
        - Einfach:   mind. 35 Karten (35–42 Karten, ~5–6 Krankheitsbilder)
        - Mittel:    ca. 50 Karten   (48–56 Karten, ~7–8 Krankheitsbilder)
        - Schwierig: bis 70 Karten   (64–70 Karten, ~10–11 Krankheitsbilder)
-   04. Multi-Wave-Deal-Algorithmus: Verhindert 4-Slot-Deadlocks auch bei 70 Karten.
-   05. Strikte Tableau-Regel: Auf goldene DX-Karten kann unten nichts gelegt werden;
-       oben im Ziel-Slot muss die goldene DX-Karte zuunterst liegen.
+   05. NEUE REGEL: Auf Krankheitsbild-Karten (👑) kann in den 6 unteren Stapeln
+       NICHTS abgelegt werden. Oben in den 4 Ziel-Slots muss die Krankheitsbild-
+       Karte zwingend zuunterst liegen, bevor Begriffe darauf gesammelt werden.
    ========================================================================== */
 
 const SolitaireModule = (() => {
@@ -29,10 +29,11 @@ const SolitaireModule = (() => {
     const FOUNDATION_SLOTS_COUNT = 4; // 4 Ziel-Slots oben für Krankheitsbilder
     const TABLEAU_COLS_COUNT = 6;     // 6 Kartendecks (Spalten) unten im Tableau
 
+    // Set mit allen deck_ids, die aktuell live in der Supabase-Cloud stehen
     let cloudPublishedDeckIds = new Set();
     let isSyncingCloud = false;
 
-    // Ordner-UI States (analog zum Dashboard in app.js)
+    // Ordner-UI States (synchron zum Dashboard in app.js)
     let solSuperFolderStates = {};
     let solSubFolderStates = {};
     let draggedSolDeckId = null;
@@ -46,13 +47,13 @@ const SolitaireModule = (() => {
     };
 
     const MIXER_PRESETS = {
-        easy:   { id: 'easy',   label: 'Einfach (≥ 35 Karten)',   minCards: 35, targetCards: 38, maxCards: 43, desc: '5–6 zufällige Krankheitsbilder • Ideal zum Einstieg' },
-        medium: { id: 'medium', label: 'Mittel (~ 50 Karten)',    minCards: 46, targetCards: 52, maxCards: 57, desc: '7–8 zufällige Krankheitsbilder • Klinisches Dienst-Niveau' },
-        hard:   { id: 'hard',   label: 'Schwierig (bis 70 Karten)', minCards: 62, targetCards: 68, maxCards: 70, desc: '10–11 Krankheitsbilder im Marathon • Staatsexamens-Härtetest' }
+        easy:   { id: 'easy',   label: 'Einfach (≥ 35 Karten)',     minCards: 35, targetCards: 38, maxCards: 43, desc: '5–6 zufällige Krankheitsbilder • Mindestens 35 Spielkarten' },
+        medium: { id: 'medium', label: 'Mittel (~ 50 Karten)',      minCards: 46, targetCards: 52, maxCards: 57, desc: '7–8 zufällige Krankheitsbilder • Klinisches Dienst-Niveau' },
+        hard:   { id: 'hard',   label: 'Schwierig (bis 70 Karten)', minCards: 62, targetCards: 68, maxCards: 70, desc: '10–11 Krankheitsbilder im Marathon • Bis zu 70 Spielkarten' }
     };
 
     // ----------------------------------------------------------------------
-    // 01. INTEGRIERTE STAATSEXAMENS-DEMODECKS (BASIS- & RESERVE-POOL FÜR 70 KARTEN)
+    // 01. INTEGRIERTE STAATSEXAMENS-DEMODECKS (INKL. RESERVE-POOL FÜR 70 KARTEN)
     // ----------------------------------------------------------------------
     const BUILTIN_DECKS = [
         {
@@ -129,7 +130,7 @@ const SolitaireModule = (() => {
         {
             deck_id: 'builtin_ddx_myelopathy_02',
             title: 'DDx: Akute & subakute Myelopathien',
-            medical_field: 'Neurologie',
+            medical_field: 'Neurologie / Notfallmedizin',
             folder_name: 'Neurologie',
             difficulty: 'Staatsexamen',
             description: 'Triage und Differenzierung vaskulärer, autoimmun-entzündlicher und metabolischer Rückenmarksläsionen.',
@@ -306,7 +307,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 }`;
 
     // ----------------------------------------------------------------------
-    // 02. RUNTIME STATE & POINTER-DRAG STATE
+    // 02. RUNTIME STATE & POINTER-DRAG STATE (EXAKTER V3.3+ STYLE)
     // ----------------------------------------------------------------------
     let currentViewMode = 'lobby';
     let activeDeck = null;
@@ -349,13 +350,13 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         lastTapUid: null
     };
 
-    // Schlichte, moderne Vektor-Symbole statt bunter Emojis (V3.4 Style)
+    // Originaler V3.3+ CATEGORY_COLORS Style mit den medizinischen Suit-Icons
     const CATEGORY_COLORS = {
-        'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.14)', label: 'PATHO', suit: '◆' },
-        'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.14)', label: 'KLINIK', suit: '●' },
-        'Diagnostik':       { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.14)', label: 'DIAG',  suit: '▲' },
-        'Therapie':         { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.14)', label: 'THER',  suit: '■' },
-        'Komplikation':     { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.14)', label: 'KOMPL', suit: '✦' }
+        'Pathophysiologie': { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.16)', label: 'Patho', suit: '🧬' },
+        'Klinik':           { color: '#10b981', bg: 'rgba(16, 185, 129, 0.16)', label: 'Klinik', suit: '🩺' },
+        'Diagnostik':       { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.16)', label: 'Diag.',  suit: '🔬' },
+        'Therapie':         { color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.16)', label: 'Ther.',  suit: '💊' },
+        'Komplikation':     { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.16)', label: 'Kompl.', suit: '⚡' }
     };
 
     const ACCENT_PALETTE = ['#38bdf8', '#a855f7', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f97316'];
@@ -502,7 +503,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         solSuperMap[cleanName] = chosenSuper;
         saveSolFolderSuperMap(solSuperMap);
 
-        // Gleichzeitig im globalen Dashboard-Mapping bekannt machen
         if (typeof window.createNewFolder === 'function') {
             window.createNewFolder(cleanName, chosenSuper);
         }
@@ -718,7 +718,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const chosen = pool[Math.floor(Math.random() * pool.length)];
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic([8, 25, 8]);
         startNewGame(chosen.deck_id);
-        showToast(`Zufälliges Deck gezogen: <strong>${escapeHtml(chosen.title)}</strong> (${chosen.diseases?.length || 0} Krankheitsbilder)`, 'positive');
+        showToast(`🎲 Zufälliges Deck gezogen: <strong>${escapeHtml(chosen.title)}</strong> (${chosen.diseases?.length || 0} Krankheitsbilder)`, 'positive');
     }
 
     // Sammelt alle eindeutigen Krankheitsbilder (Kategorienstapel) aus einer Deck-Liste
@@ -744,7 +744,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         })).filter(c => c.term.length > 0)
                     });
                 } else {
-                    // Falls dieselbe Krankheit in mehreren Decks vorkommt -> neue Begriffe ergänzen!
                     const existing = diseaseMap.get(key);
                     dis.cards.forEach(c => {
                         const t = String(c.term || '').trim();
@@ -812,12 +811,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const diff = MIXER_PRESETS[difficultyKey || mixerConfig.difficulty] || MIXER_PRESETS.easy;
         const scope = scopeKey || mixerConfig.sourceScope || 'ALL';
 
-        // 1. Primärer Pool aus der gewählten Quelle (z.B. importierte Decks oder gewählter Ordner)
         const primaryDecks = filterDecksByScope(scope);
         let candidateDiseases = shuffleArray(harvestUniqueDiseasesFromDecks(primaryDecks));
 
-        // 2. Falls der gewählte Ordner allein noch weniger Karten hat als das Level verlangt (z.B. 70 Karten),
-        //    füllen wir den Pool intelligent mit den übrigen Solitaire-Decks & App-Fällen auf!
         const countTotalCardsInPool = (list) => list.reduce((sum, d) => sum + 1 + Math.min(d.cards.length, 7), 0);
 
         if (countTotalCardsInPool(candidateDiseases) < diff.minCards) {
@@ -839,21 +835,19 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         }
 
-        // 3. Krankheitsbilder auswählen, bis das Ziel-Kartenfenster (z.B. ≥35 für Easy oder ~70 für Hard) erreicht ist
         const selectedDiseases = [];
         let currentCardSum = 0;
 
         for (let i = 0; i < candidateDiseases.length; i++) {
             const dCopy = JSON.parse(JSON.stringify(candidateDiseases[i]));
-            dCopy.cards = shuffleArray(dCopy.cards).slice(0, 7); // Max. 7 prägnante Begriffskarten pro Krankheit
+            dCopy.cards = shuffleArray(dCopy.cards).slice(0, 7);
 
-            const diseaseCardWeight = 1 + dCopy.cards.length; // 1 Goldene DX-Karte + N Begriffskarten
+            const diseaseCardWeight = 1 + dCopy.cards.length;
 
             if (currentCardSum + diseaseCardWeight <= diff.maxCards) {
                 selectedDiseases.push(dCopy);
                 currentCardSum += diseaseCardWeight;
             } else if (currentCardSum < diff.minCards) {
-                // Letztes Krankheitsbild passgenau zuschneiden, damit wir exakt im Zielkorridor (z.B. 35–42 oder 64–70) landen
                 const needed = Math.max(4, diff.targetCards - currentCardSum - 1);
                 dCopy.cards = dCopy.cards.slice(0, needed);
                 selectedDiseases.push(dCopy);
@@ -866,7 +860,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         }
 
-        // Kontrastreiche Akzentfarben und eindeutige IDs zuweisen
         selectedDiseases.forEach((d, idx) => {
             d.disease_id = `mix_${idx}_${Date.now()}`;
             d.color_accent = ACCENT_PALETTE[idx % ACCENT_PALETTE.length];
@@ -884,7 +877,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         const virtualMixedDeck = {
             deck_id: `mixed_session_${diff.id}`,
-            title: `DDx-Mixer (${diff.id === 'hard' ? 'Schwierig' : diff.id === 'medium' ? 'Mittel' : 'Einfach'}): ${selectedDiseases.length} Krankheitsbilder • ${totalCardsFinal} Karten`,
+            title: `🔀 DDx-Mixer (${diff.id === 'hard' ? 'Schwierig' : diff.id === 'medium' ? 'Mittel' : 'Einfach'}): ${selectedDiseases.length} Krankheitsbilder • ${totalCardsFinal} Karten`,
             medical_field: `Mix: ${scopeLabel}`,
             folder_name: scopeLabel,
             difficulty: diff.label,
@@ -897,7 +890,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         startGameWithDeckObject(virtualMixedDeck);
         showToast(
-            `<strong>Kategorien-Mixer gestartet (${escapeHtml(diff.label)}):</strong> ${selectedDiseases.length} zufällige Krankheitsbilder mit insgesamt <strong>${totalCardsFinal} Spielkarten</strong> wurden gemischt!`,
+            `🔀 <strong>Kategorien-Mixer gestartet (${escapeHtml(diff.label)}):</strong> ${selectedDiseases.length} zufällige Krankheitsbilder mit insgesamt <strong>${totalCardsFinal} Spielkarten</strong> wurden gemischt!`,
             'positive'
         );
     }
@@ -930,8 +923,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         localStorage.setItem(STORAGE_HIDDEN_CLOUD_DECKS_KEY, JSON.stringify(list));
     }
 
+    // Lädt alle veröffentlichten Solitaire-Decks aus Supabase herunter und merged sie mit den lokalen Decks
     async function syncDecksFromCloud() {
-        // WICHTIG FÜR APP.JS: Sofortiges Initial-Rendering, wenn vom Sidebar-Tab aufgerufen!
         const solView = document.getElementById('solitaire-view');
         if (solView && solView.style.display !== 'none' && solView.innerHTML.trim() === '') {
             renderView();
@@ -998,6 +991,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
+    // Veröffentlicht ein einzelnes Deck per Klick in der Supabase-Cloud ("Online stellen")
     async function publishDeckToCloud(deckId, btnEl = null) {
         const sb = getSupabaseClient();
         if (!sb || !sb.auth) {
@@ -1021,7 +1015,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         if (btnEl) {
             btnEl.disabled = true;
-            btnEl.innerHTML = 'Lädt hoch...';
+            btnEl.innerHTML = '⏳ Lädt hoch...';
         }
 
         const cloudRowId = CLOUD_DECK_PREFIX + targetDeck.deck_id;
@@ -1063,7 +1057,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
             if (typeof showScorePopup === 'function') {
-                showScorePopup(`Deck „${targetDeck.title}“ ist jetzt online`, 'positive');
+                showScorePopup(`☁️ Deck „${targetDeck.title}“ ist jetzt online!`, 'positive');
             }
 
             renderView();
@@ -1073,24 +1067,25 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             alert(`Online-Stellen fehlgeschlagen: ${err.message}`);
             if (btnEl) {
                 btnEl.disabled = false;
-                btnEl.innerHTML = 'Online stellen';
+                btnEl.innerHTML = '☁️ Online stellen';
             }
             return false;
         }
     }
 
+    // Stellt alle noch lokalen eigenen Decks in einem Rutsch online
     async function publishAllLocalDecksToCloud(btnEl = null) {
         const customDecks = getCustomDecks();
         const unpublished = customDecks.filter(d => !d.is_builtin && !cloudPublishedDeckIds.has(d.deck_id));
 
         if (unpublished.length === 0) {
-            alert('Alle deine eigenen Kartendecks sind bereits online in der Cloud synchronisiert.');
+            alert('Alle deine eigenen Kartendecks sind bereits online in der Cloud synchronisiert!');
             return;
         }
 
         if (btnEl) {
             btnEl.disabled = true;
-            btnEl.innerHTML = `Synchronisiere ${unpublished.length} Deck(s)...`;
+            btnEl.innerHTML = `⏳ Synchronisiere ${unpublished.length} Deck(s)...`;
         }
 
         let successCount = 0;
@@ -1101,15 +1096,16 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         if (btnEl) {
             btnEl.disabled = false;
-            btnEl.innerHTML = 'Alle Decks online stellen';
+            btnEl.innerHTML = '☁️ Alle Decks online stellen';
         }
 
         if (successCount > 0) {
-            alert(`${successCount} Kartendeck(s) erfolgreich online gestellt.`);
+            alert(`✓ ${successCount} Kartendeck(s) erfolgreich online gestellt! Sie sind jetzt auf allen deinen Geräten (Handy, iPad, Laptop) verfügbar.`);
             renderView();
         }
     }
 
+    // Nimmt ein veröffentlichtes Deck wieder aus der Cloud (behält es aber lokal)
     async function unpublishDeckFromCloud(deckId) {
         const allDecks = getAllDecks();
         const targetDeck = allDecks.find(d => d.deck_id === deckId);
@@ -1140,12 +1136,16 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
 
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+            if (typeof showScorePopup === 'function') {
+                showScorePopup('☁️✕ Deck wieder auf „Nur lokal“ gesetzt', 'neutral');
+            }
             renderView();
         } catch (err) {
             alert(`Fehler beim Entfernen aus der Cloud: ${err.message}`);
         }
     }
 
+    // Exportiert ein Deck als herunterladbare .json-Datei
     function exportDeckAsJsonFile(deckId) {
         const deck = getAllDecks().find(d => d.deck_id === deckId);
         if (!deck) return;
@@ -1215,21 +1215,31 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         if (!modal || !body) return;
 
         if (foundCard.isCategoryCard) {
+            const collected = foundCard.collectedTerms || [];
             body.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--card-border); padding-bottom:10px; margin-bottom:12px;">
                     <div>
-                        <span class="sol-crown-badge">DX-BASISKARTE • ${escapeHtml(foundCard.icd10 || 'DDx')}</span>
+                        <span class="sol-crown-badge">👑 KATEGORIENKARTE • ${escapeHtml(foundCard.icd10 || 'DDx')}</span>
                         <h3 style="margin:6px 0 0 0; font-size:1.12rem; color:var(--text-main);">${escapeHtml(foundCard.diseaseName)}</h3>
                     </div>
                     <button type="button" class="action-btn secondary btn-sm" onclick="document.getElementById('sol-inspect-modal').style.display='none'">✕</button>
                 </div>
                 <div class="sm-callout-box sm-merke" style="margin:0 0 14px 0;">
-                    <div class="sm-callout-header"><span class="sm-callout-badge">Krankheitsbild-Charakteristik</span></div>
-                    <div class="sm-callout-body">${escapeHtml(foundCard.clinicalPearl || 'Lege diese goldene Krankheitsbild-Karte in einen freien Slot oben, um die zugehörigen Befunde darauf zu sammeln.')}</div>
+                    <div class="sm-callout-header"><span class="sm-callout-badge">📘 Krankheitsbild-Charakteristik (Spoilerfrei)</span></div>
+                    <div class="sm-callout-body">${escapeHtml(foundCard.clinicalPearl || 'Lege diese Kategorienkarte in einen freien Slot oben, um die zugehörigen Befunde darauf zu sammeln.')}</div>
                 </div>
                 <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.5;">
-                    <strong>Spielregel:</strong> Im unteren Tableau darf auf diese goldene Karte <u>nichts</u> abgelegt werden. Ziehe sie zuerst nach oben in einen freien Ziel-Slot, um ihre <strong>${foundCard.totalRequired} zugehörigen Befundkarten</strong> darauf zu sammeln.
+                    <strong>Spielregel:</strong> Im unteren Tableau darf auf diese Krankheitsbild-Karte <u>nichts</u> abgelegt werden. Ziehe sie zuerst nach oben in einen freien Ziel-Slot, um ihre <strong>${foundCard.totalRequired} zugehörigen Karten</strong> darauf zu sammeln.
                 </div>
+                ${collected.length > 0 ? `
+                    <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:35vh; overflow-y:auto;">
+                        ${collected.map(t => `
+                            <div style="padding:8px 10px; border-radius:8px; background:rgba(15,23,42,0.6); border:1px solid var(--card-border); font-size:0.8rem;">
+                                <strong>${escapeHtml(t.term)}</strong> <span style="color:var(--text-dim);">(${escapeHtml(t.category)})</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
             `;
         } else {
             const allCardsInBundle = [
@@ -1241,10 +1251,10 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--card-border); padding-bottom:10px; margin-bottom:12px;">
                     <div>
                         <div style="font-size:0.7rem; font-weight:800; text-transform:uppercase; color:var(--accent-cyan); letter-spacing:0.06em;">
-                            ⓘ KLINISCHE ZUSATZINFO (OHNE DIAGNOSE-SPOILER)
+                            ⓘ SPIELKARTEN-ZUSATZINFO (OHNE DIAGNOSE-SPOILER)
                         </div>
                         <h3 style="margin:4px 0 0 0; font-size:1.08rem; color:var(--text-main);">
-                            ${allCardsInBundle.length > 1 ? `Gebündelter ${allCardsInBundle.length}er Karten-Stack` : escapeHtml(foundCard.term)}
+                            ${allCardsInBundle.length > 1 ? `Gebündelter ${allCardsInBundle.length}er Spielkarten-Stack` : escapeHtml(foundCard.term)}
                         </h3>
                     </div>
                     <button type="button" class="action-btn secondary btn-sm" onclick="document.getElementById('sol-inspect-modal').style.display='none'">✕</button>
@@ -1271,7 +1281,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 </div>
 
                 <div style="margin-top:14px; padding-top:10px; border-top:1px dashed var(--card-border); display:flex; justify-content:space-between; align-items:center; font-size:0.74rem; color:var(--text-dim);">
-                    <span>Ziel-Erkrankung bleibt verdeckt, bis du die Karte oben zuordnest.</span>
+                    <span>🔒 Ziel-Erkrankung bleibt verdeckt, bis du die Karte zuordnest.</span>
                     <button type="button" class="action-btn btn-sm" onclick="document.getElementById('sol-inspect-modal').style.display='none'">Verstanden</button>
                 </div>
             `;
@@ -1284,7 +1294,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     // ----------------------------------------------------------------------
     // 07. SOLITAIRE FX ENGINE (PARTIKEL, SHOCKWAVE & FLOATING TELEMETRY)
     // ----------------------------------------------------------------------
-    function spawnMatchCelebrationFX(rect, accentColor = '#38bdf8', floatingLabel = '+Match', isDiseaseComplete = false) {
+    function spawnMatchCelebrationFX(rect, accentColor = '#38bdf8', floatingLabel = '+Match!', isDiseaseComplete = false) {
         if (!rect) return;
 
         const centerX = rect.left + rect.width / 2;
@@ -1411,7 +1421,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const generatedDeck = {
             deck_id: 'auto_cases_deck_' + Date.now(),
             title: `App-Synthese: ${validDiseases.length} Krankheitsbilder im Direktvergleich`,
-            medical_field: 'Interdisziplinär',
+            medical_field: 'Interdisziplinär (Aus deinen Fällen)',
             folder_name: 'Allgemein',
             difficulty: 'Staatsexamen',
             description: `Automatisch generiert aus deinen geladenen MedCheck-Fällen (${validDiseases.map(d => d.name).slice(0, 4).join(', ')} u.a.).`,
@@ -1439,7 +1449,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     function startNewGame(deckId) {
-        // Falls es eine virtuelle Mixer-Session war -> neuen frischen Mix mit gleicher Einstellung starten!
         if (deckId && deckId.startsWith('mixed_session_') && activeDeck?.is_virtual_mix) {
             startMixedCategoriesGame(activeDeck.mixer_difficulty, activeDeck.mixer_scope);
             return;
@@ -1457,7 +1466,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         currentViewMode = 'game';
 
         const shuffledDiseases = shuffleArray(activeDeck.diseases || []);
-        const WAVE_SIZE = 3; // Max. 3 Krankheiten pro Welle garantieren immer freie Foundation-Slots (selbst bei 70 Karten!)
+        const WAVE_SIZE = 3;
 
         const waves = [];
         const guaranteedInitialCats = [];
@@ -1505,7 +1514,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
-        // Gestaffelten Pool aus allen Wellen zusammensetzen
         const generalPool = [];
         waves.forEach(w => {
             const waveChunk = shuffleArray([...w.cats, ...w.terms]);
@@ -1516,7 +1524,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const tableau = Array.from({ length: numCols }, () => []);
         const totalCardsCount = guaranteedInitialCats.length + generalPool.length;
 
-        // Bei großen Decks (50–70 Karten) starten 18–21 Karten im Tableau, Rest im Nachziehstapel
         const maxInitialTableau = totalCardsCount >= 55 ? 20 : 17;
         const targetTableauCount = Math.min(Math.max(numCols * 2, generalPool.length - 3), maxInitialTableau);
 
@@ -1529,7 +1536,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         }
 
-        // Erste garantierte goldene Krankheitsbild-Karte direkt offen in eine zufällige Spalte legen
         const openCol = Math.floor(Math.random() * numCols);
         if (guaranteedInitialCats[0]) {
             guaranteedInitialCats[0].faceUp = true;
@@ -1549,7 +1555,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
         stock.forEach(c => { c.faceUp = false; });
 
-        // Skaliertes Move-Budget und Joker/Hints für 35 vs. 70 Karten
         const calculatedMaxMoves = Math.ceil(totalCardsCount * 1.72) + 16;
         const initialHints = totalCardsCount >= 55 ? 5 : 3;
         const initialJokers = totalCardsCount >= 55 ? 3 : 2;
@@ -1662,7 +1667,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 12. SPIELZÜGE, STRIKTE TABLEAU-REGEL & VALIDIERUNG
+    // 12. SPIELZÜGE, OPTISCHES PRE-STACKING & VALIDIERUNG (INKL. NEUER REGEL)
     // ----------------------------------------------------------------------
     function getPlayableCardFromSource(source) {
         if (!source) return null;
@@ -1724,7 +1729,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
-    // OBEN IN DEN 4 FOUNDATION-SLOTS: Goldene Karte muss zuunterst liegen, darauf kommen die Begriffe
+    // OBEN IN DEN 4 ZIEL-SLOTS: Die goldene Krankheitsbild-Karte (👑) muss zwingend zuunterst liegen
     function attemptMoveToFoundation(source, slotIdx) {
         const card = getPlayableCardFromSource(source);
         if (!card) return false;
@@ -1738,7 +1743,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 gameState.comboStreak = 0;
                 triggerWrongMoveFeedback(
                     source,
-                    `In einen freien Ziel-Slot oben muss zuerst die goldene <strong>Krankheitsbild-Kategorienkarte (DX)</strong> als Basis gelegt werden. <em>(Kein Move-Abzug)</em>`,
+                    `In einen freien Ziel-Slot oben muss zuerst eine <strong>Krankheitsbild-Spielkarte (👑)</strong> gelegt werden. <em>(Kein Move abgezogen)</em>`,
                     slotDom
                 );
                 return false;
@@ -1758,11 +1763,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
             const wasCompletedImmediately = checkFoundationSlotCompletion(slotIdx, targetRect);
             if (!wasCompletedImmediately) {
-                spawnMatchCelebrationFX(targetRect, movedCatCard.accent, `DX ${escapeHtml(movedCatCard.diseaseName)} eröffnet`, false);
+                spawnMatchCelebrationFX(targetRect, movedCatCard.accent, `👑 ${escapeHtml(movedCatCard.diseaseName)} eröffnet!`, false);
             }
 
             renderView();
-            showToast(`<strong>${escapeHtml(movedCatCard.diseaseName)}</strong> oben als Basis eröffnet. Ordne nun die passenden Befundkarten darauf zu.`, 'positive');
+            showToast(`👑 <strong>${escapeHtml(movedCatCard.diseaseName)}</strong> freigeschaltet! Ordne nun die passenden Spielkarten zu.`, 'positive');
             checkGameOverState();
             return true;
         }
@@ -1770,7 +1775,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         if (card.isCategoryCard) {
             triggerWrongMoveFeedback(
                 source,
-                `Dieser Slot ist bereits durch <strong>${escapeHtml(targetSlot.diseaseName)}</strong> belegt. Wähle einen freien Ziel-Slot oben! <em>(Kein Move-Abzug)</em>`,
+                `Dieser Slot ist bereits durch <strong>${escapeHtml(targetSlot.diseaseName)}</strong> belegt. Wähle einen freien Ziel-Slot oben! <em>(Kein Move abgezogen)</em>`,
                 slotDom
             );
             return false;
@@ -1781,7 +1786,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             if (typeof trackSkill === 'function') trackSkill('Diagnostik', false);
             triggerWrongMoveFeedback(
                 source,
-                `<strong>Differentialdiagnostischer Konflikt (Kein Move-Abzug):</strong> „${escapeHtml(card.term)}“ gehört <u>nicht</u> zu <strong>${escapeHtml(targetSlot.diseaseName)}</strong>. Klicke auf <strong>ⓘ</strong> oben rechts auf der Karte für Details.`,
+                `<strong>Differentialdiagnostischer Konflikt (Kein Move-Abzug):</strong> „${escapeHtml(card.term)}“ gehört <u>nicht</u> zu <strong>${escapeHtml(targetSlot.diseaseName)}</strong>. Klicke auf <strong>ⓘ</strong> oben rechts auf der Karte für Details!`,
                 slotDom
             );
             return false;
@@ -1816,8 +1821,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const wasCompleted = checkFoundationSlotCompletion(slotIdx, targetRect);
         if (!wasCompleted) {
             const badgeLabel = allTermsToAdd.length > 1
-                ? `+${allTermsToAdd.length} Stack-Match (+${earnedPts})`
-                : `✓ +${earnedPts} Pkt ${gameState.comboStreak >= 2 ? `• ${gameState.comboStreak}x` : ''}`;
+                ? `📚 +${allTermsToAdd.length} Stack-Match! (+${earnedPts})`
+                : `✓ +${earnedPts} Pkt ${gameState.comboStreak >= 2 ? `🔥${gameState.comboStreak}x` : ''}`;
             spawnMatchCelebrationFX(targetRect, targetSlot.accent, badgeLabel, false);
         }
 
@@ -1834,7 +1839,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         return true;
     }
 
-    // UNTEN IN DEN 6 TABLEAU-DECKS: Auf goldene Kategorienkarten darf NICHTS gelegt werden!
+    // UNTEN IN DEN 6 TABLEAU-DECKS: Auf die goldene Krankheitsbild-Karte (👑) kann NICHTS abgelegt werden!
     function attemptMoveToTableauColumn(source, targetColIdx) {
         if (source.zone === 'tableau' && source.colIdx === targetColIdx) {
             gameState.selectedSource = null;
@@ -1850,7 +1855,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const lastCardInColDom = colDom ? colDom.querySelector('.sol-stacked-group:last-child, .sol-card:last-child') : null;
         const targetRect = (lastCardInColDom || colDom)?.getBoundingClientRect();
 
-        // 1. Leeres Deck unten: Jede freie Karte (auch eine goldene Karte) darf auf ein komplett leeres Deck gelegt werden
+        // 1. Auf ein komplett leeres Deck unten darf jede Karte gelegt werden
         if (targetCol.length === 0) {
             saveHistorySnapshot();
             const moved = removeCardFromSource(source);
@@ -1867,23 +1872,23 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         const topTargetCard = targetCol[targetCol.length - 1];
 
-        // 2. SCHWIERIGKEITS-REGEL: Liegt unten eine goldene Krankheitsbild-Karte, blockiert sie das Deck!
+        // 2. NEUE REGEL: Liegt unten eine goldene Krankheitsbild-Karte (👑), darf nichts auf sie draufgelegt werden!
         if (topTargetCard.isCategoryCard) {
             gameState.comboStreak = 0;
             triggerWrongMoveFeedback(
                 source,
-                `<strong>Gesperrter Stapel (Kein Move-Abzug):</strong> Auf die goldene Krankheitsbild-Karte „${escapeHtml(topTargetCard.diseaseName)}“ kann unten <u>nichts</u> abgelegt werden! Ziehe sie zuerst nach oben in einen freien Ziel-Slot.`,
+                `<strong>Gesperrter Stapel (Kein Move-Abzug):</strong> Auf die Krankheitsbild-Karte „${escapeHtml(topTargetCard.diseaseName)}“ (👑) kann in den unteren Stapeln <u>nichts</u> abgelegt werden! Ziehe sie zuerst nach oben in einen freien Ziel-Slot.`,
                 lastCardInColDom
             );
             return false;
         }
 
-        // 3. SCHWIERIGKEITS-REGEL: Eine goldene Krankheitsbild-Karte darf unten nicht auf andere Karten gelegt werden!
+        // 3. NEUE REGEL: Eine goldene Krankheitsbild-Karte (👑) darf unten nicht auf andere Karten gelegt werden!
         if (card.isCategoryCard) {
             gameState.comboStreak = 0;
             triggerWrongMoveFeedback(
                 source,
-                `<strong>Regel-Hinweis (Kein Move-Abzug):</strong> Die goldene Krankheitsbild-Karte „${escapeHtml(card.diseaseName)}“ kann nur oben in einen freien Ziel-Slot (oder unten in ein komplett leeres Deck) gelegt werden.`,
+                `<strong>Regel-Hinweis (Kein Move-Abzug):</strong> Die Krankheitsbild-Karte „${escapeHtml(card.diseaseName)}“ (👑) kann nur oben in einen freien Ziel-Slot (oder unten auf ein komplett freies Deck) gelegt werden.`,
                 lastCardInColDom
             );
             return false;
@@ -1907,9 +1912,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
             if (typeof window.triggerHaptic === 'function') window.triggerHaptic([8, 25, 8]);
             const totalInStack = 1 + topTargetCard.stackedCards.length;
-            spawnMatchCelebrationFX(targetRect, topTargetCard.accent, `${totalInStack}er DDx-Stack`, false);
+            spawnMatchCelebrationFX(targetRect, topTargetCard.accent, `📚 ${totalInStack}er DDx-Stack!`, false);
             renderView();
-            showToast(`<strong>Optischer ${totalInStack}er-Begriffs-Stack gebildet!</strong> Klicke auf <strong>ⓘ</strong> oben rechts für alle Details.`, 'positive');
+            showToast(`📚 <strong>Optischer ${totalInStack}er-Spielkarten-Stack gebildet!</strong> Klicke auf <strong>ⓘ</strong> oben rechts für alle Details.`, 'positive');
             checkGameOverState();
             return true;
         }
@@ -1923,6 +1928,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         return false;
     }
 
+    // Doppeltipp / Auto-Move beachtet strikt, dass unten nichts auf Krankheitsbild-Karten gelegt werden darf
     function attemptAutoMoveCard(source) {
         const card = getPlayableCardFromSource(source);
         if (!card) return false;
@@ -1967,8 +1973,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 applyXpDelta(150, `${completedCopy.diseaseName} komplett!`);
             }
 
-            spawnMatchCelebrationFX(targetRect, completedCopy.accent, `${escapeHtml(completedCopy.diseaseName)} GEMEISTERT (+150 XP)`, true);
-            showToast(`✓ <strong>${escapeHtml(completedCopy.diseaseName)} (${completedCopy.totalRequired}/${completedCopy.totalRequired})</strong> vollständig gelöst! Der Ziel-Slot oben ist wieder frei.`, 'positive');
+            spawnMatchCelebrationFX(targetRect, completedCopy.accent, `🏆 ${escapeHtml(completedCopy.diseaseName)} GEMEISTERT! (+150 XP)`, true);
+            showToast(`🎉 <strong>${escapeHtml(completedCopy.diseaseName)} (${completedCopy.totalRequired}/${completedCopy.totalRequired})</strong> vollständig gelöst! Der Ziel-Slot ist wieder frei.`, 'positive');
             return true;
         }
         return false;
@@ -2025,7 +2031,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 gameState.hintsLeft--;
                 gameState.hintHighlightIds = [catCandidate.card.uid];
                 renderView();
-                showToast(`Hinweis: Ziehe die goldene Krankheitsbild-Karte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
+                showToast(`💡 Tipp: Ziehe die Krankheitsbild-Spielkarte „${escapeHtml(catCandidate.card.diseaseName)}“ oben in einen freien Ziel-Slot!`, 'positive');
                 return;
             }
         }
@@ -2037,7 +2043,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     gameState.hintsLeft--;
                     gameState.hintHighlightIds = [p.card.uid, matchSlot.uid];
                     renderView();
-                    showToast(`Hinweis: „${escapeHtml(p.card.term)}“ passt zu <strong>${escapeHtml(matchSlot.diseaseName)}</strong> oben im Ziel-Slot!`, 'positive');
+                    showToast(`💡 Tipp: „${escapeHtml(p.card.term)}“ passt zu <strong>${escapeHtml(matchSlot.diseaseName)}</strong> oben!`, 'positive');
                     return;
                 }
             }
@@ -2053,13 +2059,13 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     gameState.hintsLeft--;
                     gameState.hintHighlightIds = [a.card.uid, b.card.uid];
                     renderView();
-                    showToast(`Pre-Stack-Hinweis: Diese beiden Begriffskarten gehören zur selben Erkrankung und können im Tableau gebündelt werden!`, 'positive');
+                    showToast(`💡 Pre-Stack-Tipp: Diese beiden markierten Spielkarten gehören zur selben Erkrankung und können im Tableau gestapelt werden!`, 'positive');
                     return;
                 }
             }
         }
 
-        showToast('Aktuell kein direkter Match offen – ziehe eine Karte vom Nachziehstapel oben links oder nutze ein freies Deck!', 'neutral');
+        showToast('💡 Aktuell kein direkter Match offen – tippe auf den Nachziehstapel oben links oder nutze eines der 6 Decks!', 'neutral');
     }
 
     function useJoker() {
@@ -2091,18 +2097,18 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 gameState.lastSuccessAnim = { type: 'foundation', targetIdx: emptySlotIdx };
                 if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
                 renderView();
-                showToast(`Joker eingesetzt: „${escapeHtml(catCard.diseaseName)}“ direkt oben freigeschaltet!`, 'positive');
+                showToast(`🃏 Joker eingesetzt: „${escapeHtml(catCard.diseaseName)}“ direkt freigeschaltet!`, 'positive');
                 return;
             }
         }
 
         renderView();
         if (revealedCount > 0) {
-            showToast(`Joker eingesetzt: Alle verdeckten Spielkarten in den 6 Decks aufgedeckt!`, 'positive');
+            showToast(`🃏 Joker eingesetzt: Alle verdeckten Spielkarten in den 6 Decks aufgedeckt!`, 'positive');
         } else {
             gameState.movesLeft += 5;
             renderView();
-            showToast(`Joker eingesetzt: +5 Extra-Moves erhalten!`, 'positive');
+            showToast(`🃏 Joker eingesetzt: +5 Extra-Moves erhalten!`, 'positive');
         }
     }
 
@@ -2148,8 +2154,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         body.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--card-border); padding-bottom:12px; margin-bottom:14px;">
                 <div>
-                    <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#facc15; letter-spacing:0.06em;">
-                        DX Krankheitsbild-Dossier (${terms.length}/${diseaseSlotObj.totalRequired} Karten)
+                    <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:${diseaseSlotObj.accent}; letter-spacing:0.06em;">
+                        👑 Krankheitsbild-Dossier (${terms.length}/${diseaseSlotObj.totalRequired} Karten)
                     </div>
                     <h3 style="margin:4px 0 0 0; font-size:1.15rem; color:var(--text-main);">${escapeHtml(diseaseSlotObj.diseaseName)}</h3>
                 </div>
@@ -2158,7 +2164,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
             ${diseaseSlotObj.clinicalPearl ? `
                 <div class="sm-callout-box sm-pearl" style="margin:0 0 14px 0;">
-                    <div class="sm-callout-header"><span class="sm-callout-badge">Klinische Synthese</span></div>
+                    <div class="sm-callout-header"><span class="sm-callout-badge">💡 Klinische Synthese</span></div>
                     <div class="sm-callout-body">${escapeHtml(diseaseSlotObj.clinicalPearl)}</div>
                 </div>
             ` : ''}
@@ -2183,8 +2189,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                                         <span style="font-size:0.65rem; font-weight:800; padding:2px 7px; border-radius:999px; background:${catCfg.bg}; color:${catCfg.color};">
                                             ${escapeHtml(t.category)}
                                         </span>
-                                        <button type="button" class="fc-depot-pin-btn" onclick="window.SolitaireModule.pinTermToDepot('${escapeHtml(diseaseSlotObj.diseaseName).replace(/'/g, "\\'")}', '${escapeHtml(t.term).replace(/'/g, "\\'")}', '${escapeHtml(t.explanation).replace(/'/g, "\\'")}')" title="Direkt ins Lern-Depot speichern">
-                                            + Depot
+                                        <button type="button" class="fc-depot-pin-btn" onclick="window.SolitaireModule.pinTermToDepot('${escapeHtml(diseaseSlotObj.diseaseName).replace(/'/g, "\\'")}', '${escapeHtml(t.term).replace(/'/g, "\\'")}', '${escapeHtml(t.explanation).replace(/'/g, "\\'")}')" title="Direkt ins Lern-Depot pinnen">
+                                            📌 Depot
                                         </button>
                                     </div>
                                 </div>
@@ -2209,7 +2215,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 cue_context: `${diseaseName} – ${term}`,
                 highlighted_text: `${term}: ${explanation}`
             });
-            showToast(`„${escapeHtml(term)}“ im Lern-Depot gespeichert.`, 'positive');
+            showToast(`📌 „${escapeHtml(term)}“ im Lern-Depot gespeichert!`, 'positive');
         }
     }
 
@@ -2220,10 +2226,10 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         body.innerHTML = `
             <div style="text-align:center; padding:12px 6px;">
-                <div style="font-size:0.75rem; font-weight:800; letter-spacing:0.08em; color:var(--color-symptom); text-transform:uppercase; margin-bottom:6px;">DECK ABGESCHLOSSEN</div>
-                <h3 style="font-size:1.35rem; color:var(--text-main); margin-bottom:6px;">Alle Krankheitsbilder gemeistert</h3>
+                <div style="font-size:3rem; margin-bottom:6px;">🏆</div>
+                <h3 style="font-size:1.35rem; color:var(--text-main); margin-bottom:6px;">Deck vollständig gemeistert!</h3>
                 <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
-                    Du hast alle <strong>${gameState.completedDiseases.length} Krankheitsbilder</strong> (${gameState.totalCardsInSession || 0} Karten) differentialdiagnostisch fehlerfrei zugeordnet.
+                    Du hast alle <strong>${gameState.completedDiseases.length} Krankheitsbilder</strong> (${gameState.totalCardsInSession || 0} Karten) differentialdiagnostisch perfekt zugeordnet.
                 </p>
                 <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
                     <div class="hud-stat"><strong style="color:var(--accent-blue);">${gameState.score}</strong> <span>Punkte</span></div>
@@ -2231,10 +2237,10 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 </div>
                 <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                     <button type="button" class="action-btn" onclick="document.getElementById('sol-inspect-modal').style.display='none'; window.SolitaireModule.startNewGame('${activeDeck.deck_id}')">
-                        ↺ Nochmal spielen
+                        🔄 Nochmal spielen
                     </button>
                     <button type="button" class="action-btn secondary" onclick="document.getElementById('sol-inspect-modal').style.display='none'; window.SolitaireModule.backToLobby()">
-                        Zur Deck-Bibliothek
+                        📚 Zur Deck-Bibliothek
                     </button>
                 </div>
             </div>
@@ -2319,7 +2325,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             await navigator.clipboard.writeText(SKILL_EXTRACTION_PROMPT);
             if (btnEl) {
                 const orig = btnEl.innerHTML;
-                btnEl.innerHTML = '✓ Mega-Prompt kopiert';
+                btnEl.innerHTML = '✓ Mega-Prompt kopiert!';
                 setTimeout(() => { btnEl.innerHTML = orig; }, 2200);
             }
         } catch (_e) {
@@ -2328,12 +2334,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 16. RENDERING: LOBBY MIT DASHBOARD-ORDNERN, MIXER & ZUFALLS-MODUS
+    // 16. RENDERING: LOBBY MIT DASHBOARD-ORDNERN & V3.3+ DECK-KARTEN
     // ----------------------------------------------------------------------
     function renderDeckCardHtml(deck, stats) {
         const dStat = stats[deck.deck_id] || { wins: 0, bestScore: 0 };
         const totalTerms = (deck.diseases || []).reduce((acc, d) => acc + (d.cards?.length || 0), 0);
-        const totalCards = totalTerms + (deck.diseases?.length || 0);
         const isCloudOnline = !!(deck.is_cloud_published || cloudPublishedDeckIds.has(deck.deck_id));
         const subFolder = resolveDeckSubFolder(deck);
 
@@ -2344,22 +2349,22 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                             <span class="tag">${escapeHtml(subFolder)}</span>
                             ${deck.is_builtin ? `
-                                <span class="cloud-badge is-local" title="Integriertes Standard-Deck">System</span>
+                                <span class="cloud-badge is-local" title="Integriertes Standard-Deck">🏛️ System</span>
                             ` : isCloudOnline ? `
-                                <span class="cloud-badge is-cloud" title="Dieses Deck ist live in der Supabase-Cloud veröffentlicht">Online</span>
+                                <span class="cloud-badge is-cloud" title="Dieses Deck ist live in der Supabase-Cloud veröffentlicht">☁️ Online</span>
                             ` : `
-                                <span class="cloud-badge is-local" title="Nur lokal auf diesem Gerät gespeichert">Lokal</span>
+                                <span class="cloud-badge is-local" title="Nur lokal auf diesem Gerät gespeichert">💻 Lokal</span>
                             `}
                         </div>
                         <div style="display:flex; align-items:center; gap:4px;">
                             ${dStat.wins > 0 ? `<span style="font-size:0.68rem; font-weight:800; color:var(--color-symptom); margin-right:4px;">✓ ${dStat.wins}x</span>` : ''}
                             <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); window.SolitaireModule.promptMoveDeckToFolder('${deck.deck_id}')" title="In anderen Ordner verschieben">⇄</button>
-                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.exportDeckAsJsonFile('${deck.deck_id}')" title="Deck als .json Datei exportieren">JSON</button>
+                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.exportDeckAsJsonFile('${deck.deck_id}')" title="Deck als .json Datei herunterladen">📤</button>
                             ${(!deck.is_builtin && isCloudOnline) ? `
-                                <button type="button" class="unpublish-case-btn" onclick="event.stopPropagation(); window.SolitaireModule.unpublishDeckFromCloud('${deck.deck_id}')" title="Aus der Cloud nehmen (bleibt lokal erhalten)">Unpublish</button>
+                                <button type="button" class="unpublish-case-btn" onclick="event.stopPropagation(); window.SolitaireModule.unpublishDeckFromCloud('${deck.deck_id}')" title="Aus der Cloud nehmen (bleibt lokal erhalten)">☁️✕</button>
                             ` : ''}
                             ${!deck.is_builtin ? `
-                                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.SolitaireModule.deleteCustomDeck('${deck.deck_id}')" title="Deck löschen">×</button>
+                                <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.SolitaireModule.deleteCustomDeck('${deck.deck_id}')" title="Deck löschen">🗑️</button>
                             ` : ''}
                         </div>
                     </div>
@@ -2377,16 +2382,16 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--divider-color);">
                     <span style="font-size:0.72rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">
-                        ${deck.diseases?.length || 0} Diagnosen • ${totalCards} Karten
+                        ${deck.diseases?.length || 0} Diagnosen • ${totalTerms} Karten
                     </span>
                     <div style="display:flex; align-items:center; gap:6px;">
                         ${(!deck.is_builtin && !isCloudOnline) ? `
                             <button type="button" class="action-btn secondary btn-sm" style="padding:6px 11px; font-size:0.74rem; border-color:rgba(56,189,248,0.45); color:var(--accent-blue);" onclick="event.stopPropagation(); window.SolitaireModule.publishDeckToCloud('${deck.deck_id}', this)" title="Dieses Deck in der Supabase-Cloud für alle Geräte veröffentlichen">
-                                Online stellen
+                                ☁️ Online stellen
                             </button>
                         ` : ''}
                         <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.startNewGame('${deck.deck_id}')">
-                            Spielen →
+                            Spielen ➔
                         </button>
                     </div>
                 </div>
@@ -2401,7 +2406,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const unpublishedCount = getCustomDecks().filter(d => !d.is_builtin && !cloudPublishedDeckIds.has(d.deck_id)).length;
         const customDecksCount = getCustomDecks().filter(d => !d.is_builtin).length;
 
-        // Ordner-Hierarchie analog zum Dashboard aufbauen
         const orderedSuperTitles = getSolitaireSuperFolderOrder();
         const knownSubFolders = getAllKnownSolitaireSubFolders();
 
@@ -2431,7 +2435,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             superFoldersMap[targetSuper].push(sub);
         });
 
-        // Beim ersten Besuch den Überordner mit den meisten Decks automatisch aufklappen
         if (Object.keys(solSuperFolderStates).length === 0) {
             orderedSuperTitles.forEach(s => { solSuperFolderStates[s] = false; });
             const firstNonEmptySuper = orderedSuperTitles.find(s => (superFoldersMap[s] || []).some(sub => (groupedBySubFolder[sub] || []).length > 0)) || orderedSuperTitles[0];
@@ -2442,19 +2445,17 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         }
 
-        // Optionen für den Mixer-Quellen-Selektor
         const scopeOptionsHtml = [
-            `<option value="ALL" ${mixerConfig.sourceScope === 'ALL' ? 'selected' : ''}>Alle verfügbaren Decks (${allDecks.length} Decks)</option>`,
-            customDecksCount > 0 ? `<option value="CUSTOM_ONLY" ${mixerConfig.sourceScope === 'CUSTOM_ONLY' ? 'selected' : ''}>Nur importierte Decks (${customDecksCount} Decks)</option>` : '',
-            ...orderedSuperTitles.map(s => `<option value="SUPER:${escapeHtml(s)}" ${mixerConfig.sourceScope === 'SUPER:' + s ? 'selected' : ''}>Überordner: ${escapeHtml(s)}</option>`),
-            ...Object.keys(groupedBySubFolder).filter(f => groupedBySubFolder[f].length > 0).map(f => `<option value="FOLDER:${escapeHtml(f)}" ${mixerConfig.sourceScope === 'FOLDER:' + f ? 'selected' : ''}>Ordner: ${escapeHtml(f)} (${groupedBySubFolder[f].length})</option>`)
+            `<option value="ALL" ${mixerConfig.sourceScope === 'ALL' ? 'selected' : ''}>📚 Alle verfügbaren Decks (${allDecks.length} Decks)</option>`,
+            customDecksCount > 0 ? `<option value="CUSTOM_ONLY" ${mixerConfig.sourceScope === 'CUSTOM_ONLY' ? 'selected' : ''}>📥 Nur importierte Decks (${customDecksCount} Decks)</option>` : '',
+            ...orderedSuperTitles.map(s => `<option value="SUPER:${escapeHtml(s)}" ${mixerConfig.sourceScope === 'SUPER:' + s ? 'selected' : ''}>📂 Überordner: ${escapeHtml(s)}</option>`),
+            ...Object.keys(groupedBySubFolder).filter(f => groupedBySubFolder[f].length > 0).map(f => `<option value="FOLDER:${escapeHtml(f)}" ${mixerConfig.sourceScope === 'FOLDER:' + f ? 'selected' : ''}>📁 Ordner: ${escapeHtml(f)} (${groupedBySubFolder[f].length})</option>`)
         ].join('');
 
         const activePreset = MIXER_PRESETS[mixerConfig.difficulty] || MIXER_PRESETS.easy;
 
-        // Überordner & Unterordner HTML generieren
         let superFoldersHtml = '';
-        Object.entries(superFoldersMap).forEach(([superTitle, subFoldersList], sIdx) => {
+        Object.entries(superFoldersMap).forEach(([superTitle, subFoldersList]) => {
             if (isSearching && subFoldersList.length === 0) return;
 
             const isSuperOpen = isSearching ? true : !!solSuperFolderStates[superTitle];
@@ -2475,7 +2476,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             if (subFoldersList.length === 0) {
                 subFoldersHtml = `
                     <div class="empty-superfolder-hint">
-                        <span>Noch keine Unterordner in „${escapeHtml(superTitle)}“</span>
+                        <span>Ordner leer</span>
                         <button type="button" class="ghost-tool-btn" onclick="event.stopPropagation(); window.SolitaireModule.createSolitaireSubFolder('${escapedSuperJs}')">+ Unterordner</button>
                     </div>
                 `;
@@ -2487,7 +2488,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     const escapedSubJs = escapeHtml(subName).replace(/'/g, "\\'");
 
                     const cardsHtml = decksInSub.length === 0
-                        ? `<div class="empty-subfolder-hint">Ordner leer – Ziehe ein Kartendeck per Drag & Drop hierher oder klicke auf einer Deck-Karte auf „⇄“.</div>`
+                        ? `<div class="empty-subfolder-hint">Noch keine Decks in diesem Ordner (Deck-Karte per Drag & Drop hierher ziehen oder auf „⇄“ klicken).</div>`
                         : decksInSub.map(d => renderDeckCardHtml(d, stats)).join('');
 
                     return `
@@ -2501,12 +2502,12 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                                 <div class="category-header-right">
                                     <div class="folder-hover-tools">
                                         ${decksInSub.length > 0 ? `
-                                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startRandomDeckGame('FOLDER:${escapedSubJs}')" title="Zufälliges Deck aus diesem Ordner ziehen">Zufall</button>
-                                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startMixedCategoriesGame(null, 'FOLDER:${escapedSubJs}')" title="Kategorien aus diesem Ordner mischen">Mix</button>
+                                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startRandomDeckGame('FOLDER:${escapedSubJs}')" title="Zufälliges Deck aus diesem Ordner ziehen">🎲</button>
+                                            <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startMixedCategoriesGame(null, 'FOLDER:${escapedSubJs}')" title="Kategorien aus diesem Ordner mischen">🔀</button>
                                         ` : ''}
-                                        <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); window.SolitaireModule.promptMoveSolitaireFolderToSuper('${escapedSubJs}')" title="Ordner in anderen Überordner verschieben">⇄</button>
-                                        <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.SolitaireModule.renameSolitaireSubFolder('${escapedSubJs}')" title="Ordner umbenennen">✎</button>
-                                        <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.SolitaireModule.deleteSolitaireSubFolder('${escapedSubJs}', ${decksInSub.length})" title="Ordner löschen">×</button>
+                                        <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); window.SolitaireModule.promptMoveSolitaireFolderToSuper('${escapedSubJs}')" title="Verschieben">⇄</button>
+                                        <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.SolitaireModule.renameSolitaireSubFolder('${escapedSubJs}')" title="Umbenennen">✏️</button>
+                                        <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.SolitaireModule.deleteSolitaireSubFolder('${escapedSubJs}', ${decksInSub.length})" title="Löschen">🗑️</button>
                                     </div>
                                     <span class="category-badge">${solvedInSub}/${decksInSub.length}</span>
                                 </div>
@@ -2523,18 +2524,20 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <div class="super-folder sol-super-folder" data-sol-super-title="${encodeURIComponent(superTitle)}">
                     <div class="super-folder-header" onclick="window.SolitaireModule.toggleSolSuperFolder('${escapedSuperJs}')">
                         <div class="super-folder-title">
+                            <span class="super-drag-handle" title="Überordner">⠿</span>
                             <svg class="super-folder-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                             <span>${escapeHtml(superTitle)}</span>
                         </div>
                         <div class="super-folder-right">
                             <div class="folder-hover-tools">
                                 ${totalDecksInSuper > 0 ? `
-                                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startRandomDeckGame('SUPER:${escapedSuperJs}')" title="Zufälliges Deck aus diesem Überordner starten">Zufall</button>
+                                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startRandomDeckGame('SUPER:${escapedSuperJs}')" title="Zufälliges Deck aus diesem Überordner starten">🎲</button>
+                                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.startMixedCategoriesGame(null, 'SUPER:${escapedSuperJs}')" title="Kategorien aus diesem Überordner mischen">🔀</button>
                                 ` : ''}
                                 <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.SolitaireModule.createSolitaireSubFolder('${escapedSuperJs}')" title="Neuer Unterordner">+</button>
                                 ${!isProtectedDefault ? `
-                                    <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.renameSuperFolder('${escapedSuperJs}'); window.SolitaireModule.openView();" title="Überordner umbenennen">✎</button>
-                                    <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.removeCustomSuperFolder('${escapedSuperJs}'); window.SolitaireModule.openView();" title="Überordner löschen">×</button>
+                                    <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.renameSuperFolder('${escapedSuperJs}'); window.SolitaireModule.openView();" title="Umbenennen">✏️</button>
+                                    <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.removeCustomSuperFolder('${escapedSuperJs}'); window.SolitaireModule.openView();" title="Löschen">🗑️</button>
                                 ` : ''}
                             </div>
                             <span class="super-count-pill">${solvedDecksInSuper}/${totalDecksInSuper}</span>
@@ -2550,47 +2553,46 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         container.innerHTML = `
             <div class="sol-lobby-wrapper">
-                <!-- Lobby Header -->
                 <div class="sol-lobby-header">
                     <div>
                         <div class="friends-kicker">CLINICAL DEDUCTION CARD GAME</div>
-                        <h2 class="friends-main-title">Solitaire Associations Journey</h2>
+                        <h2 class="friends-main-title">🃏 Solitaire Associations Journey</h2>
                         <p class="friends-subtitle">
-                            Organisiere deine Kartendecks in Ordnern, ziehe ein zufälliges Deck oder mische Krankheitsbilder quer durch alle importierten Decks (35 bis 70 Karten).
+                            6 Kartendecks im Tableau: Lege Krankheitsbilder als Kategorienkarten frei, organisiere deine Decks in Ordnern oder mische Kategorien quer durch alle Decks.
                         </p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.startRandomDeckGame('ALL')" title="Zieht sofort ein zufälliges komplettes Kartendeck">
-                            Zufälliges Deck ziehen
+                            🎲 Zufälliges Deck
                         </button>
                         ${unpublishedCount > 0 ? `
-                            <button type="button" class="action-btn secondary btn-sm" style="border-color:rgba(56,189,248,0.45); color:var(--accent-blue);" onclick="window.SolitaireModule.publishAllLocalDecksToCloud(this)">
-                                Alle lokalen Decks online stellen (${unpublishedCount})
+                            <button type="button" class="action-btn secondary btn-sm" style="border-color:rgba(56,189,248,0.45); color:var(--accent-blue);" onclick="window.SolitaireModule.publishAllLocalDecksToCloud(this)" title="Alle noch lokalen Kartendecks jetzt in Supabase veröffentlichen">
+                                ☁️ Alle lokalen Decks online stellen (${unpublishedCount})
                             </button>
                         ` : ''}
-                        <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.generateDecksFromExistingCases()">
-                            Aus App-Fällen generieren
+                        <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.generateDecksFromExistingCases()" title="Erstellt automatisch ein DDx-Deck aus deinen bestehenden MedCheck-Fällen">
+                            ⚡ Aus App-Fällen generieren
                         </button>
                         <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.toggleUploadPanel()">
-                            + Eigenes Deck hochladen
+                            📥 Eigenes Deck hochladen
                         </button>
                     </div>
                 </div>
 
-                <!-- Upload & Cloud-Import Panel (mit Ordner-Auswahl) -->
+                <!-- Upload & Cloud-Import Panel -->
                 <div id="sol-upload-panel" class="sol-upload-panel hidden">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
                         <div>
-                            <div style="font-weight:800; font-size:0.92rem; color:var(--text-main);">Krankheitskartendeck importieren & online stellen (.json)</div>
-                            <div style="font-size:0.76rem; color:var(--text-muted);">Ziehe eine JSON-Datei hierher oder füge den JSON-Code direkt ein.</div>
+                            <div style="font-weight:800; font-size:0.92rem; color:var(--text-main);">📦 Krankheitskartendeck importieren & online stellen (.json)</div>
+                            <div style="font-size:0.76rem; color:var(--text-muted);">Ziehe eine JSON-Datei aus deinem Extraktions-Skill hierher oder füge den JSON-Code direkt ein.</div>
                         </div>
                         <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.copySkillMasterPrompt(this)">
-                            Skill Mega-Prompt & JSON-Schema kopieren
+                            📋 Skill Mega-Prompt & JSON-Schema kopieren
                         </button>
                     </div>
 
                     <div style="margin-bottom:10px;">
-                        <label style="font-size:0.75rem; font-weight:700; color:var(--accent-blue); text-transform:uppercase; display:block; margin-bottom:4px;">Ziel-Ordner (optional):</label>
+                        <label style="font-size:0.75rem; font-weight:700; color:var(--accent-blue); text-transform:uppercase; display:block; margin-bottom:4px;">📁 Ziel-Ordner (optional):</label>
                         <input type="text" id="sol-upload-folder-input" class="forge-topic-input" list="sol-known-folders-datalist" style="min-height:auto; padding:8px 12px; margin-bottom:0;" placeholder="Leer lassen für automatische Zuordnung aus JSON oder Ordnernamen eingeben...">
                         <datalist id="sol-known-folders-datalist">
                             ${knownSubFolders.map(f => `<option value="${escapeHtml(f)}"></option>`).join('')}
@@ -2598,16 +2600,16 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     </div>
 
                     <div id="sol-file-dropzone" class="sol-file-dropzone">
-                        <span><strong>JSON-Deckdatei hier ablegen</strong> oder klicken zum Durchsuchen</span>
+                        <span>📂 <strong>JSON-Deckdatei hier ablegen</strong> oder klicken zum Durchsuchen</span>
                         <input type="file" id="sol-file-input" accept=".json" multiple style="display:none;">
                     </div>
 
-                    <textarea id="sol-json-textarea" class="forge-textarea" style="height:120px; margin-top:10px; margin-bottom:10px;" placeholder='Oder JSON-Code des Kartendecks hier direkt einfügen...'></textarea>
+                    <textarea id="sol-json-textarea" class="forge-textarea" style="height:130px; margin-top:10px; margin-bottom:10px;" placeholder='Oder JSON-Code des Kartendecks hier direkt einfügen...'></textarea>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                         <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:700; color:var(--accent-blue); cursor:pointer;">
                             <input type="checkbox" id="sol-auto-publish-checkbox" checked style="width:16px; height:16px; accent-color:var(--accent-blue);">
-                            <span>Beim Importieren direkt in die Cloud stellen (für Handy, iPad & Freunde)</span>
+                            <span>☁️ Beim Importieren direkt in die Cloud stellen (für Handy, iPad & Freunde)</span>
                         </label>
                         <div style="display:flex; gap:8px;">
                             <button type="button" class="action-btn secondary btn-sm" onclick="window.SolitaireModule.toggleUploadPanel()">Schließen</button>
@@ -2620,7 +2622,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <div class="sol-mixer-launchpad">
                     <div class="sol-mixer-top">
                         <div>
-                            <div class="sol-mixer-kicker">CROSS-DECK RANDOMIZER • KATEGORIEN-MIXER</div>
+                            <div class="sol-mixer-kicker">🔀 CROSS-DECK RANDOMIZER • KATEGORIEN-MIXER</div>
                             <div class="sol-mixer-title">Krankheitsbilder deckübergreifend mischen</div>
                             <div class="sol-mixer-desc">${escapeHtml(activePreset.desc)}</div>
                         </div>
@@ -2640,17 +2642,23 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                                 </button>
                             </div>
                             <button type="button" class="action-btn btn-sm" onclick="window.SolitaireModule.startMixedCategoriesGame()">
-                                Kategorien-Mix starten →
+                                🔀 Kategorien-Mix starten ➔
                             </button>
                         </div>
                     </div>
                 </div>
 
+                <div class="sol-rules-strip">
+                    <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> zuerst oben in einen der 4 Ziel-Slots ziehen (unten nicht bestapelbar!)</div>
+                    <div class="sol-rule-pill"><span>ⓘ</span> <strong>Ecke oben rechts:</strong> Spoilerfreie Zusatzinfos öffnen</div>
+                    <div class="sol-rule-pill"><span>☁️</span> <strong>Cloud-Sync:</strong> Veröffentlichte Decks sind auf allen Geräten live!</div>
+                </div>
+
                 <!-- Ordner-Toolbar & Suche (wie im Dashboard) -->
                 <div class="dashboard-subbar" style="margin: 4px 0;">
                     <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:240px;">
-                        <input type="text" class="depot-search-input" style="flex:1; max-width:360px;" placeholder="Deck, Krankheitsbild oder Ordner suchen..." value="${escapeHtml(solSearchQuery)}" oninput="window.SolitaireModule.handleSolSearch(this.value)">
-                        ${solSearchQuery ? `<button type="button" class="ghost-tool-btn" onclick="window.SolitaireModule.handleSolSearch('')">Filter löschen</button>` : ''}
+                        <input type="text" class="depot-search-input" style="flex:1; max-width:360px;" placeholder="🔍 Deck, Krankheitsbild oder Ordner suchen..." value="${escapeHtml(solSearchQuery)}" oninput="window.SolitaireModule.handleSolSearch(this.value)">
+                        ${solSearchQuery ? `<button type="button" class="ghost-tool-btn" onclick="window.SolitaireModule.handleSolSearch('')">✕ Filter löschen</button>` : ''}
                     </div>
                     <div class="dashboard-quick-folder-btns">
                         <button type="button" class="ghost-tool-btn" onclick="window.SolitaireModule.expandAllSolFolders(true)">Alle öffnen</button>
@@ -2672,7 +2680,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     function bindSolitaireFolderDragAndDrop(container) {
-        // 1. Deck-Karten als ziehbar markieren
         container.querySelectorAll('.sol-deck-card[data-sol-deck-id]').forEach(deckEl => {
             const deckId = decodeURIComponent(deckEl.dataset.solDeckId);
             deckEl.addEventListener('dragstart', (e) => {
@@ -2689,7 +2696,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
-        // 2. Unterordner als Drop-Target (für Decks) & als Drag-Source (für Überordner-Wechsel)
         container.querySelectorAll('.sol-category-folder').forEach(folderEl => {
             const subName = decodeURIComponent(folderEl.dataset.solSubfolder);
 
@@ -2735,7 +2741,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             });
         });
 
-        // 3. Überordner als Drop-Target (für Unterordner und für direkt hineingezogene Decks)
         container.querySelectorAll('.sol-super-folder').forEach(superEl => {
             const superTitle = decodeURIComponent(superEl.dataset.solSuperTitle);
 
@@ -2772,7 +2777,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 17. RENDERING: SPIELKARTEN & 6-DECK SPIELFELD (V3.4 STYLE)
+    // 17. RENDERING: SPIELKARTEN & 6-DECK SPIELFELD (EXAKTER V3.3+ STYLE)
     // ----------------------------------------------------------------------
     function renderCardHtml(card, zone, colIdx, cardIdx, isPlayable) {
         const isSelected = gameState.selectedSource &&
@@ -2789,50 +2794,64 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             return `
                 <div class="sol-playing-card sol-card-back" data-card-uid="${card.uid}">
                     <div class="sol-card-back-inner">
-                        <span class="sol-card-back-pip">+</span>
+                        <span class="sol-card-back-pip">✚</span>
                     </div>
                 </div>
             `;
         }
 
-        // GOLDENE KRANKHEITSBILD-KATEGORIENKARTE (Im unteren Tableau ein Blocker, gehört nach oben!)
         if (card.isCategoryCard) {
+            const collected = card.collectedTerms || [];
+            const collectedCount = collected.length;
+            const visibleSlices = collected.slice(-3);
+            const hiddenExtraCount = Math.max(0, collectedCount - visibleSlices.length);
+
+            const peekingSlicesHtml = visibleSlices.map((subCard, sIdx) => {
+                const subCatCfg = CATEGORY_COLORS[subCard.category] || CATEGORY_COLORS['Klinik'];
+                return `
+                    <div class="sol-stack-peek-slice" style="--slice-accent: ${card.accent}; --slice-index: ${sIdx};">
+                        <span class="sol-peek-suit" style="color:${subCatCfg.color};">${subCatCfg.suit}</span>
+                        <span class="sol-peek-term">${escapeHtml(subCard.term)}</span>
+                    </div>
+                `;
+            }).join('');
+
             return `
-                <div class="sol-stacked-group is-golden-category-group ${isPlayable ? 'is-playable' : 'is-covered-faceup'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
-                     style="--disease-accent: #facc15;"
+                <div class="sol-stacked-group ${collectedCount > 0 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : 'is-covered-faceup'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
+                     style="--disease-accent: ${card.accent};"
                      data-card-uid="${card.uid}"
-                     data-is-category="true"
                      data-zone="${zone}"
                      data-col="${colIdx}"
                      data-idx="${cardIdx}">
-                    <div class="sol-playing-card sol-card-category" title="${escapeHtml(card.diseaseName)} – Ziehe diese goldene Kategorienkarte in einen freien Slot nach oben">
+                    ${collectedCount > 0 ? `<div class="sol-stack-peeking-list">${peekingSlicesHtml}</div>` : ''}
+                    <div class="sol-playing-card sol-card-category" title="${escapeHtml(card.diseaseName)}">
                         <div class="sol-card-corner-top">
-                            <div class="sol-corner-pip-group" style="color:#fde047;">
-                                <span class="sol-pip-symbol">◆</span>
-                                <span class="sol-pip-label">DX • ${ card.totalRequired }</span>
+                            <div class="sol-corner-pip-group">
+                                <span class="sol-pip-symbol">👑</span>
+                                <span class="sol-pip-label">${collectedCount}/${card.totalRequired}</span>
                             </div>
-                            <span class="sol-collapsed-inline-title" style="color:#fde047;">${escapeHtml(card.diseaseName)}</span>
+                            <span class="sol-collapsed-inline-title">${escapeHtml(card.diseaseName)}</span>
                             <div class="sol-card-corner-actions">
+                                ${hiddenExtraCount > 0 ? `<span class="sol-prestack-badge">+${hiddenExtraCount}</span>` : ''}
                                 <button type="button" class="sol-card-info-btn" data-info-uid="${card.uid}" title="Krankheitsbild-Info (ohne Spoiler)">ⓘ</button>
                             </div>
                         </div>
 
                         <div class="sol-card-center-art">
-                            <div class="sol-card-watermark">◆</div>
+                            <div class="sol-card-watermark">👑</div>
                             <div class="sol-cat-kicker">KRANKHEITSBILD</div>
                             <div class="sol-cat-disease-title">${escapeHtml(card.diseaseName)}</div>
                         </div>
 
                         <div class="sol-card-corner-bottom">
-                            <span class="sol-icd-tag" style="color:#fde047; background:rgba(250,204,21,0.14); border:1px solid rgba(250,204,21,0.3);">NACH OBEN ↑</span>
-                            <span class="sol-pip-bottom-mirror" style="color:#fde047;">◆</span>
+                            <span class="sol-icd-tag">${escapeHtml(card.icd10 || 'DDx')}</span>
+                            <span class="sol-pip-bottom-mirror">👑</span>
                         </div>
                     </div>
                 </div>
             `;
         }
 
-        // NORMALE BEGRIFFSKARTE (Kann im Tableau mit gleichen Begriffen gebündelt werden)
         const catCfg = CATEGORY_COLORS[card.category] || CATEGORY_COLORS['Klinik'];
         const subCards = card.stackedCards || [];
         const stackCount = 1 + subCards.length;
@@ -2853,7 +2872,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             <div class="sol-stacked-group ${stackCount > 1 ? 'has-physical-stack' : ''} ${isPlayable ? 'is-playable' : 'is-covered-faceup'} ${isSelected ? 'is-selected' : ''} ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-stack-snap' : ''}"
                  style="--disease-accent: ${catCfg.color};"
                  data-card-uid="${card.uid}"
-                 data-is-category="false"
                  data-zone="${zone}"
                  data-col="${colIdx}"
                  data-idx="${cardIdx}">
@@ -2901,7 +2919,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div style="min-width:0;">
                             <div style="font-size:0.86rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
                             <div style="font-size:0.68rem; color:var(--text-muted);">
-                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases} Diagnosen</strong> (${gameState.totalCardsInSession || 0} Karten) • <em>Goldene DX-Karten nur oben stapelbar</em>
+                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> (${gameState.totalCardsInSession || 0} Karten) • <em>6 Kartendecks • Kein Move-Abzug bei Fehlern</em>
                             </div>
                         </div>
                     </div>
@@ -2909,28 +2927,28 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                     <div class="sol-hud-Controls">
                         ${showAutoFinish ? `
                             <button type="button" class="action-btn btn-sm" style="padding:4px 11px; font-size:0.74rem; background:linear-gradient(135deg,#10b981,#059669);" onclick="window.SolitaireModule.triggerAutoFinish()">
-                                Auto-Finish
+                                ⚡ Auto-Finish
                             </button>
                         ` : ''}
                         ${gameState.comboStreak >= 2 ? `
-                            <div class="sol-combo-pill">Flow ${gameState.comboStreak}x</div>
+                            <div class="sol-combo-pill">🔥 ${gameState.comboStreak}x</div>
                         ` : ''}
                         <div class="sol-moves-pill ${gameState.movesLeft <= 8 ? 'critical' : ''}">
                             <span>MOVES</span>
                             <strong>${gameState.movesLeft}</strong>
                         </div>
-                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.undoLastMove()" ${gameState.historyStack.length === 0 ? 'disabled' : ''} title="Rückgängig (Shortcut: Z)">↩ Undo</button>
-                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useHint()" title="Hinweis (Shortcut: H)">Hint (${gameState.hintsLeft})</button>
-                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useJoker()" title="Joker einsetzen">Joker (${gameState.jokersLeft})</button>
-                        <button type="button" class="sol-power-btn ${hardMode ? 'active' : ''}" onclick="window.SolitaireModule.toggleHardMode()" title="Kategorie-Label ein-/ausblenden">${hardMode ? 'Hard' : 'Normal'}</button>
-                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.startNewGame('${activeDeck.deck_id}')" title="Neu mischen">↺</button>
+                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.undoLastMove()" ${gameState.historyStack.length === 0 ? 'disabled' : ''} title="Rückgängig (Shortcut: Z)">↩</button>
+                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useHint()" title="Hinweis (Shortcut: H)">💡 ${gameState.hintsLeft}</button>
+                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useJoker()" title="Joker einsetzen">🃏 ${gameState.jokersLeft}</button>
+                        <button type="button" class="sol-power-btn ${hardMode ? 'active' : ''}" onclick="window.SolitaireModule.toggleHardMode()" title="Kategorie-Label ein-/ausblenden">🎓</button>
+                        <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.startNewGame('${activeDeck.deck_id}')" title="Neu mischen">🔄</button>
                     </div>
                 </div>
 
                 <!-- Kompaktes Feedback-Banner -->
                 <div id="sol-feedback-banner" class="sol-feedback-banner" style="display:none;"></div>
 
-                <!-- OBERE REIHE: 6 SYMMETRISCHE HOCHKANT-SLOTS (STOCK + WASTE + 4 GOLDENE ZIEL-SLOTS) -->
+                <!-- OBERE REIHE: 6 SYMMETRISCHE HOCHKANT-SLOTS -->
                 <div class="sol-upper-table-row">
                     <div class="sol-card-slot-frame sol-stock-slot ${gameState.stock.length > 0 ? 'has-cards' : 'is-empty'}" onclick="window.SolitaireModule.drawFromStock()" title="Karte ziehen (Leertaste)">
                         ${gameState.stock.length > 0 ? `
@@ -2942,8 +2960,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                             </div>
                         ` : `
                             <div class="sol-stock-empty-icon">
-                                <span style="font-size:1.15rem;">↻</span>
-                                <span>Wenden</span>
+                                <span style="font-size:1.25rem;">↻</span>
+                                <span>Neu wenden</span>
                             </div>
                         `}
                     </div>
@@ -2960,8 +2978,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         if (!slot) {
                             return `
                                 <div class="sol-card-slot-frame sol-foundation-slot is-empty-foundation" data-foundation-idx="${sIdx}">
-                                    <div class="sol-foundation-dx-badge">DX</div>
-                                    <div class="sol-foundation-empty-text">Goldene Karte<br>als Basis ablegen</div>
+                                    <div class="sol-foundation-crown-icon">👑</div>
+                                    <div class="sol-foundation-empty-text">Krankheitsbild<br>hier ablegen</div>
                                 </div>
                             `;
                         }
@@ -2975,11 +2993,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
                         return `
                             <div class="sol-card-slot-frame sol-foundation-slot is-active-foundation ${isHinted ? 'is-hinted' : ''} ${isJustMatched ? 'sol-anim-match-pop' : ''}"
-                                 style="--disease-accent: #facc15;"
+                                 style="--disease-accent: ${slot.accent};"
                                  data-foundation-idx="${sIdx}">
                                 <div class="sol-foundation-top">
-                                    <span class="sol-foundation-badge" style="background:#facc15; color:#060913;">
-                                        DX ${count}/${slot.totalRequired}
+                                    <span class="sol-foundation-badge" style="background:${slot.accent}; color:#060913;">
+                                        👑 ${count}/${slot.totalRequired}
                                     </span>
                                     <button type="button" class="sol-card-info-btn" data-inspect-slot="${sIdx}" title="Krankheitsbild-Dossier öffnen">ⓘ</button>
                                 </div>
@@ -2987,16 +3005,16 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                                 <div class="sol-foundation-center">
                                     <div class="sol-foundation-title" title="${escapeHtml(slot.diseaseName)}">${escapeHtml(slot.diseaseName)}</div>
                                     <div class="sol-foundation-progress-track">
-                                        <div class="sol-foundation-progress-fill" style="width:${pct}%; background:#facc15;"></div>
+                                        <div class="sol-foundation-progress-fill" style="width:${pct}%; background:${slot.accent};"></div>
                                     </div>
                                 </div>
 
                                 <div class="sol-foundation-mini-stack">
                                     ${!latestTerm ? `
-                                        <div class="sol-foundation-empty-sub">Basis aktiv • Begriffe ablegen</div>
+                                        <div class="sol-foundation-empty-sub">Karten zuordnen</div>
                                     ` : `
                                         <div class="sol-foundation-layered-card">
-                                            <span style="color:${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).color};">${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).suit}</span>
+                                            <span>${(CATEGORY_COLORS[latestTerm.category] || CATEGORY_COLORS['Klinik']).suit}</span>
                                             <span class="sol-foundation-layered-text">${escapeHtml(latestTerm.term)}</span>
                                         </div>
                                     `}
@@ -3009,10 +3027,10 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <!-- Gelöste Krankheitsbilder Leiste -->
                 ${gameState.completedDiseases.length > 0 ? `
                     <div class="sol-completed-strip">
-                        <span style="font-size:0.66rem; font-weight:800; text-transform:uppercase; color:var(--color-symptom);">✓ Gemeistert (${gameState.completedDiseases.length}/${totalDiseases}):</span>
+                        <span style="font-size:0.66rem; font-weight:800; text-transform:uppercase; color:var(--color-symptom);">✓ Gemeistert:</span>
                         ${gameState.completedDiseases.map((cd, cIdx) => `
                             <button type="button" class="sol-completed-pill" onclick="window.SolitaireModule.inspectCompletedDisease(${cIdx})">
-                                ◆ ${escapeHtml(cd.diseaseName)}
+                                👑 ${escapeHtml(cd.diseaseName)}
                             </button>
                         `).join('')}
                     </div>
@@ -3022,24 +3040,19 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 <div class="sol-tableau-grid">
                     ${gameState.tableau.map((col, colIdx) => {
                         const hiddenCount = col.filter(c => !c.faceUp).length;
-                        const topCard = col.length > 0 ? col[col.length - 1] : null;
-                        const isBlockedByGold = !!(topCard && topCard.faceUp && topCard.isCategoryCard);
-
                         return `
                             <div class="sol-tableau-col-wrap">
                                 <div class="sol-col-header-pill">
                                     <span>Deck ${colIdx + 1}</span>
-                                    ${isBlockedByGold
-                                        ? `<span style="color:#fde047; font-weight:800;" title="Auf eine goldene DX-Karte kann unten nichts gelegt werden">DX-Block</span>`
-                                        : hiddenCount > 0
-                                            ? `<span class="sol-col-hidden-count" title="${hiddenCount} verdeckte Karte(n)">${hiddenCount} verd.</span>`
-                                            : `<span class="sol-col-clear-tag">Frei</span>`
+                                    ${hiddenCount > 0
+                                        ? `<span class="sol-col-hidden-count" title="${hiddenCount} verdeckte Karte(n)">🔒 ${hiddenCount}</span>`
+                                        : `<span class="sol-col-clear-tag">✓ Frei</span>`
                                     }
                                 </div>
-                                <div class="sol-tableau-col ${isBlockedByGold ? 'is-gold-blocked-col' : ''}" data-tableau-col="${colIdx}">
+                                <div class="sol-tableau-col" data-tableau-col="${colIdx}">
                                     ${col.length === 0 ? `
                                         <div class="sol-card-slot-frame sol-tableau-empty-dropzone" data-tableau-col="${colIdx}">
-                                            <span>Freies Deck</span>
+                                            <span>Freies Deck<br><small>(Karte ablegen)</small></span>
                                         </div>
                                     ` : col.map((card, cardIdx) => {
                                         const isBottomPlayable = (cardIdx === col.length - 1);
@@ -3065,8 +3078,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     // 18. 0ms POINTER-DRAG & MAGNETIC DROP-SNAPPING ENGINE
     // ----------------------------------------------------------------------
     function clearMagneticTargetHighlights() {
-        document.querySelectorAll('.sol-magnetic-target, .sol-magnetic-blocked').forEach(el => {
-            el.classList.remove('sol-magnetic-target', 'sol-magnetic-blocked');
+        document.querySelectorAll('.sol-magnetic-target').forEach(el => {
+            el.classList.remove('sol-magnetic-target');
         });
     }
 
@@ -3191,15 +3204,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             clearMagneticTargetHighlights();
 
             if (bestTarget && bestTarget.el) {
-                const draggedCard = getPlayableCardFromSource(dragSession.sourceObj);
-                if (bestTarget.type === 'tableau') {
-                    const targetCol = gameState.tableau[bestTarget.index] || [];
-                    const topTarget = targetCol[targetCol.length - 1];
-                    const isBlocked = (topTarget && topTarget.isCategoryCard) || (draggedCard?.isCategoryCard && targetCol.length > 0);
-                    bestTarget.el.classList.add(isBlocked ? 'sol-magnetic-blocked' : 'sol-magnetic-target');
-                } else {
-                    bestTarget.el.classList.add('sol-magnetic-target');
-                }
+                bestTarget.el.classList.add('sol-magnetic-target');
                 dragSession.hoveredTarget = bestTarget;
             } else {
                 dragSession.hoveredTarget = null;
@@ -3470,11 +3475,11 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             if (autoPublish) {
                 const ok = await publishDeckToCloud(deck.deck_id, null);
                 if (ok) {
-                    alert(`Deck „${deck.title}“ im Ordner „${deck.folder_name}“ gespeichert und direkt in die Cloud gestellt.`);
+                    alert(`Deck „${deck.title}“ validiert, im Ordner „${deck.folder_name}“ gespeichert und direkt in die Cloud gestellt!`);
                     return;
                 }
             }
-            alert(`Deck „${deck.title}“ mit ${deck.diseases.length} Krankheitsbildern im Ordner „${deck.folder_name}“ gespeichert.`);
+            alert(`Deck „${deck.title}“ mit ${deck.diseases.length} Krankheitsbildern im Ordner „${deck.folder_name}“ lokal gespeichert!`);
         } catch (err) {
             alert(`Validierungsfehler: ${err.message}`);
         }
@@ -3495,6 +3500,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
     }
 
+    // Automatischer Cloud-Sync beim ersten Laden des Scripts
     setTimeout(() => {
         syncDecksFromCloud();
     }, 600);
