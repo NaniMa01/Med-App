@@ -909,6 +909,101 @@ async function syncModifiedCasesToSupabase(casesList) {
 // ==========================================================================
 // 07. FALL- & ORDNER-VERWALTUNG (CREATE, RENAME, DELETE, MOVE, STEP-ORDER)
 // ==========================================================================
+// ==========================================================================
+// MEDCHECK SVG ICON REGISTRY & CUSTOM DIALOG ENGINE (MedUI)
+// ==========================================================================
+const MedIcons = {
+    edit: `<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+    move: `<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    cloudOff: `<svg viewBox="0 0 24 24"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
+    folder: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+};
+
+const MedUI = {
+    openDialog({ kicker = 'System', title = '', message = '', fields = [], confirmText = 'Bestätigen', cancelText = 'Abbrechen', danger = false }) {
+        return new Promise((resolve) => {
+            const existing = document.getElementById('mc-custom-dialog');
+            if (existing) existing.remove();
+
+            const backdrop = document.createElement('div');
+            backdrop.id = 'mc-custom-dialog';
+            backdrop.className = 'mc-dialog-backdrop';
+
+            const fieldsHtml = fields.map(f => {
+                if (f.type === 'select') {
+                    const opts = (f.options || []).map(o =>
+                        `<option value="${escapeHtml(o.value)}" ${o.value === f.defaultValue ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+                    ).join('');
+                    return `
+                        <div class="mc-dialog-field">
+                            <label class="mc-dialog-label" for="mc-dlg-${f.id}">${escapeHtml(f.label)}</label>
+                            <select id="mc-dlg-${f.id}" class="mc-dialog-select">${opts}</select>
+                        </div>`;
+                }
+                return `
+                    <div class="mc-dialog-field">
+                        <label class="mc-dialog-label" for="mc-dlg-${f.id}">${escapeHtml(f.label)}</label>
+                        <input type="text" id="mc-dlg-${f.id}" class="mc-dialog-input" value="${escapeHtml(f.defaultValue || '')}" placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="off">
+                    </div>`;
+            }).join('');
+
+            backdrop.innerHTML = `
+                <div class="mc-dialog-card" role="dialog" aria-modal="true">
+                    <div class="mc-dialog-kicker">${escapeHtml(kicker)}</div>
+                    <div class="mc-dialog-title">${escapeHtml(title)}</div>
+                    ${message ? `<div class="mc-dialog-message">${escapeHtml(message)}</div>` : ''}
+                    ${fieldsHtml}
+                    <div class="mc-dialog-actions">
+                        ${cancelText ? `<button type="button" class="action-btn secondary btn-sm" id="mc-dlg-cancel">${escapeHtml(cancelText)}</button>` : ''}
+                        <button type="button" class="action-btn btn-sm ${danger ? 'mc-dialog-btn-danger' : ''}" id="mc-dlg-confirm">${escapeHtml(confirmText)}</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(backdrop);
+
+            const firstInput = backdrop.querySelector('input, select');
+            if (firstInput) {
+                setTimeout(() => {
+                    firstInput.focus();
+                    if (firstInput.select) firstInput.select();
+                }, 20);
+            } else {
+                setTimeout(() => backdrop.querySelector('#mc-dlg-confirm')?.focus(), 20);
+            }
+
+            const close = (result) => {
+                document.removeEventListener('keydown', onKey);
+                backdrop.remove();
+                resolve(result);
+            };
+
+            const submit = () => {
+                if (fields.length === 0) return close(true);
+                const values = {};
+                fields.forEach(f => {
+                    const el = backdrop.querySelector(`#mc-dlg-${f.id}`);
+                    values[f.id] = el ? el.value.trim() : '';
+                });
+                close(values);
+            };
+
+            const onKey = (e) => {
+                if (e.key === 'Escape') { e.preventDefault(); close(null); }
+                if (e.key === 'Enter') { e.preventDefault(); submit(); }
+            };
+
+            document.addEventListener('keydown', onKey);
+            backdrop.querySelector('#mc-dlg-cancel')?.addEventListener('click', () => close(null));
+            backdrop.querySelector('#mc-dlg-confirm')?.addEventListener('click', submit);
+            backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(null); });
+        });
+    }
+};
+window.MedUI = MedUI;
+
 function createCustomSuperFolder(folderName) {
     if (!folderName || !folderName.trim()) return;
     const cleanName = folderName.trim();
@@ -938,10 +1033,18 @@ function createCustomSuperFolder(folderName) {
 }
 window.createCustomSuperFolder = createCustomSuperFolder;
 
-window.createNewSuperFolderModal = function() {
-    const superName = window.prompt("Name für den neuen Überordner (z.B. 'Innere Medizin', 'Chirurgie', 'Staatsexamen Fokus'):");
-    if (!superName || !superName.trim()) return;
-    createCustomSuperFolder(superName.trim());
+window.createNewSuperFolderModal = async function() {
+    const res = await MedUI.openDialog({
+        kicker: 'Ordner-Architektur',
+        title: 'Neuen Überordner anlegen',
+        message: 'Überordner bündeln deine Fachgebiete auf oberster Ebene.',
+        fields: [
+            { id: 'name', label: 'Name des Überordners', placeholder: 'z.B. Innere Medizin, Chirurgie, Staatsexamen Fokus...' }
+        ],
+        confirmText: 'Überordner erstellen'
+    });
+    if (!res || !res.name) return;
+    createCustomSuperFolder(res.name);
 };
 
 function promptNewSuperFolder() {
@@ -1152,36 +1255,25 @@ function ensureBookshelfHeaderButtons() {
     }
 }
 
-window.promptCreateNewFolderWithSuper = function() {
-    const name = window.prompt("Name für den neuen Unterordner:");
-    if (!name || !name.trim()) return;
-    const cleanName = name.trim();
-
+window.promptCreateNewFolderWithSuper = async function() {
     const availableSupers = getSuperFolderOrder();
-    const defaultSuper = getSuperFolderForCategoryHeuristic(cleanName);
-    const defaultIdx = Math.max(0, availableSupers.indexOf(defaultSuper)) + 1;
-
-    const optionsText = availableSupers
-        .map((s, idx) => `${idx + 1}: ${s}${s === defaultSuper ? ' (Vorschlag)' : ''}`)
-        .join('\n');
-
-    const superChoice = window.prompt(
-        `In welchem Überordner soll "${cleanName}" angelegt werden?\n\nGib die Ziffer ein (oder lasse es für "${defaultSuper}" auf ${defaultIdx}):\n${optionsText}`,
-        String(defaultIdx)
-    );
-
-    let chosenSuper = defaultSuper;
-    if (superChoice !== null && superChoice.trim() !== '') {
-        const num = parseInt(superChoice.trim(), 10);
-        if (!isNaN(num) && num >= 1 && num <= availableSupers.length) {
-            chosenSuper = availableSupers[num - 1];
-        } else {
-            const match = availableSupers.find(s => s.toLowerCase() === superChoice.trim().toLowerCase());
-            if (match) chosenSuper = match;
-        }
-    }
-
-    createNewFolder(cleanName, chosenSuper);
+    const res = await MedUI.openDialog({
+        kicker: 'Ordner-Architektur',
+        title: 'Neuen Unterordner erstellen',
+        fields: [
+            { id: 'name', label: 'Name des Unterordners', placeholder: 'z.B. Kardiologie, Vaskuläre Neurologie...' },
+            {
+                id: 'superFolder',
+                type: 'select',
+                label: 'Übergeordneter Bereich',
+                defaultValue: availableSupers[0] || 'Allgemein',
+                options: availableSupers.map(s => ({ value: s, label: s }))
+            }
+        ],
+        confirmText: 'Ordner anlegen'
+    });
+    if (!res || !res.name) return;
+    createNewFolder(res.name, res.superFolder || getSuperFolderForCategoryHeuristic(res.name));
 };
 
 function createNewFolder(folderName, targetSuperFolder = null) {
@@ -1242,34 +1334,52 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
 };
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
 
-window.promptMoveFolderToSuperFolder = function(folderName) {
+window.promptMoveFolderToSuperFolder = async function(folderName) {
     if (!folderName) return;
     const currentSuper = getSuperFolderForCategory(folderName);
     const availableSupers = getSuperFolderOrder();
 
-    const optionsText = availableSupers
-        .map((s, idx) => `${idx + 1}: ${s}${s === currentSuper ? ' (aktuell)' : ''}`)
-        .join('\n');
+    const res = await MedUI.openDialog({
+        kicker: 'Struktur anpassen',
+        title: `„${folderName}“ verschieben`,
+        fields: [
+            {
+                id: 'targetSuper',
+                type: 'select',
+                label: 'Ziel-Überordner wählen',
+                defaultValue: currentSuper,
+                options: availableSupers.map(s => ({
+                    value: s,
+                    label: s === currentSuper ? `${s} (aktuell)` : s
+                }))
+            },
+            {
+                id: 'newSuper',
+                label: 'Oder neuen Überordner anlegen (optional)',
+                placeholder: 'Leer lassen für Auswahl oben...'
+            }
+        ],
+        confirmText: 'Verschieben'
+    });
 
-    const choice = window.prompt(
-        `In welchen Überordner möchtest du "${folderName}" verschieben?\n\nGib die Ziffer ein (oder tippe einen komplett neuen Überordner-Namen ein):\n${optionsText}`
-    );
+    if (!res) return;
+    if (res.newSuper) {
+        createCustomSuperFolder(res.newSuper);
+        window.moveFolderToSuperFolder(folderName, res.newSuper);
+    } else if (res.targetSuper) {
+        window.moveFolderToSuperFolder(folderName, res.targetSuper);
+    }
+};
 
-    if (choice === null || !choice.trim()) return;
-    const trimmed = choice.trim();
-    const num = parseInt(trimmed, 10);
-
-    if (!isNaN(num) && num >= 1 && num <= availableSupers.length) {
-        const target = availableSupers[num - 1];
-        window.moveFolderToSuperFolder(folderName, target);
-    } else {
-        const existingMatch = availableSupers.find(s => s.toLowerCase() === trimmed.toLowerCase());
-        if (existingMatch) {
-            window.moveFolderToSuperFolder(folderName, existingMatch);
-        } else {
-            createCustomSuperFolder(trimmed);
-            window.moveFolderToSuperFolder(folderName, trimmed);
-        }
+window.promptRenameSubfolder = async function(oldName) {
+    const res = await MedUI.openDialog({
+        kicker: 'Ordner umbenennen',
+        title: `„${oldName}“ umbenennen`,
+        fields: [{ id: 'newName', label: 'Neuer Ordnername', defaultValue: oldName }],
+        confirmText: 'Speichern'
+    });
+    if (res && res.newName && res.newName !== oldName) {
+        window.renameFolder(oldName, res.newName);
     }
 };
 
@@ -1926,11 +2036,7 @@ function renderSkillsSidebar() {
     }).join('');
 }
 
-// ====================================================
-// DASHBOARD DYNAMISCHES RENDERING (SUPER-FOLDER ENGINE)
-// ====================================================
-function getDashboardFolderOrder() {
-    try { return JSON.parse(localStorage.getItem(DASHBOARD_FOLDER_ORDER_KEY) || '[]'); } catch (_e) { return []; }
+
 }// ==========================================================================
 // 10. DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
 // ==========================================================================
@@ -2110,6 +2216,67 @@ function toggleFolder(category) {
 }
 window.toggleFolder = toggleFolder;
 
+function computeCaseTelemetry(caseObj, isSolved, savedState) {
+    const tasks = caseObj.extra_tasks || {};
+    const modules = [
+        { key: 'audit', label: 'Audit', active: Array.isArray(caseObj.timeline) && caseObj.timeline.length > 0 },
+        { key: 'synapses', label: 'Synapsen', active: !!(tasks.synapses_matrix?.diseases?.length) },
+        { key: 'cascades', label: 'Kaskade', active: !!(tasks.clinical_cascades?.length) },
+        { key: 'categorization', label: 'Taxonomie', active: !!(tasks.categorization?.items?.length) },
+        { key: 'quiz', label: 'Exam', active: !!(tasks.master_quiz?.length) },
+        { key: 'doctordle', label: 'Doctordle', active: !!(tasks.doctordle && (Array.isArray(tasks.doctordle) ? tasks.doctordle.length : tasks.doctordle.hints)) }
+    ].filter(m => m.active);
+
+    if (modules.length === 0) return { html: '', completedCount: 0, totalCount: 0 };
+
+    let completedCount = 0;
+    const segmentsHtml = modules.map(m => {
+        let done = false;
+        let partial = false;
+        if (isSolved) {
+            done = true;
+        } else if (savedState) {
+            if (m.key === 'audit') {
+                const total = caseObj.timeline?.length || 0;
+                const cleared = savedState.audit?.clearedStepsCount || 0;
+                done = total > 0 && cleared >= total;
+                partial = cleared > 0 && !done;
+            } else if (m.key === 'synapses') {
+                const total = tasks.synapses_matrix?.diseases?.length || 0;
+                const solved = savedState.synapses?.solvedCount || 0;
+                done = total > 0 && solved >= total;
+                partial = solved > 0 && !done;
+            } else if (m.key === 'cascades') {
+                const total = tasks.clinical_cascades?.length || 0;
+                const solved = savedState.cascades?.solvedCount || 0;
+                done = total > 0 && solved >= total;
+                partial = solved > 0 && !done;
+            } else if (m.key === 'categorization') {
+                done = !!savedState.categorization?.solved;
+            } else if (m.key === 'quiz') {
+                done = !!savedState.quiz?.solved;
+                partial = !done && savedState.quiz?.answers && Object.keys(savedState.quiz.answers).length > 0;
+            } else if (m.key === 'doctordle') {
+                done = !!savedState.doctordle?.solved;
+                partial = !done && (savedState.doctordle?.solvedCount || 0) > 0;
+            }
+        }
+        if (done) completedCount++;
+        const stateClass = done ? 'is-done' : (partial ? 'is-active' : '');
+        return `<span class="case-micro-seg ${stateClass}" title="${m.label}: ${done ? 'Gelöst' : (partial ? 'In Arbeit' : 'Offen')}"></span>`;
+    }).join('');
+
+    return {
+        completedCount,
+        totalCount: modules.length,
+        html: `
+            <div class="case-micro-progress-wrap">
+                <div class="case-micro-segments" style="--seg-count: ${modules.length};">
+                    ${segmentsHtml}
+                </div>
+            </div>`
+    };
+}
 function renderDashboardCases() {
     initCustomSuperFoldersState();
     ensureBookshelfHeaderButtons();
@@ -2222,56 +2389,58 @@ function renderDashboardCases() {
                 const solvedCount = cases.filter(c => solved.includes(c.case_id)).length;
                 const isExpanded = isFilteringActive ? true : !!openFolders[category];
 
-                const cardsHtml = cases.length === 0
-                    ? `<div class="empty-subfolder-hint">Noch keine Fälle (Fallkarte per Drag & Drop hierher ziehen).</div>`
-                    : cases.map(c => {
-                        const isSolved = solved.includes(c.case_id);
-                        const savedState = ProgressManager.getCaseProgress(c.case_id);
-                        const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-                        const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
-                        const matchReason = caseMatchMap[c.case_id];
+               const cardsHtml = cases.length === 0
+    ? `<div class="empty-subfolder-hint">Noch keine Fälle (Fallkarte per Drag & Drop hierher ziehen).</div>`
+    : cases.map(c => {
+        const isSolved = solved.includes(c.case_id);
+        const savedState = ProgressManager.getCaseProgress(c.case_id);
+        const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+        const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(c.case_id));
+        const matchReason = caseMatchMap[c.case_id];
+        const telemetry = computeCaseTelemetry(c, isSolved, savedState);
 
-                        const statusClass = isSolved ? 'status-solved' : (inProgress ? 'status-progress' : 'status-open');
-                        const statusLabel = isSolved ? 'Gelöst' : (inProgress ? 'In Arbeit' : 'Offen');
+        const statusClass = isSolved ? 'status-solved' : (inProgress ? 'status-progress' : 'status-open');
+        const statusLabel = isSolved ? 'Gelöst' : (inProgress ? 'In Arbeit' : 'Offen');
 
-                        const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
-                            ? ''
-                            : '<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal entfernen">✕</button>';
+        const deleteBtn = c.case_id === BUILTIN_DEMO_CASE.case_id
+            ? ''
+            : `<button type="button" class="delete-case-btn" aria-label="Fall löschen" title="Fall lokal entfernen">${MedIcons.trash}</button>`;
 
-                        const unpublishBtn = (isCurrentUserCreator && isCloudCase)
-                            ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen">☁️✕</button>`
-                            : '';
+        const unpublishBtn = (isCurrentUserCreator && isCloudCase)
+            ? `<button type="button" class="unpublish-case-btn" data-unpublish-id="${encodeURIComponent(c.case_id)}" title="Aus Cloud entfernen">${MedIcons.cloudOff}</button>`
+            : '';
 
-                        const matchBadgeHtml = (queryLower && matchReason && matchReason !== 'Falltitel')
-                            ? `<div class="case-search-match-pill">🎯 ${escapeHtml(matchReason)}</div>`
-                            : '';
+        const matchBadgeHtml = (queryLower && matchReason && matchReason !== 'Falltitel')
+            ? `<div class="case-search-match-pill">🎯 ${escapeHtml(matchReason)}</div>`
+            : '';
 
-                        return `
-                        <div class="case-card ${inProgress ? 'in-progress' : ''} ${isSolved ? 'is-solved-card' : ''}" 
-                             draggable="true" 
-                             data-case-id="${encodeURIComponent(c.case_id)}" 
-                             role="button" 
-                             tabindex="0">
+        return `
+        <div class="case-card ${inProgress ? 'in-progress' : ''} ${isSolved ? 'is-solved-card' : ''}" 
+             draggable="true" 
+             data-case-id="${encodeURIComponent(c.case_id)}" 
+             role="button" 
+             tabindex="0">
 
-                            <div class="case-card-top">
-                                <span class="case-status-pill ${statusClass}">
-                                    <span class="status-dot"></span>${statusLabel}
-                                </span>
-                                <div class="case-card-actions">
-                                    ${unpublishBtn}
-                                    ${deleteBtn}
-                                </div>
-                            </div>
+            <div class="case-card-top">
+                <span class="case-status-pill ${statusClass}">
+                    <span class="status-dot"></span>${statusLabel}
+                </span>
+                <div class="case-card-actions">
+                    ${unpublishBtn}
+                    ${deleteBtn}
+                </div>
+            </div>
 
-                            <h3>${highlightSearchTerm(c.metadata?.title || c.case_id, dashboardSearchQuery)}</h3>
-                            ${matchBadgeHtml}
+            <h3>${highlightSearchTerm(c.metadata?.title || c.case_id, dashboardSearchQuery)}</h3>
+            ${matchBadgeHtml}
+            ${telemetry.html}
 
-                            <div class="case-card-footer">
-                                <span class="case-meta-source">${isCloudCase ? 'Cloud' : 'Lokal'}</span>
-                                <span class="case-meta-xp">+${c.metadata?.xp_reward || 900} XP</span>
-                            </div>
-                        </div>`;
-                    }).join('');
+            <div class="case-card-footer">
+                <span class="case-meta-source-pill">${isCloudCase ? 'Cloud' : 'Lokal'} · ${telemetry.completedCount}/${telemetry.totalCount} Module</span>
+                <span class="case-meta-xp">+${c.metadata?.xp_reward || 900} XP</span>
+            </div>
+        </div>`;
+    }).join('');
 
                 const escapedCatJs = escapeHtml(category).replace(/'/g, "\\'");
 
@@ -2284,11 +2453,11 @@ function renderDashboardCases() {
                                 <span class="category-name-text">${highlightSearchTerm(category, dashboardSearchQuery)}</span>
                             </div>
                             <div class="category-header-right">
-                                <div class="folder-hover-tools">
-                                    <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapedCatJs}')" title="Verschieben">⇄</button>
-                                    <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); const n = window.prompt('Neuer Name für den Unterordner:', '${escapedCatJs}'); if(n && n.trim() && n.trim() !== '${escapedCatJs}') renameFolder('${escapedCatJs}', n.trim());" title="Umbenennen">✏️</button>
-                                    <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); deleteFolder('${escapedCatJs}', ${cases.length});" title="Löschen">🗑️</button>
-                                </div>
+                               <div class="folder-hover-tools">
+    <button type="button" class="folder-action-btn move-btn" onclick="event.stopPropagation(); promptMoveFolderToSuperFolder('${escapedCatJs}')" title="In anderen Überordner verschieben">${MedIcons.move}</button>
+    <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.promptRenameSubfolder('${escapedCatJs}')" title="Umbenennen">${MedIcons.edit}</button>
+    <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); deleteFolder('${escapedCatJs}', ${cases.length});" title="Löschen">${MedIcons.trash}</button>
+</div>
                                 <span class="category-badge">${solvedCount}/${cases.length}</span>
                             </div>
                         </div>
@@ -3410,34 +3579,43 @@ window.checkFinalCompletion = function() {
     if (window.onSpecialtyCompletionChange) window.onSpecialtyCompletionChange(allCompleted);
 };
 
-window.finishCase = function() {
+window.finishCase = async function() {
     let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    if (activeCaseData && !solved.includes(activeCaseData.case_id)) {
+    const isFirstSolve = activeCaseData && !solved.includes(activeCaseData.case_id);
+    const earnedXp = isFirstSolve ? (activeCaseData.metadata?.xp_reward || 900) : 50;
+
+    if (isFirstSolve) {
         solved.push(activeCaseData.case_id);
         localStorage.setItem('solved_cases', JSON.stringify(solved));
         if (window.Cloud) window.Cloud.scheduleProgressSync();
-        applyXpDelta(activeCaseData.metadata?.xp_reward || 900, 'Fall abgeschlossen');
+        applyXpDelta(earnedXp, 'Fall abgeschlossen');
     } else {
-        applyXpDelta(50, 'Review Bonus');
+        applyXpDelta(earnedXp, 'Review Bonus');
     }
 
     if (activeCaseData && window.SpacedRepetitionEngine) {
         window.SpacedRepetitionEngine.recordCaseReview(activeCaseData.case_id, 'good');
     }
 
+    const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Klinischer Fall';
+    const primaryDisease = activeCaseData?.metadata?.primary_disease || '';
+
+    await MedUI.openDialog({
+        kicker: isFirstSolve ? 'Fall gemeistert' : 'Spaced Repetition Review',
+        title: title,
+        message: `${primaryDisease ? `Leitdiagnose: ${primaryDisease}\n\n` : ''}Gutschrift: +${earnedXp} XP.\nDer Fall wurde im Spaced-Repetition-Planer für das nächste optimale Wiederholungs-Intervall terminiert.`,
+        confirmText: window.isSpecialtyBlindMode ? 'Nächstes Krankheitsbild →' : 'Zurück zum Dashboard',
+        cancelText: ''
+    });
+
     if (window.isSpecialtyBlindMode) {
-        const title = activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Krankheitsbild';
-        alert(`🎉 Gratulation! Das Krankheitsbild "${title}" wurde erfolgreich gemeistert.`);
         window.nextSpecialtyCase();
         return;
-    } else {
-        alert('🎉 Gratulation! Alle Challenges gemeistert.');
     }
 
     const navItems = document.querySelectorAll('.nav-item');
     if (navItems.length > 0) window.switchTab('dashboard', navItems[0]);
 };
-
 window.resetCurrentChallenge = function() {
     if (!activeCaseData || currentActiveChallenge === 'overview') return;
 
