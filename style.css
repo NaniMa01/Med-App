@@ -6748,3 +6748,237 @@ body.sol-touch-dragging * {
 .sol-foundation-crown-icon {
     display: none !important;
 }
+
+
+/* ==========================================================================
+   28. PRO-UI UPGRADE: CUSTOM MODAL ENGINE, SVG ACTIONS & TELEMETRY CARDS
+   ========================================================================== */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalScaleIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Native View-Transition Glättung */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.18s;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --- 1. CUSTOM GLASSMORPHIC DIALOG ENGINE (Ersetzt prompt/confirm/alert) --- */
+.mc-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    background: rgba(3, 6, 14, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.15s ease-out both;
+}
+
+.mc-dialog-card {
+    width: 100%;
+    max-width: 440px;
+    background: var(--bg-surface, #0b1121);
+    border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
+    border-radius: 16px;
+    padding: 22px 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), var(--surface-highlight);
+    color: var(--text-main);
+    animation: modalScaleIn 0.22s var(--ease-spring) both;
+}
+
+.mc-dialog-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-blue);
+    margin-bottom: 4px;
+}
+
+.mc-dialog-title {
+    font-size: 1.08rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    letter-spacing: -0.015em;
+}
+
+.mc-dialog-message {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    white-space: pre-line;
+}
+
+.mc-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.mc-dialog-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.mc-dialog-input,
+.mc-dialog-select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--input-bg, rgba(6, 9, 19, 0.8));
+    border: 1px solid var(--card-border);
+    color: var(--text-main);
+    font-size: 0.88rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.mc-dialog-input:focus,
+.mc-dialog-select:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.mc-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--divider-color);
+}
+
+.mc-dialog-btn-danger {
+    background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%) !important;
+    border-color: rgba(248, 113, 113, 0.4) !important;
+    color: #ffffff !important;
+}
+
+/* --- 2. PRÄZISE SVG-ICON BUTTONS FÜR ORDNER & KARTEN --- */
+.folder-action-btn,
+.case-card .delete-case-btn,
+.case-card .unpublish-case-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 26px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    border-radius: 7px !important;
+    color: var(--text-muted) !important;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
+}
+
+.folder-action-btn svg,
+.case-card .delete-case-btn svg,
+.case-card .unpublish-case-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+.folder-action-btn:hover {
+    background: rgba(56, 189, 248, 0.12) !important;
+    color: var(--accent-blue) !important;
+}
+
+.folder-action-btn.delete-folder-btn:hover,
+.case-card .delete-case-btn:hover,
+.case-card .unpublish-case-btn:hover {
+    background: rgba(239, 68, 68, 0.14) !important;
+    color: var(--color-risk, #ef4444) !important;
+}
+
+/* --- 3. EXECUTIVE CASE CARDS V2 (MIT SEGMENTED MICRO-PROGRESS) --- */
+.case-card {
+    padding: 16px 18px !important;
+    gap: 10px !important;
+}
+
+.case-card-disease-sub {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: -2px;
+}
+
+.case-micro-progress-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 4px;
+}
+
+.case-micro-segments {
+    display: grid;
+    grid-template-columns: repeat(var(--seg-count, 5), 1fr);
+    gap: 4px;
+    height: 4px;
+    width: 100%;
+}
+
+.case-micro-seg {
+    height: 100%;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.16);
+    transition: background-color 0.3s ease;
+}
+
+.case-micro-seg.is-done {
+    background: var(--color-symptom, #10b981);
+}
+
+.case-micro-seg.is-active {
+    background: var(--warning, #f59e0b);
+}
+
+.case-card-footer {
+    padding-top: 8px !important;
+    font-size: 0.72rem !important;
+}
+
+.case-meta-source-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    font-size: 0.66rem;
+    font-weight: 600;
+}
+
+[data-theme="daylight"] .mc-dialog-card,
+[data-theme="tropical"] .mc-dialog-card {
+    background: #ffffff !important;
+    border-color: var(--card-border) !important;
+    box-shadow: var(--shadow-md) !important;
+}
