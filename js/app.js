@@ -5206,15 +5206,25 @@ document.addEventListener('visibilitychange', () => {
     window.syncMobileChallengePicker = syncMobileChallengePicker;
 })();
 
-// Drag & Drop Auto-Scroll Engine V2.0
+// Drag & Drop Auto-Scroll Engine V3.0 (Capture-Safe & Zombie-Guard)
 (function initDragAutoScroll() {
-    const EDGE_ZONE = 130;
-    const MAX_SPEED = 32;
+    const EDGE_ZONE = 110;
+    const MAX_SPEED = 28;
+    const DRAG_IDLE_TIMEOUT_MS = 180; // Sicherheits-Timeout falls DOM-Knoten beim Drop zerstört wird
 
-    let isDragging = false;
+    let isNativeDragging = false;
     let mouseY = -1;
     let mouseX = -1;
+    let lastDragEventTs = 0;
     let animFrame = null;
+
+    function isCustomPointerDragging() {
+        return document.body.classList.contains('mm-dragging-active');
+    }
+
+    function isAnyDragActive() {
+        return isNativeDragging || isCustomPointerDragging();
+    }
 
     function getScrollContainer() {
         const mw = document.querySelector('.main-wrapper');
@@ -5222,9 +5232,30 @@ document.addEventListener('visibilitychange', () => {
         return document.scrollingElement || document.documentElement || document.body;
     }
 
-    function scrollLoop() {
-        if (!isDragging) {
+    function stopDrag() {
+        isNativeDragging = false;
+        mouseY = -1;
+        mouseX = -1;
+        lastDragEventTs = 0;
+        if (animFrame) {
+            cancelAnimationFrame(animFrame);
             animFrame = null;
+        }
+    }
+
+    // Global exponieren, damit Re-Renders (z. B. renderDashboardCases) den State aktiv zurücksetzen können
+    window.stopMedCheckAutoScroll = stopDrag;
+
+    function scrollLoop() {
+        if (!isAnyDragActive()) {
+            stopDrag();
+            return;
+        }
+
+        // Watchdog: Feuert während eines nativen HTML5-Drags länger als 180ms kein dragover mehr
+        // (z. B. weil das gezogene Element durch innerHTML-Update entfernt wurde), sofort abbrechen!
+        if (isNativeDragging && lastDragEventTs > 0 && (performance.now() - lastDragEventTs > DRAG_IDLE_TIMEOUT_MS)) {
+            stopDrag();
             return;
         }
 
@@ -5232,32 +5263,35 @@ document.addEventListener('visibilitychange', () => {
         const bookshelf = document.getElementById('bookshelf-container');
         let bsScrolled = false;
 
-        if (bookshelf && mouseX >= 0 && mouseY >= 0) {
+        // 1. Priorität: Innerhalb des Bookshelf-Containers (Sidebar) scrollen
+        if (bookshelf && mouseX >= 0 && mouseY >= 0 && bookshelf.scrollHeight > bookshelf.clientHeight) {
             const rect = bookshelf.getBoundingClientRect();
             if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
-                const zone = 60;
+                const zone = 55;
                 if (mouseY < rect.top + zone) {
-                    const factor = (zone - (mouseY - rect.top)) / zone;
-                    bookshelf.scrollTop -= Math.ceil(factor * 20);
+                    const factor = Math.max(0, (zone - (mouseY - rect.top)) / zone);
+                    bookshelf.scrollTop -= Math.ceil(factor * 18);
                     bsScrolled = true;
                 } else if (mouseY > rect.bottom - zone) {
-                    const factor = (mouseY - (rect.bottom - zone)) / zone;
-                    bookshelf.scrollTop += Math.ceil(factor * 20);
+                    const factor = Math.max(0, (mouseY - (rect.bottom - zone)) / zone);
+                    bookshelf.scrollTop += Math.ceil(factor * 18);
                     bsScrolled = true;
                 }
             }
         }
 
+        // 2. Priorität: Hauptfenster (.main-wrapper) scrollen
         if (!bsScrolled && mouseY >= 0) {
             const container = getScrollContainer();
             let delta = 0;
 
             if (mouseY < EDGE_ZONE) {
                 const factor = Math.max(0, (EDGE_ZONE - mouseY) / EDGE_ZONE);
-                delta = -Math.ceil(factor * MAX_SPEED);
+                // Quadratische Kurve (factor * factor) für sanftes Anlaufen und schnelles Scrollen ganz am Rand
+                delta = -Math.ceil((factor * factor) * MAX_SPEED);
             } else if (mouseY > vh - EDGE_ZONE) {
                 const factor = Math.max(0, (mouseY - (vh - EDGE_ZONE)) / EDGE_ZONE);
-                delta = Math.ceil(factor * MAX_SPEED);
+                delta = Math.ceil((factor * factor) * MAX_SPEED);
             }
 
             if (delta !== 0) {
@@ -5272,47 +5306,69 @@ document.addEventListener('visibilitychange', () => {
         animFrame = requestAnimationFrame(scrollLoop);
     }
 
-    function updateCoords(e) {
+    // CAPTURE-PHASE (true) nutzen, damit e.stopPropagation() in Unterordnern/Karten die Events niemals verschluckt!
+    window.addEventListener('dragstart', (e) => {
+        isNativeDragging = true;
         mouseY = e.clientY;
         mouseX = e.clientX;
-    }
-
-    document.addEventListener('dragstart', (e) => {
-        isDragging = true;
-        mouseY = e.clientY;
-        mouseX = e.clientX;
+        lastDragEventTs = performance.now();
         if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
-    });
+    }, { capture: true, passive: true });
 
-    document.addEventListener('dragover', updateCoords, { passive: true });
-    window.addEventListener('dragover', updateCoords, { passive: true });
-
-    const stopDrag = () => {
-        isDragging = false;
-        mouseY = -1;
-        mouseX = -1;
-        if (animFrame) {
-            cancelAnimationFrame(animFrame);
-            animFrame = null;
+    window.addEventListener('dragover', (e) => {
+        // Falls eine externe Datei vom Desktop ins Browserfenster gezogen wird
+        if (!isNativeDragging && e.dataTransfer?.types?.includes('Files')) {
+            isNativeDragging = true;
         }
-    };
+        if (!isNativeDragging) return;
 
-    document.addEventListener('dragend', stopDrag);
-    document.addEventListener('drop', stopDrag);
+        mouseY = e.clientY;
+        mouseX = e.clientX;
+        lastDragEventTs = performance.now();
+        if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
+    }, { capture: true, passive: true });
 
-    document.addEventListener('pointermove', (e) => {
-        if (document.body.classList.contains('mm-dragging-active') || isDragging) {
+    window.addEventListener('drop', stopDrag, { capture: true, passive: true });
+    window.addEventListener('dragend', stopDrag, { capture: true, passive: true });
+
+    // Wenn der Mauszeiger beim Datei-Drag das Browserfenster komplett verlässt
+    window.addEventListener('dragleave', (e) => {
+        if (!e.relatedTarget && !e.toElement) {
+            stopDrag();
+        }
+    }, { capture: true, passive: true });
+
+    // Schutzschild bei normaler Mausbewegung:
+    // Während eines echten HTML5-Drag-and-Drops feuert der Browser KEINE pointermove-Events.
+    // Feuert pointermove trotzdem (oder ist keine Maustaste gedrückt: e.buttons === 0),
+    // handelt es sich um eine normale Mausbewegung -> sofort jeden Auto-Scroll stoppen!
+    window.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'mouse' && e.buttons === 0) {
+            if (isNativeDragging || animFrame) stopDrag();
+            return;
+        }
+
+        if (isCustomPointerDragging() && e.buttons > 0) {
             mouseY = e.clientY;
             mouseX = e.clientX;
+            lastDragEventTs = performance.now();
             if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
+        } else if (isNativeDragging) {
+            // Sollte pointermove trotz isNativeDragging feuern, ist der native Drag bereits beendet
+            stopDrag();
         }
-    }, { passive: true });
+    }, { capture: true, passive: true });
 
-    document.addEventListener('pointerup', () => {
-        if (!isDragging) stopDrag();
+    window.addEventListener('pointerup', stopDrag, { capture: true, passive: true });
+    window.addEventListener('pointercancel', stopDrag, { capture: true, passive: true });
+    window.addEventListener('blur', stopDrag);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') stopDrag();
     });
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') stopDrag();
+    }, { capture: true, passive: true });
 })();
-
 // Editorial UX & Scroll-Reveal Engine (SpringerMedizin / AMBOSS Style - V2)
 const EditorialScrollEngine = (() => {
     let observer = null;
