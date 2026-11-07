@@ -2015,29 +2015,145 @@ function trackSkill(skillTag, isHit) {
     if (window.Cloud) window.Cloud.scheduleProgressSync();
 }
 
+// ==========================================================================
+// ERSATZ FÜR renderSkillsSidebar() (Zeigt jetzt deine Fachgebiets-Ordner!)
+// ==========================================================================
+let bentoFolderProgressScope = localStorage.getItem('medcheck_folder_prog_scope') || 'subfolders'; // 'subfolders' | 'superfolders'
+
+window.setBentoFolderProgressScope = function(scope) {
+    bentoFolderProgressScope = (scope === 'superfolders') ? 'superfolders' : 'subfolders';
+    localStorage.setItem('medcheck_folder_prog_scope', bentoFolderProgressScope);
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+    renderSkillsSidebar();
+};
+
+window.jumpToBentoFolder = function(folderName, isSuperFolder = false) {
+    if (!folderName) return;
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+
+    // Falls wir gerade nicht auf dem Dashboard sind, erst zum Dashboard wechseln
+    const dashView = document.getElementById('dashboard-view');
+    if (dashView && dashView.style.display === 'none') {
+        window.switchTab('dashboard', document.getElementById('nav-dashboard'));
+    }
+
+    if (isSuperFolder) {
+        superFolderStates[folderName] = true;
+        renderDashboardCases();
+        setTimeout(() => {
+            const safeSuper = encodeURIComponent(folderName);
+            const el = document.querySelector(`.super-folder[data-super-title="${safeSuper}"]`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+    } else {
+        const parentSuper = getSuperFolderForCategory(folderName);
+        superFolderStates[parentSuper] = true;
+        openFolders[folderName] = true;
+        renderDashboardCases();
+        setTimeout(() => {
+            const safeCat = encodeURIComponent(folderName);
+            const el = document.querySelector(`.category-folder[data-category="${safeCat}"]`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
+    }
+};
+
 function renderSkillsSidebar() {
     const container = document.getElementById('skills-sidebar-container');
     if (!container) return;
 
-    const skills = JSON.parse(localStorage.getItem('user_skills') || JSON.stringify(defaultSkills));
-    const canonicalOrder = ["Triage", "Diagnostik", "Pharmakologie", "Pathophysiologie"];
-    container.innerHTML = canonicalOrder.map(skill => {
-        const data = skills[skill] || { hits: 0, total: 0 };
-        const perc = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
-        const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk, #ef4444)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom, #10b981)')) : 'var(--accent-blue, #38bdf8)';
-        return `
-            <div style="margin-bottom:16px;">
-                <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
-                    <span>${skill}</span>
-                    <span style="color:${color}; font-family:'JetBrains Mono';">${perc}% (${data.hits}/${data.total})</span>
-                </div>
-                <div style="background:rgba(6,9,19,0.7); height:7px; border-radius:10px; overflow:hidden;">
-                    <div style="width:${perc}%; background:${color}; height:100%; transition:width 0.4s ease;"></div>
-                </div>
-            </div>`;
-    }).join('');
-}
+    const allCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
 
+    const statsMap = {};
+
+    if (bentoFolderProgressScope === 'superfolders') {
+        getSuperFolderOrder().forEach(sName => {
+            statsMap[sName] = { total: 0, solved: 0, active: 0, isSuper: true };
+        });
+        allCases.forEach(c => {
+            const rawCat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const superTitle = getSuperFolderForCategory(rawCat);
+            if (!statsMap[superTitle]) statsMap[superTitle] = { total: 0, solved: 0, active: 0, isSuper: true };
+            statsMap[superTitle].total += 1;
+
+            const isSolved = solvedIds.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            if (isSolved) statsMap[superTitle].solved += 1;
+            else if (inProgress) statsMap[superTitle].active += 1;
+        });
+    } else {
+        // Alle vorhandenen Fachgebiets-Ordner (Unterordner) sammeln
+        const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+        savedOrder.forEach(fName => {
+            if (fName && fName.trim()) {
+                statsMap[fName.trim()] = { total: 0, solved: 0, active: 0, isSuper: false };
+            }
+        });
+
+        allCases.forEach(c => {
+            const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            if (!statsMap[folder]) statsMap[folder] = { total: 0, solved: 0, active: 0, isSuper: false };
+            statsMap[folder].total += 1;
+
+            const isSolved = solvedIds.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            if (isSolved) statsMap[folder].solved += 1;
+            else if (inProgress) statsMap[folder].active += 1;
+        });
+    }
+
+    // Sortieren: Ordner mit Fällen zuerst (nach Fortschritt absteigend, dann Name)
+    const entries = Object.entries(statsMap)
+        .filter(([name, st]) => st.total > 0 || name !== 'Allgemein')
+        .sort((a, b) => {
+            if (b[1].total !== a[1].total) return b[1].total - a[1].total;
+            const pctA = a[1].total > 0 ? a[1].solved / a[1].total : 0;
+            const pctB = b[1].total > 0 ? b[1].solved / b[1].total : 0;
+            return pctB - pctA;
+        });
+
+    const rowsHtml = entries.length === 0
+        ? `<div style="font-size:0.75rem; color:var(--text-muted-token); text-align:center; padding:8px;">Noch keine Fachgebiets-Ordner angelegt.</div>`
+        : entries.map(([folderName, data]) => {
+            const solvedPct = data.total > 0 ? Math.round((data.solved / data.total) * 100) : 0;
+            const activePct = data.total > 0 ? Math.round((data.active / data.total) * 100) : 0;
+            const isComplete = data.total > 0 && data.solved === data.total;
+            const safeJsName = escapeHtml(folderName).replace(/'/g, "\\'");
+
+            return `
+                <div class="bento-folder-prog-item" onclick="window.jumpToBentoFolder('${safeJsName}', ${data.isSuper})" title="Klicken, um Ordner „${escapeHtml(folderName)}“ im Dashboard zu öffnen">
+                    <div class="bento-folder-prog-top">
+                        <span class="bento-folder-prog-name">📁 ${escapeHtml(folderName)}</span>
+                        <span class="bento-folder-prog-stats" style="color: ${isComplete ? 'var(--color-symptom, #10b981)' : 'var(--primary-action)'};">
+                            ${solvedPct}% (${data.solved}/${data.total})
+                        </span>
+                    </div>
+                    <div class="bento-folder-prog-track">
+                        <div class="bento-folder-prog-fill-solved" style="width: ${solvedPct}%; background: ${isComplete ? 'var(--color-symptom, #10b981)' : 'var(--primary-action)'};"></div>
+                        ${activePct > 0 ? `<div class="bento-folder-prog-fill-active" style="width: ${activePct}%;" title="${data.active} in Arbeit"></div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    container.innerHTML = `
+        <div class="bento-folder-prog-header">
+            <span class="bento-folder-prog-title">Fachgebiete (${entries.length})</span>
+            <div class="bento-scope-Switch">
+                <button type="button" class="bento-scope-pill ${bentoFolderProgressScope === 'subfolders' ? 'active' : ''}" onclick="window.setBentoFolderProgressScope('subfolders')">Ordner</button>
+                <button type="button" class="bento-scope-pill ${bentoFolderProgressScope === 'superfolders' ? 'active' : ''}" onclick="window.setBentoFolderProgressScope('superfolders')">Überordner</button>
+            </div>
+        </div>
+        <div class="bento-folder-prog-list">
+            ${rowsHtml}
+        </div>
+    `;
+}
 
 // ==========================================================================
 // 10. DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
