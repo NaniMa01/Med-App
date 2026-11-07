@@ -20,6 +20,8 @@
    15. CREATOR HUB, FILE-DROPZONE & SUPABASE CLOUD-SYNC
    16. MOBILE CHALLENGE-PICKER, AUTO-SCROLL & EDITORIAL UX ENGINE
    17. ZENTRALER APPLICATION BOOTLOADER (DOMContentLoaded)
+   18. BENTO DASHBOARD ENGINE (MINI-CARDS, KARUSSELL, DUAL-RING & DEEP-FOCUS)
+
    ========================================================================== */
 
 // ==========================================================================
@@ -5662,3 +5664,284 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+// ==========================================================================
+// 18. BENTO DASHBOARD ENGINE (MINI-CARDS, KARUSSELL, DUAL-RING & DEEP-FOCUS)
+// ==========================================================================
+const BENTO_FAV_CASES_KEY = 'medcheck_bento_fav_cases_v1';
+let bentoCarouselOffset = 0;
+
+function getBentoFavCases() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(BENTO_FAV_CASES_KEY) || '[]'));
+    } catch (_e) {
+        return new Set();
+    }
+}
+
+window.toggleBentoCaseFavorite = function(caseId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const favs = getBentoFavCases();
+    if (favs.has(caseId)) {
+        favs.delete(caseId);
+    } else {
+        favs.add(caseId);
+    }
+    localStorage.setItem(BENTO_FAV_CASES_KEY, JSON.stringify(Array.from(favs)));
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    window.updateBentoDashboardWidgets();
+};
+
+window.toggleLightDarkMode = function() {
+    const current = document.documentElement.getAttribute('data-theme') || 'midnight';
+    const nextTheme = (current === 'daylight') ? 'midnight' : 'daylight';
+    applyAppTheme(nextTheme);
+    updateBentoThemeToggleIcon();
+};
+
+function updateBentoThemeToggleIcon() {
+    const iconEl = document.getElementById('bento-theme-toggle-icon');
+    if (!iconEl) return;
+    const current = document.documentElement.getAttribute('data-theme') || 'midnight';
+    iconEl.textContent = (current === 'daylight' || current === 'tropical') ? '🌙' : '☀️';
+}
+
+window.toggleRightBentoPanel = function(forceState) {
+    if (window.innerWidth <= 1280) {
+        document.body.classList.toggle('bento-right-force-open');
+        return;
+    }
+    if (typeof forceState === 'boolean') {
+        document.body.classList.toggle('bento-right-collapsed', !forceState);
+    } else {
+        document.body.classList.toggle('bento-right-collapsed');
+    }
+};
+
+window.startNextRecommendedCase = function() {
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    const nextOpen = allCases.find(c => !solved.includes(c.case_id)) || allCases[0];
+    if (nextOpen) {
+        window.loadCaseById(nextOpen.case_id);
+    }
+};
+
+window.stepBentoCarousel = function(delta) {
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE];
+    if (allCases.length <= 3) return;
+    bentoCarouselOffset = (bentoCarouselOffset + delta + allCases.length) % allCases.length;
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+    window.updateBentoDashboardWidgets();
+};
+
+function getBentoThumbnailGradient(index) {
+    const palettes = [
+        'linear-gradient(135deg, #1e1b4b 0%, #4338ca 55%, #38bdf8 100%)',
+        'linear-gradient(135deg, #31102f 0%, #be185d 55%, #fb7185 100%)',
+        'linear-gradient(135deg, #042f2e 0%, #0d9488 55%, #38bdf8 100%)',
+        'linear-gradient(135deg, #1e293b 0%, #334155 55%, #6366f1 100%)'
+    ];
+    return palettes[index % palettes.length];
+}
+
+window.updateBentoDashboardWidgets = function() {
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    const favs = getBentoFavCases();
+
+    // 1. DREI KATEGORIE-FORTSCHRITTS-PILLS (Mini-Cards)
+    const miniContainer = document.getElementById('bento-mini-cards-container');
+    if (miniContainer) {
+        const superOrder = getSuperFolderOrder().slice(0, 3);
+        const themes = ['theme-primary', 'theme-secondary', 'theme-cyan'];
+        const icons = ['🧠', '⚖️', '🩺'];
+
+        miniContainer.innerHTML = superOrder.map((superTitle, idx) => {
+            const casesInSuper = allCases.filter(c => {
+                const cat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+                return getSuperFolderForCategory(cat) === superTitle;
+            });
+            const solvedCount = casesInSuper.filter(c => solved.includes(c.case_id)).length;
+            const themeClass = themes[idx % themes.length];
+            const escapedSuper = escapeHtml(superTitle).replace(/'/g, "\\'");
+
+            return `
+                <div class="bento-mini-card" onclick="superFolderStates['${escapedSuper}'] = true; renderDashboardCases(); document.getElementById('super-folders-wrapper')?.scrollIntoView({behavior: 'smooth'});">
+                    <div class="bento-mini-icon-circle ${themeClass}">${icons[idx % icons.length]}</div>
+                    <div class="bento-mini-meta">
+                        <div class="bento-mini-watched">${solvedCount}/${casesInSuper.length} watched</div>
+                        <div class="bento-mini-title" title="${escapeHtml(superTitle)}">${escapeHtml(superTitle)}</div>
+                    </div>
+                    <button type="button" class="bento-dots-btn" onclick="event.stopPropagation(); window.toggleSubjectProgressModal(true);" title="Statistik öffnen">⋮</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 2. „CONTINUE WATCHING“ (3-Karten Medien-Karussell)
+    const cwGrid = document.getElementById('bento-continue-watching-grid');
+    if (cwGrid && allCases.length > 0) {
+        const visibleCases = [];
+        const count = Math.min(3, allCases.length);
+        for (let i = 0; i < count; i++) {
+            visibleCases.push(allCases[(bentoCarouselOffset + i) % allCases.length]);
+        }
+
+        const pillThemes = ['theme-cyan', 'theme-primary', 'theme-secondary'];
+        const mentors = [
+            { initials: 'NM', name: 'Dr. med. N. Mengis', role: 'Klinik-Mentor' },
+            { initials: 'PM', name: 'Dr. med. P. Molteni', role: 'Klinik-Mentor' },
+            { initials: 'CR', name: 'Clara Maria Radu', role: 'AGA-Students Lead' }
+        ];
+
+        cwGrid.innerHTML = visibleCases.map((c, idx) => {
+            const isSolved = solved.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const telemetry = computeCaseTelemetry(c, isSolved, savedState);
+            const pct = telemetry.totalCount > 0 ? Math.round((telemetry.completedCount / telemetry.totalCount) * 100) : (isSolved ? 100 : 15);
+            const category = (c.folder_name || c.metadata?.medical_field || 'Klinischer Fall').trim();
+            const isFav = favs.has(c.case_id);
+            const mentor = mentors[idx % mentors.length];
+            const pillTheme = pillThemes[idx % pillThemes.length];
+            const safeCaseId = escapeHtml(c.case_id).replace(/'/g, "\\'");
+
+            return `
+                <div class="bento-media-card" onclick="window.loadCaseById('${safeCaseId}')">
+                    <div class="bento-media-thumb" style="background-image: ${getBentoThumbnailGradient(idx + bentoCarouselOffset)};">
+                        <span style="font-size: 0.68rem; font-weight: 800; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.35); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(4px);">
+                            ${telemetry.completedCount}/${telemetry.totalCount} Module
+                        </span>
+                        <button type="button" class="bento-fav-glass-btn ${isFav ? 'is-fav' : ''}" onclick="window.toggleBentoCaseFavorite('${safeCaseId}', event)" title="Fall merken">
+                            ${isFav ? '♥' : '♡'}
+                        </button>
+                    </div>
+                    <span class="bento-category-pill ${pillTheme}">${escapeHtml(category.slice(0, 22))}</span>
+                    <h3 class="bento-media-title">${escapeHtml(c.metadata?.title || c.case_id)}</h3>
+                    <div class="bento-media-progress-track">
+                        <div class="bento-media-progress-fill" style="width: ${Math.max(8, pct)}%;"></div>
+                    </div>
+                    <div class="bento-media-footer">
+                        <div class="bento-avatar-sm" style="width: 26px; height: 26px; font-size: 0.65rem; background: var(--badge-primary-bg); color: var(--badge-primary-text);">${mentor.initials}</div>
+                        <div>
+                            <div class="bento-media-mentor-name">${mentor.name}</div>
+                            <div class="bento-media-mentor-role">${mentor.role}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 3. „YOUR LESSON“ TABELLE (Mit Spaced-Repetition-Dringlichkeit)
+    const tbody = document.getElementById('bento-your-lesson-tbody');
+    if (tbody) {
+        const topLessons = allCases.slice(0, 3);
+        tbody.innerHTML = topLessons.map((c, idx) => {
+            const isSolved = solved.includes(c.case_id);
+            const category = (c.folder_name || c.metadata?.medical_field || 'Klinik').trim();
+            const safeCaseId = escapeHtml(c.case_id).replace(/'/g, "\\'");
+            const badgeClass = isSolved ? 'theme-secondary' : 'theme-primary';
+            const badgeLabel = isSolved ? '↻ Review Due' : escapeHtml(category.slice(0, 18));
+
+            return `
+                <tr onclick="window.loadCaseById('${safeCaseId}')">
+                    <td>
+                        <div class="bento-table-mentor-cell">
+                            <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">M${idx + 1}</div>
+                            <div>
+                                <div class="bento-media-mentor-name">${escapeHtml(c.metadata?.primary_disease || 'Klinisches Konsil')}</div>
+                                <div class="bento-media-mentor-role">${isSolved ? 'Spaced Repetition' : 'Staatsexamen-Fokus'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="bento-category-pill ${badgeClass}">${badgeLabel}</span>
+                    </td>
+                    <td>
+                        <div class="bento-table-desc">${escapeHtml(c.metadata?.title || c.case_id)}</div>
+                    </td>
+                    <td style="text-align: right;">
+                        <button type="button" class="bento-action-circle-btn" title="Fall starten">↗</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 4. DUAL-RING SVG & BEGRÜSSUNG IM RECHTEN STATISTIK-PANEL
+    const solvedPct = allCases.length > 0 ? Math.round((solved.length / allCases.length) * 100) : 0;
+    const outerCircle = document.getElementById('bento-ring-outer');
+    const pctBadge = document.getElementById('bento-ring-pct-badge');
+    if (outerCircle) {
+        const circumference = 364.4;
+        outerCircle.style.strokeDashoffset = String(circumference - (circumference * solvedPct) / 100);
+    }
+    if (pctBadge) pctBadge.textContent = `${solvedPct}%`;
+
+    const rawSkills = JSON.parse(localStorage.getItem('user_skills') || '{}');
+    let totalHits = 0, totalTries = 0;
+    Object.values(rawSkills).forEach(s => {
+        totalHits += (s?.hits || 0);
+        totalTries += (s?.total || 0);
+    });
+    const skillPct = totalTries > 0 ? Math.round((totalHits / totalTries) * 100) : 70;
+    const innerCircle = document.getElementById('bento-ring-inner');
+    if (innerCircle) {
+        const innerCircumference = 301.6;
+        innerCircle.style.strokeDashoffset = String(innerCircumference - (innerCircumference * skillPct) / 100);
+    }
+
+    const hour = new Date().getHours();
+    const greetingPrefix = hour < 12 ? 'Good Morning' : (hour < 18 ? 'Good Afternoon' : 'Good Evening');
+    const userEmail = window.currentSessionUser?.email || '';
+    const displayUser = userEmail ? userEmail.split('@')[0] : 'Marco';
+    const greetingEl = document.getElementById('bento-greeting-title');
+    if (greetingEl) {
+        greetingEl.textContent = `${greetingPrefix} ${displayUser.charAt(0).toUpperCase() + displayUser.slice(1)} 🔥`;
+    }
+    updateBentoThemeToggleIcon();
+};
+
+// Hook in renderDashboardCases, applyAppTheme und switchTab (inkl. Auto-Deep-Focus)
+(function bindBentoLifecycleHooks() {
+    const origRenderDashboard = window.renderDashboardCases;
+    if (typeof origRenderDashboard === 'function') {
+        window.renderDashboardCases = function() {
+            origRenderDashboard.apply(this, arguments);
+            window.updateBentoDashboardWidgets();
+        };
+    }
+
+    const origApplyTheme = window.applyAppTheme;
+    if (typeof origApplyTheme === 'function') {
+        window.applyAppTheme = function(themeName) {
+            origApplyTheme.apply(this, arguments);
+            updateBentoThemeToggleIcon();
+        };
+    }
+
+    const origSwitchTab = window.switchTab;
+    if (typeof origSwitchTab === 'function') {
+        window.switchTab = function(tab, el) {
+            origSwitchTab.apply(this, arguments);
+            // Automatischer Deep-Focus-Modus für Player, Mindmap & Solitaire
+            if (window.innerWidth > 1280) {
+                const isFocusView = (tab === 'player' || tab === 'mindmap' || tab === 'solitaire');
+                document.body.classList.toggle('bento-right-collapsed', isFocusView);
+            }
+            if (tab === 'dashboard') {
+                window.updateBentoDashboardWidgets();
+            }
+        };
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            window.updateBentoDashboardWidgets();
+        }, 120);
+    });
+})();
