@@ -2015,27 +2015,144 @@ function trackSkill(skillTag, isHit) {
     if (window.Cloud) window.Cloud.scheduleProgressSync();
 }
 
+// ==========================================================================
+// ERSATZ FÜR renderSkillsSidebar() (Zeigt jetzt deine Fachgebiets-Ordner!)
+// ==========================================================================
+let bentoFolderProgressScope = localStorage.getItem('medcheck_folder_prog_scope') || 'subfolders'; // 'subfolders' | 'superfolders'
+
+window.setBentoFolderProgressScope = function(scope) {
+    bentoFolderProgressScope = (scope === 'superfolders') ? 'superfolders' : 'subfolders';
+    localStorage.setItem('medcheck_folder_prog_scope', bentoFolderProgressScope);
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+    renderSkillsSidebar();
+};
+
+window.jumpToBentoFolder = function(folderName, isSuperFolder = false) {
+    if (!folderName) return;
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+
+    // Falls wir gerade nicht auf dem Dashboard sind, erst zum Dashboard wechseln
+    const dashView = document.getElementById('dashboard-view');
+    if (dashView && dashView.style.display === 'none') {
+        window.switchTab('dashboard', document.getElementById('nav-dashboard'));
+    }
+
+    if (isSuperFolder) {
+        superFolderStates[folderName] = true;
+        renderDashboardCases();
+        setTimeout(() => {
+            const safeSuper = encodeURIComponent(folderName);
+            const el = document.querySelector(`.super-folder[data-super-title="${safeSuper}"]`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+    } else {
+        const parentSuper = getSuperFolderForCategory(folderName);
+        superFolderStates[parentSuper] = true;
+        openFolders[folderName] = true;
+        renderDashboardCases();
+        setTimeout(() => {
+            const safeCat = encodeURIComponent(folderName);
+            const el = document.querySelector(`.category-folder[data-category="${safeCat}"]`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
+    }
+};
+
 function renderSkillsSidebar() {
     const container = document.getElementById('skills-sidebar-container');
     if (!container) return;
 
-    const skills = JSON.parse(localStorage.getItem('user_skills') || JSON.stringify(defaultSkills));
-    const canonicalOrder = ["Triage", "Diagnostik", "Pharmakologie", "Pathophysiologie"];
-    container.innerHTML = canonicalOrder.map(skill => {
-        const data = skills[skill] || { hits: 0, total: 0 };
-        const perc = data.total > 0 ? Math.round((data.hits / data.total) * 100) : 0;
-        const color = data.total > 0 ? (perc < 50 ? 'var(--color-risk, #ef4444)' : (perc < 80 ? '#f59e0b' : 'var(--color-symptom, #10b981)')) : 'var(--accent-blue, #38bdf8)';
-        return `
-            <div style="margin-bottom:16px;">
-                <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
-                    <span>${skill}</span>
-                    <span style="color:${color}; font-family:'JetBrains Mono';">${perc}% (${data.hits}/${data.total})</span>
+    const allCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const solvedIds = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+
+    const statsMap = {};
+
+    if (bentoFolderProgressScope === 'superfolders') {
+        getSuperFolderOrder().forEach(sName => {
+            statsMap[sName] = { total: 0, solved: 0, active: 0, isSuper: true };
+        });
+        allCases.forEach(c => {
+            const rawCat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const superTitle = getSuperFolderForCategory(rawCat);
+            if (!statsMap[superTitle]) statsMap[superTitle] = { total: 0, solved: 0, active: 0, isSuper: true };
+            statsMap[superTitle].total += 1;
+
+            const isSolved = solvedIds.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            if (isSolved) statsMap[superTitle].solved += 1;
+            else if (inProgress) statsMap[superTitle].active += 1;
+        });
+    } else {
+        // Alle vorhandenen Fachgebiets-Ordner (Unterordner) sammeln
+        const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+        savedOrder.forEach(fName => {
+            if (fName && fName.trim()) {
+                statsMap[fName.trim()] = { total: 0, solved: 0, active: 0, isSuper: false };
+            }
+        });
+
+        allCases.forEach(c => {
+            const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            if (!statsMap[folder]) statsMap[folder] = { total: 0, solved: 0, active: 0, isSuper: false };
+            statsMap[folder].total += 1;
+
+            const isSolved = solvedIds.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            if (isSolved) statsMap[folder].solved += 1;
+            else if (inProgress) statsMap[folder].active += 1;
+        });
+    }
+
+    // Sortieren: Ordner mit Fällen zuerst (nach Fortschritt absteigend, dann Name)
+    const entries = Object.entries(statsMap)
+        .filter(([name, st]) => st.total > 0 || name !== 'Allgemein')
+        .sort((a, b) => {
+            if (b[1].total !== a[1].total) return b[1].total - a[1].total;
+            const pctA = a[1].total > 0 ? a[1].solved / a[1].total : 0;
+            const pctB = b[1].total > 0 ? b[1].solved / b[1].total : 0;
+            return pctB - pctA;
+        });
+
+    const rowsHtml = entries.length === 0
+        ? `<div style="font-size:0.75rem; color:var(--text-muted-token); text-align:center; padding:8px;">Noch keine Fachgebiets-Ordner angelegt.</div>`
+        : entries.map(([folderName, data]) => {
+            const solvedPct = data.total > 0 ? Math.round((data.solved / data.total) * 100) : 0;
+            const activePct = data.total > 0 ? Math.round((data.active / data.total) * 100) : 0;
+            const isComplete = data.total > 0 && data.solved === data.total;
+            const safeJsName = escapeHtml(folderName).replace(/'/g, "\\'");
+
+            return `
+                <div class="bento-folder-prog-item" onclick="window.jumpToBentoFolder('${safeJsName}', ${data.isSuper})" title="Klicken, um Ordner „${escapeHtml(folderName)}“ im Dashboard zu öffnen">
+                    <div class="bento-folder-prog-top">
+                        <span class="bento-folder-prog-name">📁 ${escapeHtml(folderName)}</span>
+                        <span class="bento-folder-prog-stats" style="color: ${isComplete ? 'var(--color-symptom, #10b981)' : 'var(--primary-action)'};">
+                            ${solvedPct}% (${data.solved}/${data.total})
+                        </span>
+                    </div>
+                    <div class="bento-folder-prog-track">
+                        <div class="bento-folder-prog-fill-solved" style="width: ${solvedPct}%; background: ${isComplete ? 'var(--color-symptom, #10b981)' : 'var(--primary-action)'};"></div>
+                        ${activePct > 0 ? `<div class="bento-folder-prog-fill-active" style="width: ${activePct}%;" title="${data.active} in Arbeit"></div>` : ''}
+                    </div>
                 </div>
-                <div style="background:rgba(6,9,19,0.7); height:7px; border-radius:10px; overflow:hidden;">
-                    <div style="width:${perc}%; background:${color}; height:100%; transition:width 0.4s ease;"></div>
-                </div>
-            </div>`;
-    }).join('');
+            `;
+        }).join('');
+
+    container.innerHTML = `
+        <div class="bento-folder-prog-header">
+            <span class="bento-folder-prog-title">Fachgebiete (${entries.length})</span>
+            <div class="bento-scope-Switch">
+                <button type="button" class="bento-scope-pill ${bentoFolderProgressScope === 'subfolders' ? 'active' : ''}" onclick="window.setBentoFolderProgressScope('subfolders')">Ordner</button>
+                <button type="button" class="bento-scope-pill ${bentoFolderProgressScope === 'superfolders' ? 'active' : ''}" onclick="window.setBentoFolderProgressScope('superfolders')">Überordner</button>
+            </div>
+        </div>
+        <div class="bento-folder-prog-list">
+            ${rowsHtml}
+        </div>
+    `;
 }
 
 
@@ -5653,48 +5770,9 @@ document.addEventListener('keydown', (e) => {
 
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        window.toggleDashboardSearch(true);
-    } else if (e.key === 'Escape' && isDashboardSearchOpen) {
-        const input = document.getElementById('dashboard-case-search-input');
-        if (dashboardSearchQuery.length > 0 || dashboardSearchStatusFilter !== 'all') {
-            window.clearDashboardSearch(false);
-        } else {
-            window.toggleDashboardSearch(false);
-            input?.blur();
-        }
-    }
-});
-
+        window.toggleDashboardSearch(true);// ==========================================================================
+// 18. BENTO DASHBOARD ENGINE (MINI-CARDS, LESSON-TABELLE & DUAL-RING)
 // ==========================================================================
-// 18. BENTO DASHBOARD ENGINE (MINI-CARDS, KARUSSELL, DUAL-RING & DEEP-FOCUS)
-// ==========================================================================
-const BENTO_FAV_CASES_KEY = 'medcheck_bento_fav_cases_v1';
-let bentoCarouselOffset = 0;
-
-function getBentoFavCases() {
-    try {
-        return new Set(JSON.parse(localStorage.getItem(BENTO_FAV_CASES_KEY) || '[]'));
-    } catch (_e) {
-        return new Set();
-    }
-}
-
-window.toggleBentoCaseFavorite = function(caseId, event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    const favs = getBentoFavCases();
-    if (favs.has(caseId)) {
-        favs.delete(caseId);
-    } else {
-        favs.add(caseId);
-    }
-    localStorage.setItem(BENTO_FAV_CASES_KEY, JSON.stringify(Array.from(favs)));
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    window.updateBentoDashboardWidgets();
-};
-
 window.toggleLightDarkMode = function() {
     const current = document.documentElement.getAttribute('data-theme') || 'midnight';
     const nextTheme = (current === 'daylight') ? 'midnight' : 'daylight';
@@ -5730,30 +5808,11 @@ window.startNextRecommendedCase = function() {
     }
 };
 
-window.stepBentoCarousel = function(delta) {
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE];
-    if (allCases.length <= 3) return;
-    bentoCarouselOffset = (bentoCarouselOffset + delta + allCases.length) % allCases.length;
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
-    window.updateBentoDashboardWidgets();
-};
-
-function getBentoThumbnailGradient(index) {
-    const palettes = [
-        'linear-gradient(135deg, #1e1b4b 0%, #4338ca 55%, #38bdf8 100%)',
-        'linear-gradient(135deg, #31102f 0%, #be185d 55%, #fb7185 100%)',
-        'linear-gradient(135deg, #042f2e 0%, #0d9488 55%, #38bdf8 100%)',
-        'linear-gradient(135deg, #1e293b 0%, #334155 55%, #6366f1 100%)'
-    ];
-    return palettes[index % palettes.length];
-}
-
 window.updateBentoDashboardWidgets = function() {
     const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-    const favs = getBentoFavCases();
 
-    // 1. DREI KATEGORIE-FORTSCHRITTS-PILLS (Mini-Cards)
+    // 1. DREI KATEGORIE-FORTSCHRITTS-PILLS (Mini-Cards für die Top-Überordner)
     const miniContainer = document.getElementById('bento-mini-cards-container');
     if (miniContainer) {
         const superOrder = getSuperFolderOrder().slice(0, 3);
@@ -5770,10 +5829,10 @@ window.updateBentoDashboardWidgets = function() {
             const escapedSuper = escapeHtml(superTitle).replace(/'/g, "\\'");
 
             return `
-                <div class="bento-mini-card" onclick="superFolderStates['${escapedSuper}'] = true; renderDashboardCases(); document.getElementById('super-folders-wrapper')?.scrollIntoView({behavior: 'smooth'});">
+                <div class="bento-mini-card" onclick="window.jumpToBentoFolder('${escapedSuper}', true)">
                     <div class="bento-mini-icon-circle ${themeClass}">${icons[idx % icons.length]}</div>
                     <div class="bento-mini-meta">
-                        <div class="bento-mini-watched">${solvedCount}/${casesInSuper.length} watched</div>
+                        <div class="bento-mini-watched">${solvedCount}/${casesInSuper.length} gelöst</div>
                         <div class="bento-mini-title" title="${escapeHtml(superTitle)}">${escapeHtml(superTitle)}</div>
                     </div>
                     <button type="button" class="bento-dots-btn" onclick="event.stopPropagation(); window.toggleSubjectProgressModal(true);" title="Statistik öffnen">⋮</button>
@@ -5782,79 +5841,38 @@ window.updateBentoDashboardWidgets = function() {
         }).join('');
     }
 
-    // 2. „CONTINUE WATCHING“ (3-Karten Medien-Karussell)
-    const cwGrid = document.getElementById('bento-continue-watching-grid');
-    if (cwGrid && allCases.length > 0) {
-        const visibleCases = [];
-        const count = Math.min(3, allCases.length);
-        for (let i = 0; i < count; i++) {
-            visibleCases.push(allCases[(bentoCarouselOffset + i) % allCases.length]);
-        }
-
-        const pillThemes = ['theme-cyan', 'theme-primary', 'theme-secondary'];
-        const mentors = [
-            { initials: 'NM', name: 'Dr. med. N. Mengis', role: 'Klinik-Mentor' },
-            { initials: 'PM', name: 'Dr. med. P. Molteni', role: 'Klinik-Mentor' },
-            { initials: 'CR', name: 'Clara Maria Radu', role: 'AGA-Students Lead' }
-        ];
-
-        cwGrid.innerHTML = visibleCases.map((c, idx) => {
-            const isSolved = solved.includes(c.case_id);
-            const savedState = ProgressManager.getCaseProgress(c.case_id);
-            const telemetry = computeCaseTelemetry(c, isSolved, savedState);
-            const pct = telemetry.totalCount > 0 ? Math.round((telemetry.completedCount / telemetry.totalCount) * 100) : (isSolved ? 100 : 15);
-            const category = (c.folder_name || c.metadata?.medical_field || 'Klinischer Fall').trim();
-            const isFav = favs.has(c.case_id);
-            const mentor = mentors[idx % mentors.length];
-            const pillTheme = pillThemes[idx % pillThemes.length];
-            const safeCaseId = escapeHtml(c.case_id).replace(/'/g, "\\'");
-
-            return `
-                <div class="bento-media-card" onclick="window.loadCaseById('${safeCaseId}')">
-                    <div class="bento-media-thumb" style="background-image: ${getBentoThumbnailGradient(idx + bentoCarouselOffset)};">
-                        <span style="font-size: 0.68rem; font-weight: 800; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.35); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(4px);">
-                            ${telemetry.completedCount}/${telemetry.totalCount} Module
-                        </span>
-                        <button type="button" class="bento-fav-glass-btn ${isFav ? 'is-fav' : ''}" onclick="window.toggleBentoCaseFavorite('${safeCaseId}', event)" title="Fall merken">
-                            ${isFav ? '♥' : '♡'}
-                        </button>
-                    </div>
-                    <span class="bento-category-pill ${pillTheme}">${escapeHtml(category.slice(0, 22))}</span>
-                    <h3 class="bento-media-title">${escapeHtml(c.metadata?.title || c.case_id)}</h3>
-                    <div class="bento-media-progress-track">
-                        <div class="bento-media-progress-fill" style="width: ${Math.max(8, pct)}%;"></div>
-                    </div>
-                    <div class="bento-media-footer">
-                        <div class="bento-avatar-sm" style="width: 26px; height: 26px; font-size: 0.65rem; background: var(--badge-primary-bg); color: var(--badge-primary-text);">${mentor.initials}</div>
-                        <div>
-                            <div class="bento-media-mentor-name">${mentor.name}</div>
-                            <div class="bento-media-mentor-role">${mentor.role}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // 3. „YOUR LESSON“ TABELLE (Mit Spaced-Repetition-Dringlichkeit)
+    // 2. „YOUR LESSON“ TABELLE (Priorisiert angefangene & offene Fälle)
     const tbody = document.getElementById('bento-your-lesson-tbody');
     if (tbody) {
-        const topLessons = allCases.slice(0, 3);
+        const sortedForLesson = [...allCases].sort((a, b) => {
+            const aSolved = solved.includes(a.case_id);
+            const bSolved = solved.includes(b.case_id);
+            if (aSolved !== bSolved) return aSolved ? 1 : -1;
+            const aProg = ProgressManager.getCaseProgress(a.case_id);
+            const bProg = ProgressManager.getCaseProgress(b.case_id);
+            const aActive = !!(aProg && Object.keys(aProg).length > 0);
+            const bActive = !!(bProg && Object.keys(bProg).length > 0);
+            return (bActive ? 1 : 0) - (aActive ? 1 : 0);
+        });
+
+        const topLessons = sortedForLesson.slice(0, 3);
         tbody.innerHTML = topLessons.map((c, idx) => {
             const isSolved = solved.includes(c.case_id);
+            const savedState = ProgressManager.getCaseProgress(c.case_id);
+            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
             const category = (c.folder_name || c.metadata?.medical_field || 'Klinik').trim();
             const safeCaseId = escapeHtml(c.case_id).replace(/'/g, "\\'");
-            const badgeClass = isSolved ? 'theme-secondary' : 'theme-primary';
-            const badgeLabel = isSolved ? '↻ Review Due' : escapeHtml(category.slice(0, 18));
+            const badgeClass = isSolved ? 'theme-cyan' : (inProgress ? 'theme-secondary' : 'theme-primary');
+            const badgeLabel = isSolved ? '✓ Gelöst · Review' : (inProgress ? '↻ In Arbeit' : escapeHtml(category.slice(0, 20)));
 
             return `
                 <tr onclick="window.loadCaseById('${safeCaseId}')">
                     <td>
                         <div class="bento-table-mentor-cell">
-                            <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">M${idx + 1}</div>
+                            <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">F${idx + 1}</div>
                             <div>
-                                <div class="bento-media-mentor-name">${escapeHtml(c.metadata?.primary_disease || 'Klinisches Konsil')}</div>
-                                <div class="bento-media-mentor-role">${isSolved ? 'Spaced Repetition' : 'Staatsexamen-Fokus'}</div>
+                                <div class="bento-media-mentor-name">${escapeHtml(category)}</div>
+                                <div class="bento-media-mentor-role">${escapeHtml(c.metadata?.primary_disease || 'Klinisches Fall-Audit')}</div>
                             </div>
                         </div>
                     </td>
@@ -5872,7 +5890,7 @@ window.updateBentoDashboardWidgets = function() {
         }).join('');
     }
 
-    // 4. DUAL-RING SVG & BEGRÜSSUNG IM RECHTEN STATISTIK-PANEL
+    // 3. DUAL-RING SVG & FACHGEBIETS-BALKEN IM RECHTEN PANEL AKTUALISIEREN
     const solvedPct = allCases.length > 0 ? Math.round((solved.length / allCases.length) * 100) : 0;
     const outerCircle = document.getElementById('bento-ring-outer');
     const pctBadge = document.getElementById('bento-ring-pct-badge');
@@ -5882,18 +5900,21 @@ window.updateBentoDashboardWidgets = function() {
     }
     if (pctBadge) pctBadge.textContent = `${solvedPct}%`;
 
-    const rawSkills = JSON.parse(localStorage.getItem('user_skills') || '{}');
-    let totalHits = 0, totalTries = 0;
-    Object.values(rawSkills).forEach(s => {
-        totalHits += (s?.hits || 0);
-        totalTries += (s?.total || 0);
-    });
-    const skillPct = totalTries > 0 ? Math.round((totalHits / totalTries) * 100) : 70;
+    // Innerer Ring: Anteil der Fälle, die entweder gelöst oder bereits in Arbeit sind
+    const touchedCount = allCases.filter(c => {
+        if (solved.includes(c.case_id)) return true;
+        const st = ProgressManager.getCaseProgress(c.case_id);
+        return st && Object.keys(st).length > 0;
+    }).length;
+    const touchedPct = allCases.length > 0 ? Math.round((touchedCount / allCases.length) * 100) : 0;
     const innerCircle = document.getElementById('bento-ring-inner');
     if (innerCircle) {
         const innerCircumference = 301.6;
-        innerCircle.style.strokeDashoffset = String(innerCircumference - (innerCircumference * skillPct) / 100);
+        innerCircle.style.strokeDashoffset = String(innerCircumference - (innerCircumference * touchedPct) / 100);
     }
+
+    // Fachgebiets-/Ordner-Balken synchronisieren
+    renderSkillsSidebar();
 
     const hour = new Date().getHours();
     const greetingPrefix = hour < 12 ? 'Good Morning' : (hour < 18 ? 'Good Afternoon' : 'Good Evening');
@@ -5906,7 +5927,7 @@ window.updateBentoDashboardWidgets = function() {
     updateBentoThemeToggleIcon();
 };
 
-// Hook in renderDashboardCases, applyAppTheme und switchTab (inkl. Auto-Deep-Focus)
+// Lifecycle Hooks für automatische Synchronisation
 (function bindBentoLifecycleHooks() {
     const origRenderDashboard = window.renderDashboardCases;
     if (typeof origRenderDashboard === 'function') {
@@ -5928,7 +5949,6 @@ window.updateBentoDashboardWidgets = function() {
     if (typeof origSwitchTab === 'function') {
         window.switchTab = function(tab, el) {
             origSwitchTab.apply(this, arguments);
-            // Automatischer Deep-Focus-Modus für Player, Mindmap & Solitaire
             if (window.innerWidth > 1280) {
                 const isFocusView = (tab === 'player' || tab === 'mindmap' || tab === 'solitaire');
                 document.body.classList.toggle('bento-right-collapsed', isFocusView);
