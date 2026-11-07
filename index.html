@@ -24,7 +24,6 @@
         window.ENV_SUPABASE_URL = "https://fpzpwzkgthgsjubvfblb.supabase.co";
         window.ENV_SUPABASE_ANON_KEY = "sb_publishable_sYcO0L_nBB0KwecumoqTUw_ZzsvImZ2";
 
-        // Sofortige Theme-Initialisierung vor dem ersten Browser-Paint
         (function applyEarlyTheme() {
             try {
                 var savedTheme = localStorage.getItem('medcheck_ui_theme');
@@ -55,7 +54,7 @@
          04. LINKE SPALTE: SIDEBAR (NAVIGATION, BOOKSHELF, FRIENDS & SETTINGS)
          ==================================================================== -->
     <sidebar class="bento-left-sidebar">
-        <!-- Brand Header mit Sparkle-Logo -->
+        <!-- Brand Header mit Sparkle-Logo in Klinik-Blau -->
         <div class="brand">
             <div class="brand-icon-wrap bento-sparkle-logo">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -165,19 +164,19 @@
         </div>
         <div id="bookshelf-container" class="bookshelf-container" style="flex: 1; min-height: 110px; overflow-y: auto;"></div>
 
-        <!-- Sektion 2: FRIENDS (Soziale Kurzliste wie im Design-Spec) -->
+        <!-- Sektion 2: FRIENDS (Soziale Kurzliste) -->
         <div class="bento-sidebar-friends">
             <div class="nav-section-label" style="padding-left: 4px; margin-top: 14px;">FRIENDS</div>
             <div class="bento-friends-mini-list" id="bento-sidebar-friends-list">
                 <div class="bento-friend-mini-item" onclick="switchTab('friends', document.getElementById('nav-friends'))">
-                    <div class="bento-avatar-sm" style="background: var(--primary-100); color: var(--primary-600);">NM</div>
+                    <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">NM</div>
                     <div class="bento-friend-mini-info">
                         <div class="bento-friend-mini-name">Dr. N. Mengis</div>
                         <div class="bento-friend-mini-role">Scientific Lead</div>
                     </div>
                 </div>
                 <div class="bento-friend-mini-item" onclick="switchTab('friends', document.getElementById('nav-friends'))">
-                    <div class="bento-avatar-sm" style="background: var(--secondary-100); color: var(--secondary-500);">CR</div>
+                    <div class="bento-avatar-sm" style="background: var(--badge-secondary-bg); color: var(--badge-secondary-text);">CR</div>
                     <div class="bento-friend-mini-info">
                         <div class="bento-friend-mini-name">Clara M. Radu</div>
                         <div class="bento-friend-mini-role">Klinik-Partnerin</div>
@@ -193,7 +192,7 @@
             </div>
         </div>
 
-        <!-- Sektion 3: SETTINGS (Unten verankert inkl. Sekundär-Korall-Logout) -->
+        <!-- Sektion 3: SETTINGS -->
         <div class="bento-sidebar-settings">
             <div class="nav-section-label" style="padding-left: 4px; margin-top: 12px;">SETTINGS</div>
             <ul class="nav-links">
@@ -213,15 +212,6 @@
                     <span id="sidebar-logout-label">Logout</span>
                 </li>
             </ul>
-        </div>
-
-        <!-- Status-Footer (kompakt) -->
-        <div class="sidebar-footer" style="display: none;">
-            <div class="sidebar-pulse"></div>
-            <div>
-                <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">Engine Bereit</div>
-                <div style="font-size: 0.7rem; color: var(--text-dim);">Sokratischer Kern v6.5</div>
-            </div>
         </div>
 
         <!-- Dynamischer Sidebar-Resizer -->
@@ -249,7 +239,7 @@
                     </svg>
                 </button>
 
-                <!-- 1. Globale Pill-Suchleiste direkt im Top-Header -->
+                <!-- Globale Pill-Suchleiste -->
                 <div class="bento-global-search-pill">
                     <svg class="bento-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                         <circle cx="11" cy="11" r="8"></circle>
@@ -264,7 +254,7 @@
 
             <!-- Kompakte HUD-Leiste & Theme-Toggle -->
             <div class="user-hud">
-                <button type="button" class="bento-icon-circle-btn" id="bento-theme-toggle-btn" onclick="window.toggleLightDarkMode()" title="Zwischen Light Mode & Dark Mode wechseln">
+                <button type="button" class="bento-icon-circle-btn" id="bento-theme-toggle-btn" onclick="window.toggleLightDarkMode()" title="Zwischen Clinical Daylight & Cyber Midnight wechseln">
                     <span id="bento-theme-toggle-icon">☀️</span>
                 </button>
                 <button type="button" class="bento-icon-circle-btn" onclick="window.toggleRightBentoPanel()" title="Statistik-Panel ein-/ausblenden (Deep-Focus)">
@@ -324,7 +314,7 @@
                         </div>
                     </div>
 
-                    <!-- 2. HERO-BANNER (Royal Indigo + Sparkle SVGs + Join Now Pill-CTA) -->
+                    <!-- HERO-BANNER (Angenehmes Klinik-Blau + Sparkle SVGs + Join Now Pill-CTA) -->
                     <section class="bento-hero-banner">
                         <div class="bento-hero-content">
                             <div class="bento-hero-kicker">ONLINE COURSE · CLINICAL AUDIT</div>
@@ -344,7 +334,7 @@
                             </div>
                         </div>
 
-                        <!-- Dekorative vierstrahlige Vektor-Sterne (Hero-Media Token) -->
+                        <!-- Dekorative vierstrahlige Vektor-Sterne -->
                         <svg class="bento-hero-sparkles" viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <path d="M190 15C190 75 190 95 110 95C190 95 190 115 190 175C190 115 190 95 270 95C190 95 190 75 190 15Z" fill="white" fill-opacity="0.16"/>
                             <path d="M280 115C280 142 280 152 245 152C280 152 280 162 280 189C280 162 280 152 315 152C280 152 280 142 280 115Z" fill="white" fill-opacity="0.13"/>
@@ -352,30 +342,12 @@
                         </svg>
                     </section>
 
-                    <!-- 3. KATEGORIE-FORTSCHRITTS-LEISTE (3 Mini-Karten: Primary, Secondary, Cyan) -->
+                    <!-- KATEGORIE-FORTSCHRITTS-LEISTE (3 Mini-Karten) -->
                     <section class="bento-mini-cards-grid" id="bento-mini-cards-container">
-                        <!-- Wird dynamisch durch updateBentoDashboardWidgets() mit echten Fall-Daten befüllt -->
+                        <!-- Wird dynamisch durch updateBentoDashboardWidgets() befüllt -->
                     </section>
 
-                    <!-- 4. SEKTION „CONTINUE WATCHING“ (3-Spalten Medien-Karussell) -->
-                    <section class="bento-section-block">
-                        <div class="bento-section-header">
-                            <h2 class="bento-section-title">Continue Watching</h2>
-                            <div class="bento-carousel-controls">
-                                <button type="button" class="bento-carousel-btn prev" onclick="window.stepBentoCarousel(-1)" aria-label="Vorherige Fälle">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                                </button>
-                                <button type="button" class="bento-carousel-btn next" onclick="window.stepBentoCarousel(1)" aria-label="Nächste Fälle">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="bento-media-cards-grid" id="bento-continue-watching-grid">
-                            <!-- Wird dynamisch durch updateBentoDashboardWidgets() gerendert -->
-                        </div>
-                    </section>
-
-                    <!-- 5. SEKTION „YOUR LESSON“ (Kompakte Daten-Tabelle mit Spaced Repetition) -->
+                    <!-- SEKTION „YOUR LESSON“ (Kompakte Daten-Tabelle) -->
                     <section class="bento-section-block">
                         <div class="bento-section-header">
                             <h2 class="bento-section-title">Your Lesson</h2>
@@ -385,7 +357,7 @@
                             <table class="bento-lesson-table">
                                 <thead>
                                     <tr>
-                                        <th>MENTOR</th>
+                                        <th>MENTOR / FOKUS</th>
                                         <th>TYPE</th>
                                         <th>DESC</th>
                                         <th style="text-align: right;">ACTION</th>
@@ -465,7 +437,6 @@
                         </div>
                     </div>
 
-                    <!-- Challenge-Tabs Navigation -->
                     <div class="challenge-nav-bar">
                         <button type="button" class="challenge-tab-btn active" id="tab-btn-overview" onclick="switchPlayerMode('overview')">
                             <span>🧭 Übersicht</span>
@@ -727,28 +698,29 @@
 
                     <div class="forge-divider" style="margin: 24px 0;"></div>
 
+                    <!-- Farbschema (UI-Theme: Clinical Daylight & Cyber Midnight) -->
                     <div class="settings-section">
-                        <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme: Light Mode & Dark Mode)</div>
+                        <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
                         <div class="theme-selector-grid" id="theme-selector-grid">
-                            <button type="button" class="theme-card" data-theme-value="daylight" onclick="applyAppTheme('daylight')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #f8fafc 50%, #ffffff 50%); border-color: #6366f1;">
-                                    <span class="theme-dot" style="background: #6366f1;"></span>
-                                    <span class="theme-dot" style="background: #f43f5e;"></span>
+                            <button type="button" class="theme-card active" data-theme-value="midnight" onclick="applyAppTheme('midnight')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #060913 50%, #0f172a 50%); border-color: #0284c7;">
+                                    <span class="theme-dot" style="background: #0284c7;"></span>
+                                    <span class="theme-dot" style="background: #38bdf8;"></span>
                                 </div>
                                 <div class="theme-info">
-                                    <div class="theme-name">Bento Light Mode</div>
-                                    <div class="theme-desc">Helles Studio-UI (Referenz-Design)</div>
+                                    <div class="theme-name">Cyber Midnight</div>
+                                    <div class="theme-desc">Kontrastreiches Dark-UI (Bento)</div>
                                 </div>
                             </button>
 
-                            <button type="button" class="theme-card active" data-theme-value="midnight" onclick="applyAppTheme('midnight')">
-                                <div class="theme-preview" style="background: linear-gradient(135deg, #060913 50%, #0f172a 50%); border-color: #6366f1;">
-                                    <span class="theme-dot" style="background: #6366f1;"></span>
-                                    <span class="theme-dot" style="background: #f43f5e;"></span>
+                            <button type="button" class="theme-card" data-theme-value="daylight" onclick="applyAppTheme('daylight')">
+                                <div class="theme-preview" style="background: linear-gradient(135deg, #f8fafc 50%, #ffffff 50%); border-color: #0284c7;">
+                                    <span class="theme-dot" style="background: #0284c7;"></span>
+                                    <span class="theme-dot" style="background: #0ea5e9;"></span>
                                 </div>
                                 <div class="theme-info">
-                                    <div class="theme-name">Bento Dark Mode</div>
-                                    <div class="theme-desc">Kontrastreiches Nacht-UI</div>
+                                    <div class="theme-name">Clinical Daylight</div>
+                                    <div class="theme-desc">Heller Modus für Tageslicht & Klinik</div>
                                 </div>
                             </button>
 
@@ -885,23 +857,23 @@
             </div>
         </div>
 
-        <!-- 2. Widget „Statistic“ (Dual-Ring SVG + 5-Balken-Aktivitätsdiagramm) -->
+        <!-- 2. Widget „Statistic“ (Dual-Ring SVG + Fachgebiets-/Ordner-Fortschritt) -->
         <div class="bento-stat-card">
             <div class="bento-widget-header">
                 <span class="bento-widget-title">Statistic</span>
                 <button type="button" class="bento-dots-btn" onclick="window.toggleSubjectProgressModal(true)" title="Detaillierte Themen-Statistik">⋮</button>
             </div>
 
-            <!-- Zentraler Avatar mit Dual-Progress-Ring (Äußerer Ring: Fälle, Innerer Ring: Präzision) -->
+            <!-- Zentraler Avatar mit Dual-Progress-Ring -->
             <div class="bento-avatar-ring-wrap">
                 <svg class="bento-progress-ring-svg" width="136" height="136" viewBox="0 0 136 136">
-                    <!-- Äußerer Track (Fälle) -->
+                    <!-- Äußerer Track (Gelöste Fälle gesamt) -->
                     <circle class="bento-ring-track" cx="68" cy="68" r="58" stroke-width="6" fill="none"></circle>
-                    <!-- Äußerer Progress (Primary Indigo) -->
+                    <!-- Äußerer Progress (Primary Clinical Blue) -->
                     <circle class="bento-ring-fill-primary" id="bento-ring-outer" cx="68" cy="68" r="58" stroke-width="6" fill="none" stroke-dasharray="364.4" stroke-dashoffset="247.8" stroke-linecap="round"></circle>
-                    <!-- Innerer Track (Präzision) -->
+                    <!-- Innerer Track (Aktive Ordner-Abdeckung) -->
                     <circle class="bento-ring-track" cx="68" cy="68" r="48" stroke-width="4" fill="none" opacity="0.6"></circle>
-                    <!-- Innerer Progress (Secondary Rose) -->
+                    <!-- Innerer Progress (Secondary Accent) -->
                     <circle class="bento-ring-fill-secondary" id="bento-ring-inner" cx="68" cy="68" r="48" stroke-width="4" fill="none" stroke-dasharray="301.6" stroke-dashoffset="90.5" stroke-linecap="round"></circle>
                 </svg>
                 <div class="bento-avatar-center">
@@ -915,7 +887,7 @@
                 <p class="bento-greeting-sub" id="bento-greeting-sub">Continue your learning to achieve your target!</p>
             </div>
 
-            <!-- 5-Säulen-Aktivitätsdiagramm (Wechsel aus primary-200 und primary-600) -->
+            <!-- 5-Säulen-Aktivitätsdiagramm -->
             <div class="bento-chart-box">
                 <div class="bento-chart-grid">
                     <div class="bento-chart-y-axis">
@@ -944,11 +916,11 @@
                 </div>
             </div>
 
-            <!-- Klinische Skill-Matrix (kompakt integriert) -->
-            <div id="skills-sidebar-container" class="bento-skills-mini-wrap"></div>
+            <!-- NEU: Fortschritt nach Fachgebieten / Ordnern (interaktiv) -->
+            <div id="skills-sidebar-container" class="bento-folder-progress-section"></div>
         </div>
 
-        <!-- 3. Widget „Your mentor“ (Empfehlungs- & Konsil-Liste) -->
+        <!-- 3. Widget „Your mentor“ -->
         <div class="bento-mentor-widget">
             <div class="bento-widget-header">
                 <span class="bento-widget-title">Your mentor</span>
@@ -958,7 +930,7 @@
             <div class="bento-mentor-list-card" id="bento-mentor-list">
                 <div class="bento-mentor-row">
                     <div class="bento-mentor-avatar-wrap">
-                        <div class="bento-avatar-sm" style="background: var(--primary-100); color: var(--primary-600);">NM</div>
+                        <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">NM</div>
                         <span class="bento-online-dot"></span>
                     </div>
                     <div class="bento-mentor-info">
@@ -972,7 +944,7 @@
 
                 <div class="bento-mentor-row">
                     <div class="bento-mentor-avatar-wrap">
-                        <div class="bento-avatar-sm" style="background: var(--secondary-100); color: var(--secondary-500);">PM</div>
+                        <div class="bento-avatar-sm" style="background: var(--badge-secondary-bg); color: var(--badge-secondary-text);">PM</div>
                         <span class="bento-online-dot"></span>
                     </div>
                     <div class="bento-mentor-info">
