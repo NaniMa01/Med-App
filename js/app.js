@@ -1694,13 +1694,24 @@ window.triggerHaptic = function(ms = 8) {
 };
 
 window.toggleSidebar = function() {
-    const sidebar = document.querySelector('sidebar') || document.querySelector('.sidebar') || document.querySelector('aside');
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.bento-left-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
+
+    // Falls auf Mobile das rechte Statistik-Panel offen war, dieses zuerst schließen
+    if (document.body.classList.contains('bento-right-force-open')) {
+        document.body.classList.remove('bento-right-force-open');
+        if (sidebar && !sidebar.classList.contains('open')) {
+            if (overlay) overlay.classList.remove('active');
+            window.triggerHaptic(6);
+            return;
+        }
+    }
+
     if (sidebar) sidebar.classList.toggle('open');
-    if (overlay) overlay.classList.toggle('active');
+    const isAnyOpen = (sidebar && sidebar.classList.contains('open')) || document.body.classList.contains('bento-right-force-open');
+    if (overlay) overlay.classList.toggle('active', isAnyOpen);
     window.triggerHaptic(6);
 };
-
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>'"]/g, 
@@ -5799,10 +5810,22 @@ function updateBentoThemeToggleIcon() {
 }
 
 window.toggleRightBentoPanel = function(forceState) {
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.bento-left-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+
     if (window.innerWidth <= 1280) {
-        document.body.classList.toggle('bento-right-force-open');
+        // Linke Sidebar schließen, falls sie gleichzeitig offen war
+        if (sidebar) sidebar.classList.remove('open');
+
+        const isNowOpen = typeof forceState === 'boolean'
+            ? document.body.classList.toggle('bento-right-force-open', forceState)
+            : document.body.classList.toggle('bento-right-force-open');
+
+        if (overlay) overlay.classList.toggle('active', isNowOpen);
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
         return;
     }
+
     if (typeof forceState === 'boolean') {
         document.body.classList.toggle('bento-right-collapsed', !forceState);
     } else {
