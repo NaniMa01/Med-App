@@ -2069,6 +2069,16 @@ window.jumpToBentoFolder = function(folderName, isSuperFolder = false) {
     }
 };
 
+// Hilfsfunktion: Trennt Vorlesungscodes wie "29.2.10_Erkrankungen..." in Code + lesbaren Namen
+function formatClinicalFolderLabel(rawName) {
+    const clean = String(rawName || '').trim();
+    const match = clean.match(/^(\d+(?:\.\d+)+)[\s_-]+(.+)$/);
+    if (match) {
+        return { code: match[1], title: match[2].trim() };
+    }
+    return { code: null, title: clean };
+}
+
 function renderSkillsSidebar() {
     const container = document.getElementById('skills-sidebar-container');
     if (!container) return;
@@ -2092,12 +2102,11 @@ function renderSkillsSidebar() {
 
             const isSolved = solvedIds.includes(c.case_id);
             const savedState = ProgressManager.getCaseProgress(c.case_id);
-            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            const inProgress = !isSolved && savedState && Object.keys(savedState).filter(k => k !== 'updatedAt').length > 0;
             if (isSolved) statsMap[superTitle].solved += 1;
             else if (inProgress) statsMap[superTitle].active += 1;
         });
     } else {
-        // Alle vorhandenen Fachgebiets-Ordner (Unterordner) sammeln
         const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
         savedOrder.forEach(fName => {
             if (fName && fName.trim()) {
@@ -2112,20 +2121,19 @@ function renderSkillsSidebar() {
 
             const isSolved = solvedIds.includes(c.case_id);
             const savedState = ProgressManager.getCaseProgress(c.case_id);
-            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
+            const inProgress = !isSolved && savedState && Object.keys(savedState).filter(k => k !== 'updatedAt').length > 0;
             if (isSolved) statsMap[folder].solved += 1;
             else if (inProgress) statsMap[folder].active += 1;
         });
     }
 
-    // Sortieren: Ordner mit Fällen zuerst (nach Fortschritt absteigend, dann Name)
     const entries = Object.entries(statsMap)
         .filter(([name, st]) => st.total > 0 || name !== 'Allgemein')
         .sort((a, b) => {
-            if (b[1].total !== a[1].total) return b[1].total - a[1].total;
             const pctA = a[1].total > 0 ? a[1].solved / a[1].total : 0;
             const pctB = b[1].total > 0 ? b[1].solved / b[1].total : 0;
-            return pctB - pctA;
+            if (pctB !== pctA) return pctB - pctA;
+            return b[1].total - a[1].total;
         });
 
     const rowsHtml = entries.length === 0
@@ -2135,11 +2143,15 @@ function renderSkillsSidebar() {
             const activePct = data.total > 0 ? Math.round((data.active / data.total) * 100) : 0;
             const isComplete = data.total > 0 && data.solved === data.total;
             const safeJsName = escapeHtml(folderName).replace(/'/g, "\\'");
+            const parsedLabel = formatClinicalFolderLabel(folderName);
 
             return `
-                <div class="bento-folder-prog-item" onclick="window.jumpToBentoFolder('${safeJsName}', ${data.isSuper})" title="Klicken, um Ordner „${escapeHtml(folderName)}“ im Dashboard zu öffnen">
+                <div class="bento-folder-prog-item" onclick="window.jumpToBentoFolder('${safeJsName}', ${data.isSuper})" title="${escapeHtml(folderName)} (${data.solved} von ${data.total} gelöst)">
                     <div class="bento-folder-prog-top">
-                        <span class="bento-folder-prog-name">📁 ${escapeHtml(folderName)}</span>
+                        <span class="bento-folder-prog-name">
+                            ${parsedLabel.code ? `<span style="font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-muted-token); margin-right:4px;">${escapeHtml(parsedLabel.code)}</span>` : '📁 '}
+                            ${escapeHtml(parsedLabel.title)}
+                        </span>
                         <span class="bento-folder-prog-stats" style="color: ${isComplete ? 'var(--color-symptom, #10b981)' : 'var(--primary-action)'};">
                             ${solvedPct}% (${data.solved}/${data.total})
                         </span>
@@ -2165,7 +2177,6 @@ function renderSkillsSidebar() {
         </div>
     `;
 }
-
 // ==========================================================================
 // 10. DASHBOARD ECHTZEIT-SUCHE & DEEP-INDEXING ENGINE
 // ==========================================================================
@@ -5793,7 +5804,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ==========================================================================
-// 18. BENTO DASHBOARD ENGINE (MINI-CARDS, LESSON-TABELLE & DUAL-RING)
+// 18. BENTO DASHBOARD ENGINE (MINI-CARDS, LESSON-TABELLE, RING & MONATS-CHART)
 // ==========================================================================
 window.toggleLightDarkMode = function() {
     const current = document.documentElement.getAttribute('data-theme') || 'midnight';
@@ -5814,7 +5825,6 @@ window.toggleRightBentoPanel = function(forceState) {
     const overlay = document.querySelector('.sidebar-overlay');
 
     if (window.innerWidth <= 1280) {
-        // Linke Sidebar schließen, falls sie gleichzeitig offen war
         if (sidebar) sidebar.classList.remove('open');
 
         const isNowOpen = typeof forceState === 'boolean'
@@ -5842,9 +5852,6 @@ window.startNextRecommendedCase = function() {
     }
 };
 
-// ==========================================================================
-// ECHTE MONATS-TELEMETRIE & BENTO DASHBOARD ENGINE (Sektion 18 in js/app.js)
-// ==========================================================================
 function renderBentoMonthlyProgress(allCases, solvedIds) {
     const barsContainer = document.getElementById('bento-activity-bars');
     const yAxisEl = document.getElementById('bento-chart-y-axis');
@@ -5870,7 +5877,6 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
         monthLabelEl.textContent = `Monatsfortschritt · ${mName} ${currentYear}`;
     }
 
-    // 5 Monatsabschnitte (Wochen-Buckets: 1-7, 8-14, 15-21, 22-28, 29-Ende)
     const buckets = [
         { label: `01–07`, start: 1, end: 7, count: 0 },
         { label: `08–14`, start: 8, end: 14, count: 0 },
@@ -5881,19 +5887,13 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
 
     const currentBucketIdx = Math.min(4, Math.floor((currentDay - 1) / 7));
 
-    // Reale Fortschrittsdaten aus ProgressManager & Depot auslesen
     const allProgress = ProgressManager.getAll() || {};
     const activeDaysSet = new Set();
     let monthlyTouchedCases = 0;
-    let monthlySolvedCases = 0;
-    let monthlyInProgressCases = 0;
 
     allCases.forEach(c => {
         const cId = c.case_id;
         const state = allProgress[cId];
-        const isSolved = solvedIds.includes(cId);
-        const hasState = state && Object.keys(state).filter(k => k !== 'updatedAt').length > 0;
-
         if (state && state.updatedAt) {
             const dt = new Date(state.updatedAt);
             if (dt.getFullYear() === currentYear && dt.getMonth() === currentMonth) {
@@ -5902,22 +5902,16 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
                 buckets[bIdx].count += 1;
                 activeDaysSet.add(day);
                 monthlyTouchedCases += 1;
-
-                if (isSolved) monthlySolvedCases += 1;
-                else if (hasState) monthlyInProgressCases += 1;
             }
         }
     });
 
-    // Falls Fälle bereits gelöst wurden, bevor Zeitstempel existierten, der aktuellen Woche gutschreiben
     if (monthlyTouchedCases === 0 && solvedIds.length > 0) {
         buckets[currentBucketIdx].count = solvedIds.length;
         monthlyTouchedCases = solvedIds.length;
-        monthlySolvedCases = solvedIds.length;
         activeDaysSet.add(currentDay);
     }
 
-    // Dynamische Y-Achse berechnen (passt sich deiner echten Fallzahl an)
     const maxCount = Math.max(...buckets.map(b => b.count), 4);
     const yTop = maxCount <= 4 ? 4 : (maxCount <= 10 ? 10 : Math.ceil(maxCount / 5) * 5);
     const yMid = Math.round(yTop / 2);
@@ -5930,7 +5924,6 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
         `;
     }
 
-    // 5 Wochen-Säulen mit exakter Zahlenangabe rendern
     barsContainer.innerHTML = buckets.map((b, idx) => {
         const isCurrent = idx === currentBucketIdx;
         const heightPct = b.count > 0 ? Math.max(14, Math.min(100, Math.round((b.count / yTop) * 100))) : 8;
@@ -5956,7 +5949,6 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
         totalPillEl.textContent = `${monthlyTouchedCases} ${monthlyTouchedCases === 1 ? 'Fall' : 'Fälle'} im ${mName}`;
     }
 
-    // Gesamt-KPIs unten im Chart aktualisieren
     const totalInProgressOverall = allCases.filter(c => {
         if (solvedIds.includes(c.case_id)) return false;
         const st = allProgress[c.case_id];
@@ -5967,6 +5959,40 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
     if (kpiProgressEl) kpiProgressEl.textContent = `${totalInProgressOverall} In Arbeit`;
     if (kpiDaysEl) kpiDaysEl.textContent = `${activeDaysSet.size} ${activeDaysSet.size === 1 ? 'Lerntag' : 'Lerntage'}`;
 }
+
+window.updateBentoDashboardWidgets = function() {
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+
+    // 1. DREI KATEGORIE-FORTSCHRITTS-PILLS (Mini-Cards für die Top-Überordner)
+    const miniContainer = document.getElementById('bento-mini-cards-container');
+    if (miniContainer) {
+        const superOrder = getSuperFolderOrder().slice(0, 3);
+        const themes = ['theme-primary', 'theme-secondary', 'theme-cyan'];
+        const icons = ['🧠', '⚖️', '🩺'];
+
+        miniContainer.innerHTML = superOrder.map((superTitle, idx) => {
+            const casesInSuper = allCases.filter(c => {
+                const cat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+                return getSuperFolderForCategory(cat) === superTitle;
+            });
+            const solvedCount = casesInSuper.filter(c => solved.includes(c.case_id)).length;
+            const themeClass = themes[idx % themes.length];
+            const escapedSuper = escapeHtml(superTitle).replace(/'/g, "\\'");
+
+            return `
+                <div class="bento-mini-card" onclick="window.jumpToBentoFolder('${escapedSuper}', true)">
+                    <div class="bento-mini-icon-circle ${themeClass}">${icons[idx % icons.length]}</div>
+                    <div class="bento-mini-meta">
+                        <div class="bento-mini-watched">${solvedCount}/${casesInSuper.length} gelöst</div>
+                        <div class="bento-mini-title" title="${escapeHtml(superTitle)}">${escapeHtml(superTitle)}</div>
+                    </div>
+                    <button type="button" class="bento-dots-btn" onclick="event.stopPropagation(); window.toggleSubjectProgressModal(true);" title="Statistik öffnen">⋮</button>
+                </div>
+            `;
+        }).join('');
+    }
+
     // 2. „YOUR LESSON“ TABELLE (Priorisiert angefangene & offene Fälle)
     const tbody = document.getElementById('bento-your-lesson-tbody');
     if (tbody) {
@@ -5976,8 +6002,8 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
             if (aSolved !== bSolved) return aSolved ? 1 : -1;
             const aProg = ProgressManager.getCaseProgress(a.case_id);
             const bProg = ProgressManager.getCaseProgress(b.case_id);
-            const aActive = !!(aProg && Object.keys(aProg).length > 0);
-            const bActive = !!(bProg && Object.keys(bProg).length > 0);
+            const aActive = !!(aProg && Object.keys(aProg).filter(k => k !== 'updatedAt').length > 0);
+            const bActive = !!(bProg && Object.keys(bProg).filter(k => k !== 'updatedAt').length > 0);
             return (bActive ? 1 : 0) - (aActive ? 1 : 0);
         });
 
@@ -5985,11 +6011,12 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
         tbody.innerHTML = topLessons.map((c, idx) => {
             const isSolved = solved.includes(c.case_id);
             const savedState = ProgressManager.getCaseProgress(c.case_id);
-            const inProgress = !isSolved && savedState && Object.keys(savedState).length > 0;
-            const category = (c.folder_name || c.metadata?.medical_field || 'Klinik').trim();
+            const inProgress = !isSolved && savedState && Object.keys(savedState).filter(k => k !== 'updatedAt').length > 0;
+            const rawCategory = (c.folder_name || c.metadata?.medical_field || 'Klinik').trim();
+            const parsedCat = formatClinicalFolderLabel(rawCategory);
             const safeCaseId = escapeHtml(c.case_id).replace(/'/g, "\\'");
             const badgeClass = isSolved ? 'theme-cyan' : (inProgress ? 'theme-secondary' : 'theme-primary');
-            const badgeLabel = isSolved ? '✓ Gelöst · Review' : (inProgress ? '↻ In Arbeit' : escapeHtml(category.slice(0, 20)));
+            const badgeLabel = isSolved ? '✓ Gelöst · Review' : (inProgress ? '↻ In Arbeit' : escapeHtml(parsedCat.title.slice(0, 20)));
 
             return `
                 <tr onclick="window.loadCaseById('${safeCaseId}')">
@@ -5997,7 +6024,7 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
                         <div class="bento-table-mentor-cell">
                             <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">F${idx + 1}</div>
                             <div>
-                                <div class="bento-media-mentor-name">${escapeHtml(category)}</div>
+                                <div class="bento-media-mentor-name">${escapeHtml(parsedCat.title)}</div>
                                 <div class="bento-media-mentor-role">${escapeHtml(c.metadata?.primary_disease || 'Klinisches Fall-Audit')}</div>
                             </div>
                         </div>
@@ -6016,7 +6043,7 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
         }).join('');
     }
 
-    // 3. DUAL-RING SVG & FACHGEBIETS-BALKEN IM RECHTEN PANEL AKTUALISIEREN
+    // 3. DUAL-RING SVG AKTUALISIEREN
     const solvedPct = allCases.length > 0 ? Math.round((solved.length / allCases.length) * 100) : 0;
     const outerCircle = document.getElementById('bento-ring-outer');
     const pctBadge = document.getElementById('bento-ring-pct-badge');
@@ -6026,11 +6053,10 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
     }
     if (pctBadge) pctBadge.textContent = `${solvedPct}%`;
 
-    // Innerer Ring: Anteil der Fälle, die entweder gelöst oder bereits in Arbeit sind
     const touchedCount = allCases.filter(c => {
         if (solved.includes(c.case_id)) return true;
         const st = ProgressManager.getCaseProgress(c.case_id);
-        return st && Object.keys(st).length > 0;
+        return st && Object.keys(st).filter(k => k !== 'updatedAt').length > 0;
     }).length;
     const touchedPct = allCases.length > 0 ? Math.round((touchedCount / allCases.length) * 100) : 0;
     const innerCircle = document.getElementById('bento-ring-inner');
@@ -6039,16 +6065,20 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
         innerCircle.style.strokeDashoffset = String(innerCircumference - (innerCircumference * touchedPct) / 100);
     }
 
-    // Fachgebiets-/Ordner-Balken synchronisieren
+    // 4. REALEN MONATSFORTSCHRITT & FACHGEBIETE RENDERN
+    renderBentoMonthlyProgress(allCases, solved);
     renderSkillsSidebar();
 
+    // 5. BEGRÜSSUNG & VORNAME SAUBER FORMATIEREN
     const hour = new Date().getHours();
     const greetingPrefix = hour < 12 ? 'Good Morning' : (hour < 18 ? 'Good Afternoon' : 'Good Evening');
     const userEmail = window.currentSessionUser?.email || '';
-    const displayUser = userEmail ? userEmail.split('@')[0] : 'Marco';
+    const rawFirstName = userEmail ? userEmail.split('@')[0].split(/[._-]/)[0] : 'Marco';
+    const cleanFirstName = rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase();
+
     const greetingEl = document.getElementById('bento-greeting-title');
     if (greetingEl) {
-        greetingEl.textContent = `${greetingPrefix} ${displayUser.charAt(0).toUpperCase() + displayUser.slice(1)} 🔥`;
+        greetingEl.textContent = `${greetingPrefix} ${cleanFirstName} 🔥`;
     }
     updateBentoThemeToggleIcon();
 };
