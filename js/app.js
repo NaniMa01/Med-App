@@ -782,6 +782,98 @@ async function pushFolderConfigToSupabase(immediate = false) {
     }
 }
 
+window.forceSyncFoldersAcrossDevices = async function() {
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+    updateFolderSyncStatusBadge('syncing');
+    await pushFolderConfigToSupabase(true);
+    await loadCasesFromDatabase();
+    if (typeof showScorePopup === 'function') {
+        showScorePopup('☁️ Ordnerstruktur synchronisiert!', 'positive');
+    }
+};
+
+function getCaseFolderOverrides() {
+    try {
+        return JSON.parse(localStorage.getItem(CASE_FOLDER_OVERRIDES_KEY) || '{}');
+    } catch (_e) {
+        return {};
+    }
+}
+
+function saveCaseFolderOverrides(map) {
+    try {
+        localStorage.setItem(CASE_FOLDER_OVERRIDES_KEY, JSON.stringify(map));
+    } catch (_e) {}
+}
+
+function setCaseFolderOverride(caseId, folderName) {
+    if (!caseId || !folderName || isSystemOrSolitaireCloudRow(caseId)) return;
+    const map = getCaseFolderOverrides();
+    map[caseId] = folderName.trim();
+    saveCaseFolderOverrides(map);
+}
+
+function getDeletedFoldersSet() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]'));
+    } catch (_e) {
+        return new Set();
+    }
+}
+
+function markFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    if (clean.toLowerCase() === 'allgemein') return;
+    const set = getDeletedFoldersSet();
+    set.add(clean);
+    localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+}
+
+function unmarkFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    const set = getDeletedFoldersSet();
+    if (set.has(clean)) {
+        set.delete(clean);
+        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+    }
+}
+
+function applyFolderOverridesToCase(caseObj) {
+    if (!caseObj) return caseObj;
+    const cId = caseObj.case_id || caseObj.id;
+    if (isSystemOrSolitaireCloudRow(cId)) return caseObj;
+
+    const overrides = getCaseFolderOverrides();
+    const deletedFolders = getDeletedFoldersSet();
+
+    let currentFolder = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
+
+    if (cId && overrides[cId]) {
+        currentFolder = overrides[cId];
+    }
+
+    if (deletedFolders.has(currentFolder)) {
+        currentFolder = 'Allgemein';
+        if (cId) {
+            overrides[cId] = 'Allgemein';
+            saveCaseFolderOverrides(overrides);
+        }
+    }
+
+    caseObj.folder_name = currentFolder;
+    if (caseObj.metadata) {
+        caseObj.metadata.medical_field = currentFolder;
+    }
+    return caseObj;
+}
+
+function getActiveSupabaseClient() {
+    return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
+}
+const getSupabaseInstance = getActiveSupabaseClient;
+
 async function syncModifiedCasesToSupabase(casesList) {
     // Eigene Ordnerstruktur des Users immer in sein eigenes Profil synchronisieren
     await pushFolderConfigToSupabase(false);
@@ -6016,7 +6108,10 @@ window.updateBentoDashboardWidgets = function() {
     if (topAvatarEl) topAvatarEl.textContent = initials;
 
     updateBentoThemeToggleIcon();
+}; 
 
+// Lifecycle Hooks für automatische Synchronisation
+(function bindBentoLifecycleHooks() {
 // Lifecycle Hooks für automatische Synchronisation
 (function bindBentoLifecycleHooks() {
     const origRenderDashboard = window.renderDashboardCases;
