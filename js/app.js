@@ -873,7 +873,7 @@ function getActiveSupabaseClient() {
     return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
 }
 const getSupabaseInstance = getActiveSupabaseClient;
-}
+
 async function syncModifiedCasesToSupabase(casesList) {
     // Eigene Ordnerstruktur des Users immer in sein eigenes Profil synchronisieren
     await pushFolderConfigToSupabase(false);
@@ -6110,8 +6110,6 @@ window.updateBentoDashboardWidgets = function() {
     updateBentoThemeToggleIcon();
 }; 
 
-// Lifecycle Hooks für automatische Synchronisation
-(function bindBentoLifecycleHooks() {
 // Lifecycle Hooks für automatische Synchronisation
 (function bindBentoLifecycleHooks() {
     const origRenderDashboard = window.renderDashboardCases;
