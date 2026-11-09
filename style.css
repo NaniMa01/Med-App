@@ -8060,25 +8060,217 @@ body.bento-right-collapsed .bento-right-sidebar {
     color: #ffffff;
 }
 
+/* ==========================================================================
+   4. BENTO RESPONSIVE ENGINE (ALLE FENSTERGRÖSSEN, TABLET & MOBILE PWA)
+   ========================================================================== */
+
+/* Stufe 1: <= 1280px (Kompakte Laptops & iPad Pro Querformat)
+   -> Rechte Statistik-Sidebar klappt ein und wird zum Slide-Over-Drawer */
 @media screen and (max-width: 1280px) {
     :root {
         --right-sidebar-width: 0px;
     }
+
+    body.bento-app-shell .main-wrapper.bento-center-workspace,
+    body.bento-right-collapsed .main-wrapper.bento-center-workspace {
+        margin-right: 0 !important;
+        width: calc(100% - var(--sidebar-width)) !important;
+    }
+
     .bento-right-sidebar {
         transform: translateX(100%);
         width: 320px;
-        box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35);
+        max-width: 88vw;
+        z-index: 1060 !important;
+        box-shadow: -12px 0 36px rgba(0, 0, 0, 0.55);
     }
+
     body.bento-right-force-open .bento-right-sidebar {
         transform: translateX(0);
     }
 }
 
-@media screen and (max-width: 900px) {
-    .bento-mini-cards-grid {
-        grid-template-columns: 1fr;
+/* Stufe 2: <= 1024px (Tablet Hochformat & verkleinertes Desktop-Fenster)
+   -> Linke Sidebar fährt aus dem Viewport, Workspace nutzt 100% der Breite (Kein schwarzer Balken!) */
+@media screen and (max-width: 1024px) {
+    body.bento-app-shell .main-wrapper.bento-center-workspace,
+    body.bento-right-collapsed .main-wrapper.bento-center-workspace,
+    .main-wrapper.bento-center-workspace {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100% !important;
+        max-width: 100vw !important;
     }
+
+    .bento-left-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        z-index: 1060 !important;
+        box-shadow: 12px 0 36px rgba(0, 0, 0, 0.55) !important;
+    }
+
+    .bento-left-sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay {
+        z-index: 1055 !important;
+    }
+
+    .bento-topbar {
+        padding: 12px 18px !important;
+        gap: 12px !important;
+    }
+
+    .bento-mini-cards-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+    }
+}
+
+/* Stufe 3: <= 768px (Smartphones & kleine Fenster)
+   -> Topbar bricht sauber um, Hero-Banner & Lesson-Tabelle passen sich verlustfrei an */
+@media screen and (max-width: 768px) {
+    .bento-topbar {
+        flex-wrap: wrap !important;
+        padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px 14px !important;
+        gap: 10px !important;
+    }
+
+    /* Zeile 1 in der Topbar: Hamburger-Menü + Suchleiste auf 100% Breite */
+    .bento-topbar-left {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 1 100% !important;
+        order: 1;
+        gap: 8px !important;
+    }
+
+    .bento-global-search-pill {
+        padding: 8px 12px !important;
+        min-width: 0 !important;
+    }
+
+    .bento-kbd-badge {
+        display: none !important; /* Spart Platz auf Touch-Geräten */
+    }
+
+    /* Zeile 2 in der Topbar: Theme-Toggle, Statistik-Button, Streak & XP sauber rechtsbündig */
+    .bento-topbar .user-hud {
+        width: 100% !important;
+        order: 2;
+        justify-content: space-between !important;
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        padding-bottom: 2px;
+    }
+
+    .bento-icon-circle-btn {
+        width: 34px !important;
+        height: 34px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Hero-Banner kompakt & lesbar */
+    .bento-hero-banner {
+        padding: 20px 18px !important;
+        border-radius: 18px !important;
+    }
+
     .bento-hero-content {
-        max-width: 100%;
+        max-width: 100% !important;
+    }
+
+    .bento-hero-headline {
+        font-size: 1.25rem !important;
+        margin-bottom: 16px !important;
+    }
+
+    .bento-hero-sparkles {
+        width: 160px !important;
+        height: 110px !important;
+        opacity: 0.45;
+    }
+
+    .bento-mini-cards-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* "Your Lesson"-Tabelle: Auf Mobile als saubere, klickbare Karten statt abgeschnittener Tabelle */
+    .bento-lesson-table-card {
+        padding: 10px 12px !important;
+    }
+
+    .bento-lesson-table thead {
+        display: none !important;
+    }
+
+    .bento-lesson-table,
+    .bento-lesson-table tbody {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .bento-lesson-table tbody tr {
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        gap: 8px 10px !important;
+        padding: 12px 6px !important;
+        border-bottom: 1px solid var(--border-subtle) !important;
+        align-items: center !important;
+    }
+
+    .bento-lesson-table tbody tr td {
+        border-bottom: none !important;
+        padding: 0 !important;
+    }
+
+    /* Mentor/Kategorie oben links */
+    .bento-lesson-table tbody tr td:nth-child(1) {
+        grid-column: 1 / 2;
+        min-width: 0;
+    }
+
+    /* Status-Badge oben rechts */
+    .bento-lesson-table tbody tr td:nth-child(2) {
+        grid-column: 2 / 3;
+        justify-self: end;
+    }
+
+    /* Falltitel über die volle Breite darunter */
+    .bento-lesson-table tbody tr td:nth-child(3) {
+        grid-column: 1 / 2;
+        min-width: 0;
+    }
+
+    .bento-table-desc {
+        font-size: 0.82rem !important;
+        line-height: 1.35 !important;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Pfeil-Button unten rechts */
+    .bento-lesson-table tbody tr td:nth-child(4) {
+        grid-column: 2 / 3;
+        justify-self: end;
+    }
+}
+
+/* Stufe 4: <= 420px (Sehr schmale Smartphones wie iPhone SE / Mini) */
+@media screen and (max-width: 420px) {
+    .bento-hero-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .bento-hero-cta-btn,
+    .bento-hero-secondary-btn {
+        width: 100% !important;
+        justify-content: center !important;
     }
 }
