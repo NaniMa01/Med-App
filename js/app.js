@@ -606,12 +606,22 @@ function registerDynamicFolder(folderName, targetSuperFolder = null) {
 }
 
 // ==========================================================================
-// 06. CLOUD FOLDER SYNC ENGINE & PERSISTENTE ORDNER-OVERRIDES (SUPABASE)
+// 06. CLOUD FOLDER SYNC ENGINE & PERSISTENTE ORDNER-OVERRIDES (PRO USER!)
 // ==========================================================================
 const FOLDER_CONFIG_CLOUD_ID = '__MEDCHECK_FOLDER_CONFIG_V1__';
 const FOLDER_SYNC_TIMESTAMP_KEY = 'medcheck_folder_sync_updated_at_v1';
 const SOLITAIRE_DECK_CLOUD_PREFIX = '__SOL_DECK__';
 let folderSyncDebounceTimer = null;
+
+// WICHTIG: Jeder User bekommt seine EIGENE Ordner-Konfigurations-ID!
+function getUserFolderConfigCloudId(userId) {
+    const uid = userId || window.currentSessionUser?.id;
+    return uid ? `${FOLDER_CONFIG_CLOUD_ID}_${uid}` : FOLDER_CONFIG_CLOUD_ID;
+}
+
+function isCreatorUser(user = window.currentSessionUser) {
+    return !!(user && user.email && user.email.toLowerCase() === CREATOR_EMAIL.toLowerCase());
+}
 
 function getLocalFolderSyncTimestamp() {
     return parseInt(localStorage.getItem(FOLDER_SYNC_TIMESTAMP_KEY) || '0', 10);
@@ -622,18 +632,17 @@ function setLocalFolderSyncTimestamp(ts = Date.now()) {
     return ts;
 }
 
-
 function isSystemOrSolitaireCloudRow(caseIdOrObj) {
     if (!caseIdOrObj) return false;
     const cId = typeof caseIdOrObj === 'string' ? caseIdOrObj : (caseIdOrObj.case_id || caseIdOrObj.id || '');
     const field = typeof caseIdOrObj === 'object' ? (caseIdOrObj.medical_field || caseIdOrObj.folder_name || '') : '';
     return cId === FOLDER_CONFIG_CLOUD_ID ||
+           cId.startsWith(FOLDER_CONFIG_CLOUD_ID) ||
            cId.startsWith(SOLITAIRE_DECK_CLOUD_PREFIX) ||
            field === '__SOLITAIRE_DECK__' ||
            field === '__SYSTEM__';
 }
 
-// Baut das komplette Ordner-Konfigurationspaket dieses Geräts zusammen
 function exportLocalFolderConfigPayload(customTimestamp = null) {
     const ts = customTimestamp || Date.now();
     return {
@@ -649,14 +658,12 @@ function exportLocalFolderConfigPayload(customTimestamp = null) {
     };
 }
 
-// Übernimmt das Cloud-Ordner-Paket in den lokalen Speicher (wenn die Cloud neuer ist oder erzwungen wird)
 function applyCloudFolderConfigIfNewer(cloudPayload, forceApply = false) {
     if (!cloudPayload || typeof cloudPayload !== 'object') return false;
 
     const cloudTs = parseInt(cloudPayload.updatedAt || '0', 10);
     const localTs = getLocalFolderSyncTimestamp();
 
-    // Wenn dieses Gerät bereits einen neueren Stand hat und kein Force-Pull aktiv ist, behalten wir den lokalen Stand
     if (!forceApply && localTs > 0 && cloudTs <= localTs) {
         return false;
     }
@@ -712,7 +719,7 @@ function updateFolderSyncStatusBadge(state = 'synced') {
     }
 }
 
-// Speichert jede lokale Ordner-Änderung sofort mit Zeitstempel und pusht sie nach Supabase
+// Speichert die Ordnerstruktur NUR für den jeweiligen User (is_public: false!)
 async function pushFolderConfigToSupabase(immediate = false) {
     const ts = setLocalFolderSyncTimestamp(Date.now());
     const payload = exportLocalFolderConfigPayload(ts);
@@ -728,23 +735,30 @@ async function pushFolderConfigToSupabase(immediate = false) {
             const { data: { session } } = await sb.auth.getSession();
             const currentUser = session?.user;
 
-            // 1. In die globale cases-Tabelle als System-Konfiguration schreiben (für alle Geräte sofort lesbar)
             if (currentUser) {
-                const { error } = await sb
-                    .from('cases')
-                    .upsert({
-                        case_id: FOLDER_CONFIG_CLOUD_ID,
-                        title: '__SYSTEM_FOLDER_CONFIG__',
-                        medical_field: '__SYSTEM__',
-                        is_public: true,
-                        user_id: currentUser.id,
-                        created_by: currentUser.id,
-                        content: payload
-                    }, { onConflict: 'case_id' });
+                const userConfigId = getUserFolderConfigCloudId(currentUser.id);
 
-                if (error) throw error;
+                // 1. In user_profiles.folder_config des jeweiligen Users speichern
+                await sb.from('user_profiles').upsert({
+                    id: currentUser.id,
+                    user_id: currentUser.id,
+                    email: currentUser.email?.toLowerCase(),
+                    folder_config: payload,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
 
-                // 2. Zusätzlich als Backup in den User-Metadaten sichern
+                // 2. User-spezifischer Eintrag in cases (is_public: false, damit es niemand anderem angezeigt wird!)
+                await sb.from('cases').upsert({
+                    case_id: userConfigId,
+                    title: '__SYSTEM_FOLDER_CONFIG__',
+                    medical_field: '__SYSTEM__',
+                    is_public: false,
+                    user_id: currentUser.id,
+                    created_by: currentUser.id,
+                    content: payload
+                }, { onConflict: 'case_id' });
+
+                // 3. Backup in den eigenen Auth-Metadaten
                 await sb.auth.updateUser({
                     data: { medcheck_folder_config_v1: payload }
                 }).catch(() => {});
@@ -768,103 +782,8 @@ async function pushFolderConfigToSupabase(immediate = false) {
     }
 }
 
-window.forceSyncFoldersAcrossDevices = async function() {
-    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
-    updateFolderSyncStatusBadge('syncing');
-
-    // Wenn wir am aktuellen Gerät bereits Ordner organisiert haben, pushen wir diesen Stand als Master
-    // und holen gleichzeitig alle Fälle frisch aus der Datenbank:
-    await pushFolderConfigToSupabase(true);
-    await loadCasesFromDatabase();
-
-    if (typeof showScorePopup === 'function') {
-        showScorePopup('☁️ Ordnerstruktur für alle Geräte synchronisiert!', 'positive');
-    }
-};
-
-function getCaseFolderOverrides() {
-    try {
-        return JSON.parse(localStorage.getItem(CASE_FOLDER_OVERRIDES_KEY) || '{}');
-    } catch (_e) {
-        return {};
-    }
-}
-
-function saveCaseFolderOverrides(map) {
-    try {
-        localStorage.setItem(CASE_FOLDER_OVERRIDES_KEY, JSON.stringify(map));
-    } catch (_e) {}
-}
-
-function setCaseFolderOverride(caseId, folderName) {
-    if (!caseId || !folderName || caseId === FOLDER_CONFIG_CLOUD_ID) return;
-    const map = getCaseFolderOverrides();
-    map[caseId] = folderName.trim();
-    saveCaseFolderOverrides(map);
-}
-
-function getDeletedFoldersSet() {
-    try {
-        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]'));
-    } catch (_e) {
-        return new Set();
-    }
-}
-
-function markFolderAsDeleted(folderName) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-    if (clean.toLowerCase() === 'allgemein') return;
-    const set = getDeletedFoldersSet();
-    set.add(clean);
-    localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
-}
-
-function unmarkFolderAsDeleted(folderName) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-    const set = getDeletedFoldersSet();
-    if (set.has(clean)) {
-        set.delete(clean);
-        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
-    }
-}
-
-function applyFolderOverridesToCase(caseObj) {
-    if (!caseObj) return caseObj;
-    const cId = caseObj.case_id || caseObj.id;
-    if (cId === FOLDER_CONFIG_CLOUD_ID) return caseObj;
-
-    const overrides = getCaseFolderOverrides();
-    const deletedFolders = getDeletedFoldersSet();
-
-    let currentFolder = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
-
-    if (cId && overrides[cId]) {
-        currentFolder = overrides[cId];
-    }
-
-    if (deletedFolders.has(currentFolder)) {
-        currentFolder = 'Allgemein';
-        if (cId) {
-            overrides[cId] = 'Allgemein';
-            saveCaseFolderOverrides(overrides);
-        }
-    }
-
-    caseObj.folder_name = currentFolder;
-    if (caseObj.metadata) {
-        caseObj.metadata.medical_field = currentFolder;
-    }
-    return caseObj;
-}
-
-function getActiveSupabaseClient() {
-    return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
-}
-const getSupabaseInstance = getActiveSupabaseClient;
-
 async function syncModifiedCasesToSupabase(casesList) {
+    // Eigene Ordnerstruktur des Users immer in sein eigenes Profil synchronisieren
     await pushFolderConfigToSupabase(false);
 
     if (!Array.isArray(casesList) || casesList.length === 0) return;
@@ -876,31 +795,23 @@ async function syncModifiedCasesToSupabase(casesList) {
         const currentUser = session?.user;
         if (!currentUser) return;
 
+        // WICHTIG: Nur wenn Marco (Creator) Fälle verschiebt, wird der globale Ordner in der Cloud geändert.
+        // Andere User speichern Fälle nur für sich privat (is_public: false), falls es ihre eigenen sind!
+        const userIsCreator = isCreatorUser(currentUser);
+
         for (const c of casesList) {
             const cId = c.case_id || c.id;
-            if (!cId || cId === BUILTIN_DEMO_CASE.case_id || cId === FOLDER_CONFIG_CLOUD_ID) continue;
+            if (!cId || cId === BUILTIN_DEMO_CASE.case_id || isSystemOrSolitaireCloudRow(cId)) continue;
             const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-            const title = c.metadata?.title || c.title || cId;
 
-            const { data: updated, error: updErr } = await sb
-                .from('cases')
-                .update({
-                    medical_field: folder,
-                    content: c
-                })
-                .eq('case_id', cId)
-                .select('case_id');
-
-            if (!updErr && (!updated || updated.length === 0)) {
-                await sb.from('cases').upsert({
-                    case_id: cId,
-                    title: title,
-                    medical_field: folder,
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: c
-                }, { onConflict: 'case_id' });
+            if (userIsCreator) {
+                // Marco aktualisiert nur Fälle, die bereits in der Cloud veröffentlicht wurden!
+                // Lokale Fälle, die du NICHT hochgeladen hast, werden nicht automatisch geteilt!
+                if (window.cloudCaseIds && window.cloudCaseIds.has(cId)) {
+                    await sb.from('cases')
+                        .update({ medical_field: folder, content: c })
+                        .eq('case_id', cId);
+                }
             }
         }
     } catch (err) {
@@ -5129,9 +5040,13 @@ async function loadCasesFromDatabase() {
     if (!sb) return;
 
     try {
+        const { data: { session } } = await sb.auth.getSession();
+        const currentUser = session?.user || null;
+        window.currentSessionUser = currentUser;
+
         const { data, error } = await sb
             .from('cases')
-            .select('case_id, title, medical_field, is_public, content')
+            .select('case_id, title, medical_field, is_public, user_id, created_by, content')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -5139,27 +5054,30 @@ async function loadCasesFromDatabase() {
             return;
         }
 
-        // 1. ZUERST CLOUD-ORDNER-KONFIGURATION AUSLESEN & SYNCHRONISIEREN
-        const configRow = (data || []).find(d => d.case_id === FOLDER_CONFIG_CLOUD_ID);
-        if (configRow && configRow.content) {
-            applyCloudFolderConfigIfNewer(configRow.content);
-        } else {
-            // Falls in der Cloud noch gar keine Ordner-Konfiguration liegt, aber dieses Gerät (z.B. Laptop)
-            // bereits eigene Überordner oder Mappings hat -> initial als Master in die Cloud pushen!
-            const localMappingKeys = Object.keys(getFolderSuperMapping());
-            const localSupers = getSuperFolderOrder();
-            if (localMappingKeys.length > 0 || localSupers.length > DEFAULT_SUPER_FOLDERS.length) {
-                pushFolderConfigToSupabase(false);
+        // 1. NUR DIE EIGENE ORDNER-KONFIGURATION DES AKTUELLEN USERS LADEN!
+        if (currentUser) {
+            const myConfigId = getUserFolderConfigCloudId(currentUser.id);
+            const myConfigRow = (data || []).find(d => d.case_id === myConfigId);
+            const metaConfig = currentUser.user_metadata?.medcheck_folder_config_v1;
+
+            if (myConfigRow && myConfigRow.content) {
+                applyCloudFolderConfigIfNewer(myConfigRow.content);
+            } else if (metaConfig) {
+                applyCloudFolderConfigIfNewer(metaConfig);
             }
         }
 
-        // 2. NORMALE KLINISCHE FÄLLE VERARBEITEN (OHNE DAS SYSTEM-KONFIGURATIONSOBJEKT)
-       const realCaseRows = (data || []).filter(d => !isSystemOrSolitaireCloudRow(d));
+        // 2. NUR GETEILTE FÄLLE VON MARCO (is_public === true) ODER EIGENE FÄLLE LADEN
+        const realCaseRows = (data || []).filter(d => {
+            if (isSystemOrSolitaireCloudRow(d)) return false;
+            return d.is_public === true || (currentUser && (d.user_id === currentUser.id || d.created_by === currentUser.id));
+        });
+
         window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
 
         if (realCaseRows.length > 0) {
             let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]')
-                .filter(c => (c.case_id || c.id) !== FOLDER_CONFIG_CLOUD_ID);
+                .filter(c => !isSystemOrSolitaireCloudRow(c));
             const hiddenCloudIds = getHiddenCloudCaseIds();
             const deletedFolders = getDeletedFoldersSet();
             const overrides = getCaseFolderOverrides();
@@ -5168,17 +5086,21 @@ async function loadCasesFromDatabase() {
                 const cloudCase = dbCase.content;
                 if (!cloudCase) return;
                 const cId = cloudCase.case_id || cloudCase.id;
-                if (!cId || cId === FOLDER_CONFIG_CLOUD_ID || hiddenCloudIds.includes(cId)) return;
+                if (!cId || isSystemOrSolitaireCloudRow(cId) || hiddenCloudIds.includes(cId)) return;
 
-                // Cloud-Feldname hat Vorrang, sofern er nicht im synchronisierten Override überschrieben wurde
-                if (dbCase.medical_field && !deletedFolders.has(dbCase.medical_field.trim())) {
-                    const cloudFolder = dbCase.medical_field.trim();
-                    cloudCase.folder_name = cloudFolder;
-                    if (cloudCase.metadata) cloudCase.metadata.medical_field = cloudFolder;
+                // Originales Fachgebiet aus dem Fall-JSON oder der DB-Spalte wiederherstellen
+                const originalFolder = (
+                    (dbCase.medical_field && dbCase.medical_field !== 'Allgemein' ? dbCase.medical_field : '') ||
+                    cloudCase.metadata?.medical_field ||
+                    cloudCase.folder_name ||
+                    'Allgemein'
+                ).trim();
 
-                    // Falls noch kein Override existiert, mit Cloud-Ordner synchron halten
-                    if (!overrides[cId]) {
-                        overrides[cId] = cloudFolder;
+                if (originalFolder && !deletedFolders.has(originalFolder)) {
+                    cloudCase.folder_name = originalFolder;
+                    if (cloudCase.metadata) cloudCase.metadata.medical_field = originalFolder;
+                    if (!overrides[cId] || overrides[cId] === 'Allgemein') {
+                        overrides[cId] = originalFolder;
                     }
                 }
 
@@ -5196,15 +5118,6 @@ async function loadCasesFromDatabase() {
 
             saveCaseFolderOverrides(overrides);
             localStorage.setItem('custom_cases', JSON.stringify(customCases));
-        }
-
-        const deletedSet = getDeletedFoldersSet();
-        if (deletedSet.size > 0) {
-            let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-            const cleanedOrder = savedOrder.filter(f => !deletedSet.has(f.trim()));
-            if (cleanedOrder.length !== savedOrder.length) {
-                localStorage.setItem('medcheck_folder_order', JSON.stringify(cleanedOrder));
-            }
         }
 
         renderDashboardCases();
@@ -6069,19 +5982,40 @@ window.updateBentoDashboardWidgets = function() {
     renderBentoMonthlyProgress(allCases, solved);
     renderSkillsSidebar();
 
-    // 5. BEGRÜSSUNG & VORNAME SAUBER FORMATIEREN
+  // 5. BEGRÜSSUNG, AVATAR & USERNAME FÜR DEN AKTUELL EINGELOGGTEN USER SETZEN
     const hour = new Date().getHours();
     const greetingPrefix = hour < 12 ? 'Good Morning' : (hour < 18 ? 'Good Afternoon' : 'Good Evening');
-    const userEmail = window.currentSessionUser?.email || '';
-    const rawFirstName = userEmail ? userEmail.split('@')[0].split(/[._-]/)[0] : 'Marco';
-    const cleanFirstName = rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase();
+    const sessionUser = window.currentSessionUser;
+    const userEmail = sessionUser?.email || '';
+    const metaName = sessionUser?.user_metadata?.display_name || sessionUser?.user_metadata?.full_name || '';
+
+    let displayFullName = 'Gast';
+    let cleanFirstName = 'Doc';
+    let initials = '🩺';
+
+    if (metaName) {
+        displayFullName = metaName.trim();
+        cleanFirstName = displayFullName.split(/\s+/)[0];
+        const parts = displayFullName.split(/\s+/);
+        initials = (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+    } else if (userEmail) {
+        const nameParts = userEmail.split('@')[0].split(/[._-]+/).filter(Boolean);
+        const capParts = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+        displayFullName = capParts.join(' ');
+        cleanFirstName = capParts[0] || 'Doc';
+        initials = (capParts[0]?.[0] || 'U') + (capParts[1]?.[0] || '');
+    }
 
     const greetingEl = document.getElementById('bento-greeting-title');
-    if (greetingEl) {
-        greetingEl.textContent = `${greetingPrefix} ${cleanFirstName} 🔥`;
-    }
+    if (greetingEl) greetingEl.textContent = `${greetingPrefix} ${cleanFirstName} 🔥`;
+
+    const topNameEl = document.getElementById('bento-top-username');
+    if (topNameEl) topNameEl.textContent = displayFullName;
+
+    const topAvatarEl = document.getElementById('bento-top-avatar');
+    if (topAvatarEl) topAvatarEl.textContent = initials;
+
     updateBentoThemeToggleIcon();
-};
 
 // Lifecycle Hooks für automatische Synchronisation
 (function bindBentoLifecycleHooks() {
