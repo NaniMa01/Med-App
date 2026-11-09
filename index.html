@@ -165,32 +165,13 @@
         <div id="bookshelf-container" class="bookshelf-container" style="flex: 1; min-height: 110px; overflow-y: auto;"></div>
 
         <!-- Sektion 2: FRIENDS (Soziale Kurzliste) -->
-        <div class="bento-sidebar-friends">
-            <div class="nav-section-label" style="padding-left: 4px; margin-top: 14px;">FRIENDS</div>
-            <div class="bento-friends-mini-list" id="bento-sidebar-friends-list">
-                <div class="bento-friend-mini-item" onclick="switchTab('friends', document.getElementById('nav-friends'))">
-                    <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">NM</div>
-                    <div class="bento-friend-mini-info">
-                        <div class="bento-friend-mini-name">Dr. N. Mengis</div>
-                        <div class="bento-friend-mini-role">Scientific Lead</div>
-                    </div>
-                </div>
-                <div class="bento-friend-mini-item" onclick="switchTab('friends', document.getElementById('nav-friends'))">
-                    <div class="bento-avatar-sm" style="background: var(--badge-secondary-bg); color: var(--badge-secondary-text);">CR</div>
-                    <div class="bento-friend-mini-info">
-                        <div class="bento-friend-mini-name">Clara M. Radu</div>
-                        <div class="bento-friend-mini-role">Klinik-Partnerin</div>
-                    </div>
-                </div>
-                <div class="bento-friend-mini-item" onclick="switchTab('friends', document.getElementById('nav-friends'))">
-                    <div class="bento-avatar-sm" style="background: var(--badge-cyan-bg); color: var(--badge-cyan-text);">BI</div>
-                    <div class="bento-friend-mini-info">
-                        <div class="bento-friend-mini-name">Benjamin Inauen</div>
-                        <div class="bento-friend-mini-role">Klinik-Kollege</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+       <!-- Einzelner Menüpunkt statt ausgeklappter Friends-Liste -->
+<div class="sidebar-section">
+  <button class="sidebar-nav-item" onclick="openCommunityModal()">
+    <span>👥</span>
+    <span>Freunde & Community</span>
+  </button>
+</div>
 
         <!-- Sektion 3: SETTINGS -->
         <div class="bento-sidebar-settings">
