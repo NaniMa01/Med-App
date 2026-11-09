@@ -873,7 +873,7 @@ function getActiveSupabaseClient() {
     return window.supabaseClient || window.supabase || window.sb || window.supabase_client || null;
 }
 const getSupabaseInstance = getActiveSupabaseClient;
-
+}
 async function syncModifiedCasesToSupabase(casesList) {
     // Eigene Ordnerstruktur des Users immer in sein eigenes Profil synchronisieren
     await pushFolderConfigToSupabase(false);
