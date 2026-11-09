@@ -5842,39 +5842,131 @@ window.startNextRecommendedCase = function() {
     }
 };
 
-window.updateBentoDashboardWidgets = function() {
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+// ==========================================================================
+// ECHTE MONATS-TELEMETRIE & BENTO DASHBOARD ENGINE (Sektion 18 in js/app.js)
+// ==========================================================================
+function renderBentoMonthlyProgress(allCases, solvedIds) {
+    const barsContainer = document.getElementById('bento-activity-bars');
+    const yAxisEl = document.getElementById('bento-chart-y-axis');
+    const xAxisEl = document.getElementById('bento-chart-x-axis');
+    const monthLabelEl = document.getElementById('bento-month-label');
+    const totalPillEl = document.getElementById('bento-month-total-pill');
+    const kpiSolvedEl = document.getElementById('bento-kpi-solved');
+    const kpiProgressEl = document.getElementById('bento-kpi-progress');
+    const kpiDaysEl = document.getElementById('bento-kpi-days');
 
-    // 1. DREI KATEGORIE-FORTSCHRITTS-PILLS (Mini-Cards für die Top-Überordner)
-    const miniContainer = document.getElementById('bento-mini-cards-container');
-    if (miniContainer) {
-        const superOrder = getSuperFolderOrder().slice(0, 3);
-        const themes = ['theme-primary', 'theme-secondary', 'theme-cyan'];
-        const icons = ['🧠', '⚖️', '🩺'];
+    if (!barsContainer) return;
 
-        miniContainer.innerHTML = superOrder.map((superTitle, idx) => {
-            const casesInSuper = allCases.filter(c => {
-                const cat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-                return getSuperFolderForCategory(cat) === superTitle;
-            });
-            const solvedCount = casesInSuper.filter(c => solved.includes(c.case_id)).length;
-            const themeClass = themes[idx % themes.length];
-            const escapedSuper = escapeHtml(superTitle).replace(/'/g, "\\'");
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-            return `
-                <div class="bento-mini-card" onclick="window.jumpToBentoFolder('${escapedSuper}', true)">
-                    <div class="bento-mini-icon-circle ${themeClass}">${icons[idx % icons.length]}</div>
-                    <div class="bento-mini-meta">
-                        <div class="bento-mini-watched">${solvedCount}/${casesInSuper.length} gelöst</div>
-                        <div class="bento-mini-title" title="${escapeHtml(superTitle)}">${escapeHtml(superTitle)}</div>
-                    </div>
-                    <button type="button" class="bento-dots-btn" onclick="event.stopPropagation(); window.toggleSubjectProgressModal(true);" title="Statistik öffnen">⋮</button>
-                </div>
-            `;
-        }).join('');
+    const monthNamesShort = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+    const mName = monthNamesShort[currentMonth];
+
+    if (monthLabelEl) {
+        monthLabelEl.textContent = `Monatsfortschritt · ${mName} ${currentYear}`;
     }
 
+    // 5 Monatsabschnitte (Wochen-Buckets: 1-7, 8-14, 15-21, 22-28, 29-Ende)
+    const buckets = [
+        { label: `01–07`, start: 1, end: 7, count: 0 },
+        { label: `08–14`, start: 8, end: 14, count: 0 },
+        { label: `15–21`, start: 15, end: 21, count: 0 },
+        { label: `22–28`, start: 22, end: 28, count: 0 },
+        { label: `29–${daysInMonth}`, start: 29, end: daysInMonth, count: 0 }
+    ];
+
+    const currentBucketIdx = Math.min(4, Math.floor((currentDay - 1) / 7));
+
+    // Reale Fortschrittsdaten aus ProgressManager & Depot auslesen
+    const allProgress = ProgressManager.getAll() || {};
+    const activeDaysSet = new Set();
+    let monthlyTouchedCases = 0;
+    let monthlySolvedCases = 0;
+    let monthlyInProgressCases = 0;
+
+    allCases.forEach(c => {
+        const cId = c.case_id;
+        const state = allProgress[cId];
+        const isSolved = solvedIds.includes(cId);
+        const hasState = state && Object.keys(state).filter(k => k !== 'updatedAt').length > 0;
+
+        if (state && state.updatedAt) {
+            const dt = new Date(state.updatedAt);
+            if (dt.getFullYear() === currentYear && dt.getMonth() === currentMonth) {
+                const day = dt.getDate();
+                const bIdx = Math.min(4, Math.floor((day - 1) / 7));
+                buckets[bIdx].count += 1;
+                activeDaysSet.add(day);
+                monthlyTouchedCases += 1;
+
+                if (isSolved) monthlySolvedCases += 1;
+                else if (hasState) monthlyInProgressCases += 1;
+            }
+        }
+    });
+
+    // Falls Fälle bereits gelöst wurden, bevor Zeitstempel existierten, der aktuellen Woche gutschreiben
+    if (monthlyTouchedCases === 0 && solvedIds.length > 0) {
+        buckets[currentBucketIdx].count = solvedIds.length;
+        monthlyTouchedCases = solvedIds.length;
+        monthlySolvedCases = solvedIds.length;
+        activeDaysSet.add(currentDay);
+    }
+
+    // Dynamische Y-Achse berechnen (passt sich deiner echten Fallzahl an)
+    const maxCount = Math.max(...buckets.map(b => b.count), 4);
+    const yTop = maxCount <= 4 ? 4 : (maxCount <= 10 ? 10 : Math.ceil(maxCount / 5) * 5);
+    const yMid = Math.round(yTop / 2);
+
+    if (yAxisEl) {
+        yAxisEl.innerHTML = `
+            <span>${yTop}</span>
+            <span>${yMid}</span>
+            <span>0</span>
+        `;
+    }
+
+    // 5 Wochen-Säulen mit exakter Zahlenangabe rendern
+    barsContainer.innerHTML = buckets.map((b, idx) => {
+        const isCurrent = idx === currentBucketIdx;
+        const heightPct = b.count > 0 ? Math.max(14, Math.min(100, Math.round((b.count / yTop) * 100))) : 8;
+        const barClass = b.count === 0
+            ? 'bar-empty'
+            : (isCurrent ? 'bar-Current' : (idx % 2 === 0 ? 'bar-pastel' : 'bar-primary'));
+
+        return `
+            <div class="bento-bar-col ${isCurrent ? 'is-current-week' : ''}" title="${b.label}. ${mName}: ${b.count} ${b.count === 1 ? 'Fall' : 'Fälle'} bearbeitet">
+                <span class="bento-bar-val">${b.count}</span>
+                <div class="bento-bar ${barClass}" style="height: ${heightPct}%;"></div>
+            </div>
+        `;
+    }).join('');
+
+    if (xAxisEl) {
+        xAxisEl.innerHTML = buckets.map((b, idx) =>
+            `<span class="${idx === currentBucketIdx ? 'is-current-week' : ''}">${b.label}</span>`
+        ).join('');
+    }
+
+    if (totalPillEl) {
+        totalPillEl.textContent = `${monthlyTouchedCases} ${monthlyTouchedCases === 1 ? 'Fall' : 'Fälle'} im ${mName}`;
+    }
+
+    // Gesamt-KPIs unten im Chart aktualisieren
+    const totalInProgressOverall = allCases.filter(c => {
+        if (solvedIds.includes(c.case_id)) return false;
+        const st = allProgress[c.case_id];
+        return st && Object.keys(st).filter(k => k !== 'updatedAt').length > 0;
+    }).length;
+
+    if (kpiSolvedEl) kpiSolvedEl.textContent = `${solvedIds.length} Gelöst`;
+    if (kpiProgressEl) kpiProgressEl.textContent = `${totalInProgressOverall} In Arbeit`;
+    if (kpiDaysEl) kpiDaysEl.textContent = `${activeDaysSet.size} ${activeDaysSet.size === 1 ? 'Lerntag' : 'Lerntage'}`;
+}
     // 2. „YOUR LESSON“ TABELLE (Priorisiert angefangene & offene Fälle)
     const tbody = document.getElementById('bento-your-lesson-tbody');
     if (tbody) {
