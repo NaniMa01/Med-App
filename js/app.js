@@ -8161,3 +8161,423 @@ window.selectSrFolder = function(folderName) {
         SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
     };
 })();
+
+// ==========================================================================
+// 23. CLINICAL DIDACTICS ENGINE (HOTSPOT-GUARD, CBM-QUIZ, CASCADE-INTERCEPT)
+// ==========================================================================
+const ClinicalDidacticsEngine = (() => {
+    // Speichert die Selbstsicherheit (Confidence) pro Quiz-Frage: 'sure' | 'unsure' | 'guess'
+    let quizConfidenceMap = {};
+    // Speichert durchgestrichene Distraktoren: { "qIdx_optIdx": true }
+    let struckOptionsMap = {};
+
+    // ----------------------------------------------------------------------
+    // 1. FUZZY-HOTSPOT-SANITIZER (Verhindert unlösbare 8/9 Audit-Fälle!)
+    // ----------------------------------------------------------------------
+    function sanitizeCaseHotspots(caseData) {
+        if (!caseData || !Array.isArray(caseData.timeline)) return caseData;
+
+        const normalizeQuotesAndDashes = (str) => String(str || '')
+            .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+            .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+            .replace(/[\u2013\u2014]/g, '-')
+            .replace(/\u00A0/g, ' ')
+            .replace(/\s+/g, ' ');
+
+        caseData.timeline.forEach((step) => {
+            if (!step || typeof step.content !== 'string' || !Array.isArray(step.hotspots)) return;
+
+            step.hotspots.forEach((hs) => {
+                if (!hs || typeof hs.phrase !== 'string') return;
+                const rawPhrase = hs.phrase.trim();
+                if (!rawPhrase) return;
+
+                // Exakter Treffer vorhanden -> alles perfekt
+                if (step.content.includes(rawPhrase)) return;
+
+                // Falls kein exakter Treffer: Normalisierten Vergleich durchführen
+                const normContent = normalizeQuotesAndDashes(step.content);
+                const normPhrase = normalizeQuotesAndDashes(rawPhrase);
+
+                const idx = normContent.toLowerCase().indexOf(normPhrase.toLowerCase());
+                if (idx !== -1) {
+                    // Übernehme die normalisierte Form in beide Strings, damit audit.js garantiert matcht!
+                    step.content = normContent;
+                    hs.phrase = normContent.slice(idx, idx + normPhrase.length);
+                    console.info(`🛠️ [Hotspot-Guard] Substring in Schritt ${step.step_id} automatisch synchronisiert: "${hs.phrase}"`);
+                } else {
+                    // Fallback: Suche über erstes und letztes Wort der Phrase (falls KI ein Wort verändert hat)
+                    const words = normPhrase.split(' ').filter(Boolean);
+                    if (words.length >= 3) {
+                        const firstWord = words[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const lastWord = words[words.length - 1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const fuzzyRegex = new RegExp(`${firstWord}[\\s\\S]{1,140}?${lastWord}`, 'i');
+                        const match = step.content.match(fuzzyRegex);
+                        if (match && match[0]) {
+                            hs.phrase = match[0];
+                            console.info(`🛠️ [Hotspot-Guard] Fuzzy-Repair in Schritt ${step.step_id} erfolgreich: "${hs.phrase}"`);
+                        }
+                    }
+                }
+            });
+        });
+
+        return caseData;
+    }
+
+    // ----------------------------------------------------------------------
+    // 2. QUIZ UPGRADE: DISTRAKTOR-STRIKEOUT & CONFIDENCE-BASED MARKING (CBM)
+    // ----------------------------------------------------------------------
+    function enhanceQuizDOM() {
+        const quizWrapper = document.getElementById('quiz-wrapper');
+        if (!quizWrapper || !activeCaseData?.extra_tasks?.master_quiz) return;
+
+        const questions = activeCaseData.extra_tasks.master_quiz;
+        const cards = quizWrapper.querySelectorAll('.quiz-card, .depot-q-card, [data-question-index]');
+
+        // Falls quiz.js eigene Container nutzt, iterieren wir über die Kinder von #quiz-wrapper
+        const targetBlocks = cards.length > 0 ? Array.from(cards) : Array.from(quizWrapper.children);
+
+        targetBlocks.forEach((block, qIdx) => {
+            if (qIdx >= questions.length) return;
+            if (block.dataset.didacticsEnhanced === 'true') return;
+            block.dataset.didacticsEnhanced = 'true';
+
+            // A) Rechtsklick / Doppelklick zum Durchstreichen von Distraktoren (USMLE/IMPP-Style)
+            const optButtons = block.querySelectorAll('button, .quiz-option, .quiz-opt-btn');
+            optButtons.forEach((btn, optIdx) => {
+                btn.title = 'Links-Klick: Auswählen · Rechts-Klick: Als Distraktor durchstreichen';
+                btn.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    toggleOptionStrikeout(qIdx, optIdx, btn);
+                });
+            });
+
+            // B) Confidence-Selector unter jede Frage injizieren
+            const currentConf = quizConfidenceMap[qIdx] || 'sure';
+            const confBar = document.createElement('div');
+            confBar.className = 'cbm-confidence-bar';
+            confBar.style.cssText = 'display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:10px; padding:8px 12px; border-radius:8px; background:rgba(15,23,42,0.45); border:1px dashed var(--card-border); font-size:0.74rem;';
+            confBar.innerHTML = `
+                <span style="color:var(--text-muted); font-weight:600;">🎯 Deine Diagnosesicherheit (CBM):</span>
+                <div style="display:flex; gap:6px;">
+                    <button type="button" class="cbm-pill ${currentConf === 'sure' ? 'active' : ''}" data-q="${qIdx}" data-conf="sure" style="padding:3px 9px; border-radius:6px; border:1px solid rgba(16,185,129,0.4); background:${currentConf === 'sure' ? 'rgba(16,185,129,0.22)' : 'transparent'}; color:#6ee7b7; cursor:pointer; font-weight:700; font-size:0.72rem;">
+                        ✓ Sicher
+                    </button>
+                    <button type="button" class="cbm-pill ${currentConf === 'unsure' ? 'active' : ''}" data-q="${qIdx}" data-conf="unsure" style="padding:3px 9px; border-radius:6px; border:1px solid rgba(245,158,11,0.4); background:${currentConf === 'unsure' ? 'rgba(245,158,11,0.22)' : 'transparent'}; color:#fcd34d; cursor:pointer; font-weight:700; font-size:0.72rem;">
+                        🤔 50:50
+                    </button>
+                    <button type="button" class="cbm-pill ${currentConf === 'guess' ? 'active' : ''}" data-q="${qIdx}" data-conf="guess" style="padding:3px 9px; border-radius:6px; border:1px solid rgba(239,68,68,0.4); background:${currentConf === 'guess' ? 'rgba(239,68,68,0.22)' : 'transparent'}; color:#fca5a5; cursor:pointer; font-weight:700; font-size:0.72rem;">
+                        🎲 Geraten
+                    </button>
+                </div>
+            `;
+
+            confBar.querySelectorAll('.cbm-pill').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const q = Number(pill.dataset.q);
+                    const conf = pill.dataset.conf;
+                    quizConfidenceMap[q] = conf;
+
+                    confBar.querySelectorAll('.cbm-pill').forEach(p => {
+                        const isSel = p.dataset.conf === conf;
+                        p.classList.toggle('active', isSel);
+                        if (p.dataset.conf === 'sure') p.style.background = isSel ? 'rgba(16,185,129,0.22)' : 'transparent';
+                        if (p.dataset.conf === 'unsure') p.style.background = isSel ? 'rgba(245,158,11,0.22)' : 'transparent';
+                        if (p.dataset.conf === 'guess') p.style.background = isSel ? 'rgba(239,68,68,0.22)' : 'transparent';
+                    });
+                    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
+                });
+            });
+
+            block.appendChild(confBar);
+        });
+    }
+
+    function toggleOptionStrikeout(qIdx, optIdx, btnEl) {
+        const key = `${qIdx}_${optIdx}`;
+        struckOptionsMap[key] = !struckOptionsMap[key];
+        const isStruck = struckOptionsMap[key];
+
+        btnEl.style.textDecoration = isStruck ? 'line-through' : 'none';
+        btnEl.style.opacity = isStruck ? '0.42' : '1';
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+    }
+
+    // Wertet nach `evalQuiz()` die Confidence-Matrix aus und speist sie in Leitner & Lern-Depot ein
+    function evaluateQuizConfidenceTelemetry() {
+        if (!activeCaseData?.extra_tasks?.master_quiz) return;
+        const questions = activeCaseData.extra_tasks.master_quiz;
+        let highConfidenceErrors = [];
+        let luckyGuesses = [];
+
+        questions.forEach((q, qIdx) => {
+            const userAns = userQuizAnswers?.[qIdx];
+            if (userAns === undefined || userAns === null) return;
+
+            const isCorrect = Number(userAns) === Number(q.correct_index);
+            const conf = quizConfidenceMap[qIdx] || 'sure';
+            const targetConcept = q.target_disease || activeCaseData.metadata?.primary_disease || 'Staatsexamen-Quiz';
+
+            if (!isCorrect && conf === 'sure') {
+                // KRITISCH: Student war sich 100 % sicher, lag aber falsch (Cognitive Bias!)
+                highConfidenceErrors.push({ qIdx: qIdx + 1, concept: targetConcept, question: q.question, correctOpt: q.options?.[q.correct_index] });
+                if (window.SpacedRepetitionEngine) {
+                    window.SpacedRepetitionEngine.logConceptStruggle(activeCaseData.case_id, targetConcept, 'high_confidence_bias');
+                }
+                // Automatisch als Warn-Eintrag ins persönliche Lern-Depot sichern
+                if (typeof createDepotEntry === 'function' && q.options?.[q.correct_index]) {
+                    createDepotEntry({
+                        case_id: activeCaseData.case_id,
+                        case_title: activeCaseData.metadata?.title || activeCaseData.case_id,
+                        category: activeCaseData.folder_name || 'Cognitive Bias',
+                        cue_context: `⚠️ High-Confidence Irrtum (${targetConcept})`,
+                        highlighted_text: `Korrekte Antwort: ${q.options[q.correct_index]}`
+                    });
+                }
+            } else if (isCorrect && (conf === 'guess' || conf === 'unsure')) {
+                // LUCKY GUESS: Richtig geraten -> Trotzdem in Leitner-Box 1/2 wiederholen!
+                luckyGuesses.push({ qIdx: qIdx + 1, concept: targetConcept });
+                if (window.SpacedRepetitionEngine) {
+                    window.SpacedRepetitionEngine.logConceptStruggle(activeCaseData.case_id, targetConcept, 'lucky_guess');
+                }
+            }
+        });
+
+        // VisuellesMetakognitions-Feedback unter #quiz-fb anhängen
+        const quizFb = document.getElementById('quiz-fb');
+        if (quizFb && (highConfidenceErrors.length > 0 || luckyGuesses.length > 0)) {
+            const metaBox = document.createElement('div');
+            metaBox.style.cssText = 'margin-top:12px; padding:12px 14px; border-radius:10px; background:rgba(15,23,42,0.75); border:1px solid rgba(56,189,248,0.3); font-size:0.82rem; line-height:1.5;';
+            metaBox.innerHTML = `
+                <div style="font-weight:800; color:var(--accent-cyan, #38bdf8); margin-bottom:6px;">
+                    🧠 Metakognitive Prüfungs-Analyse (Confidence-Based Marking)
+                </div>
+                ${highConfidenceErrors.length > 0 ? `
+                    <div style="color:#fca5a5; margin-bottom:4px;">
+                        ⚠️ <strong>Blinder Fleck detektiert (Frage ${highConfidenceErrors.map(e => e.qIdx).join(', ')}):</strong> Du warst dir sicher, lagst aber falsch. Die korrekte Kernaussage wurde automatisch in dein <strong>📌 Lern-Depot</strong> übertragen und für die Leitner-Visite (Box 1) markiert!
+                    </div>
+                ` : ''}
+                ${luckyGuesses.length > 0 ? `
+                    <div style="color:#fcd34d;">
+                        🎲 <strong>Zufallstreffer erkannt (Frage ${luckyGuesses.map(e => e.qIdx).join(', ')}):</strong> Du hast richtig getippt, warst aber unsicher. Das Konzept <em>${escapeHtml(luckyGuesses[0].concept)}</em> bleibt im kurzen Wiederholungsintervall, bis es sicher sitzt.
+                    </div>
+                ` : ''}
+            `;
+            quizFb.appendChild(metaBox);
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // 3. CLINICAL CASCADES UPGRADE: "BREAK THE CASCADE" (PHARMA-SYNTHESE)
+    // ----------------------------------------------------------------------
+    function injectCascadePharmacologyPrompt() {
+        const wrapper = document.getElementById('cascades-wrapper');
+        if (!wrapper || !activeCaseData?.extra_tasks?.clinical_cascades) return;
+        if (document.getElementById('cascade-pharma-synthesis-box')) return;
+
+        // Nur anzeigen, wenn mindestens eine Kaskade vorhanden ist
+        const firstCascade = activeCaseData.extra_tasks.clinical_cascades[0];
+        if (!firstCascade || !Array.isArray(firstCascade.cascade) || firstCascade.cascade.length < 6) return;
+
+        const targetStageObj = firstCascade.cascade[6] || firstCascade.cascade[firstCascade.cascade.length - 2]; // 07_Therapeutische Intervention
+        const pathoStageObj = firstCascade.cascade[2] || firstCascade.cascade[1]; // 03_Zellulärer Mechanismus
+
+        const synthBox = document.createElement('div');
+        synthBox.id = 'cascade-pharma-synthesis-box';
+        synthBox.style.cssText = 'margin-top: 18px; padding: 16px; border-radius: 12px; background: rgba(2, 132, 199, 0.08); border: 1px dashed rgba(56, 189, 248, 0.35);';
+        synthBox.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+                <span style="font-size:0.84rem; font-weight:800; color:var(--accent-cyan, #38bdf8);">
+                    💊 Sokratischer Transfer (Bloom Stufe 5): Break the Cascade
+                </span>
+                <span style="font-size:0.7rem; padding:2px 8px; border-radius:999px; background:rgba(56,189,248,0.15); color:#38bdf8; font-weight:700;">
+                    Pathophysiologie × Therapie
+                </span>
+            </div>
+            <div style="font-size:0.83rem; color:var(--text-main); line-height:1.5; margin-bottom:10px;">
+                Überlege dir vor dem Weiterklicken: Durch welchen exakten molekularen oder klinischen Eingriff durchbrichst du bei <strong>${escapeHtml(firstCascade.disease || activeCaseData.metadata?.primary_disease || 'diesem Krankheitsbild')}</strong> den Übergang von <em>„${escapeHtml(pathoStageObj?.content || 'Pathophysiologie')}“</em> zum Endschaden?
+            </div>
+            <button type="button" class="action-btn secondary btn-sm" onclick="this.nextElementSibling.style.display='block'; this.style.display='none'; window.triggerHaptic(6);">
+                🔍 Therapeutischen Angriffspunkt prüfen
+            </button>
+            <div style="display:none; margin-top:10px; padding:10px 12px; border-radius:8px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); font-size:0.82rem; color:var(--text-main);">
+                <strong>✓ Kausale Intervention (Stufe 07):</strong> ${escapeHtml(targetStageObj?.content || 'Siehe Leitlinien-Therapie in der Übersicht.')}
+            </div>
+        `;
+        wrapper.appendChild(synthBox);
+    }
+
+    // ----------------------------------------------------------------------
+    // 4. SOKRATISCHER KI-TUTOR ON-DEMAND (NUTZT DEINE /api/gemini.js)
+    // ----------------------------------------------------------------------
+    window.askSocraticAiTutor = async function(contextType = 'general', btnEl = null) {
+        if (!activeCaseData) return;
+        const origText = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = '⏳ Sokratischer Tutor analysiert...';
+        }
+
+        const primaryDisease = activeCaseData.metadata?.primary_disease || activeCaseData.metadata?.title || 'Klinischer Fall';
+        let specificContext = '';
+
+        if (contextType === 'quiz') {
+            const firstQ = activeCaseData.extra_tasks?.master_quiz?.[0];
+            specificContext = firstQ ? `Prüfungsfrage: "${firstQ.question}" (Zielkonzept: ${primaryDisease})` : primaryDisease;
+        } else if (contextType === 'cat') {
+            const catTask = activeCaseData.extra_tasks?.categorization;
+            specificContext = `Taxonomie-Zuordnung zwischen: ${(catTask?.categories || []).join(', ')}`;
+        } else if (contextType === 'synapses') {
+            const synTask = activeCaseData.extra_tasks?.synapses_matrix;
+            specificContext = `Differentialdiagnostische Abgrenzung zwischen: ${(synTask?.diseases || []).join(', ')}`;
+        } else {
+            specificContext = activeCaseData.case_overview?.summary || primaryDisease;
+        }
+
+        const tutorModal = document.getElementById('tutor-modal');
+        const tutorText = document.getElementById('tutor-text');
+
+        try {
+            const res = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: 'socratic_hint',
+                    prompt: `Du bist ein sokratischer medizinischer Oberarzt-Tutor für einen Medizinstudenten im 5. Studienjahr (2. Master). Stelle EINE kurze, hochpräzise sokratische Leitfrage (max. 2-3 Sätze, OHNE die Lösung direkt zu verraten!), die ihm hilft, folgenden klinischen Sachverhalt pathophysiologisch selbst herzuleiten: ${specificContext}`
+                })
+            });
+
+            let socraticReply = '';
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                socraticReply = data.generatedText || data.result || '';
+            }
+
+            // Intelligenter lokaler Fallback, falls /api/gemini keinen Text-String liefert
+            if (!socraticReply || typeof socraticReply !== 'string' || socraticReply.trim().startsWith('{')) {
+                const auditTrap = activeCaseData.timeline?.flatMap(s => s.hotspots || []).find(h => h.socratic_trap)?.socratic_trap;
+                socraticReply = auditTrap || `Vergleiche bei „${primaryDisease}“ den primären Pathomechanismus mit der akut-vitalen Konsequenz: Welcher Rezeptor, welche Leitstruktur oder welcher Laborparameter trennt diese Entität eindeutig von ihren engsten Differenzialdiagnosen?`;
+            }
+
+            if (tutorText && tutorModal) {
+                tutorText.innerHTML = `<div style="line-height:1.55; font-size:0.88rem;">${escapeHtml(socraticReply.trim())}</div>`;
+                tutorModal.style.display = 'flex';
+            }
+        } catch (_err) {
+            if (tutorText && tutorModal) {
+                tutorText.innerText = `Fokussiere auf die Pathophysiologie von ${primaryDisease}: Welcher diagnostische Goldstandard schließt hier die gefährlichste Differenzialdiagnose aus?`;
+                tutorModal.style.display = 'flex';
+            }
+        } finally {
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origText;
+            }
+        }
+    };
+
+    // Fügt den "🧠 Sokratischer KI-Impuls"-Button automatisch in die Challenge-Header ein
+    function injectSocraticAiButtons() {
+        const targets = [
+            { paneId: 'mode-container-quiz', type: 'quiz' },
+            { paneId: 'mode-container-cat', type: 'cat' },
+            { paneId: 'mode-container-synapses', type: 'synapses' }
+        ];
+
+        targets.forEach(({ paneId, type }) => {
+            const pane = document.getElementById(paneId);
+            if (!pane || pane.querySelector('.socratic-ai-trigger-btn')) return;
+            const titleEl = pane.querySelector('.panel-title');
+            if (!titleEl) return;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'action-btn secondary btn-sm socratic-ai-trigger-btn';
+            btn.style.cssText = 'margin-left:auto; padding:4px 10px; font-size:0.72rem; border-color:rgba(56,189,248,0.4); color:var(--accent-cyan, #38bdf8);';
+            btn.innerHTML = '🧠 Sokratischer Impuls';
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                window.askSocraticAiTutor(type, btn);
+            };
+            titleEl.style.display = 'flex';
+            titleEl.style.alignItems = 'center';
+            titleEl.style.justifyContent = 'space-between';
+            titleEl.style.gap = '8px';
+            titleEl.appendChild(btn);
+        });
+    }
+
+    // ----------------------------------------------------------------------
+    // 5. LIFECYCLE-HOOKS & TASTATUR-ERGONOMIE (ALT + 1..7)
+    // ----------------------------------------------------------------------
+    function initHooks() {
+        // A) Vor jedem Fall-Start: Hotspots reparieren & Quiz-Confidence zurücksetzen
+        const origLoadCase = window.loadCaseById;
+        if (typeof origLoadCase === 'function') {
+            window.loadCaseById = async function(caseId, opts = {}) {
+                quizConfidenceMap = {};
+                struckOptionsMap = {};
+                const res = await origLoadCase.apply(this, arguments);
+                if (activeCaseData) {
+                    sanitizeCaseHotspots(activeCaseData);
+                    if (currentActiveChallenge === 'audit' && typeof window.renderTimeline === 'function') {
+                        window.renderTimeline();
+                    }
+                }
+                injectSocraticAiButtons();
+                return res;
+            };
+        }
+
+        // B) Beim Wechsel in Quiz oder Kaskade die didaktischen Erweiterungen einblenden
+        const origSwitchMode = window.switchPlayerMode;
+        if (typeof origSwitchMode === 'function') {
+            window.switchPlayerMode = async function(mode) {
+                const res = await origSwitchMode.apply(this, arguments);
+                injectSocraticAiButtons();
+                if (mode === 'quiz') {
+                    setTimeout(enhanceQuizDOM, 60);
+                } else if (mode === 'cascade') {
+                    setTimeout(injectCascadePharmacologyPrompt, 60);
+                }
+                return res;
+            };
+        }
+
+        // C) Nach `evalQuiz()` automatisch die Confidence-Matrix (CBM) auswerten
+        const origEvalQuiz = window.evalQuiz;
+        window.evalQuiz = async function() {
+            if (typeof origEvalQuiz === 'function') {
+                await origEvalQuiz.apply(this, arguments);
+            }
+            setTimeout(evaluateQuizConfidenceTelemetry, 50);
+        };
+
+        // D) Globale Schnellnavigation im Player: Alt + 1..8 wechselt sofort zwischen den Challenge-Tabs
+        document.addEventListener('keydown', (e) => {
+            const playerView = document.getElementById('player-view');
+            if (!playerView || playerView.style.display === 'none') return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+            if (e.altKey && e.key >= '1' && e.key <= '8') {
+                const modes = ['overview', 'audit', 'synapses', 'cascade', 'cat', 'quiz', 'doctordle', 'flashcards'];
+                const targetMode = modes[parseInt(e.key, 10) - 1];
+                const btn = document.getElementById(`tab-btn-${targetMode}`);
+                if (targetMode && btn && btn.style.display !== 'none') {
+                    e.preventDefault();
+                    window.switchPlayerMode(targetMode);
+                }
+            }
+        });
+    }
+
+    return {
+        init: initHooks,
+        sanitizeCaseHotspots,
+        enhanceQuizDOM
+    };
+})();
+
+ClinicalDidacticsEngine.init();
