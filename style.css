@@ -9006,3 +9006,155 @@ body.bento-right-collapsed .bento-right-sidebar {
         padding: 14px;
     }
 }
+/* ==========================================================================
+   31. ÜBERORDNER-FILTER IM MODUS: LERNEN NACH FACHRICHTUNG (#specialty-hub)
+   ========================================================================== */
+.specialty-super-filter-bar {
+    grid-column: 1 / -1;
+    background: var(--surface-card, rgba(15, 23, 42, 0.75));
+    border: 1px solid var(--border-subtle, var(--card-border));
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--elevation-card-shadow);
+}
+
+.specialty-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.specialty-filter-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.specialty-filter-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    color: var(--primary-400, var(--accent-blue));
+    text-transform: uppercase;
+}
+
+.specialty-filter-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.specialty-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.specialty-filter-stat-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--badge-primary-bg);
+    color: var(--badge-primary-text);
+}
+
+.specialty-filter-action-btn {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.specialty-filter-action-btn:hover {
+    border-color: var(--primary-400);
+    color: var(--text-strong);
+    background: var(--badge-primary-bg);
+}
+
+.specialty-filter-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.specialty-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.specialty-filter-chip.is-active {
+    background: var(--badge-primary-bg);
+    border: 1px solid var(--primary-500, var(--accent-blue));
+    color: var(--text-strong);
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.15);
+}
+
+.specialty-filter-chip.is-active .chip-status-icon {
+    color: var(--color-symptom, #10b981);
+    font-weight: 900;
+}
+
+.specialty-filter-chip.is-active .chip-count {
+    background: rgba(2, 132, 199, 0.22);
+    color: var(--badge-primary-text);
+}
+
+.specialty-filter-chip.is-excluded {
+    background: var(--surface-subtle);
+    border: 1px dashed var(--border-subtle);
+    color: var(--text-dim);
+    opacity: 0.65;
+}
+
+.specialty-filter-chip.is-excluded .chip-name {
+    text-decoration: line-through;
+}
+
+.specialty-filter-chip.is-excluded .chip-status-icon {
+    color: var(--color-risk, #ef4444);
+}
+
+.specialty-filter-chip:hover {
+    transform: translateY(-1px);
+    opacity: 1;
+}
+
+.specialty-filter-chip .chip-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--text-muted);
+}
+
+.specialty-filter-empty-state {
+    text-align: center;
+    padding: 32px 20px;
+    border-radius: 16px;
+    background: var(--surface-card);
+    border: 1px dashed var(--border-subtle);
+}
