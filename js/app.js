@@ -187,12 +187,12 @@ const BUILTIN_DEMO_CASE = {
 };
 
 // ==========================================================================
-// 02. THEME ENGINE & LIGHT-MODE INLINE-SANITIZER
+// 02. UNIVERSAL THEME ENGINE, BRIGHT-MODE CSS & REVERSIBLE INLINE-SANITIZER
 // ==========================================================================
 const THEME_STORAGE_KEY = 'medcheck_ui_theme';
 const THEME_META_COLORS = {
     midnight: '#060913',
-    daylight: '#ffffff',
+    daylight: '#f8fafc',
     scrubs:   '#04110f',
     neuro:    '#090614',
     tropical: '#fff8ed'
@@ -200,39 +200,550 @@ const THEME_META_COLORS = {
 
 let lightSanitizeRaf = null;
 
+function isBrightThemeActive(themeName = document.documentElement.getAttribute('data-theme')) {
+    return themeName === 'daylight' || themeName === 'tropical';
+}
+
+// Injiziert ein globales, hochspezifisches Stylesheet, das ALLE Views & Challenges
+// im Bright Mode (daylight & tropical) auf ein einheitliches helles Klinik-Design bringt.
+function ensureUniversalBrightModeStyles() {
+    if (document.getElementById('mc-universal-bright-mode-css')) return;
+
+    const style = document.createElement('style');
+    style.id = 'mc-universal-bright-mode-css';
+    style.textContent = `
+        /* ==================================================================
+           1. GLOBALE DESIGN-TOKENS FÜR BRIGHT MODE (DAYLIGHT & TROPICAL)
+           ================================================================== */
+        html[data-theme="daylight"] {
+            --bg-app: #f1f5f9;
+            --surface-primary: #ffffff;
+            --surface-secondary: #f8fafc;
+            --surface-subtle: #f1f5f9;
+            --surface-elevated: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #cbd5e1;
+            --divider-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --text-muted-token: #64748b;
+            --text-dim: #64748b;
+            --accent-blue: #0284c7;
+            --accent-cyan: #0369a1;
+            --primary-action: #0284c7;
+            --badge-primary-bg: rgba(2, 132, 199, 0.12);
+            --badge-primary-text: #0369a1;
+        }
+
+        html[data-theme="tropical"] {
+            --bg-app: #fef3c7;
+            --surface-primary: #fffbeb;
+            --surface-secondary: #fef9c3;
+            --surface-subtle: #fde68a;
+            --surface-elevated: #ffffff;
+            --card-bg: #fffdf5;
+            --card-border: rgba(217, 119, 6, 0.28);
+            --divider-color: rgba(217, 119, 6, 0.18);
+            --text-main: #1c1917;
+            --text-muted: #57534e;
+            --text-muted-token: #78716c;
+            --text-dim: #78716c;
+            --accent-blue: #0d9488;
+            --accent-cyan: #0f766e;
+            --primary-action: #d97706;
+            --badge-primary-bg: rgba(13, 148, 136, 0.14);
+            --badge-primary-text: #0f766e;
+        }
+
+        /* ==================================================================
+           2. APP-SHELL, SIDEBARS, TOPBAR & BENTO-CONTAINER
+           ================================================================== */
+        html[data-theme="daylight"] body,
+        html[data-theme="tropical"] body {
+            background: var(--bg-app) !important;
+            color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .bento-left-sidebar,
+        html[data-theme="daylight"] .bento-right-sidebar,
+        html[data-theme="daylight"] .bento-topbar,
+        html[data-theme="daylight"] .bento-stat-card,
+        html[data-theme="daylight"] .bento-inner-box,
+        html[data-theme="daylight"] .bento-mini-card,
+        html[data-theme="daylight"] .bento-lesson-table-card,
+        html[data-theme="daylight"] .super-folder,
+        html[data-theme="daylight"] .category-folder,
+        html[data-theme="daylight"] .case-card,
+        html[data-theme="tropical"] .bento-left-sidebar,
+        html[data-theme="tropical"] .bento-right-sidebar,
+        html[data-theme="tropical"] .bento-topbar,
+        html[data-theme="tropical"] .bento-stat-card,
+        html[data-theme="tropical"] .bento-inner-box,
+        html[data-theme="tropical"] .bento-mini-card,
+        html[data-theme="tropical"] .bento-lesson-table-card,
+        html[data-theme="tropical"] .super-folder,
+        html[data-theme="tropical"] .category-folder,
+        html[data-theme="tropical"] .case-card {
+            background: var(--surface-primary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+        }
+
+        html[data-theme="daylight"] .super-folder-header,
+        html[data-theme="daylight"] .category-header,
+        html[data-theme="tropical"] .super-folder-header,
+        html[data-theme="tropical"] .category-header {
+            background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* ==================================================================
+           3. PLAYER CHALLENGES (OVERVIEW, AUDIT, SYNAPSEN, KASKADE, QUIZ, DOCTORDLE)
+           ================================================================== */
+        html[data-theme="daylight"] .cornell-wrapper,
+        html[data-theme="daylight"] .cornell-grid,
+        html[data-theme="daylight"] .cornell-cues,
+        html[data-theme="daylight"] .cornell-notes,
+        html[data-theme="daylight"] .cornell-summary,
+        html[data-theme="daylight"] .synapses-container,
+        html[data-theme="daylight"] .synapse-tile,
+        html[data-theme="daylight"] .synapse-solved-row,
+        html[data-theme="daylight"] .audit-step-container,
+        html[data-theme="daylight"] .step-card,
+        html[data-theme="daylight"] .cascade-disease-container,
+        html[data-theme="daylight"] .cascade-slot,
+        html[data-theme="daylight"] .cascade-chip,
+        html[data-theme="daylight"] .cat-column,
+        html[data-theme="daylight"] .cat-item-chip,
+        html[data-theme="daylight"] .quiz-card,
+        html[data-theme="daylight"] .quiz-opt-btn,
+        html[data-theme="daylight"] .quiz-option,
+        html[data-theme="daylight"] .doctordle-hint-card,
+        html[data-theme="daylight"] .doctordle-input-wrapper input,
+        html[data-theme="daylight"] .depot-card,
+        html[data-theme="daylight"] .depot-q-card,
+        html[data-theme="tropical"] .cornell-wrapper,
+        html[data-theme="tropical"] .cornell-grid,
+        html[data-theme="tropical"] .cornell-cues,
+        html[data-theme="tropical"] .cornell-notes,
+        html[data-theme="tropical"] .cornell-summary,
+        html[data-theme="tropical"] .synapses-container,
+        html[data-theme="tropical"] .synapse-tile,
+        html[data-theme="tropical"] .synapse-solved-row,
+        html[data-theme="tropical"] .audit-step-container,
+        html[data-theme="tropical"] .step-card,
+        html[data-theme="tropical"] .cascade-disease-container,
+        html[data-theme="tropical"] .cascade-slot,
+        html[data-theme="tropical"] .cascade-chip,
+        html[data-theme="tropical"] .cat-column,
+        html[data-theme="tropical"] .cat-item-chip,
+        html[data-theme="tropical"] .quiz-card,
+        html[data-theme="tropical"] .quiz-opt-btn,
+        html[data-theme="tropical"] .quiz-option,
+        html[data-theme="tropical"] .doctordle-hint-card,
+        html[data-theme="tropical"] .doctordle-input-wrapper input,
+        html[data-theme="tropical"] .depot-card,
+        html[data-theme="tropical"] .depot-q-card {
+            background: var(--surface-primary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .challenge-nav-bar,
+        html[data-theme="daylight"] .segmented-control,
+        html[data-theme="tropical"] .challenge-nav-bar,
+        html[data-theme="tropical"] .segmented-control {
+            background: var(--surface-secondary) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .challenge-tab-btn,
+        html[data-theme="daylight"] .segmented-btn,
+        html[data-theme="tropical"] .challenge-tab-btn,
+        html[data-theme="tropical"] .segmented-btn {
+            color: var(--text-muted) !important;
+        }
+
+        html[data-theme="daylight"] .challenge-tab-btn.active,
+        html[data-theme="daylight"] .segmented-btn.active,
+        html[data-theme="tropical"] .challenge-tab-btn.active,
+        html[data-theme="tropical"] .segmented-btn.active {
+            background: var(--surface-primary) !important;
+            color: var(--accent-blue) !important;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+        }
+
+        /* ==================================================================
+           4. SOLITAIRE ASSOCIATIONS JOURNEY (HELLES KARTENBLATT & TABLEAU)
+           ================================================================== */
+        html[data-theme="daylight"] .sol-lobby-wrapper,
+        html[data-theme="daylight"] .sol-game-wrapper,
+        html[data-theme="tropical"] .sol-lobby-wrapper,
+        html[data-theme="tropical"] .sol-game-wrapper {
+            background: transparent !important;
+            color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .sol-topbar,
+        html[data-theme="daylight"] .sol-mixer-launchpad,
+        html[data-theme="daylight"] .sol-upload-panel,
+        html[data-theme="daylight"] .sol-deck-card,
+        html[data-theme="daylight"] .sol-rule-pill,
+        html[data-theme="daylight"] .sol-completed-strip,
+        html[data-theme="tropical"] .sol-topbar,
+        html[data-theme="tropical"] .sol-mixer-launchpad,
+        html[data-theme="tropical"] .sol-upload-panel,
+        html[data-theme="tropical"] .sol-deck-card,
+        html[data-theme="tropical"] .sol-rule-pill,
+        html[data-theme="tropical"] .sol-completed-strip {
+            background: var(--surface-primary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+        }
+
+        /* Offene Solitaire-Spielkarten als edle helle Spielkarten darstellen */
+        html[data-theme="daylight"] .sol-playing-card.sol-card-term,
+        html[data-theme="tropical"] .sol-playing-card.sol-card-term {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+            border: 1.5px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+        }
+
+        html[data-theme="daylight"] .sol-playing-card.sol-card-category,
+        html[data-theme="tropical"] .sol-playing-card.sol-card-category {
+            background: linear-gradient(165deg, #fffbeb 0%, #fef3c7 100%) !important;
+            border: 1.5px solid #f59e0b !important;
+            color: #1c1917 !important;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.16) !important;
+        }
+
+        /* Verdeckte Kartenrückseiten im Bright Mode dezent klinisch-blau statt tiefschwarz */
+        html[data-theme="daylight"] .sol-playing-card.sol-card-back,
+        html[data-theme="tropical"] .sol-playing-card.sol-card-back {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%) !important;
+            border: 1.5px solid #7dd3fc !important;
+            color: #0369a1 !important;
+        }
+
+        html[data-theme="daylight"] .sol-card-back-inner,
+        html[data-theme="tropical"] .sol-card-back-inner {
+            border-color: rgba(2, 132, 199, 0.25) !important;
+            color: #0369a1 !important;
+        }
+
+        html[data-theme="daylight"] .sol-term-main-text,
+        html[data-theme="daylight"] .sol-cat-disease-title,
+        html[data-theme="daylight"] .sol-collapsed-inline-title,
+        html[data-theme="daylight"] .sol-peek-term,
+        html[data-theme="daylight"] .sol-foundation-title,
+        html[data-theme="daylight"] .sol-foundation-layered-text,
+        html[data-theme="tropical"] .sol-term-main-text,
+        html[data-theme="tropical"] .sol-cat-disease-title,
+        html[data-theme="tropical"] .sol-collapsed-inline-title,
+        html[data-theme="tropical"] .sol-peek-term,
+        html[data-theme="tropical"] .sol-foundation-title,
+        html[data-theme="tropical"] .sol-foundation-layered-text {
+            color: #0f172a !important;
+        }
+
+        html[data-theme="daylight"] .sol-stack-peek-slice,
+        html[data-theme="daylight"] .sol-foundation-slot,
+        html[data-theme="daylight"] .sol-card-slot-frame,
+        html[data-theme="daylight"] .sol-foundation-layered-card,
+        html[data-theme="daylight"] .sol-col-header-pill,
+        html[data-theme="tropical"] .sol-stack-peek-slice,
+        html[data-theme="tropical"] .sol-foundation-slot,
+        html[data-theme="tropical"] .sol-card-slot-frame,
+        html[data-theme="tropical"] .sol-foundation-layered-card,
+        html[data-theme="tropical"] .sol-col-header-pill {
+            background: var(--surface-secondary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .sol-card-info-btn,
+        html[data-theme="tropical"] .sol-card-info-btn {
+            background: rgba(15, 23, 42, 0.06) !important;
+            color: #334155 !important;
+            border-color: rgba(15, 23, 42, 0.15) !important;
+        }
+
+        /* ==================================================================
+           5. KLINIK-DUELL (LOBBY, SCOREBOARD & FRAGEN-ARENA)
+           ================================================================== */
+        html[data-theme="daylight"] .duel-header-card,
+        html[data-theme="daylight"] .duel-search-card,
+        html[data-theme="daylight"] .duel-match-card,
+        html[data-theme="daylight"] .duel-scoreboard-hero,
+        html[data-theme="daylight"] .duel-round-row,
+        html[data-theme="daylight"] .duel-cat-select-card,
+        html[data-theme="daylight"] .duel-cat-choice-btn,
+        html[data-theme="daylight"] .duel-timer-top-banner,
+        html[data-theme="daylight"] .duel-question-card,
+        html[data-theme="daylight"] .duel-opt-btn,
+        html[data-theme="daylight"] .duel-empty-box,
+        html[data-theme="tropical"] .duel-header-card,
+        html[data-theme="tropical"] .duel-search-card,
+        html[data-theme="tropical"] .duel-match-card,
+        html[data-theme="tropical"] .duel-scoreboard-hero,
+        html[data-theme="tropical"] .duel-round-row,
+        html[data-theme="tropical"] .duel-cat-select-card,
+        html[data-theme="tropical"] .duel-cat-choice-btn,
+        html[data-theme="tropical"] .duel-timer-top-banner,
+        html[data-theme="tropical"] .duel-question-card,
+        html[data-theme="tropical"] .duel-opt-btn,
+        html[data-theme="tropical"] .duel-empty-box {
+            background: var(--surface-primary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+        }
+
+        html[data-theme="daylight"] .duel-email-input-wrap,
+        html[data-theme="daylight"] .duel-email-input,
+        html[data-theme="daylight"] .duel-score-box,
+        html[data-theme="tropical"] .duel-email-input-wrap,
+        html[data-theme="tropical"] .duel-email-input,
+        html[data-theme="tropical"] .duel-score-box {
+            background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        /* ==================================================================
+           6. MINDMAP-LABOR V6.0 (CANVAS, KNOTEN, POOL & MASTERY-MODAL)
+           ================================================================== */
+        html[data-theme="daylight"] .mm-header,
+        html[data-theme="daylight"] .mm-preset-bar,
+        html[data-theme="daylight"] .mm-statusbar,
+        html[data-theme="daylight"] .mm-inspector-panel,
+        html[data-theme="daylight"] .mm-inspector-branch,
+        html[data-theme="daylight"] .mm-pool-box,
+        html[data-theme="daylight"] .mm-tutor-box,
+        html[data-theme="daylight"] .mm-chip,
+        html[data-theme="daylight"] .mm-node,
+        html[data-theme="daylight"] .mm-edge-html-badge,
+        html[data-theme="daylight"] .mm-canvas-HUD,
+        html[data-theme="daylight"] .mm-canvas-help-pill,
+        html[data-theme="tropical"] .mm-header,
+        html[data-theme="tropical"] .mm-preset-bar,
+        html[data-theme="tropical"] .mm-statusbar,
+        html[data-theme="tropical"] .mm-inspector-panel,
+        html[data-theme="tropical"] .mm-inspector-branch,
+        html[data-theme="tropical"] .mm-pool-box,
+        html[data-theme="tropical"] .mm-tutor-box,
+        html[data-theme="tropical"] .mm-chip,
+        html[data-theme="tropical"] .mm-node,
+        html[data-theme="tropical"] .mm-edge-html-badge,
+        html[data-theme="tropical"] .mm-canvas-HUD,
+        html[data-theme="tropical"] .mm-canvas-help-pill {
+            background: var(--surface-primary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06) !important;
+        }
+
+        html[data-theme="daylight"] #mm-canvas-viewport,
+        html[data-theme="daylight"] .mm-canvas-container,
+        html[data-theme="tropical"] #mm-canvas-viewport,
+        html[data-theme="tropical"] .mm-canvas-container {
+            background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%) !important;
+            border: 1px solid var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .mm-stage,
+        html[data-theme="tropical"] .mm-stage {
+            background-image: radial-gradient(rgba(15, 23, 42, 0.12) 1px, transparent 1px) !important;
+            background-size: 28px 28px !important;
+        }
+
+        html[data-theme="daylight"] .mm-node-root,
+        html[data-theme="tropical"] .mm-node-root {
+            background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%) !important;
+            border: 2px solid #0284c7 !important;
+            color: #0f172a !important;
+        }
+
+        html[data-theme="daylight"] .mm-root-title,
+        html[data-theme="daylight"] .mm-solved-title,
+        html[data-theme="daylight"] .mm-chip-label,
+        html[data-theme="daylight"] .mm-rel-verb,
+        html[data-theme="tropical"] .mm-root-title,
+        html[data-theme="tropical"] .mm-solved-title,
+        html[data-theme="tropical"] .mm-chip-label,
+        html[data-theme="tropical"] .mm-rel-verb {
+            color: #0f172a !important;
+        }
+
+        html[data-theme="daylight"] .mm-preset-btn,
+        html[data-theme="daylight"] .mm-btn,
+        html[data-theme="daylight"] .mm-select,
+        html[data-theme="tropical"] .mm-preset-btn,
+        html[data-theme="tropical"] .mm-btn,
+        html[data-theme="tropical"] .mm-select {
+            background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .mm-preset-btn.active,
+        html[data-theme="daylight"] .mm-btn.active,
+        html[data-theme="tropical"] .mm-preset-btn.active,
+        html[data-theme="tropical"] .mm-btn.active {
+            background: rgba(2, 132, 199, 0.15) !important;
+            border-color: #0284c7 !important;
+            color: #0369a1 !important;
+        }
+
+        /* Mindmap Mastery-Gate Modal & Import Modal im Bright Mode */
+        html[data-theme="daylight"] .mm-synapse-modal-backdrop,
+        html[data-theme="daylight"] .mm-modal-backdrop,
+        html[data-theme="daylight"] .reveal-modal,
+        html[data-theme="daylight"] .mc-dialog-backdrop,
+        html[data-theme="daylight"] .bs-studio-backdrop,
+        html[data-theme="tropical"] .mm-synapse-modal-backdrop,
+        html[data-theme="tropical"] .mm-modal-backdrop,
+        html[data-theme="tropical"] .reveal-modal,
+        html[data-theme="tropical"] .mc-dialog-backdrop,
+        html[data-theme="tropical"] .bs-studio-backdrop {
+            background: rgba(15, 23, 42, 0.45) !important;
+            backdrop-filter: blur(8px) !important;
+        }
+
+        html[data-theme="daylight"] .mm-synapse-modal,
+        html[data-theme="daylight"] .mm-modal,
+        html[data-theme="daylight"] .reveal-card,
+        html[data-theme="daylight"] .mc-dialog-card,
+        html[data-theme="daylight"] .bs-studio-window,
+        html[data-theme="daylight"] .bs-studio-column,
+        html[data-theme="daylight"] .bs-studio-folder-card,
+        html[data-theme="tropical"] .mm-synapse-modal,
+        html[data-theme="tropical"] .mm-modal,
+        html[data-theme="tropical"] .reveal-card,
+        html[data-theme="tropical"] .mc-dialog-card,
+        html[data-theme="tropical"] .bs-studio-window,
+        html[data-theme="tropical"] .bs-studio-column,
+        html[data-theme="tropical"] .bs-studio-folder-card {
+            background: var(--surface-primary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18) !important;
+        }
+
+        html[data-theme="daylight"] .mm-synapse-chain-box,
+        html[data-theme="daylight"] .mm-mastery-question-box,
+        html[data-theme="daylight"] .mm-recall-first-box,
+        html[data-theme="daylight"] .mm-recall-textarea,
+        html[data-theme="daylight"] .mm-synapse-opt-btn,
+        html[data-theme="daylight"] .mm-synapse-node-pill,
+        html[data-theme="daylight"] .mm-root-deduce-input,
+        html[data-theme="tropical"] .mm-synapse-chain-box,
+        html[data-theme="tropical"] .mm-mastery-question-box,
+        html[data-theme="tropical"] .mm-recall-first-box,
+        html[data-theme="tropical"] .mm-recall-textarea,
+        html[data-theme="tropical"] .mm-synapse-opt-btn,
+        html[data-theme="tropical"] .mm-synapse-node-pill,
+        html[data-theme="tropical"] .mm-root-deduce-input {
+            background: var(--surface-secondary) !important;
+            border-color: var(--card-border) !important;
+            color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .mm-synapse-opt-btn:hover:not(:disabled),
+        html[data-theme="tropical"] .mm-synapse-opt-btn:hover:not(:disabled) {
+            background: rgba(2, 132, 199, 0.12) !important;
+            border-color: #0284c7 !important;
+        }
+
+        html[data-theme="daylight"] .mm-mastery-rationale-box,
+        html[data-theme="tropical"] .mm-mastery-rationale-box {
+            background: rgba(16, 185, 129, 0.12) !important;
+            color: #065f46 !important;
+            border-color: rgba(16, 185, 129, 0.4) !important;
+        }
+
+        html[data-theme="daylight"] .mm-mastery-nudge-box,
+        html[data-theme="tropical"] .mm-mastery-nudge-box {
+            background: rgba(245, 158, 11, 0.14) !important;
+            color: #92400e !important;
+            border-left-color: #d97706 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Reversibler Inline-Style-Sanitizer:
+// Bereinigt dunkle Inline-Styles in ALLEN Views (inkl. Mindmap, Solitaire, Duell, Modals)
+// und stellt beim Wechsel zurück in den Dark Mode die Original-Styles 1:1 wieder her!
 function sanitizeLightThemeInlineStyles(rootEl = document.body) {
-    const activeTheme = document.documentElement.getAttribute('data-theme');
-    const isLight = (activeTheme === 'daylight' || activeTheme === 'tropical');
-    if (!isLight || !rootEl) return;
+    if (!rootEl) return;
+    const isLight = isBrightThemeActive();
+
+    if (!isLight) {
+        // Dark Mode aktiv: Alle zuvor gesicherten Original-Inline-Styles wiederherstellen
+        const modifiedEls = rootEl.querySelectorAll('[data-mc-orig-style]');
+        modifiedEls.forEach(el => {
+            const orig = el.getAttribute('data-mc-orig-style');
+            if (orig === '__EMPTY__') {
+                el.removeAttribute('style');
+            } else {
+                el.setAttribute('style', orig);
+            }
+            el.removeAttribute('data-mc-orig-style');
+        });
+        return;
+    }
 
     const elements = rootEl.querySelectorAll('[style]');
     elements.forEach(el => {
-        if (el.closest('.theme-card') || el.closest('#mindmap-view')) return;
+        // Nur die kleinen Theme-Vorschau-Karten in den Einstellungen ausnehmen
+        if (el.closest('.theme-card')) return;
 
-        const styleAttr = el.getAttribute('style') || '';
+        const currentStyle = el.getAttribute('style') || '';
+        if (!currentStyle) return;
 
-        // Dunkle Inline-Hintergründe aus JS-Modulen auf helle Oberflächen umstellen
-        if (/rgba\(\s*(6|10|11|15|16|30)\s*,\s*(9|15|17|23|24|41)/i.test(styleAttr) || /#(060913|0b1121|0f172a|1e293b)/i.test(styleAttr)) {
+        // Original-Style beim allerersten Eingriff sichern
+        if (!el.hasAttribute('data-mc-orig-style')) {
+            el.setAttribute('data-mc-orig-style', currentStyle);
+        }
+
+        const origStyle = el.getAttribute('data-mc-orig-style') || currentStyle;
+
+        // 1. Dunkle Inline-Hintergründe (rgba(6..30, ...) oder dunkle Hex-Codes) auf helle Oberfläche umstellen
+        if (
+            /rgba\(\s*(6|9|10|11|15|16|17|23|30)\s*,\s*(9|14|15|17|23|24|30|41)/i.test(origStyle) ||
+            /#(060913|090614|04110f|0b1121|0f172a|1e293b)/i.test(origStyle)
+        ) {
             el.style.backgroundColor = 'var(--surface-secondary)';
             el.style.backgroundImage = 'none';
             el.style.color = 'var(--text-main)';
             el.style.borderColor = 'var(--card-border)';
         }
 
-        // Zu helle Pastell-Textfarben auf hellem Hintergrund abdunkeln
-        if (/#(f8fafc|f1f5f9|e2e8f0|cbd5e1)/i.test(styleAttr)) {
+        // 2. Fast unsichtbare weiße/transparente Pill-Hintergründe (z.B. rgba(255,255,255,0.05) in Solitaire)
+        if (/rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*0\.0[1-9]/i.test(origStyle)) {
+            el.style.backgroundColor = 'var(--surface-secondary)';
+            el.style.borderColor = 'var(--card-border)';
+        }
+
+        // 3. Zu helle Pastell-Textfarben auf hellem Hintergrund kontraststark abdunkeln
+        if (/color\s*:\s*#(f8fafc|f1f5f9|e2e8f0|cbd5e1|94a3b8)/i.test(origStyle)) {
             el.style.color = 'var(--text-main)';
-        } else if (/#(a7f3d0|6ee7b7|86efac)/i.test(styleAttr)) {
-            el.style.color = '#065f46'; // Sattes Smaragdgrün
-        } else if (/#(fecaca|fca5a5|fecdd3)/i.test(styleAttr)) {
-            el.style.color = '#991b1b'; // Sattes Karminrot
-        } else if (/#(fde68a|fcd34d)/i.test(styleAttr)) {
+        } else if (/color\s*:\s*#(a7f3d0|6ee7b7|86efac)/i.test(origStyle)) {
+            el.style.color = '#065f46'; // Sattes Klinik-Smaragdgrün
+        } else if (/color\s*:\s*#(fecaca|fca5a5|fecdd3)/i.test(origStyle)) {
+            el.style.color = '#b91c1c'; // Sattes Karminrot
+        } else if (/color\s*:\s*#(fde68a|fcd34d)/i.test(origStyle)) {
             el.style.color = '#92400e'; // Sattes Amber-Braun
         }
     });
 }
 
 function applyAppTheme(themeName) {
+    ensureUniversalBrightModeStyles();
     const validTheme = THEME_META_COLORS[themeName] ? themeName : 'midnight';
 
     if (validTheme === 'midnight') {
@@ -252,28 +763,26 @@ function applyAppTheme(themeName) {
 
     localStorage.setItem(THEME_STORAGE_KEY, validTheme);
 
-    if (validTheme === 'daylight' || validTheme === 'tropical') {
-        setTimeout(() => sanitizeLightThemeInlineStyles(document.body), 20);
-    }
+    // Sofort kompletten Body (alle Views, Challenges & Modals) synchronisieren
+    requestAnimationFrame(() => sanitizeLightThemeInlineStyles(document.body));
 }
 window.applyAppTheme = applyAppTheme;
 
+// Überwacht den gesamten document.body statt nur #player-view!
 function initPlayerLightModeObserver() {
-    const playerView = document.getElementById('player-view');
-    if (playerView && typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(() => {
-            const activeTheme = document.documentElement.getAttribute('data-theme');
-            if (activeTheme === 'daylight' || activeTheme === 'tropical') {
-                if (lightSanitizeRaf) cancelAnimationFrame(lightSanitizeRaf);
-                lightSanitizeRaf = requestAnimationFrame(() => {
-                    sanitizeLightThemeInlineStyles(playerView);
-                });
-            }
-        });
-        observer.observe(playerView, { childList: true, subtree: true });
-    }
-}
+    ensureUniversalBrightModeStyles();
+    if (!document.body || typeof MutationObserver === 'undefined') return;
 
+    const observer = new MutationObserver(() => {
+        if (!isBrightThemeActive()) return;
+        if (lightSanitizeRaf) cancelAnimationFrame(lightSanitizeRaf);
+        lightSanitizeRaf = requestAnimationFrame(() => {
+            sanitizeLightThemeInlineStyles(document.body);
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+}
 // ==========================================================================
 // 03. PROGRESS MANAGER & PERSISTENCE (LOCALSTORAGE)
 // ==========================================================================
