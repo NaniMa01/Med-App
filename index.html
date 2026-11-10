@@ -55,15 +55,15 @@
          ==================================================================== -->
     <sidebar class="bento-left-sidebar">
         <!-- Brand Header mit Lightning-Logo in Klinik-Blau -->
-<div class="brand">
-    <div class="brand-icon-wrap bento-sparkle-logo">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"></path>
-        </svg>
-    </div>
-    <span>MediChecker</span>
-    <span class="brand-badge">V6.5</span>
-</div>
+        <div class="brand">
+            <div class="brand-icon-wrap bento-sparkle-logo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"></path>
+                </svg>
+            </div>
+            <span>MediChecker</span>
+            <span class="brand-badge">V7.0</span>
+        </div>
 
         <!-- Sektion 1: OVERVIEW (Hauptnavigation) -->
         <div class="nav-section-label">OVERVIEW</div>
@@ -86,7 +86,7 @@
                 <span>Challenge Hub</span>
             </li>
 
-           <li class="nav-item" data-view="depot" id="nav-depot" onclick="switchTab('depot', this)">
+            <li class="nav-item" data-view="depot" id="nav-depot" onclick="switchTab('depot', this)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
                     <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
@@ -163,8 +163,6 @@
             <button type="button" class="bookshelf-add-btn" id="add-bookshelf-folder-btn" title="Neuen Unterordner erstellen">+</button>
         </div>
         <div id="bookshelf-container" class="bookshelf-container" style="flex: 1; min-height: 110px; overflow-y: auto;"></div>
-
-
 
         <!-- Sektion 3: SETTINGS -->
         <div class="bento-sidebar-settings">
@@ -288,7 +286,7 @@
                         </div>
                     </div>
 
-                    <!-- HERO-BANNER (Angenehmes Klinik-Blau + Sparkle SVGs + Join Now Pill-CTA) -->
+                    <!-- HERO-BANNER -->
                     <section class="bento-hero-banner">
                         <div class="bento-hero-content">
                             <div class="bento-hero-kicker">ONLINE COURSE · CLINICAL AUDIT</div>
@@ -317,14 +315,12 @@
                     </section>
 
                     <!-- KATEGORIE-FORTSCHRITTS-LEISTE (3 Mini-Karten) -->
-                    <section class="bento-mini-cards-grid" id="bento-mini-cards-container">
-                        <!-- Wird dynamisch durch updateBentoDashboardWidgets() befüllt -->
-                    </section>
+                    <section class="bento-mini-cards-grid" id="bento-mini-cards-container"></section>
 
-                    <!-- SEKTION „YOUR LESSON“ (Kompakte Daten-Tabelle) -->
+                    <!-- SEKTION „YOUR LESSON“ (Priorisiert durch Leitner Spaced Repetition!) -->
                     <section class="bento-section-block">
                         <div class="bento-section-header">
-                            <h2 class="bento-section-title">Your Lesson</h2>
+                            <h2 class="bento-section-title">Your Lesson <span style="font-size:0.72rem; font-weight:600; color:var(--accent-cyan, #38bdf8); margin-left:8px;">⚡ Leitner-Priorisiert</span></h2>
                             <a href="javascript:void(0)" class="bento-see-all-link" onclick="document.getElementById('super-folders-wrapper')?.scrollIntoView({behavior: 'smooth'})">See all</a>
                         </div>
                         <div class="bento-lesson-table-card">
@@ -332,19 +328,17 @@
                                 <thead>
                                     <tr>
                                         <th>MENTOR / FOKUS</th>
-                                        <th>TYPE</th>
+                                        <th>LEITNER-STATUS / KONZEPT</th>
                                         <th>DESC</th>
                                         <th style="text-align: right;">ACTION</th>
                                     </tr>
                                 </thead>
-                                <tbody id="bento-your-lesson-tbody">
-                                    <!-- Wird dynamisch durch updateBentoDashboardWidgets() befüllt -->
-                                </tbody>
+                                <tbody id="bento-your-lesson-tbody"></tbody>
                             </table>
                         </div>
                     </section>
 
-                    <!-- Creator Case Upload Dropzone (Nur für Creator sichtbar) -->
+                    <!-- Creator Case Upload Dropzone -->
                     <section id="creatorUploadSection" class="creator-upload-section" style="display: none;">
                         <div class="creator-upload-card">
                             <div id="dropZone" class="drop-zone">
@@ -358,7 +352,7 @@
                     <!-- Spaced Repetition Zentrale -->
                     <section id="sr-dashboard-widget"></section>
 
-                    <!-- Subbar: Modus-Umschalter links, Ordner-Buttons rechts -->
+                    <!-- Subbar -->
                     <div class="dashboard-subbar" style="margin-top: 24px;">
                         <div class="segmented-control" role="tablist" style="margin-bottom: 0;">
                             <button type="button" class="segmented-btn active" id="seg-topic" role="tab" onclick="setLearningMode('topic')">Alle Themen-Ordner</button>
@@ -645,7 +639,7 @@
                 </div>
 
                 <!-- ========================================================
-                     VIEW 5: EINSTELLUNGEN (CLOUD-ACCOUNT, THEMES & SPEICHER)
+                     VIEW 5: EINSTELLUNGEN
                      ======================================================== -->
                 <div class="panel" id="settings-view" style="display: none;">
                     <div class="panel-title">Einstellungen & Erscheinungsbild</div>
@@ -654,7 +648,7 @@
                     <div class="settings-section" style="margin-bottom: 24px;">
                         <div class="forge-label" style="margin-bottom: 8px; color: var(--accent-blue);">Cloud-Account & Synchronisation</div>
                         <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
-                            Melde dich an, um deine Fälle und deinen Fortschritt online zu speichern. Ohne Anmeldung bleibt alles lokal (Gastmodus).
+                            Melde dich an, um deine Fälle, deine Ordner und dein Leitner-Spaced-Repetition-Profil online zu speichern.
                         </div>
 
                         <div style="background: var(--surface-subtle); border: 1px solid var(--card-border); padding: 18px; border-radius: 12px;">
@@ -672,7 +666,6 @@
 
                     <div class="forge-divider" style="margin: 24px 0;"></div>
 
-                    <!-- Farbschema (UI-Theme: Clinical Daylight & Cyber Midnight) -->
                     <div class="settings-section">
                         <div class="forge-label" style="margin-bottom: 12px;">Farbschema (UI-Theme)</div>
                         <div class="theme-selector-grid" id="theme-selector-grid">
@@ -748,7 +741,7 @@
                 </div>
 
                 <!-- ========================================================
-                     WEITERE VIEWS (PHARMA, MINDMAP, DUEL, SOLITAIRE, FRIENDS)
+                     LAZY-LOADED VIEWS (PHARMA, MINDMAP, DUEL, SOLITAIRE, FRIENDS)
                      ======================================================== -->
                 <div class="panel" id="pharmacology-view" style="display: none;">
                     <div id="pharmacology-container"></div>
@@ -803,14 +796,12 @@
         </div>
     </div>
 
- <!-- ====================================================================
+    <!-- ====================================================================
          07. RECHTE SPALTE: PERSÖNLICHES KONTEXT- & STATISTIK-PANEL
          ==================================================================== -->
     <aside class="bento-right-sidebar" id="bento-right-sidebar">
-        <!-- 1. Top-Utility- & Profil-Leiste (Buch-Icon, Profil & Sidebar-Ausblenden) -->
         <div class="bento-profile-topbar">
             <div class="bento-utility-btns">
-                <!-- Buch-Icon für das Lern-Depot -->
                 <button type="button" class="bento-utility-circle" onclick="switchTab('depot', document.getElementById('nav-depot'))" title="Persönliches Lern-Depot öffnen">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
@@ -821,12 +812,11 @@
 
             <div class="bento-vertical-divider"></div>
 
-           <div class="bento-user-pill" onclick="switchTab('settings', document.getElementById('nav-settings'))" title="Profil & Einstellungen">
+            <div class="bento-user-pill" onclick="switchTab('settings', document.getElementById('nav-settings'))" title="Profil & Einstellungen">
                 <div class="bento-user-avatar-sm" id="bento-top-avatar">🩺</div>
                 <span class="bento-user-name" id="bento-top-username">Gast</span>
             </div>
 
-            <!-- NEU: Button zum Ausblenden der rechten Sidebar -->
             <button type="button" class="bento-utility-circle bento-collapse-right-btn" onclick="window.toggleRightBentoPanel(false)" title="Statistik-Sidebar ausblenden">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -836,23 +826,17 @@
             </button>
         </div>
 
-        <!-- 2. Widget „Statistic“ (Dual-Ring SVG + Realer Monatsfortschritt + Fachgebiete) -->
         <div class="bento-stat-card" style="flex: 1; display: flex; flex-direction: column;">
             <div class="bento-widget-header">
                 <span class="bento-widget-title">Statistic</span>
                 <button type="button" class="bento-dots-btn" onclick="window.toggleSubjectProgressModal(true)" title="Detaillierte Themen-Statistik">⋮</button>
             </div>
 
-            <!-- Zentraler Avatar mit Dual-Progress-Ring -->
             <div class="bento-avatar-ring-wrap">
                 <svg class="bento-progress-ring-svg" width="136" height="136" viewBox="0 0 136 136">
-                    <!-- Äußerer Track (Gelöste Fälle gesamt) -->
                     <circle class="bento-ring-track" cx="68" cy="68" r="58" stroke-width="6" fill="none"></circle>
-                    <!-- Äußerer Progress (Primary Clinical Blue) -->
                     <circle class="bento-ring-fill-primary" id="bento-ring-outer" cx="68" cy="68" r="58" stroke-width="6" fill="none" stroke-dasharray="364.4" stroke-dashoffset="364.4" stroke-linecap="round"></circle>
-                    <!-- Innerer Track (Aktive Fälle / In Arbeit) -->
                     <circle class="bento-ring-track" cx="68" cy="68" r="48" stroke-width="4" fill="none" opacity="0.6"></circle>
-                    <!-- Innerer Progress (Secondary Accent) -->
                     <circle class="bento-ring-fill-secondary" id="bento-ring-inner" cx="68" cy="68" r="48" stroke-width="4" fill="none" stroke-dasharray="301.6" stroke-dashoffset="301.6" stroke-linecap="round"></circle>
                 </svg>
                 <div class="bento-avatar-center">
@@ -866,7 +850,6 @@
                 <p class="bento-greeting-sub" id="bento-greeting-sub">Continue your learning to achieve your target!</p>
             </div>
 
-            <!-- NEU: Realitätsgetreuer Monatsfortschritt (dynamisch berechnet) -->
             <div class="bento-chart-box" id="bento-monthly-chart-box">
                 <div class="bento-chart-header">
                     <div>
@@ -886,10 +869,7 @@
                         <div class="bento-chart-gridline" style="bottom: 85%;"></div>
                         <div class="bento-chart-gridline" style="bottom: 45%;"></div>
                         <div class="bento-chart-gridline" style="bottom: 0%;"></div>
-
-                        <div class="bento-chart-bars" id="bento-activity-bars">
-                            <!-- Wird dynamisch durch renderBentoMonthlyProgress() mit echten Daten befüllt -->
-                        </div>
+                        <div class="bento-chart-bars" id="bento-activity-bars"></div>
                     </div>
                 </div>
                 <div class="bento-chart-x-axis" id="bento-chart-x-axis">
@@ -900,7 +880,6 @@
                     <span>29+</span>
                 </div>
 
-                <!-- Kompakte Monats-Bilanz unter dem Diagramm -->
                 <div class="bento-month-kpis" id="bento-month-kpis">
                     <div class="bento-month-kpi-item">
                         <span class="kpi-dot solved"></span>
@@ -917,33 +896,16 @@
                 </div>
             </div>
 
-            <!-- Fortschritt nach Fachgebieten / Ordnern (nutzt jetzt den gesamten unteren Platz) -->
             <div id="skills-sidebar-container" class="bento-folder-progress-section" style="flex: 1; min-height: 220px;"></div>
         </div>
     </aside>
 
     <!-- ================================================================
-         08. JAVASCRIPT LADEREIHENFOLGE
+         08. SCHLANKER CORE-BOOTLOADER (ALLE FEATURE-MODULE VIA LAZY LOADING!)
          ================================================================ -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/auth.js"></script>
     <script src="js/gamification.js"></script>
-    <script src="js/flashcards.js"></script>
-    <script src="js/doctordle.js"></script>
-    <script src="js/pharmacology.js"></script>
-    <script src="js/audit.js"></script>
-    <script src="js/synapses.js"></script>
-    <script src="js/cascade.js"></script>
-    <script src="js/taxonomy.js"></script>
-    <script src="js/quiz.js"></script>
-    <script src="js/specialty.js"></script>
-    <script src="js/emergency.js"></script>
-    <script src="js/mindmap.js"></script>
-    <script src="js/duel.js"></script>
-    <script src="js/friends.js"></script>
-    <script src="js/solitaire.js"></script>
     <script src="js/app.js"></script>
-    <script src="js/comments.js"></script>
-    <script type="module" src="js/spaced_repetition.js"></script>
 </body>
 </html>
