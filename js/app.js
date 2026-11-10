@@ -6999,3 +6999,1165 @@ function renderSpecialtySuperFilterBarHTML() {
     attachWrapper();
     document.addEventListener('DOMContentLoaded', attachWrapper);
 })();
+
+// ==========================================================================
+// 15-HOTFIX. BEREINIGTES SUPABASE CASE- & FOLDER-LOADING
+// (Überschreibt den ReferenceError von realCaseRows aus Sektion 15)
+// ==========================================================================
+async function loadCasesFromDatabase() {
+    const sb = getActiveSupabaseClient();
+    if (!sb) return;
+
+    try {
+        const { data: { session } } = await sb.auth.getSession();
+        const currentUser = session?.user || null;
+        window.currentSessionUser = currentUser;
+
+        const { data, error } = await sb
+            .from('cases')
+            .select('case_id, title, medical_field, is_public, user_id, created_by, content')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.warn("Supabase-Fälle konnten nicht abgerufen werden:", error.message);
+            return;
+        }
+
+        // 1. Eigene Ordner- & Spaced-Repetition-Konfiguration des aktuellen Users laden
+        if (currentUser) {
+            const myConfigId = getUserFolderConfigCloudId(currentUser.id);
+            const myConfigRow = (data || []).find(d => d.case_id === myConfigId);
+            const metaConfig = currentUser.user_metadata?.medcheck_folder_config_v1;
+
+            if (myConfigRow && myConfigRow.content) {
+                applyCloudFolderConfigIfNewer(myConfigRow.content);
+            } else if (metaConfig) {
+                applyCloudFolderConfigIfNewer(metaConfig);
+            }
+
+            if (window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.syncFromSupabase === 'function') {
+                await window.SpacedRepetitionEngine.syncFromSupabase(data, currentUser);
+            }
+        }
+
+        // 2. Echte medizinische Fälle filtern (keine System-/Konfigurationszeilen)
+        const realCaseRows = (data || []).filter(row => {
+            if (!row || !row.case_id || isSystemOrSolitaireCloudRow(row)) return false;
+            const isMine = currentUser && (row.user_id === currentUser.id || row.created_by === currentUser.id);
+            return row.is_public === true || isMine;
+        });
+
+        window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
+
+        if (realCaseRows.length > 0) {
+            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]')
+                .filter(c => !isSystemOrSolitaireCloudRow(c));
+            const hiddenCloudIds = getHiddenCloudCaseIds();
+            const deletedFolders = getDeletedFoldersSet();
+            const overrides = getCaseFolderOverrides();
+
+            realCaseRows.forEach(dbCase => {
+                const cloudCase = dbCase.content;
+                if (!cloudCase) return;
+                const cId = cloudCase.case_id || cloudCase.id || dbCase.case_id;
+                if (!cId || isSystemOrSolitaireCloudRow(cId) || hiddenCloudIds.includes(cId)) return;
+
+                cloudCase.case_id = cId;
+
+                const originalFolder = (
+                    (dbCase.medical_field && dbCase.medical_field !== 'Allgemein' ? dbCase.medical_field : '') ||
+                    cloudCase.metadata?.medical_field ||
+                    cloudCase.folder_name ||
+                    'Allgemein'
+                ).trim();
+
+                const userOverrideFolder = overrides[cId];
+                if (deletedFolders.has(originalFolder) && (!userOverrideFolder || deletedFolders.has(userOverrideFolder))) {
+                    return;
+                }
+
+                if (originalFolder && !deletedFolders.has(originalFolder)) {
+                    cloudCase.folder_name = originalFolder;
+                    if (cloudCase.metadata) cloudCase.metadata.medical_field = originalFolder;
+                    if (!overrides[cId] || overrides[cId] === 'Allgemein') {
+                        overrides[cId] = originalFolder;
+                    }
+                }
+
+                applyFolderOverridesToCase(cloudCase);
+                registerDynamicFolder(cloudCase.folder_name);
+
+                const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
+                if (idx !== -1) {
+                    customCases[idx] = cloudCase;
+                } else {
+                    customCases.push(cloudCase);
+                }
+                window.registerCaseDDs(cloudCase);
+            });
+
+            saveCaseFolderOverrides(overrides);
+            localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        }
+
+        renderDashboardCases();
+        if (typeof renderSubjectProgressDrawer === 'function') {
+            renderSubjectProgressDrawer();
+        }
+        if (window.SpacedRepetitionEngine) {
+            const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+            window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
+        }
+    } catch (err) {
+        console.error("Fehler bei loadCasesFromDatabase:", err);
+    }
+}
+window.loadCasesFromDatabase = loadCasesFromDatabase;
+
+
+// ==========================================================================
+// 21. ARCHITEKTUR & PERFORMANCE: LAZY LOADING ENGINE FÜR MODULE
+// ==========================================================================
+const LazyModuleEngine = (() => {
+    const loadedModules = new Map();
+
+    // Zuordnung aller Feature- und Challenge-Module zu ihren Dateipfaden
+    const MODULE_REGISTRY = {
+        // Player Challenge-Module
+        audit:        { path: 'js/audit.js',        globalCheck: () => typeof window.renderTimeline === 'function' },
+        synapses:     { path: 'js/synapses.js',     globalCheck: () => typeof window.renderSynapsesMatrix === 'function' },
+        cascade:      { path: 'js/cascade.js',      globalCheck: () => typeof window.renderCascades === 'function' },
+        cat:          { path: 'js/taxonomy.js',     globalCheck: () => typeof window.renderCategorization === 'function' },
+        quiz:         { path: 'js/quiz.js',         globalCheck: () => typeof window.renderQuiz === 'function' },
+        doctordle:    { path: 'js/doctordle.js',    globalCheck: () => typeof window.initDoctordle === 'function' },
+        flashcards:   { path: 'js/flashcards.js',   globalCheck: () => typeof window.renderFlashcards === 'function', optional: true },
+
+        // Haupt-Views & Spezial-Modi
+        pharmacology: { path: 'js/pharmacology.js', globalCheck: () => typeof window.PharmacologyModule !== 'undefined' },
+        specialty:    { path: 'js/specialty.js',    globalCheck: () => typeof window.renderSpecialtyHub === 'function' && !window.renderSpecialtyHub._isLazyStub },
+        mindmap:      { path: 'js/mindmap.js',      globalCheck: () => typeof window.MindmapModule !== 'undefined' },
+        duel:         { path: 'js/duel.js',         globalCheck: () => typeof window.DuelModule !== 'undefined' },
+        solitaire:    { path: 'js/solitaire.js',    globalCheck: () => typeof window.SolitaireModule !== 'undefined' },
+        friends:      { path: 'js/friends.js',      globalCheck: () => typeof window.FriendsModule !== 'undefined' },
+        emergency:    { path: 'js/emergency.js',    globalCheck: () => typeof window.EmergencyManager !== 'undefined', optional: true }
+    };
+
+    // Synchronisiert Top-Level `let`-Variablen aus app.js mit `window`, damit sowohl
+    // ES-Module (`import()`) als auch klassische Skripte nahtlos darauf zugreifen können.
+    function bindGlobalStateBridges() {
+        const stateBridges = {
+            activeCaseData:        { get: () => activeCaseData,        set: (v) => { activeCaseData = v; } },
+            currentActiveChallenge:{ get: () => currentActiveChallenge,set: (v) => { currentActiveChallenge = v; } },
+            clearedStepsCount:     { get: () => clearedStepsCount,     set: (v) => { clearedStepsCount = v; } },
+            totalStepsCount:       { get: () => totalStepsCount,       set: (v) => { totalStepsCount = v; } },
+            selectedSynapses:      { get: () => selectedSynapses,      set: (v) => { selectedSynapses = v; } },
+            totalSynapseDiseases:  { get: () => totalSynapseDiseases,  set: (v) => { totalSynapseDiseases = v; } },
+            solvedSynapseDiseases: { get: () => solvedSynapseDiseases, set: (v) => { solvedSynapseDiseases = v; } },
+            cascadesSolvedCount:   { get: () => cascadesSolvedCount,   set: (v) => { cascadesSolvedCount = v; } },
+            totalCascades:         { get: () => totalCascades,         set: (v) => { totalCascades = v; } },
+            categorizationSolved:  { get: () => categorizationSolved,  set: (v) => { categorizationSolved = v; } },
+            quizSolved:            { get: () => quizSolved,            set: (v) => { quizSolved = v; } },
+            userQuizAnswers:       { get: () => userQuizAnswers,       set: (v) => { userQuizAnswers = v; } },
+            doctordleSolved:       { get: () => doctordleSolved,       set: (v) => { doctordleSolved = v; } },
+            totalDoctordlePuzzles: { get: () => totalDoctordlePuzzles, set: (v) => { totalDoctordlePuzzles = v; } },
+            solvedDoctordlePuzzles:{ get: () => solvedDoctordlePuzzles,set: (v) => { solvedDoctordlePuzzles = v; } },
+            currentLearningMode:   { get: () => currentLearningMode,   set: (v) => { currentLearningMode = v; } }
+        };
+
+        Object.entries(stateBridges).forEach(([key, accessor]) => {
+            if (!Object.getOwnPropertyDescriptor(window, key)) {
+                try {
+                    Object.defineProperty(window, key, {
+                        get: accessor.get,
+                        set: accessor.set,
+                        configurable: true
+                    });
+                } catch (_e) {}
+            }
+        });
+    }
+
+    // Lädt ein Skript erst bei Bedarf (Hybrid: klassisches Script-Tag + ES-Modul-Support)
+    function loadModule(moduleKey) {
+        const meta = MODULE_REGISTRY[moduleKey];
+        if (!meta) return Promise.resolve(false);
+
+        if (meta.globalCheck()) {
+            loadedModules.set(moduleKey, Promise.resolve(true));
+            return Promise.resolve(true);
+        }
+
+        if (loadedModules.has(moduleKey)) {
+            return loadedModules.get(moduleKey);
+        }
+
+        const loadPromise = new Promise((resolve) => {
+            // Prüfen, ob das Skript bereits im DOM liegt
+            const existingScript = document.querySelector(`script[data-lazy-module="${moduleKey}"], script[src="${meta.path}"]`);
+            if (existingScript) {
+                existingScript.addEventListener('load', () => resolve(true), { once: true });
+                existingScript.addEventListener('error', () => resolve(false), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = meta.path;
+            script.async = true;
+            script.dataset.lazyModule = moduleKey;
+
+            script.onload = () => {
+                console.info(`⚡ [LazyLoader] Modul "${moduleKey}" (${meta.path}) erfolgreich geladen.`);
+                resolve(true);
+            };
+
+            script.onerror = async () => {
+                // Fallback: Versuche dynamischen ES-Module import(), falls als reines ESM bereitgestellt
+                try {
+                    const esm = await import(`../${meta.path}`);
+                    if (esm && typeof esm === 'object') {
+                        Object.entries(esm).forEach(([exportName, exportVal]) => {
+                            if (exportName !== 'default' && !window[exportName]) {
+                                window[exportName] = exportVal;
+                            }
+                        });
+                    }
+                    resolve(true);
+                } catch (_err) {
+                    if (!meta.optional) {
+                        console.warn(`⚠️ [LazyLoader] Modul "${moduleKey}" (${meta.path}) nicht erreichbar – nutze internen Fallback.`);
+                    }
+                    resolve(false);
+                }
+            };
+
+            document.body.appendChild(script);
+        });
+
+        loadedModules.set(moduleKey, loadPromise);
+        return loadPromise;
+    }
+
+    function showLazySkeleton(containerId, label = 'Lade klinisches Modul...') {
+        const el = document.getElementById(containerId);
+        if (!el || el.children.length > 0) return;
+        el.innerHTML = `
+            <div class="lazy-module-loader" style="padding: 28px 20px; text-align: center; color: var(--text-muted);">
+                <div class="skeleton" style="height: 18px; width: 45%; margin: 0 auto 12px auto; border-radius: 6px;"></div>
+                <div style="font-size: 0.82rem; font-weight: 600; color: var(--accent-cyan, #38bdf8);">⚡ ${escapeHtml(label)}</div>
+            </div>
+        `;
+    }
+
+    // Prefetcht wichtige Module lautlos im Hintergrund, wenn der Browser im Leerlauf ist
+    function scheduleIdlePrefetch(moduleKeys = []) {
+        const runner = () => {
+            moduleKeys.forEach(k => loadModule(k));
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(runner, { timeout: 2500 });
+        } else {
+            setTimeout(runner, 1400);
+        }
+    }
+
+    return {
+        init: bindGlobalStateBridges,
+        load: loadModule,
+        showSkeleton: showLazySkeleton,
+        prefetch: scheduleIdlePrefetch
+    };
+})();
+
+LazyModuleEngine.init();
+
+// Eingebauter Fallback-Renderer für Flashcards, falls kein separates js/flashcards.js existiert
+function ensureBuiltinFlashcardsRenderer() {
+    if (typeof window.renderFlashcards === 'function') return;
+
+    let fcIndex = 0;
+    let fcFlipped = false;
+
+    window.renderFlashcards = function() {
+        const wrapper = document.getElementById('flashcards-wrapper');
+        const badge = document.getElementById('badge-mode-flashcards');
+        if (!wrapper || !activeCaseData) return;
+
+        const cards = activeCaseData.extra_tasks?.flashcards || [];
+        totalFlashcardsCount = cards.length;
+
+        if (cards.length === 0) {
+            wrapper.innerHTML = `<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall sind keine Flashcards hinterlegt.</div>`;
+            if (badge) badge.innerText = '0/0';
+            window.flashcardsSolved = true;
+            return;
+        }
+
+        if (fcIndex >= cards.length) fcIndex = 0;
+        const card = cards[fcIndex];
+        if (badge) badge.innerText = `${fcIndex + 1}/${cards.length}`;
+
+        wrapper.innerHTML = `
+            <div class="bento-stat-card" style="padding: 22px; margin-top: 10px; cursor: pointer; border: 1px solid var(--card-border);" onclick="window.flipActiveFlashcard()">
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--accent-cyan); font-weight:700; margin-bottom:10px;">
+                    <span>${escapeHtml(card.category || 'Faktenwissen')} · Karte ${fcIndex + 1}/${cards.length}</span>
+                    <span>${fcFlipped ? '🔄 Antwort' : '👆 Klicken zum Aufdecken'}</span>
+                </div>
+                <div style="font-size:1.02rem; font-weight:700; color:var(--text-main); line-height:1.5; min-height:64px; display:flex; align-items:center;">
+                    ${escapeHtml(fcFlipped ? card.back : card.front)}
+                </div>
+                ${fcFlipped && card.mnemonic_or_context ? `
+                    <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--card-border); font-size:0.8rem; color:var(--text-muted);">
+                        💡 <strong>Merksatz:</strong> ${escapeHtml(card.mnemonic_or_context)}
+                    </div>
+                ` : ''}
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                <button type="button" class="action-btn secondary btn-sm" style="flex:1; border-color:rgba(239,68,68,0.4); color:#fca5a5;" onclick="window.rateActiveFlashcard('hard')">1 · Unsicher (Wiederholen)</button>
+                <button type="button" class="action-btn secondary btn-sm" style="flex:1; border-color:rgba(56,189,248,0.4); color:#38bdf8;" onclick="window.rateActiveFlashcard('good')">2 · Gut gewusst</button>
+                <button type="button" class="action-btn btn-sm" style="flex:1;" onclick="window.rateActiveFlashcard('easy')">3 · Sitzt perfekt →</button>
+            </div>
+        `;
+    };
+
+    window.flipActiveFlashcard = function() {
+        fcFlipped = !fcFlipped;
+        window.triggerHaptic(5);
+        window.renderFlashcards();
+    };
+
+    window.rateActiveFlashcard = function(rating) {
+        const cards = activeCaseData?.extra_tasks?.flashcards || [];
+        if (rating === 'hard' && window.SpacedRepetitionEngine && activeCaseData) {
+            window.SpacedRepetitionEngine.logConceptStruggle(
+                activeCaseData.case_id,
+                cards[fcIndex]?.category || 'Faktenwissen',
+                'flashcard_hard'
+            );
+        }
+        fcFlipped = false;
+        if (fcIndex < cards.length - 1) {
+            fcIndex++;
+        } else {
+            window.flashcardsSolved = true;
+            solvedFlashcardsCount = cards.length;
+            const badge = document.getElementById('badge-mode-flashcards');
+            if (badge) badge.innerText = `${cards.length}/${cards.length}`;
+            window.checkFinalCompletion();
+        }
+        window.renderFlashcards();
+    };
+
+    window.restartFlashcardDeck = function() {
+        fcIndex = 0;
+        fcFlipped = false;
+        window.renderFlashcards();
+    };
+}
+
+// 1. Lazy-Loading Interceptor für `window.switchTab`
+(function upgradeSwitchTabWithLazyLoading() {
+    const baseSwitchTab = window.switchTab;
+
+    window.switchTab = async function(tab, el) {
+        // Zuerst synchron das UI umschalten (sofortiges visuelles Feedback)
+        if (typeof baseSwitchTab === 'function') {
+            baseSwitchTab.call(this, tab, el);
+        }
+
+        // Danach benötigtes Feature-Modul on-demand nachladen
+        if (tab === 'pharmacology') {
+            LazyModuleEngine.showSkeleton('pharmacology-container', 'Lade Pharmakologie-Kompass...');
+            await LazyModuleEngine.load('pharmacology');
+            if (window.PharmacologyModule && typeof window.PharmacologyModule.init === 'function') {
+                window.PharmacologyModule.init('pharmacology-container');
+            }
+        } else if (tab === 'mindmap') {
+            LazyModuleEngine.showSkeleton('mindmap-view', 'Lade interaktives Mindmap-Labor...');
+            await LazyModuleEngine.load('mindmap');
+            if (window.MindmapModule && typeof window.MindmapModule.openView === 'function') {
+                window.MindmapModule.openView();
+            }
+        } else if (tab === 'duel') {
+            LazyModuleEngine.showSkeleton('duel-view', 'Lade Klinik-Duell Arena...');
+            await LazyModuleEngine.load('duel');
+            if (window.DuelModule && typeof window.DuelModule.openView === 'function') {
+                window.DuelModule.openView();
+            }
+        } else if (tab === 'solitaire') {
+            LazyModuleEngine.showSkeleton('solitaire-view', 'Lade Solitaire DDx-Journey...');
+            await LazyModuleEngine.load('solitaire');
+            if (window.SolitaireModule) {
+                if (typeof window.SolitaireModule.openView === 'function') window.SolitaireModule.openView();
+                if (typeof window.SolitaireModule.syncDecksFromCloud === 'function') window.SolitaireModule.syncDecksFromCloud();
+            }
+        } else if (tab === 'friends') {
+            LazyModuleEngine.showSkeleton('friends-view', 'Lade Community & Netzwerk...');
+            await LazyModuleEngine.load('friends');
+            if (window.FriendsModule && typeof window.FriendsModule.openView === 'function') {
+                window.FriendsModule.openView();
+            }
+        }
+    };
+})();
+
+// 2. Lazy-Loading Interceptor für `window.switchPlayerMode` & `window.loadCaseById`
+(function upgradePlayerWithLazyLoading() {
+    const baseSwitchPlayerMode = window.switchPlayerMode;
+
+    const CHALLENGE_RENDERERS = {
+        overview:   () => window.renderOverview && window.renderOverview(),
+        audit:      () => window.renderTimeline && window.renderTimeline(),
+        synapses:   () => window.renderSynapsesMatrix && window.renderSynapsesMatrix(),
+        cascade:    () => window.renderCascades && window.renderCascades(),
+        cat:        () => window.renderCategorization && window.renderCategorization(),
+        quiz:       () => window.renderQuiz && window.renderQuiz(),
+        doctordle:  () => window.initDoctordle && activeCaseData && window.initDoctordle(activeCaseData),
+        flashcards: () => {
+            ensureBuiltinFlashcardsRenderer();
+            if (window.renderFlashcards) window.renderFlashcards();
+        }
+    };
+
+    const CHALLENGE_CONTAINERS = {
+        audit:      'player-container',
+        synapses:   'synapses-grid',
+        cascade:    'cascades-wrapper',
+        cat:        'categorization-task',
+        quiz:       'quiz-wrapper',
+        doctordle:  'doctordle-hints-container',
+        flashcards: 'flashcards-wrapper'
+    };
+
+    window.switchPlayerMode = async function(mode) {
+        // Telemetrie: Vorherigen Challenge-Timer auswerten, neuen starten
+        if (window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.onChallengeModeSwitch === 'function') {
+            window.SpacedRepetitionEngine.onChallengeModeSwitch(mode);
+        }
+
+        if (typeof baseSwitchPlayerMode === 'function') {
+            baseSwitchPlayerMode.call(this, mode);
+        }
+
+        if (mode !== 'overview') {
+            const targetContainer = CHALLENGE_CONTAINERS[mode];
+            if (targetContainer) {
+                const el = document.getElementById(targetContainer);
+                const needsRender = !el || el.innerHTML.trim() === '' || el.querySelector('.lazy-module-loader');
+                if (needsRender) {
+                    LazyModuleEngine.showSkeleton(targetContainer, `Lade ${mode.toUpperCase()}-Challenge...`);
+                }
+                await LazyModuleEngine.load(mode);
+                if (needsRender && CHALLENGE_RENDERERS[mode]) {
+                    try {
+                        CHALLENGE_RENDERERS[mode]();
+                    } catch (err) {
+                        console.error(`[LazyLoader] Render-Fehler in Challenge "${mode}":`, err);
+                    }
+                }
+            }
+        } else {
+            // Während der Student die Cornell-Übersicht liest, Audit-Modul im Idle-Hintergrund vorladen
+            LazyModuleEngine.prefetch(['audit']);
+        }
+
+        if (typeof window.syncMobileChallengePicker === 'function') {
+            window.syncMobileChallengePicker();
+        }
+    };
+
+    const baseLoadCaseById = window.loadCaseById;
+    window.loadCaseById = async function(caseId, opts = {}) {
+        // Vor dem Öffnen eines Falls die Challenge-Container leeren, damit Lazy-Render sauber greift
+        Object.values(CHALLENGE_CONTAINERS).forEach(cId => {
+            const el = document.getElementById(cId);
+            if (el) el.innerHTML = '';
+        });
+
+        const startMode = opts.startMode || ((opts.specialty || window.isSpecialtyBlindMode) ? 'audit' : 'overview');
+        if (startMode !== 'overview') {
+            await LazyModuleEngine.load(startMode);
+        }
+
+        if (typeof baseLoadCaseById === 'function') {
+            baseLoadCaseById.call(this, caseId, opts);
+        }
+
+        if (window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.startCaseSession === 'function') {
+            window.SpacedRepetitionEngine.startCaseSession(caseId, startMode);
+        }
+    };
+})();
+
+// 3. Lazy-Loading Proxies für Blind-Fachrichtungen (`specialty.js`), Notaufnahme & Challenge-Buttons
+window.setLearningMode = async function(mode) {
+    currentLearningMode = mode;
+    const segTopic = document.getElementById('seg-topic');
+    const segSpec = document.getElementById('seg-specialty');
+    const superWrapper = document.getElementById('super-folders-wrapper');
+    const specHub = document.getElementById('specialty-hub');
+
+    if (segTopic) segTopic.classList.toggle('active', mode === 'topic');
+    if (segSpec) segSpec.classList.toggle('active', mode === 'specialty');
+
+    if (mode === 'specialty') {
+        if (superWrapper) superWrapper.style.display = 'none';
+        if (specHub) {
+            specHub.style.display = 'grid';
+            LazyModuleEngine.showSkeleton('specialty-hub', 'Lade Blind-Fachrichtungen...');
+        }
+        await LazyModuleEngine.load('specialty');
+        if (typeof window.renderSpecialtyHub === 'function') {
+            window.renderSpecialtyHub();
+        }
+    } else {
+        if (specHub) specHub.style.display = 'none';
+        if (superWrapper) superWrapper.style.display = 'flex';
+        renderDashboardCases();
+    }
+};
+
+window.evalCategorization = async function() {
+    await LazyModuleEngine.load('cat');
+    if (typeof window.evalCategorization === 'function') {
+        return window.evalCategorization();
+    }
+};
+
+window.evalQuiz = async function() {
+    await LazyModuleEngine.load('quiz');
+    if (typeof window.evalQuiz === 'function') {
+        return window.evalQuiz();
+    }
+};
+
+window.startEmergencyMode = async function() {
+    window.triggerHaptic(12);
+    const loaded = await LazyModuleEngine.load('emergency');
+    if (loaded && window.EmergencyManager && typeof window.EmergencyManager.startSession === 'function') {
+        window.EmergencyManager.startSession();
+        return;
+    }
+    // Intelligenter Leitner-Notaufnahme-Fallback: Startet sofort den dringendsten Fall im Audit-Modus
+    const urgentCaseId = window.SpacedRepetitionEngine?.getTopRecommendedCaseId() || BUILTIN_DEMO_CASE.case_id;
+    window.loadCaseById(urgentCaseId, { startMode: 'audit', isEmergency: true });
+};
+
+
+// ==========================================================================
+// 22. PERSISTENTE LEITNER SPACED REPETITION & KONZEPT-TELEMETRIE (SUPABASE)
+// ==========================================================================
+const SpacedRepetitionEngine = (() => {
+    const SR_STORAGE_KEY = 'medcheck_leitner_sr_v2';
+    const SR_CLOUD_ROW_PREFIX = '__MEDCHECK_SR_V2__';
+
+    // Leitner-Intervalle in Tagen für Box 1 bis Box 5
+    const LEITNER_INTERVAL_DAYS = {
+        1: 1,   // Box 1: Akut / Kritisch (täglich)
+        2: 3,   // Box 2: Überwachung (alle 3 Tage)
+        3: 7,   // Box 3: Normalstation (alle 7 Tage)
+        4: 14,  // Box 4: Ambulant (alle 14 Tage)
+        5: 30   // Box 5: Langzeitgedächtnis (alle 30 Tage)
+    };
+
+    // Schwellenwert in Sekunden, ab dem eine Challenge als "Zeitverlust / Unsicherheit" gewertet wird
+    const DWELL_TIME_THRESHOLD_SEC = {
+        audit: 95,
+        cat: 65,        // Taxonomie
+        synapses: 80,
+        cascade: 75,
+        quiz: 90,
+        doctordle: 70,
+        flashcards: 60
+    };
+
+    const CHALLENGE_TO_CONCEPT_LABEL = {
+        cat: 'Taxonomie',
+        audit: 'Klinisches Audit & Triage',
+        synapses: 'Pathophysiologie & Synapsen',
+        cascade: 'Kausalkette / Kaskade',
+        quiz: 'Staatsexamen-Prüfung',
+        doctordle: 'Differenzialdiagnostik',
+        flashcards: 'Faktenwissen',
+        pharmacology: 'Pharmakologie'
+    };
+
+    let activeSession = {
+        caseId: null,
+        mode: 'overview',
+        modeEnteredAt: 0,
+        accumulatedDwellSec: {},
+        sessionStruggles: []
+    };
+
+    let syncDebounceTimer = null;
+
+    function createEmptyState() {
+        return {
+            version: 2,
+            updatedAt: 0,
+            cases: {},      // caseId -> { box, nextReviewAt, lastReviewedAt, reviewCount, lapses, totalDwellSec, struggles: { [concept]: count }, lastDiagnosis }
+            concepts: {}    // conceptName -> { hits, misses, slowCount, box, lastTouchedAt }
+        };
+    }
+
+    function getState() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(SR_STORAGE_KEY) || 'null');
+            if (!raw || typeof raw !== 'object') return createEmptyState();
+            raw.cases = raw.cases || {};
+            raw.concepts = raw.concepts || {};
+            return raw;
+        } catch (_e) {
+            return createEmptyState();
+        }
+    }
+
+    function saveState(state, triggerCloudSync = true) {
+        state.updatedAt = Date.now();
+        try {
+            localStorage.setItem(SR_STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+            console.error('[Leitner-SR] Fehler beim lokalen Speichern:', e);
+        }
+        if (triggerCloudSync) {
+            scheduleSupabaseSync();
+        }
+    }
+
+    function ensureCaseEntry(state, caseId, caseObj = null) {
+        if (!state.cases[caseId]) {
+            const primaryDiag = caseObj?.metadata?.primary_disease || caseObj?.case_overview?.topic || '';
+            state.cases[caseId] = {
+                box: 1,
+                nextReviewAt: Date.now(),
+                lastReviewedAt: 0,
+                reviewCount: 0,
+                lapses: 0,
+                totalDwellSec: 0,
+                struggles: {},
+                lastDiagnosis: primaryDiag
+            };
+        }
+        return state.cases[caseId];
+    }
+
+    function ensureConceptEntry(state, conceptName) {
+        const clean = String(conceptName || 'Allgemein').trim();
+        if (!state.concepts[clean]) {
+            state.concepts[clean] = {
+                hits: 0,
+                misses: 0,
+                slowCount: 0,
+                box: 3,
+                lastTouchedAt: Date.now()
+            };
+        }
+        return state.concepts[clean];
+    }
+
+    // ----------------------------------------------------------------------
+    // 1. DWELL-TIME & UNSICHERHEITS-TRACKING
+    // ----------------------------------------------------------------------
+    function startCaseSession(caseId, initialMode = 'overview') {
+        flushActiveModeDwellTime();
+        activeSession = {
+            caseId: caseId,
+            mode: initialMode,
+            modeEnteredAt: Date.now(),
+            accumulatedDwellSec: {},
+            sessionStruggles: []
+        };
+    }
+
+    function flushActiveModeDwellTime() {
+        if (!activeSession.caseId || !activeSession.modeEnteredAt) return;
+        const elapsedSec = Math.round((Date.now() - activeSession.modeEnteredAt) / 1000);
+        activeSession.modeEnteredAt = Date.now();
+
+        // Ignoriere reines Lesen in der Übersicht oder unplausible Inaktivität (> 15 Min Tab offen gelassen)
+        if (activeSession.mode === 'overview' || elapsedSec < 3 || elapsedSec > 900) return;
+
+        const mode = activeSession.mode;
+        activeSession.accumulatedDwellSec[mode] = (activeSession.accumulatedDwellSec[mode] || 0) + elapsedSec;
+
+        const state = getState();
+        const entry = ensureCaseEntry(state, activeSession.caseId, activeCaseData);
+        entry.totalDwellSec = (entry.totalDwellSec || 0) + elapsedSec;
+
+        const threshold = DWELL_TIME_THRESHOLD_SEC[mode] || 80;
+        if (activeSession.accumulatedDwellSec[mode] >= threshold) {
+            const conceptLabel = CHALLENGE_TO_CONCEPT_LABEL[mode] || mode;
+            entry.struggles[conceptLabel] = (entry.struggles[conceptLabel] || 0) + 1;
+
+            const cEntry = ensureConceptEntry(state, conceptLabel);
+            cEntry.slowCount += 1;
+            cEntry.box = Math.max(1, cEntry.box - 1);
+            cEntry.lastTouchedAt = Date.now();
+
+            // Schwellenwert hochsetzen, damit nicht jede Sekunde erneut getriggert wird
+            activeSession.accumulatedDwellSec[mode] = -30;
+        }
+
+        saveState(state, false);
+    }
+
+    function onChallengeModeSwitch(newMode) {
+        flushActiveModeDwellTime();
+        activeSession.mode = newMode;
+        activeSession.modeEnteredAt = Date.now();
+    }
+
+    // Loggt gezielt einen Fehler oder eine Unsicherheit bei einem Konzept (Taxonomie, Pharma, Diagnose)
+    function logConceptStruggle(caseId, conceptName, reason = 'error') {
+        const targetCaseId = caseId || activeCaseData?.case_id || activeSession.caseId;
+        const cleanConcept = String(conceptName || 'Diagnostik').trim();
+        const state = getState();
+
+        const cEntry = ensureConceptEntry(state, cleanConcept);
+        cEntry.misses += 1;
+        cEntry.box = 1; // Sofort zurück in Leitner-Box 1!
+        cEntry.lastTouchedAt = Date.now();
+
+        if (targetCaseId) {
+            const caseEntry = ensureCaseEntry(state, targetCaseId, activeCaseData);
+            caseEntry.struggles[cleanConcept] = (caseEntry.struggles[cleanConcept] || 0) + 1;
+            caseEntry.lapses = (caseEntry.lapses || 0) + 1;
+            // Bei Unsicherheit/Fehler rutscht der Fall in Box 1 und wird für sofortiges Re-Training fällig
+            caseEntry.box = 1;
+            caseEntry.nextReviewAt = Date.now() + (6 * 60 * 60 * 1000); // In 6 Stunden wieder hochpriorisiert
+
+            // Auch die Primärdiagnose des Falls als Konzept verknüpfen
+            const primaryDiag = activeCaseData?.metadata?.primary_disease;
+            if (primaryDiag && primaryDiag !== cleanConcept) {
+                caseEntry.struggles[primaryDiag] = (caseEntry.struggles[primaryDiag] || 0) + 1;
+                caseEntry.lastDiagnosis = primaryDiag;
+            }
+        }
+
+        if (!activeSession.sessionStruggles.includes(cleanConcept)) {
+            activeSession.sessionStruggles.push(cleanConcept);
+        }
+
+        saveState(state, true);
+    }
+
+    function logConceptSuccess(caseId, conceptName) {
+        const cleanConcept = String(conceptName || 'Diagnostik').trim();
+        const state = getState();
+        const cEntry = ensureConceptEntry(state, cleanConcept);
+        cEntry.hits += 1;
+        cEntry.box = Math.min(5, (cEntry.box || 2) + 1);
+        cEntry.lastTouchedAt = Date.now();
+        saveState(state, false);
+    }
+
+    // ----------------------------------------------------------------------
+    // 2. LEITNER BOX-ALGORITHMUS BEI FALL-ABSCHLUSS
+    // ----------------------------------------------------------------------
+    function recordCaseReview(caseId, quality = 'good') {
+        if (!caseId) return;
+        flushActiveModeDwellTime();
+
+        const state = getState();
+        const allCases = window.getRegisteredCases ? window.getRegisteredCases({ ignoreSpecialtyFilter: true }) : [];
+        const caseObj = allCases.find(c => c.case_id === caseId) || activeCaseData;
+        const entry = ensureCaseEntry(state, caseId, caseObj);
+
+        const hadSessionStruggles = activeSession.caseId === caseId && activeSession.sessionStruggles.length > 0;
+        const effectiveQuality = (quality === 'again' || quality === 'hard')
+            ? quality
+            : (hadSessionStruggles ? 'hard' : 'good');
+
+        entry.reviewCount = (entry.reviewCount || 0) + 1;
+        entry.lastReviewedAt = Date.now();
+
+        if (effectiveQuality === 'again') {
+            entry.box = 1;
+            entry.lapses = (entry.lapses || 0) + 1;
+        } else if (effectiveQuality === 'hard') {
+            // Bei Unsicherheiten während des Falls maximal Box 2 (kurzes 3-Tage-Intervall)
+            entry.box = Math.max(1, Math.min(2, entry.box));
+        } else {
+            // Sauber gelöst -> Aufstieg in die nächste Leitner-Box (bis Box 5)
+            entry.box = Math.min(5, (entry.box || 1) + 1);
+            // Alte Struggle-Counter bei fehlerfreiem Durchlauf um 1 abbauen
+            Object.keys(entry.struggles || {}).forEach(k => {
+                entry.struggles[k] = Math.max(0, entry.struggles[k] - 1);
+                if (entry.struggles[k] === 0) delete entry.struggles[k];
+            });
+        }
+
+        const intervalDays = LEITNER_INTERVAL_DAYS[entry.box] || 1;
+        entry.nextReviewAt = Date.now() + (intervalDays * 24 * 60 * 60 * 1000);
+
+        saveState(state, true);
+        window.dispatchEvent(new CustomEvent('sr:updated'));
+    }
+
+    // ----------------------------------------------------------------------
+    // 3. PRIORISIERUNGS-ALGORITHMUS FÜR DEN FEED ("YOUR LESSON" & VISITE)
+    // ----------------------------------------------------------------------
+    function getCaseLeitnerTelemetry(caseObj, solvedIds = null, stateOverride = null) {
+        const state = stateOverride || getState();
+        const solved = solvedIds || JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        const cId = caseObj.case_id;
+        const entry = state.cases[cId];
+        const isSolved = solved.includes(cId);
+        const savedProgress = ProgressManager.getCaseProgress(cId);
+        const inProgress = !isSolved && savedProgress && Object.keys(savedProgress).filter(k => k !== 'updatedAt').length > 0;
+
+        const now = Date.now();
+        const box = entry?.box || (isSolved ? 2 : 1);
+        const nextReviewAt = entry?.nextReviewAt || 0;
+        const isDue = isSolved && nextReviewAt > 0 && now >= nextReviewAt;
+        const overdueDays = (isSolved && nextReviewAt > 0)
+            ? Math.max(0, (now - nextReviewAt) / (24 * 60 * 60 * 1000))
+            : 0;
+
+        // Dominantes Problem-Konzept dieses Falls ermitteln
+        const strugglesMap = entry?.struggles || {};
+        const topStruggleEntry = Object.entries(strugglesMap).sort((a, b) => b[1] - a[1])[0];
+        const topStruggleConcept = topStruggleEntry ? topStruggleEntry[0] : null;
+        const totalStruggleCount = Object.values(strugglesMap).reduce((acc, v) => acc + v, 0);
+
+        // Leitner-Prioritäts-Score berechnen (je höher, desto weiter oben im Feed)
+        let priorityScore = 0;
+
+        if (inProgress) {
+            priorityScore += 140; // Angefangene Fälle zuerst beenden
+        }
+        if (totalStruggleCount > 0) {
+            priorityScore += Math.min(180, totalStruggleCount * 35); // Fälle mit Konzept-Unsicherheiten stark pushen
+        }
+        if (isDue) {
+            priorityScore += 160 + Math.min(100, overdueDays * 15); // Fällige Leitner-Wiederholungen
+        }
+        if (!isSolved && !inProgress) {
+            priorityScore += 95; // Neue, noch ungelöste Fälle
+        }
+
+        // Niedrige Leitner-Boxen höher gewichten als Box 4/5
+        priorityScore += (6 - box) * 18;
+
+        // Klinische Triage-Kategorie bestimmen
+        let triageState = 'new'; // 'critical' | 'watch' | 'stable' | 'new'
+        if (totalStruggleCount >= 2 || (isSolved && box === 1) || (isDue && box <= 2)) {
+            triageState = 'critical';
+        } else if (isDue || inProgress || (isSolved && box === 2) || totalStruggleCount === 1) {
+            triageState = 'watch';
+        } else if (isSolved && box >= 3) {
+            triageState = 'stable';
+        }
+
+        return {
+            caseId: cId,
+            box,
+            isSolved,
+            inProgress,
+            isDue,
+            overdueDays,
+            topStruggleConcept,
+            totalStruggleCount,
+            triageState,
+            priorityScore,
+            nextReviewAt
+        };
+    }
+
+    function getPrioritizedCases(allCasesInput = null, folderFilter = 'ALL') {
+        const allCases = allCasesInput || (window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()]);
+        const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+        const state = getState();
+
+        const filtered = allCases.filter(c => {
+            if (!folderFilter || folderFilter === 'ALL') return true;
+            const rawCat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const superCat = getSuperFolderForCategory(rawCat);
+            return rawCat === folderFilter || superCat === folderFilter;
+        });
+
+        return filtered
+            .map(c => ({
+                caseObj: c,
+                sr: getCaseLeitnerTelemetry(c, solved, state)
+            }))
+            .sort((a, b) => b.sr.priorityScore - a.sr.priorityScore);
+    }
+
+    function getTopRecommendedCaseId() {
+        const ranked = getPrioritizedCases();
+        return ranked[0]?.caseObj?.case_id || BUILTIN_DEMO_CASE.case_id;
+    }
+
+    // ----------------------------------------------------------------------
+    // 4. SUPABASE CLOUD-SYNCHRONISATION (MULTI-CHANNEL FALLBACK)
+    // ----------------------------------------------------------------------
+    function getUserSrCloudRowId(userId) {
+        return `${SR_CLOUD_ROW_PREFIX}_${userId}`;
+    }
+
+    async function pushToSupabaseNow() {
+        const sb = getActiveSupabaseClient();
+        if (!sb || !sb.auth) return;
+
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            const user = session?.user;
+            if (!user) return;
+
+            const state = getState();
+
+            // 1. Speichern als privater System-Datensatz in `cases` (funktioniert garantiert mit bestehendem Schema)
+            await sb.from('cases').upsert({
+                case_id: getUserSrCloudRowId(user.id),
+                title: '__SYSTEM_SPACED_REPETITION_V2__',
+                medical_field: '__SYSTEM__',
+                is_public: false,
+                user_id: user.id,
+                created_by: user.id,
+                content: state
+            }, { onConflict: 'case_id' });
+
+            // 2. Zusätzlich in `spaced_repetition` Tabelle synchronisieren (falls in schema.sql angelegt)
+            const srRows = Object.entries(state.cases || {}).map(([cId, entry]) => ({
+                user_id: user.id,
+                case_id: cId,
+                leitner_box: entry.box || 1,
+                next_review_at: new Date(entry.nextReviewAt || Date.now()).toISOString(),
+                last_reviewed_at: entry.lastReviewedAt ? new Date(entry.lastReviewedAt).toISOString() : null,
+                review_count: entry.reviewCount || 0,
+                lapses: entry.lapses || 0,
+                struggle_concepts: entry.struggles || {},
+                total_dwell_sec: entry.totalDwellSec || 0
+            }));
+
+            if (srRows.length > 0) {
+                await sb.from('spaced_repetition')
+                    .upsert(srRows, { onConflict: 'user_id,case_id' })
+                    .catch(() => {});
+            }
+        } catch (err) {
+            console.warn('[Leitner-SR] Cloud-Sync im Hintergrund übersprungen:', err);
+        }
+    }
+
+    function scheduleSupabaseSync() {
+        if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+        syncDebounceTimer = setTimeout(pushToSupabaseNow, 800);
+    }
+
+    async function syncFromSupabase(prefetchedCasesData = null, currentUser = null) {
+        const sb = getActiveSupabaseClient();
+        if (!sb || !sb.auth) return;
+
+        try {
+            let user = currentUser;
+            if (!user) {
+                const { data: { session } } = await sb.auth.getSession();
+                user = session?.user;
+            }
+            if (!user) return;
+
+            const localState = getState();
+            const srRowId = getUserSrCloudRowId(user.id);
+            let cloudRow = Array.isArray(prefetchedCasesData)
+                ? prefetchedCasesData.find(r => r.case_id === srRowId)
+                : null;
+
+            if (!cloudRow) {
+                const { data } = await sb.from('cases')
+                    .select('content')
+                    .eq('case_id', srRowId)
+                    .maybeSingle();
+                cloudRow = data;
+            }
+
+            const cloudState = cloudRow?.content;
+            if (cloudState && cloudState.version === 2 && (cloudState.updatedAt || 0) > (localState.updatedAt || 0)) {
+                localStorage.setItem(SR_STORAGE_KEY, JSON.stringify(cloudState));
+                window.dispatchEvent(new CustomEvent('sr:updated'));
+            }
+        } catch (_e) {}
+    }
+
+    // ----------------------------------------------------------------------
+    // 5. DASHBOARD WIDGET ("STATIONS-VISITE & PATIENTEN-MONITORING")
+    // ----------------------------------------------------------------------
+    function renderDashboardWidget(containerId = 'sr-dashboard-widget', activeFilter = 'ALL') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const ranked = getPrioritizedCases(null, activeFilter);
+        const criticalList = ranked.filter(item => item.sr.triageState === 'critical');
+        const watchList = ranked.filter(item => item.sr.triageState === 'watch');
+        const stableList = ranked.filter(item => item.sr.triageState === 'stable');
+
+        // Schwächstes globales Konzept ermitteln
+        const state = getState();
+        const weakConceptEntry = Object.entries(state.concepts || {})
+            .filter(([, data]) => (data.misses + data.slowCount) > 0)
+            .sort((a, b) => (b[1].misses * 2 + b[1].slowCount) - (a[1].misses * 2 + a[1].slowCount))[0];
+
+        const weakConceptText = weakConceptEntry
+            ? `Fokus-Konzept: <strong>${escapeHtml(weakConceptEntry[0])}</strong>`
+            : `${criticalList.length > 0 ? `${criticalList.length} Fälle benötigen akute Leitner-Visite` : 'Alle Stationen stabil – bereit für neue Fälle'}`;
+
+        const nextVisiteCase = criticalList[0]?.caseObj || watchList[0]?.caseObj || ranked[0]?.caseObj;
+        const safeNextId = escapeHtml(nextVisiteCase?.case_id || BUILTIN_DEMO_CASE.case_id).replace(/'/g, "\\'");
+
+        container.innerHTML = `
+            <div class="bento-stat-card" style="padding: 14px 18px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border: 1px solid rgba(56, 189, 248, 0.22);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 240px;">
+                    <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(239, 68, 68, 0.14); border: 1px solid rgba(239, 68, 68, 0.35); display: flex; align-items: center; justify-content: center; font-size: 1rem;">
+                        🏥
+                    </div>
+                    <div>
+                        <div style="font-size: 0.86rem; font-weight: 800; color: var(--text-main);">
+                            Stations-Visite & Patienten-Monitoring (Spaced Repetition)
+                        </div>
+                        <div style="font-size: 0.74rem; color: ${criticalList.length > 0 ? '#fca5a5' : 'var(--text-muted)'}; margin-top: 2px;">
+                            ⚠️ ${weakConceptText}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="case-status-pill" style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 700;">
+                        🔴 ${criticalList.length} Kritisch
+                    </span>
+                    <span class="case-status-pill" style="background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.35); padding: 4px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 700;">
+                        🟡 ${watchList.length} Überwachung
+                    </span>
+                    <span class="case-status-pill" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.35); padding: 4px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 700;">
+                        🟢 ${stableList.length} Stabil
+                    </span>
+                    <button type="button" class="action-btn btn-sm" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.loadCaseById('${safeNextId}', { resetForReview: ${criticalList.length > 0 || watchList.some(w => w.sr.isDue)} })">
+                        Visite starten ➔
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    return {
+        getState,
+        startCaseSession,
+        onChallengeModeSwitch,
+        logConceptStruggle,
+        logConceptSuccess,
+        recordCaseReview,
+        getCaseLeitnerTelemetry,
+        getPrioritizedCases,
+        getTopRecommendedCaseId,
+        renderDashboardWidget,
+        syncFromSupabase,
+        pushToSupabaseNow
+    };
+})();
+
+window.SpacedRepetitionEngine = SpacedRepetitionEngine;
+
+window.selectSrFolder = function(folderName) {
+    SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', folderName || 'ALL');
+};
+
+// Automatische Hooks in Skill-Tracking & Bento-Dashboard-Feed
+(function bindLeitnerTelemetryHooks() {
+    // 1. `trackSkill` erweitern: Jeder Fehlgriff im Audit/Quiz/Taxonomie fließt sofort in die Leitner-Engine
+    const origTrackSkill = window.trackSkill || trackSkill;
+    window.trackSkill = function(skillTag, isHit) {
+        if (typeof origTrackSkill === 'function') {
+            origTrackSkill(skillTag, isHit);
+        }
+        const map = {
+            "Diagnostics": "Diagnostik",
+            "Pharmacology": "Pharmakologie",
+            "Pathophysiology": "Pathophysiologie",
+            "Triage": "Triage"
+        };
+        const cleanConcept = map[skillTag] || skillTag || "Diagnostik";
+        if (isHit) {
+            SpacedRepetitionEngine.logConceptSuccess(activeCaseData?.case_id, cleanConcept);
+        } else {
+            SpacedRepetitionEngine.logConceptStruggle(activeCaseData?.case_id, cleanConcept, 'skill_miss');
+        }
+    };
+
+    // 2. Hero-Button "Join Now" startet immer den am höchsten priorisierten Leitner-Fall
+    window.startNextRecommendedCase = function() {
+        const topId = SpacedRepetitionEngine.getTopRecommendedCaseId();
+        if (topId) {
+            const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+            const isReview = solved.includes(topId);
+            window.loadCaseById(topId, { resetForReview: isReview });
+        }
+    };
+
+    // 3. „Your Lesson“-Tabelle (#bento-your-lesson-tbody) mit Leitner-Priorisierung & Konzept-Badges upgraden
+    const origUpdateBento = window.updateBentoDashboardWidgets;
+    window.updateBentoDashboardWidgets = function() {
+        if (typeof origUpdateBento === 'function') {
+            origUpdateBento.apply(this, arguments);
+        }
+
+        const tbody = document.getElementById('bento-your-lesson-tbody');
+        if (tbody) {
+            const prioritized = SpacedRepetitionEngine.getPrioritizedCases().slice(0, 4);
+            tbody.innerHTML = prioritized.map(({ caseObj: c, sr }, idx) => {
+                const rawCategory = (c.folder_name || c.metadata?.medical_field || 'Klinik').trim();
+                const parsedCat = formatClinicalFolderLabel(rawCategory);
+                const safeCaseId = escapeHtml(c.case_id).replace(/'/g, "\\'");
+
+                let badgeClass = 'theme-primary';
+                let statusText = `Box ${sr.box} · Neu`;
+
+                if (sr.triageState === 'critical') {
+                    badgeClass = 'theme-secondary';
+                    statusText = `🔴 Box ${sr.box} · Kritisch`;
+                } else if (sr.isDue) {
+                    badgeClass = 'theme-secondary';
+                    statusText = `⚡ Box ${sr.box} · Fällig`;
+                } else if (sr.inProgress) {
+                    badgeClass = 'theme-cyan';
+                    statusText = `↻ Box ${sr.box} · In Arbeit`;
+                } else if (sr.isSolved) {
+                    badgeClass = 'theme-cyan';
+                    statusText = `🟢 Box ${sr.box} · Stabil`;
+                }
+
+                const conceptHint = sr.topStruggleConcept
+                    ? ` · ⚠️ ${escapeHtml(sr.topStruggleConcept)}`
+                    : '';
+
+                const shouldResetForReview = sr.isSolved && (sr.isDue || sr.triageState === 'critical');
+
+                return `
+                    <tr onclick="window.loadCaseById('${safeCaseId}', { resetForReview: ${shouldResetForReview} })">
+                        <td>
+                            <div class="bento-table-mentor-cell">
+                                <div class="bento-avatar-sm" style="background: var(--badge-primary-bg); color: var(--badge-primary-text);">L${idx + 1}</div>
+                                <div>
+                                    <div class="bento-media-mentor-name">${escapeHtml(parsedCat.title)}</div>
+                                    <div class="bento-media-mentor-role">${escapeHtml(c.metadata?.primary_disease || 'Klinisches Fall-Audit')}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="bento-category-pill ${badgeClass}" title="Leitner-Box ${sr.box} (Prioritäts-Score: ${Math.round(sr.priorityScore)})">
+                                ${statusText}${conceptHint}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="bento-table-desc">${escapeHtml(c.metadata?.title || c.case_id)}</div>
+                        </td>
+                        <td style="text-align: right;">
+                            <button type="button" class="bento-action-circle-btn" title="${shouldResetForReview ? 'Leitner-Review starten' : 'Fall öffnen'}">↗</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', 'ALL');
+    };
+})();
