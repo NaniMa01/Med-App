@@ -1,16 +1,19 @@
 /**
- * MedCheck - Interactive Clinical Mindmap Module V5.0 (js/mindmap.js)
- * "Clinical Reasoning & Synaptic Mastery Edition"
+ * MedCheck - Interactive Clinical Mindmap Module V6.0 (js/mindmap.js)
+ * "Deep Clinical Mastery Gate & Active-Recall Edition"
  *
- * Upgrades in V5.0:
- *  - Dual-Step Synaptic Verification: 1. Concept Placement -> 2. Causal Relation Interrogation (Multiple Choice)
- *  - Anti-Spoiler Pool Architecture: Zero 1st/2nd-order visual leaks + stable shuffle order
- *  - Clinical Distractor Engine (Red Herrings / Differential Diagnosis traps prevent elimination guessing)
- *  - Blind-Root Diagnostic Deduction Mode (deduce the central disease from its causal web)
- *  - 3 Clinical Presets: Assistenzarzt (Guided) | Facharzt (Clinical Reasoning) | Staatsexamen (IMPP Mastery)
- *  - 100% Native compatibility with api/gemini.js (fixes HTTP 502 via mode: 'depot_quiz' JSON array contract)
- *  - Direct 1-Click Integration with MedCheck "Persönliches Lern-Depot" (createDepotEntry)
- *  - Full Delete Function (LocalStorage + Supabase Cloud DELETE + Built-in Hide/Restore)
+ * Upgrades in V6.0:
+ *  - Deep Clinical Mastery Gate on Node Placement: Every placed block triggers a rigorous
+ *    state-exam level comprehension question (mechanism, contraindication, cutoff, differential)
+ *    instead of merely asking which branch it belongs to.
+ *  - Active-Recall-First Mode ("Erst Freitext-Hypothese, dann MC-Optionen"): Forces active memory
+ *    retrieval before revealing the 4 length-balanced options.
+ *  - Live AI Question Regenerator ("🔄 Neue KI-Prüfungsfrage"): Dynamically generates new deep
+ *    comprehension questions via /api/gemini (mode: 'depot_quiz') for infinite replayability
+ *    and automatic upgrading of legacy custom mindmaps.
+ *  - Socratic Error Coaching inside the Mastery Modal (no solution spoilers on wrong clicks).
+ *  - Anti-Spoiler Pool Architecture + Clinical Distractor Chips (Red Herrings).
+ *  - Direct 1-Click Integration with MedCheck "Persönliches Lern-Depot" (createDepotEntry).
  */
 
 (function () {
@@ -43,7 +46,19 @@
                     parent_id: 'root',
                     relation_label: 'Akuter Pathomechanismus',
                     socratic_hint: 'Was passiert akut an einer vulnerablen atherosklerotischen Koronarläsion, bevor das Gefäß komplett verschließt?',
-                    explanation: 'Durch Ruptur der fibrösen Kappe einer vulnerablen Plaque wird subendotheliales Kollagen und Tissue Factor freigelegt, was zur sofortigen Thrombozytenaggregation und einem okklusiven Thrombus führt.'
+                    explanation: 'Durch Ruptur der dünnen fibrösen Kappe eines Lipid-reichen Atheroms werden subendotheliales Kollagen und Tissue Factor exponiert, was über vWF/GPIb und GPIIb/IIIa zur sofortigen Thrombozytenvernetzung und okklusiven Thrombusbildung führt.',
+                    mastery_question: {
+                        question: 'Welcher molekulare Kaskadenschritt führt nach der Ruptur einer vulnerablen Koronarplaque unmittelbar zur finalen, festen Quervernetzung der Thrombozyten im weißen Abscheidungsthrombus?',
+                        options: [
+                            'Konformationsänderung des GPIIb/IIIa-Integrins auf aktivierten Thrombozyten mit anschließender symmetrischer Brückenbildung durch Fibrinogen',
+                            'Direkte Spaltung von hochmolekularem Kininogen durch Faktor XIIa an der intakten Endotheloberfläche ohne vorherige Kollagenexposition',
+                            'Isolierte Bindung von Antithrombin III an subendotheliales Heparansulfat mit konsekutiver Aktivierung der primären Fibrinolyse',
+                            'Paradoxe Hemmung der Thromboxan-A2-Synthese in Endothelzellen bei gleichzeitiger Überexpression von Prostacyclin (PGI2)'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Überlege: Welcher spezifische Oberflächenrezeptor auf Thrombozyten bildet die „gemeinsame Endstrecke“ der Aggregation, indem er Fibrinogen als Brücke zwischen zwei Thrombozyten bindet?',
+                        rationale: 'Nach initialer Adhäsion (vWF an GPIb-IX-V und Kollagen an GPVI) führen ADP und Thromboxan A2 zu einer Inside-Out-Aktivierung des GPIIb/IIIa-Rezeptors, der Fibrinogen bindet und die Thrombozyten unlöslich vernetzt.'
+                    }
                 },
                 {
                     id: 'n2',
@@ -52,7 +67,19 @@
                     parent_id: 'root',
                     relation_label: 'Klinisches Leitsymptom',
                     socratic_hint: 'Wie äußert sich eine akute transmurale myokardiale Ischämie subjektiv beim Patienten im Gegensatz zur stabilen Angina pectoris?',
-                    explanation: 'Anhaltender retrosternaler Druck- oder Vernichtungsschmerz (> 20 Min., kein Ansprechen auf Nitroglycerin), oft begleitet von Kaltschweißigkeit, Todesangst und vagaler Übelkeit.'
+                    explanation: 'Anhaltender retrosternaler Druck- oder Vernichtungsschmerz (> 20 Min., kein Ansprechen auf Nitroglycerin), oft begleitet von Kaltschweißigkeit, Todesangst und vagaler Übelkeit.',
+                    mastery_question: {
+                        question: 'Bei welcher spezifischen Patientengruppe präsentiert sich ein akuter STEMI besonders häufig OHNE den klassischen retrosternalen Vernichtungsschmerz („stummer Infarkt“), sondern primär durch Dyspnoe, Synkope oder vegetative Erschöpfung?',
+                        options: [
+                            'Patienten mit langjährigem Diabetes mellitus und autonomer kardialer Neuropathie sowie hochbetagte Patienten und Frauen',
+                            'Junge männliche Ausdauersportler mit physiologischer Sinusbradykardie und isolierter vagotoner Trainingsadaptation',
+                            'Patienten mit bekannter familiärer Hypercholesterinämie unter hochdosierter Statin- und PCSK9-Inhibitor-Therapie',
+                            'Patienten mit akutem Vorderwandinfarkt durch proximalen RIVA-Verschluss ohne begleitende Kollateralzirkulation'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Welche Stoffwechselerkrankung schädigt chronisch die viszerosensiblen Afferenzen (autonome Neuropathie), die den Ischämieschmerz vom Myokard zum ZNS leiten?',
+                        rationale: 'Durch eine diabetische autonome Neuropathie werden viszerale Schmerzafferenzen geschädigt; zudem zeigen ältere Patienten, Frauen und Niereninsuffiziente signifikant häufiger atypische Äquivalente (Dyspnoe, Epigastralgie, Vigilanzminderung).'
+                    }
                 },
                 {
                     id: 'n3',
@@ -61,7 +88,19 @@
                     parent_id: 'root',
                     relation_label: 'Apparative Sofort-Weichenstellung',
                     socratic_hint: 'Welche apparative Untersuchung muss laut ESC-Leitlinie zwingend innerhalb von 10 Minuten nach First Medical Contact erfolgen, ohne auf Laborwerte zu warten?',
-                    explanation: 'Das 12-Kanal-EKG innerhalb von 10 Minuten nach Erstkontakt (First Medical Contact) stellt die Weiche für die sofortige Reperfusion – auf den Troponin-Anstieg darf beim STEMI nicht gewartet werden!'
+                    explanation: 'Das 12-Kanal-EKG innerhalb von 10 Minuten nach Erstkontakt (First Medical Contact) stellt die Weiche für die sofortige Reperfusion – auf den Troponin-Anstieg darf beim STEMI nicht gewartet werden!',
+                    mastery_question: {
+                        question: 'Ein Patient bietet klinisch einen hochgradigen STEMI-Verdacht, das Standard-12-Kanal-EKG zeigt jedoch lediglich prominente R-Zacken und horizontale ST-Senkungen in V1–V3. Welche diagnostische Maßnahme ist laut ESC-Leitlinie sofort indiziert?',
+                        options: [
+                            'Sofortige Ableitung der posterioren Zusatzableitungen V7–V9 zum Nachweis eines streng posterioren Myokardinfarkts (RCX/RCA)',
+                            'Abwarten des 0h/3h-Verlaufs des hochsensitiven Troponins auf der Normalstation vor einer etwaigen Katheter-Aktivierung',
+                            'Durchführung einer ergometrischen Belastungsuntersuchung zur Provokation klassischer anteriorer ST-Strecken-Hebungen',
+                            'Ausschluss eines transmuralen Infarkts, da ST-Senkungen in V1–V3 beweisend für eine harmlose frühe Repolarisation sind'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Denke dreidimensional: V1–V3 blicken von vorne auf das Herz. Wenn du dort „spiegelbildlich“ ST-Senkungen und hohe R-Zacken (als Spiegelbild von Q-Zacken) siehst, welche Herzwand ist dann transmural ischämisch?',
+                        rationale: 'ST-Senkungen in V1–V3 mit R/S-Ratio > 1 sind oft das reziproke Spiegelbild eines streng posterioren STEMI (Verschluss von RCX oder RCA). Die Ableitungen V7–V9 (Cutoff ≥ 0,05 mV; ≥ 0,1 mV bei Männern < 40 J.) entlarven die direkte ST-Hebung.'
+                    }
                 },
                 {
                     id: 'n4',
@@ -70,7 +109,19 @@
                     parent_id: 'root',
                     relation_label: 'Kausale Reperfusionsstrategie',
                     socratic_hint: 'Welche Intervention öffnet das verschlossene Koronargefäß mechanisch mit der höchsten Erfolgsrate (Time is Muscle)?',
-                    explanation: 'Die primäre perkutane Koronarintervention (PCI) mit Drug-Eluting-Stent (< 60 Min. im PCI-Zentrum, < 90 Min. bei Transfer) ist der Goldstandard zur Wiederherstellung des TIMI-III-Flusses.'
+                    explanation: 'Die primäre perkutane Koronarintervention (PCI) mit Drug-Eluting-Stent (< 60 Min. im PCI-Zentrum, < 90 Min. bei Transfer) ist der Goldstandard zur Wiederherstellung des TIMI-III-Flusses.',
+                    mastery_question: {
+                        question: 'Ein STEMI-Patient hat seit 90 Minuten Thoraxschmerzen. Er befindet sich in einem peripheren Krankenhaus OHNE Herzkatheterlabor; der Transfer zur PCI würde 150 Minuten dauern. Wie lautet das leitliniengerechte Vorgehen (ESC)?',
+                        options: [
+                            'Einleitung einer sofortigen systemischen Fibrinolyse (innerhalb von 10 Min.) mit anschließendem unverzüglichem Transfer in ein PCI-Zentrum',
+                            'Verzicht auf jegliche Reperfusionstherapie vor Ort und langsamer Sekundärtransport zur elektiven Koronarangiographie am Folgetag',
+                            'Alleinige Gabe von ASS oral und Beobachtung auf der peripheren Intensivstation, bis der Troponin-Spitzenwert nach 24 Stunden fällt',
+                            'Isolierte Anlage einer intraaortalen Ballonpumpe (IABP) ohne medikamentöse oder mechanische Wiedereröffnung des Gefäßes'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Ab welchem erwarteten Zeitfenster von der STEMI-Diagnose bis zur Drahtpassage (Wire Crossing) verliert die primäre PCI ihren Zeitvorteil gegenüber einer sofortigen Lyse?',
+                        rationale: 'Kann eine primäre PCI nicht innerhalb von < 120 Minuten nach STEMI-Diagnose durchgeführt werden, ist bei Symptombeginn < 12 h (und fehlenden Kontraindikationen) eine sofortige Fibrinolyse (< 10 Min.) gefolgt vom sofortigen Transfer ins PCI-Zentrum (Routine-PCI nach 2–24 h oder Rescue-PCI) indiziert.'
+                    }
                 },
                 {
                     id: 'n5',
@@ -79,7 +130,19 @@
                     parent_id: 'root',
                     relation_label: 'Chronische Atherogenese-Treiber',
                     socratic_hint: 'Welche chronisch-systemischen Faktoren fördern endotheliale Dysfunktion, Lipidkern-Wachstum und die Bildung vulnerabler Koronarplaques?',
-                    explanation: 'Oxidiertes LDL-Cholesterin, Nikotinabusus, arterielle Hypertonie und Diabetes mellitus treiben über endotheliale Inflammation die koronare Atherosklerose voran.'
+                    explanation: 'Oxidiertes LDL-Cholesterin, Nikotinabusus, arterielle Hypertonie und Diabetes mellitus treiben über endotheliale Inflammation die koronare Atherosklerose voran.',
+                    mastery_question: {
+                        question: 'Welcher histomorphologische Plaque-Phänotyp („Thin-Cap Fibroatheroma“) weist das höchste Risiko für eine spontane Ruptur mit akutem Koronarverschluss auf?',
+                        options: [
+                            'Großer nekrotischer Lipidkern, dichtes Makrophagen-Infiltrat mit hoher Metalloproteinasen-Aktivität und dünne fibröse Kappe (< 65 µm)',
+                            'Stark verkalkte, konzentrische Koronarstenose mit dicker kollagenreicher Kappe, vielen glatten Muskelzellen und minimalem Lipidkern',
+                            'Rein funktioneller Koronarspasmus einer angiographisch völlig glatten Tunica intima ohne subendotheliale Schaumzell-Akkumulation',
+                            'Ausgeprägte Media-Hypertrophie der peripheren Widerstandsgefäße ohne Beteiligung der epikardialen Leitarterien oder Makrophagen'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Was macht eine Plaque mechanisch instabil: eine dicke kollagenreiche Narbe oder Makrophagen (Schaumzellen), die das Kollagen der Kappe enzymatisch abbauen?',
+                        rationale: 'Vulnerable Plaques zeichnen sich durch eine dünne fibröse Kappe (< 65 µm), wenige glatte Muskelzellen (geringe Kollagensynthese) und viele aktivierte Makrophagen aus, die über Matrix-Metalloproteinasen (MMPs) das Kollagengerüst der Kappe abbauen.'
+                    }
                 },
                 {
                     id: 'n6',
@@ -88,7 +151,19 @@
                     parent_id: 'n1',
                     relation_label: 'verursacht nach 20–40 Min. Ischämie',
                     socratic_hint: 'Was passiert mit den Kardiomyozyten bei anhaltender kompletter Okklusion von innen nach außen (Subendokard -> Epikard) und welcher Strukturmarker wird frei?',
-                    explanation: 'Ohne Reperfusion breitet sich die Wellenfront der Myokardnekrose (Wavefront Phenomenon nach Reimer) vom Subendokard transmural zum Epikard aus; durch Sarkolemm-Ruptur steigt hs-Troponin an.'
+                    explanation: 'Ohne Reperfusion breitet sich die Wellenfront der Myokardnekrose (Wavefront Phenomenon nach Reimer) vom Subendokard transmural zum Epikard aus; durch Sarkolemm-Ruptur steigt hs-Troponin an.',
+                    mastery_question: {
+                        question: 'Warum beginnt der ischämische Zelluntergang beim akuten Koronarverschluss stets im Subendokard, bevor er sich als „Wavefront Phenomenon“ transmural bis zum Epikard ausbreitet?',
+                        options: [
+                            'Das Subendokard unterliegt in der Systole der höchsten intramuralen Wandspannung, wird nur diastolisch perfundiert und liegt am Ende der Gefäßstrecke',
+                            'Die großen epikardialen Koronararterien verlaufen anatomisch direkt im Subendokard und geben ihre Endäste von innen nach außen ab',
+                            'Subendokardiale Kardiomyozyten besitzen keine Mitochondrien und gewinnen ihr ATP ausschließlich über anaerobe Glykolyse',
+                            'Das Epikard wird direkt aus dem sauerstoffreichen Blut des linken Ventrikelkavums über Thebesius-Venen retrograd versorgt'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Überlege, wo die Koronararterien verlaufen (außen auf dem Epikard) und welche Wandschicht während der Systole durch den hohen Ventrikeldruck am stärksten komprimiert wird!',
+                        rationale: 'Die Koronararterien penetrieren das Myokard von außen (epikardial) nach innen (subendokardial). Im Subendokard herrscht der höchste extravasale Kompressionsdruck, der höchste O2-Bedarf und die geringste Kollateralreserve.'
+                    }
                 },
                 {
                     id: 'n7',
@@ -97,7 +172,19 @@
                     parent_id: 'n2',
                     relation_label: 'projiziert über Head-Zonen (C8–Th5) als',
                     socratic_hint: 'Wohin projiziert der viszerale Herzschmerz über die viszerosomatische Konvergenz im Hinterhorn des Rückenmarks?',
-                    explanation: 'Über viszerosomatische Konvergenz (Segmente C8–Th5) wird der viszerale Ischämieschmerz als übertragener Schmerz (Referred Pain) in den linken Arm, Hals, Unterkiefer oder das Epigastrium projiziert.'
+                    explanation: 'Über viszerosomatische Konvergenz (Segmente C8–Th5) wird der viszerale Ischämieschmerz als übertragener Schmerz (Referred Pain) in den linken Arm, Hals, Unterkiefer oder das Epigastrium projiziert.',
+                    mastery_question: {
+                        question: 'Durch welchen neuroanatomischen Mechanismus nimmt die Großhirnrinde eine myokardiale Ischämie als Schmerz an der ulnaren Seite des linken Arms oder im Unterkiefer wahr?',
+                        options: [
+                            'Konvergenz viszerosensibler kardialer Afferenzen und somatosensibler Hautafferenzen auf dieselben Wide-Dynamic-Range-Neurone im Hinterhorn',
+                            'Direkte anatomische Kompression des Plexus brachialis durch die akute ischämische Dilatation des linken Ventrikels im Mediastinum',
+                            'Fortgeleitete arterielle Embolisation aus dem linken Koronarsinus direkt in die A. subclavia sinistra und A. carotis externa',
+                            'Efferente parasympathische Überstimulation des Nervus phrenicus mit direkter motorischer Verkrampfung der Unterarmmuskulatur'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Wie verschalten das Herz und die Dermatome C8–Th5 ihre Schmerzfasern auf der Ebene des Rückenmarks (Tractus spinothalamicus)?',
+                        rationale: 'Viszerosensible Sympathikus-Afferenzen des Herzens (C8–Th5) und somatosensible Afferenzen der entsprechenden Dermatome (z. B. C8/Th1 = ulnarer Unterarm) projizieren auf gemeinsame Hinterhornneurone (viszerosomatische Konvergenz). Der Kortex interpretiert das Signal als somatischen Oberflächenschmerz.'
+                    }
                 },
                 {
                     id: 'n8',
@@ -106,7 +193,19 @@
                     parent_id: 'n3',
                     relation_label: 'zeigt als beweisendes Ischämie-Kriterium',
                     socratic_hint: 'Welches spezifische Erregungsrückbildungs-Kriterium am J-Punkt beweist im EKG den transmuralen Verletzungsstrom eines Versorgungsgebiets?',
-                    explanation: 'Signifikante ST-Strecken-Hebungen am J-Punkt in mindestens zwei anatomisch benachbarten Ableitungen (mit reziproken ST-Senkungen im Gegenwandgebiet) sichern die Diagnose.'
+                    explanation: 'Signifikante ST-Strecken-Hebungen am J-Punkt in mindestens zwei anatomisch benachbarten Ableitungen (mit reziproken ST-Senkungen im Gegenwandgebiet) sichern die Diagnose.',
+                    mastery_question: {
+                        question: 'Das 12-Kanal-EKG zeigt signifikante konvexe ST-Hebungen in den Ableitungen II, III und aVF (wobei die ST-Hebung in III > II ist) sowie reziproke ST-Senkungen in I und aVL. Welches Koronargefäß ist am wahrscheinlichsten verschlossen?',
+                        options: [
+                            'Rechte Koronararterie (RCA), wobei zusätzlich rechtspräkordiale Ableitungen (V3r/V4r) zum Ausschluss eines RV-Infarkts obligat sind',
+                            'Proximaler Ramus interventricularis anterior (RIVA/LAD) vor Abgang des ersten großen Septal- und Diagonalastes',
+                            'Distaler Ramus circumflexus (RCX) bei einem ausgeprägten anatomischen Linksversorgungstyp ohne Beteiligung der Hinterwand',
+                            'Isolierter Verschluss der Vena cardiaca magna mit venöser Stauung der anterolateralen Papillarmuskulatur'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'II, III und aVF repräsentieren die inferiore Herzwand. Wenn der Verletzungsvektor stärker nach rechts-unten (Ableitung III bei +120°) als nach links-unten (Ableitung II bei +60°) zeigt, welches Gefäß ist dann betroffen?',
+                        rationale: 'Inferiore ST-Hebungen (II, III, aVF) mit dem Kriterium ST-Hebung in III > II und tiefer ST-Senkung in I/aVL sprechen mit hoher Spezifität für einen RCA-Verschluss (statt RCX). Hier muss zwingend V3r/V4r abgeleitet werden, um eine rechtsventrikuläre Beteiligung zu erkennen.'
+                    }
                 },
                 {
                     id: 'n9',
@@ -115,7 +214,19 @@
                     parent_id: 'n4',
                     relation_label: 'erfordert zur Stentthrombose-Prophylaxe',
                     socratic_hint: 'Welche duale medikamentöse Thrombozytenhemmung verhindert nach erfolgreicher Stent-Implantation über 12 Monate den akuten Wiederverschluss?',
-                    explanation: 'Nach DES-Implantation beim ACS ist eine duale Thrombozytenaggregationshemmung (DAPT) aus ASS (COX-1-Hemmer) plus einem potenten P2Y12-Inhibitor (Prasugrel oder Ticagrelor) für 12 Monate obligat.'
+                    explanation: 'Nach DES-Implantation beim ACS ist eine duale Thrombozytenaggregationshemmung (DAPT) aus ASS (COX-1-Hemmer) plus einem potenten P2Y12-Inhibitor (Prasugrel oder Ticagrelor) für 12 Monate obligat.',
+                    mastery_question: {
+                        question: 'Warum werden Prasugrel oder Ticagrelor beim akuten STEMI mit PCI gegenüber Clopidogrel bevorzugt, und bei welcher Anamnese ist Prasugrel absolut kontraindiziert?',
+                        options: [
+                            'Schnellerer und konsistenterer Wirkungseintritt unabhängig von CYP2C19-Polymorphismen; Prasugrel ist bei Z.n. TIA/Schlaganfall absolut kontraindiziert',
+                            'Sie hemmen zusätzlich direkt den Gerinnungsfaktor Xa im Plasma; Prasugrel ist ausschließlich bei einem Lebensalter unter 50 Jahren kontraindiziert',
+                            'Clopidogrel wirkt nur intravenös mit einer Halbwertszeit von 5 Minuten; Prasugrel ist bei Vorliegen einer arteriellen Hypertonie kontraindiziert',
+                            'Beide Substanzen aktivieren direkt Plasminogen; Prasugrel darf niemals zusammen mit niedrig dosierter Acetylsalicylsäure gegeben werden'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Clopidogrel ist ein Prodrug mit zweistufiger hepatischer CYP2C19-Aktivierung („Low-Responder“-Risiko). Welches schwere neurologische Ereignis in der Vorgeschichte verbietet den Einsatz von Prasugrel (TRITON-TIMI-38)?',
+                        rationale: 'Prasugrel (irreversibler P2Y12-Blocker) und Ticagrelor (direkt wirksamer, reversibler P2Y12-Blocker) überwinden die genetische CYP2C19-Variabilität von Clopidogrel. Prasugrel ist bei Z.n. Schlaganfall oder TIA absolut kontraindiziert (und bei ≥ 75 J. oder < 60 kg nur mit Vorsicht/Dosisreduktion einzusetzen).'
+                    }
                 }
             ],
             distractors: [
@@ -152,7 +263,19 @@
                     parent_id: 'root',
                     relation_label: 'Kausale Emboliequelle (~90%)',
                     socratic_hint: 'Woher stammt der eingeschwemmte Thrombus (Virchow-Trias: Stase, Endothelschaden, Hyperkoagulabilität) in den allermeisten Fällen anatomisch?',
-                    explanation: 'Rund 90 % aller Lungenembolien entstehen durch Abschwemmung eines Thrombus aus den tiefen Bein- oder Beckenvenen (V. poplitea, V. femoralis, V. iliaca).'
+                    explanation: 'Rund 90 % aller Lungenembolien entstehen durch Abschwemmung eines Thrombus aus den tiefen Bein- oder Beckenvenen (V. poplitea, V. femoralis, V. iliaca).',
+                    mastery_question: {
+                        question: 'Welcher molekulare Defekt stellt die häufigste hereditäre Thrombophilie dar, die über eine gestörte Inaktivierung der Gerinnungsfaktoren Va und VIIIa das Risiko für eine TVT und LAE signifikant erhöht?',
+                        options: [
+                            'Punktmutation im Faktor-V-Gen (Faktor-V-Leiden), die zur Resistenz gegenüber der proteolytischen Spaltung durch aktiviertes Protein C (APC-Resistenz) führt',
+                            'Kompletter genetischer Mangel an von-Willebrand-Faktor mit konsekutiver Überaktivierung der primären thrombozytären Hämostase im venösen Niederdrucksystem',
+                            'Autosomal-rezessive Überexpression von Gewebe-Plasminogenaktivator (t-PA) mit unkontrollierter Vernetzung von Fibrinmonomeren in den Beinvenen',
+                            'Isolierte Defizienz von Gerinnungsfaktor VIII (Hämophilie A) mit paradoxer Hyperkoagulabilität bei postoperativer venöser Stase'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Welches physiologische Antikoagulans spaltet normalerweise Faktor Va, und wie nennt man die häufigste Punktmutation, die diese Spaltstelle unempfindlich macht?',
+                        rationale: 'Die Faktor-V-Leiden-Mutation (Arg506Gln) verhindert die Inaktivierung von Faktor Va durch aktiviertes Protein C (APC-Resistenz) und ist der häufigste genetische Risikofaktor für venöse Thromboembolien (gefolgt von der Prothrombin-G20210A-Mutation).'
+                    }
                 },
                 {
                     id: 'l2',
@@ -161,7 +284,19 @@
                     parent_id: 'root',
                     relation_label: 'Hämodynamische Primärfolge',
                     socratic_hint: 'Welcher dünnwandige Herzabschnitt muss plötzlich gegen den akut erhöhten pulmonalvaskulären Widerstand (PVR) und die Thromboxan-vermittelte Vasokonstriktion anpumpen?',
-                    explanation: 'Durch mechanische Obstruktion (> 30–50 % des Gefäßbetts) und neurohumorale Vasokonstriktion (Serotonin, Thromboxan A2) steigt die rechtsventrikuläre Nachlast abrupt an -> akutes Cor pulmonale.'
+                    explanation: 'Durch mechanische Obstruktion (> 30–50 % des Gefäßbetts) und neurohumorale Vasokonstriktion (Serotonin, Thromboxan A2) steigt die rechtsventrikuläre Nachlast abrupt an -> akutes Cor pulmonale.',
+                    mastery_question: {
+                        question: 'Warum steigt der pulmonalvaskuläre Widerstand (PVR) bei einer akuten LAE oft deutlich stärker an, als es durch die rein mechanische Gefäßverlegung des Embolus allein erklärbar wäre?',
+                        options: [
+                            'Zusätzliche Freisetzung potenter Vasokonstriktoren (Thromboxan A2, Serotonin) aus aktivierten Thrombozyten sowie hypoxische pulmonale Vasokonstriktion (Euler-Liljestrand)',
+                            'Gleichzeitiger spastischer Verschluss der Lungenvenen durch eine parasympathische Vagus-Überaktivierung im linken Vorhof',
+                            'Sofortige kompensatorische Verdickung (konzentrische Hypertrophie) der Media aller Pulmonalarterien innerhalb weniger Minuten nach Embolisation',
+                            'Abrupter Anstieg der Blutviskosität auf das Dreifache durch akute osmotische Hämokonzentration in den Alveolarkapillaren'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Denke an das Zusammenspiel aus biochemischen Botenstoffen des Thrombus und dem physiologischen Reflex der Lungenstrombahn auf alveoläre Hypoxie!',
+                        rationale: 'Neben der mechanischen Obstruktion setzen Thrombozyten und Endothel Thromboxan A2, Serotonin und Endothelin-1 frei; zusammen mit dem Euler-Liljestrand-Mechanismus (hypoxische Vasokonstriktion) führt dies zu einem massiven PVR-Anstieg, gegen den der dünnwandige RV (Wanddicke 3–4 mm) nicht anpumpen kann.'
+                    }
                 },
                 {
                     id: 'l3',
@@ -170,7 +305,19 @@
                     parent_id: 'root',
                     relation_label: 'Klinische Initialtrias',
                     socratic_hint: 'Welche Symptome treten plötzlich durch funktionelle Totraumventilation, V/Q-Mismatch und periphere pleurale Infarzierung auf?',
-                    explanation: 'Plötzliche Dyspnoe, Tachypnoe, Sinustachykardie und atemabhängiger (pleuritischer) Thoraxschmerz sind die häufigsten Initialsymptome.'
+                    explanation: 'Plötzliche Dyspnoe, Tachypnoe, Sinustachykardie und atemabhängiger (pleuritischer) Thoraxschmerz sind die häufigsten Initialsymptome.',
+                    mastery_question: {
+                        question: 'Welche charakteristische Konstellation zeigt die arterielle Blutgasanalyse (BGA) typischerweise bei einer akuten, mittelschweren Lungenarterienembolie?',
+                        options: [
+                            'Hypoxämie (erniedrigter paO2) kombiniert mit einer Hypokapnie (erniedrigter paCO2) und respiratorischer Alkalose infolge der kompensatorischen Hyperventilation',
+                            'Isolierte schwere Hyperkapnie (paCO2 > 65 mmHg) bei gleichzeitig völlig normalem arteriellem Sauerstoffpartialdruck und metabolischer Alkalose',
+                            'Ausgeprägte respiratorische Azidose mit kompensatorischem Bikarbonat-Abfall durch primäre Lähmung des Atemzentrums in der Medulla oblongata',
+                            'Erhöhter arterieller Sauerstoffpartialdruck (Hyperoxämie) bei vergrößerter alveolo-arterieller Sauerstoffdruckdifferenz (AaDO2 = 0 mmHg)'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Der Patient hat durch das V/Q-Mismatch einen O2-Mangel und atmet deshalb sehr schnell (Tachypnoe). Da CO2 20-mal besser diffundiert als O2: Was passiert durch die Tachypnoe mit dem paCO2?',
+                        rationale: 'Durch Ventilations-Perfusions-Inhomogenität (V/Q-Mismatch) und funktionellen Rechts-Links-Shunt sinkt der paO2 (erhöhte AaDO2), während die reflektorische Hyperventilation vermehrt CO2 abatmet (Hypokapnie + respiratorische Alkalose).'
+                    }
                 },
                 {
                     id: 'l4',
@@ -179,7 +326,19 @@
                     parent_id: 'root',
                     relation_label: 'Gestufter Diagnose-Algorithmus',
                     socratic_hint: 'Wie kombiniert man klinische Vortestwahrscheinlichkeit, hochsensitives Ausschlusslabor und bildgebenden Goldstandard bei hämodynamisch stabilen Patienten?',
-                    explanation: 'Bei niedriger/mittlerer Wahrscheinlichkeit (Wells/Geneva) schließen negative D-Dimere (ab 50 J.: Alter × 10 µg/L) eine LAE sicher aus; bei hoher Vortestwahrscheinlichkeit oder positiven D-Dimeren folgt direkt die CT-Pulmonalisangiographie (CTPA).'
+                    explanation: 'Bei niedriger/mittlerer Wahrscheinlichkeit (Wells/Geneva) schließen negative D-Dimere (ab 50 J.: Alter × 10 µg/L) eine LAE sicher aus; bei hoher Vortestwahrscheinlichkeit oder positiven D-Dimeren folgt direkt die CT-Pulmonalisangiographie (CTPA).',
+                    mastery_question: {
+                        question: 'Ein 72-jähriger, hämodynamisch stabiler Patient hat einen niedrigen Wells-Score (1,5 Punkte). Sein D-Dimer-Wert im Plasma beträgt 640 µg/L (Standard-Referenz < 500 µg/L). Wie ist dieser Befund nach aktueller ESC-Leitlinie zu werten?',
+                        options: [
+                            'Durch Anwendung des altersadaptierten Cutoffs (Alter × 10 µg/L = 720 µg/L ab 50 Jahren) gilt der Befund als negativ und schließt eine LAE ohne CTPA aus',
+                            'Da der Wert über dem starren Grenzwert von 500 µg/L liegt, ist die Diagnose einer LAE bewiesen und eine sofortige Thrombolyse ohne Bildgebung Pflicht',
+                            'Der altersadaptierte Cutoff lautet Alter geteilt durch 2 (360 µg/L), weshalb der Wert hochgradig pathologisch ist und eine V/Q-Szintigraphie erzwingt',
+                            'D-Dimere besitzen eine Spezifität von 99 %, aber eine Sensitivität von nur 20 %, weshalb sie zum Ausschluss einer LAE grundsätzlich ungeeignet sind'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Ab 50 Jahren steigen D-Dimere physiologisch an. Wie berechnet man den alterskorrigierten D-Dimer-Grenzwert (in µg/L) bei einem 72-jährigen Patienten?',
+                        rationale: 'Bei Patienten > 50 Jahre erhöht der altersadaptierte D-Dimer-Cutoff (Alter × 10 µg/L, hier 72 × 10 = 720 µg/L) die Spezifität signifikant, ohne die hohe Sensitivität (> 95 %) bei niedriger/mittlerer Vortestwahrscheinlichkeit zu gefährden. 640 µg/L liegt unter 720 µg/L -> LAE ausgeschlossen.'
+                    }
                 },
                 {
                     id: 'l5',
@@ -188,7 +347,19 @@
                     parent_id: 'root',
                     relation_label: 'Sofort-Basistherapie (Non-High-Risk)',
                     socratic_hint: 'Welche medikamentöse Maßnahme stoppt sofort das appositionelle Thrombuswachstum und Rezidivembolien bei hämodynamisch stabilen Patienten?',
-                    explanation: 'Hämodynamisch stabile Patienten erhalten sofort eine therapeutische Antikoagulation (bevorzugt direkte Faktor-Xa-Inhibitoren wie Apixaban/Rivaroxaban oder initial NMH/Fondaparinux).'
+                    explanation: 'Hämodynamisch stabile Patienten erhalten sofort eine therapeutische Antikoagulation (bevorzugt direkte Faktor-Xa-Inhibitoren wie Apixaban/Rivaroxaban oder initial NMH/Fondaparinux).',
+                    mastery_question: {
+                        question: 'Bei welcher der folgenden klinischen Konstellationen sind direkte orale Antikoagulanzien (DOAK wie Apixaban/Rivaroxaban) zur LAE-Therapie KONTRAINDIZIERT, sodass stattdessen Heparin bzw. ein Vitamin-K-Antagonist eingesetzt werden muss?',
+                        options: [
+                            'Patienten mit gesichertem Antiphospholipid-Syndrom (insb. Triple-Positivität), schwerer Niereninsuffizienz (CrCl < 15 mL/min) oder während der Schwangerschaft',
+                            'Alle Patienten über 65 Jahre mit begleitender arterieller Hypertonie und einer glomerulären Filtrationsrate (eGFR) von 75 mL/min',
+                            'Patienten mit einer unprovozierten tiefen Beinvenenthrombose nach einem Langstreckenflug ohne bekannte Gerinnungsstörung',
+                            'Patienten mit normotensiver Intermediate-Low-Risk-LAE, die kein erhöhtes kardiales Troponin im Aufnahmelabor aufweisen'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Denke an Autoantikörper-vermittelte Thrombophilien (TRAPS-Studie), Plazentagängigkeit und renale Elimination von Faktor-Xa-Inhibitoren!',
+                        rationale: 'DOAKs sind plazentagängig (in Schwangerschaft/Stillzeit kontraindiziert, dort NMH Mittel der Wahl), bei terminaler Niereninsuffizienz (CrCl < 15 mL/min) und beim Antiphospholipid-Syndrom (erhöhte Rate arterieller Thromboembolien unter DOAK vs. VKA) kontraindiziert.'
+                    }
                 },
                 {
                     id: 'l6',
@@ -197,7 +368,19 @@
                     parent_id: 'l2',
                     relation_label: 'mündet über Septumshift (D-Sign) in',
                     socratic_hint: 'Was passiert durch die rechtsventrikuläre Dilatation und paradoxe Septumverschiebung (Ventrikel-Interdependenz im unnachgiebigen Perikard) mit der Füllung des linken Ventrikels?',
-                    explanation: 'Der akut dilatierte rechte Ventrikel wölbt das interventrikuläre Septum nach links (D-Shaping im Echo), komprimiert den linken Ventrikel und führt zum kritischen LV-Vorlastmangel -> obstruktiver Schock (High-Risk-LAE).'
+                    explanation: 'Der akut dilatierte rechte Ventrikel wölbt das interventrikuläre Septum nach links (D-Shaping im Echo), komprimiert den linken Ventrikel und führt zum kritischen LV-Vorlastmangel -> obstruktiver Schock (High-Risk-LAE).',
+                    mastery_question: {
+                        question: 'Über welchen zweifachen pathophysiologischen Mechanismus („Todes-Spirale des rechten Ventrikels“) führt die akute RV-Dilatation bei einer High-Risk-LAE zum kardiogen-obstruktiven Schock?',
+                        options: [
+                            'Septumshift nach links (D-Sign) behindert die diastolische LV-Füllung -> Abfall von HZV und Aortendruck -> rechtskoronare Minderperfusion mit akuter RV-Ischämie',
+                            'Erhöhter Druck im linken Vorhof führt zum sofortigen Lungenödem mit nachfolgender Kompression der Aorta descendens im hinteren Mediastinum',
+                            'Paradoxe Öffnung des Foramen ovale mit massivem Links-Rechts-Shunt und Volumenüberladung des linken Ventrikels in der Diastole',
+                            'Reflektorische Bradykardie (Bezold-Jarisch-Reflex) mit kompletter Erschlaffung des interventrikulären Septums und Anstieg des systemischen Blutdrucks'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Verfolge die Kette im unnachgiebigen Herzbeutel: 1. RV drückt das Septum in den LV -> 2. LV wirft kein Blut in die Aorta aus -> 3. Woher bezieht die rechte Koronararterie (RCA) ihren Perfusionsdruck?',
+                        rationale: 'Durch den verringerten transpulmonalen Einstrom und die Kompression des LV durch die paradoxe Septumverschiebung (Ventrikel-Interdependenz) sinken LV-Vorlast, Schlagvolumen und systemischer Aortendruck. Da der überlastete RV gleichzeitig einen hohen intramuralen Druck hat, bricht der koronare Perfusionsdruck der RCA zusammen -> tödliche RV-Ischämie.'
+                    }
                 },
                 {
                     id: 'l7',
@@ -206,7 +389,19 @@
                     parent_id: 'l6',
                     relation_label: 'indiziert als lebensrettende Reperfusion',
                     socratic_hint: 'Welche medikamentöse Reperfusionstherapie löst den Embolus bei hämodynamischer Instabilität (High-Risk-LAE / Schock) aktiv auf?',
-                    explanation: 'Erst bei High-Risk-LAE (obstruktiver Schock / persistierende Hypotonie RRsys < 90 mmHg) überwiegt der Nutzen der systemischen Fibrinolyse mit rt-PA (Alteplase) plus unfraktioniertem Heparin das Blutungsrisiko.'
+                    explanation: 'Erst bei High-Risk-LAE (obstruktiver Schock / persistierende Hypotonie RRsys < 90 mmHg) überwiegt der Nutzen der systemischen Fibrinolyse mit rt-PA (Alteplase) plus unfraktioniertem Heparin das Blutungsrisiko.',
+                    mastery_question: {
+                        question: 'Ein Patient erleidet eine High-Risk-LAE mit obstruktiven Schockzeichen (RR 75/40 mmHg), hatte jedoch vor 5 Tagen eine große neurochirurgische intrakranielle Tumorresektion. Welche Reperfusionsstrategie ist hier indiziert?',
+                        options: [
+                            'Da eine absolute Kontraindikation gegen die systemische Lyse besteht, ist eine kathetergestützte Thrombektomie oder chirurgische Embolektomie (plus UFH) indiziert',
+                            'Trotz der frischen Hirnoperation muss sofort die volle systemische Dosis von 100 mg Alteplase (rt-PA) i.v. über 2 Stunden verabreicht werden',
+                            'Alleinige orale Gabe eines Vitamin-K-Antagonisten (Phenprocoumon), da die volle Wirkung bereits nach 15 Minuten den Schock durchbricht',
+                            'Aggressive Volumentherapie mit 4 Litern Elektrolytlösung zur Erhöhung der rechtsventrikulären Vorlast ohne jegliche Antikoagulation'
+                        ],
+                        correct_index: 0,
+                        socratic_nudge: 'Eine frische intrakranielle OP ist eine absolute Kontraindikation für systemisches rt-PA. Wie kann der Thrombus im Pulmonalarterienstamm trotzdem mechanisch entfernt werden?',
+                        rationale: 'Bei High-Risk-LAE und absoluten Lyse-Kontraindikationen (z. B. intrakranieller Eingriff < 3 Wochen, hämorrhagischer Schlaganfall, aktive schwere Blutung) oder nach erfolgloser Lyse empfiehlt die ESC-Leitlinie die chirurgische pulmonale Embolektomie oder perkutane kathetergestützte Verfahren.'
+                    }
                 }
             ],
             distractors: [
@@ -237,17 +432,17 @@
         currentMap: null,
         solvedNodeIds: new Set(),
         eliminatedDistractorIds: new Set(),
-        poolOrderIds: [], // Stabile Reihenfolge im Pool ohne Spoiler-Sortierung
+        poolOrderIds: [],
         selectedChipId: null,
         hoveredNodeId: null,
-        difficultyPreset: 'clinical', // 'guided' (Assistenz) | 'clinical' (Facharzt) | 'exam' (Staatsexamen)
+        difficultyPreset: 'clinical', // 'guided' | 'clinical' | 'exam'
         blindMode: false,
-        strictCausalOrder: true,      // 1. Ebene muss vor abhängiger 2. Ebene gelöst werden
-        relationChallengeMode: true,  // NEU: 2-Step Synaptic Check (erst Baustein, dann Kausalrelation bestätigen!)
-        includeDistractors: true,     // NEU: Klinische Fallen (Red Herrings) im Pool aktiv
-        blindRootMode: false,         // NEU: Zentraldiagnose verdeckt (muss deduziert werden)
+        strictCausalOrder: true,
+        deepComprehensionMode: true,  // NEU V6.0: Öffnet beim Platzieren das Deep Clinical Mastery Gate!
+        activeRecallFirstMode: false, // NEU V6.0: Erst Freitext-Hypothese tippen, bevor die 4 MC-Optionen aufgedeckt werden!
+        includeDistractors: true,
+        blindRootMode: false,
         rootRevealed: false,
-        pendingRelationCheck: null,   // { targetNode, options } während Schritt 2 der Verknüpfung
         showInspector: false,
         expandedCanvas: false,
         mistakesCount: 0,
@@ -268,9 +463,9 @@
     // ========================================================================
 
     function ensureMindmapStyles() {
-        if (document.getElementById('medcheck-mindmap-v5-styles')) return;
+        if (document.getElementById('medcheck-mindmap-v6-styles')) return;
         const styleEl = document.createElement('style');
-        styleEl.id = 'medcheck-mindmap-v5-styles';
+        styleEl.id = 'medcheck-mindmap-v6-styles';
         styleEl.textContent = `
             .mm-preset-bar {
                 display: flex;
@@ -315,8 +510,8 @@
                 position: fixed;
                 inset: 0;
                 z-index: 9999;
-                background: rgba(6, 9, 19, 0.78);
-                backdrop-filter: blur(8px);
+                background: rgba(6, 9, 19, 0.82);
+                backdrop-filter: blur(10px);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -325,12 +520,14 @@
             }
             .mm-synapse-modal {
                 width: 100%;
-                max-width: 560px;
+                max-width: 680px;
+                max-height: 92vh;
+                overflow-y: auto;
                 background: #0f172a;
-                border: 1px solid rgba(56, 189, 248, 0.45);
-                border-radius: 16px;
-                padding: 20px 22px;
-                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+                border: 1px solid rgba(56, 189, 248, 0.5);
+                border-radius: 18px;
+                padding: 22px 24px;
+                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
                 color: #f8fafc;
             }
             .mm-synapse-chain-box {
@@ -338,16 +535,16 @@
                 align-items: center;
                 justify-content: space-between;
                 gap: 8px;
-                padding: 12px;
-                margin: 12px 0 16px;
+                padding: 10px 14px;
+                margin: 10px 0 14px;
                 border-radius: 10px;
-                background: rgba(15, 23, 42, 0.9);
+                background: rgba(15, 23, 42, 0.92);
                 border: 1px dashed rgba(56, 189, 248, 0.4);
-                font-size: 0.84rem;
+                font-size: 0.82rem;
                 flex-wrap: wrap;
             }
             .mm-synapse-node-pill {
-                padding: 6px 10px;
+                padding: 5px 10px;
                 border-radius: 8px;
                 background: rgba(30, 41, 59, 0.95);
                 border: 1px solid rgba(255, 255, 255, 0.12);
@@ -355,45 +552,104 @@
                 color: #e2e8f0;
             }
             .mm-synapse-missing-pill {
-                padding: 5px 10px;
+                padding: 4px 10px;
                 border-radius: 999px;
-                background: rgba(245, 158, 11, 0.16);
-                border: 1px solid #f59e0b;
-                color: #fcd34d;
+                background: rgba(16, 185, 129, 0.16);
+                border: 1px solid #10b981;
+                color: #6ee7b7;
                 font-weight: 800;
-                font-size: 0.76rem;
+                font-size: 0.75rem;
+            }
+            .mm-mastery-question-box {
+                padding: 14px 16px;
+                border-radius: 12px;
+                background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+                border-left: 4px solid #38bdf8;
+                font-size: 0.94rem;
+                font-weight: 700;
+                line-height: 1.5;
+                color: #f8fafc;
+                margin-bottom: 14px;
+            }
+            .mm-recall-first-box {
+                padding: 14px;
+                border-radius: 12px;
+                background: rgba(30, 41, 59, 0.55);
+                border: 1px solid rgba(245, 158, 11, 0.4);
+                margin-bottom: 14px;
+            }
+            .mm-recall-textarea {
+                width: 100%;
+                min-height: 68px;
+                margin-top: 8px;
+                padding: 10px 12px;
+                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                background: rgba(6, 9, 19, 0.85);
+                color: #f8fafc;
+                font-family: inherit;
+                font-size: 0.85rem;
+                resize: vertical;
             }
             .mm-synapse-options {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 9px;
                 margin-bottom: 14px;
             }
             .mm-synapse-opt-btn {
                 text-align: left;
-                padding: 11px 14px;
-                border-radius: 10px;
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                background: rgba(30, 41, 59, 0.72);
+                padding: 12px 15px;
+                border-radius: 11px;
+                border: 1px solid rgba(255, 255, 255, 0.13);
+                background: rgba(30, 41, 59, 0.75);
                 color: #f1f5f9;
                 font-size: 0.86rem;
-                font-weight: 600;
+                line-height: 1.45;
+                font-weight: 500;
                 cursor: pointer;
-                transition: all 0.15s ease;
+                transition: all 0.16s ease;
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 justify-content: space-between;
-                gap: 10px;
+                gap: 12px;
             }
-            .mm-synapse-opt-btn:hover {
-                background: rgba(56, 189, 248, 0.15);
+            .mm-synapse-opt-btn:hover:not(:disabled) {
+                background: rgba(56, 189, 248, 0.16);
                 border-color: #38bdf8;
                 transform: translateX(3px);
             }
             .mm-synapse-opt-btn.wrong-choice {
-                background: rgba(239, 68, 68, 0.2) !important;
+                background: rgba(239, 68, 68, 0.18) !important;
                 border-color: #ef4444 !important;
                 color: #fca5a5 !important;
+                opacity: 0.72;
+            }
+            .mm-synapse-opt-btn.correct-choice {
+                background: rgba(16, 185, 129, 0.22) !important;
+                border-color: #10b981 !important;
+                color: #ecfdf5 !important;
+                box-shadow: 0 0 18px rgba(16, 185, 129, 0.28);
+            }
+            .mm-mastery-rationale-box {
+                padding: 12px 14px;
+                border-radius: 10px;
+                background: rgba(16, 185, 129, 0.12);
+                border: 1px solid rgba(16, 185, 129, 0.4);
+                color: #e2e8f0;
+                font-size: 0.84rem;
+                line-height: 1.5;
+                margin-top: 10px;
+            }
+            .mm-mastery-nudge-box {
+                padding: 11px 14px;
+                border-radius: 10px;
+                background: rgba(245, 158, 11, 0.14);
+                border-left: 3px solid #f59e0b;
+                color: #fde68a;
+                font-size: 0.83rem;
+                line-height: 1.45;
+                margin-top: 8px;
             }
             .mm-depot-pin-btn {
                 margin-top: 8px;
@@ -559,15 +815,13 @@
         }
     }
 
-    /**
-     * NEU: Speichert einen klinischen Kausalzusammenhang direkt in das MedCheck Lern-Depot
-     */
     async function saveNodeToLearningDepot(node, customPrefix = '') {
         if (!node || !state.currentMap) return;
         const parentLabel = getParentLabel(node, true);
         const catLabel = CATEGORIES[node.category]?.label || node.category;
         const cueContext = `${catLabel}: ${parentLabel} ➔ ${node.relation_label || 'Kausalbeziehung'}`;
-        const textToSave = `${customPrefix ? customPrefix + ' ' : ''}${parentLabel} führt über „${node.relation_label || 'Verbindung'}“ zu: ${node.label}. — ${node.explanation || node.socratic_hint || ''}`.trim();
+        const masterySummary = node.mastery_question?.rationale ? ` | Prüfungs-Pearl: ${node.mastery_question.rationale}` : '';
+        const textToSave = `${customPrefix ? customPrefix + ' ' : ''}${parentLabel} führt über „${node.relation_label || 'Verbindung'}“ zu: ${node.label}. — ${node.explanation || node.socratic_hint || ''}${masterySummary}`.trim();
 
         const entryPayload = {
             case_id: state.currentMap.id,
@@ -608,10 +862,26 @@
         const mapById = new Map();
         BUILTIN_MINDMAPS.forEach(m => {
             if (!deletedBuiltins.includes(m.id)) {
-                mapById.set(m.id, m);
+                mapById.set(m.id, JSON.parse(JSON.stringify(m)));
             }
         });
-        localSaved.forEach(m => mapById.set(m.id, m));
+
+        localSaved.forEach(m => {
+            // Falls ein Builtin lokal überschrieben wurde, behalte trotzdem die neuen V6.0 mastery_questions bei
+            const builtinMatch = BUILTIN_MINDMAPS.find(b => b.id === m.id);
+            if (builtinMatch && Array.isArray(m.nodes)) {
+                m.nodes.forEach(n => {
+                    const bn = builtinMatch.nodes.find(x => x.id === n.id);
+                    if (bn && bn.mastery_question && !n.mastery_question) {
+                        n.mastery_question = bn.mastery_question;
+                    }
+                });
+                if (!m.distractors && builtinMatch.distractors) {
+                    m.distractors = builtinMatch.distractors;
+                }
+            }
+            mapById.set(m.id, m);
+        });
 
         const sb = getSupabase();
         const user = await getCurrentUser();
@@ -626,13 +896,23 @@
                     dbMaps.forEach(row => {
                         if (deletedBuiltins.includes(row.id)) return;
                         const parsed = typeof row.data_json === 'string' ? JSON.parse(row.data_json) : row.data_json;
+                        const builtinMatch = BUILTIN_MINDMAPS.find(b => b.id === row.id);
+                        const nodes = parsed?.nodes || [];
+                        if (builtinMatch) {
+                            nodes.forEach(n => {
+                                const bn = builtinMatch.nodes.find(x => x.id === n.id);
+                                if (bn && bn.mastery_question && !n.mastery_question) {
+                                    n.mastery_question = bn.mastery_question;
+                                }
+                            });
+                        }
                         mapById.set(row.id, {
                             id: row.id,
                             title: row.title,
                             specialty: row.specialty,
                             central_concept: row.central_concept,
-                            nodes: parsed?.nodes || [],
-                            distractors: parsed?.distractors || []
+                            nodes,
+                            distractors: parsed?.distractors || builtinMatch?.distractors || []
                         });
                     });
                 }
@@ -763,9 +1043,9 @@
         state.progressCache[state.currentMap.id] = record;
         localStorage.setItem('medcheck_mindmap_progress', JSON.stringify(state.progressCache));
 
-        const xpBonus = state.difficultyPreset === 'exam' ? 400 : (state.difficultyPreset === 'clinical' ? 320 : 250);
+        const xpBonus = state.difficultyPreset === 'exam' ? 450 : (state.difficultyPreset === 'clinical' ? 350 : 250);
         if (typeof window.applyXpDelta === 'function') {
-            window.applyXpDelta(xpBonus, `Mindmap (${accuracy}% Präzision)`);
+            window.applyXpDelta(xpBonus, `Mindmap gemeistert (${accuracy}%)`);
         }
 
         const sb = getSupabase();
@@ -806,7 +1086,6 @@
             }));
         }
 
-        // Dynamischer Fallback: Ziehe bis zu 3 hochspezifische Knoten aus anderen Mindmaps als Differenzialdiagnose-Distraktoren
         const otherMaps = state.mindmaps.filter(m => m.id !== mindmap.id);
         const candidates = [];
         otherMaps.forEach(other => {
@@ -829,19 +1108,22 @@
         if (presetName === 'guided') {
             state.blindMode = false;
             state.strictCausalOrder = true;
-            state.relationChallengeMode = false;
+            state.deepComprehensionMode = false;
+            state.activeRecallFirstMode = false;
             state.includeDistractors = false;
             state.blindRootMode = false;
         } else if (presetName === 'clinical') {
             state.blindMode = false;
             state.strictCausalOrder = true;
-            state.relationChallengeMode = true;
+            state.deepComprehensionMode = true;
+            state.activeRecallFirstMode = false;
             state.includeDistractors = true;
             state.blindRootMode = false;
         } else if (presetName === 'exam') {
             state.blindMode = true;
             state.strictCausalOrder = true;
-            state.relationChallengeMode = true;
+            state.deepComprehensionMode = true;
+            state.activeRecallFirstMode = true;
             state.includeDistractors = true;
             state.blindRootMode = true;
             state.rootRevealed = false;
@@ -1036,7 +1318,6 @@
         state.solvedNodeIds = new Set();
         state.eliminatedDistractorIds = new Set();
         state.selectedChipId = null;
-        state.pendingRelationCheck = null;
         state.mistakesCount = 0;
         state.streakCount = 0;
         state.weakNodeIds = new Set();
@@ -1120,7 +1401,6 @@
                 allPoolMap.delete(id);
             }
         });
-        // Falls neue Knoten hinzugekommen sind
         allPoolMap.forEach(val => ordered.push(val));
         return ordered;
     }
@@ -1134,7 +1414,7 @@
                 <div class="mindmap-wrapper">
                     <div class="mm-header">
                         <div class="mm-title-group">
-                            <h2>🕸️ Klinisches Mindmap-Labor V5.0</h2>
+                            <h2>🕸️ Klinisches Mindmap-Labor V6.0</h2>
                             <p>Aktuell sind keine Mindmaps in deiner Bibliothek vorhanden.</p>
                         </div>
                         <div class="mm-controls">
@@ -1166,9 +1446,9 @@
                 <!-- TOP HEADER -->
                 <div class="mm-header">
                     <div class="mm-title-group">
-                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V5.0 Reasoning Engine</span></h2>
+                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V6.0 Deep Mastery Gate</span></h2>
                         <p>
-                            <strong>Anti-Spoiler Clinical Reasoning:</strong> Identifiziere im Pool selbstständig, was primäre Ursache (1. Ring), was nachgelagerte Konsequenz (2. Ring) und was eine klinische Differenzialdiagnose-Falle ist!
+                            <strong>Zweistufiges Clinical Reasoning:</strong> 1. Baustein kausal richtig platzieren ➔ 2. Im anschließenden <strong>Tiefen-Verhör</strong> das exakte pathophysiologische & klinische Verständnis unter Beweis stellen!
                         </p>
                     </div>
                     <div class="mm-controls">
@@ -1204,7 +1484,7 @@
                             🔄 Reset
                         </button>
 
-                        <button id="mm-btn-prompt" class="mm-btn" title="Deep-Prompt (inkl. Distraktoren) für Vorlesungs-Extraktion kopieren">
+                        <button id="mm-btn-prompt" class="mm-btn" title="Deep-Prompt (inkl. Tiefenverständnis-Fragen & Distraktoren) kopieren">
                             📋 Deep-Prompt
                         </button>
 
@@ -1218,21 +1498,27 @@
                 <div class="mm-preset-bar">
                     <div class="mm-preset-group">
                         <span style="font-size:0.78rem; font-weight:800; color:#94a3b8; margin-right:4px;">🎓 Anspruch:</span>
-                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'guided' ? 'active' : ''}" data-preset="guided" title="Kategoriefarben & Kanten-Labels sichtbar, keine Distraktoren">
+                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'guided' ? 'active' : ''}" data-preset="guided" title="Direktes Einrasten ohne Prüfungsfrage, Kategoriefarben sichtbar, keine Distraktoren">
                             🟢 Assistenzarzt (Guided)
                         </button>
-                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'clinical' ? 'active' : ''}" data-preset="clinical" title="2-Step Beziehungs-Prüfung + Klinische Distraktoren im Pool">
-                            🟡 Facharzt (Clinical Reasoning)
+                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'clinical' ? 'active' : ''}" data-preset="clinical" title="Tiefenverständnis-Prüfung beim Platzieren + Klinische Distraktoren im Pool">
+                            🟡 Facharzt (Deep Mastery)
                         </button>
-                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'exam' ? 'active' : ''}" data-preset="exam" title="Blind-Modus ohne Farben + 2-Step Beziehungs-Prüfung + Distraktoren + Verdeckte Zentraldiagnose">
+                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'exam' ? 'active' : ''}" data-preset="exam" title="Blind-Modus + Active-Recall-First (Freitext vor Optionen) + Tiefen-Verhör + Distraktoren + Diagnose-Deduktion">
                             🔴 Staatsexamen (IMPP-Mastery)
                         </button>
                     </div>
 
                     <div class="mm-preset-group">
-                        <button id="mm-toggle-rel-challenge" class="mm-btn ${state.relationChallengeMode ? 'active' : ''}" title="Wenn aktiv, sind Kanten-Beziehungen verdeckt und müssen bei jeder Zuordnung aktiv als 2. Schritt bewiesen werden!">
-                            ${state.relationChallengeMode ? '🧠 2-Step Synapsen-Prüfung: AN' : '👁️ Kanten-Labels sichtbar'}
+                        <button id="mm-toggle-deep-gate" class="mm-btn ${state.deepComprehensionMode ? 'active' : ''}" title="Stellt beim Platzieren jedes Bausteins eine tiefgehende klinische Verständnisfrage zum Mechanismus, bevor der Knoten einrastet">
+                            ${state.deepComprehensionMode ? '🔬 Tiefen-Verhör beim Platzieren: AN' : '⚡ Direktes Einrasten'}
                         </button>
+
+                        ${state.deepComprehensionMode ? `
+                            <button id="mm-toggle-recall-first" class="mm-btn ${state.activeRecallFirstMode ? 'active' : ''}" title="Erzwingt zuerst eine eigene gedankliche/Freitext-Antwort, bevor die 4 Antwortoptionen sichtbar werden (Testing Effect)">
+                                ${state.activeRecallFirstMode ? '✍️ Active-Recall-First: AN' : '📋 MC-Optionen sofort'}
+                            </button>
+                        ` : ''}
 
                         <button id="mm-toggle-distractors" class="mm-btn ${state.includeDistractors ? 'active' : ''}" title="Mischt täuschend echte Differenzialdiagnose-Fallen in den Pool gegen das Ausschlussverfahren">
                             ${state.includeDistractors ? `🎭 Distraktoren: AN (${activeDistractorsCount})` : '🎭 Distraktoren: AUS'}
@@ -1259,7 +1545,7 @@
                         `).join('')}
                     </div>
                     <div class="mm-stats">
-                        <span class="mm-stat-badge" id="mm-stat-progress">🧩 Vernetzt: ${solvedCount} / ${totalNodes}</span>
+                        <span class="mm-stat-badge" id="mm-stat-progress">🧩 Verifiziert: ${solvedCount} / ${totalNodes}</span>
                         <span class="mm-stat-badge" id="mm-stat-streak">🔥 Serie: ${state.streakCount}</span>
                         <span class="mm-stat-badge" id="mm-stat-mistakes">⚠️ Fehler: ${state.mistakesCount}</span>
                         ${savedProg?.best_time_sec ? `<span class="mm-stat-badge">⏱️ Bestzeit: ${savedProg.best_time_sec}s</span>` : ''}
@@ -1281,7 +1567,7 @@
                             <div id="mm-chip-pool" class="mm-chip-list">
                                 ${allRealSolved ? `
                                     <div class="mm-all-solved-banner">
-                                        🎉 Alle ${totalNodes} Kausalknoten erfolgreich bewiesen!
+                                        🎉 Alle ${totalNodes} Kausalknoten & Tiefen-Prüfungen gemeistert!
                                         ${state.weakNodeIds.size > 0 ? `
                                             <div style="margin-top:8px;">
                                                 <button type="button" id="mm-btn-save-weak-depot" class="mm-depot-pin-btn">
@@ -1296,7 +1582,6 @@
                                     const isSelected = state.selectedChipId === item.id ? 'selected-chip' : '';
                                     const isEliminated = state.eliminatedDistractorIds.has(item.id) ? 'distractor-eliminated' : '';
 
-                                    // WICHTIG: Kein "1. Ebene" / "🔒 2. Ebene"-Spoiler mehr im Reasoning/Exam-Modus!
                                     let subBadgeText = 'Klinisches Konzept (Ebene selbst prüfen)';
                                     if (!state.blindMode && catCfg) {
                                         subBadgeText = state.difficultyPreset === 'guided' && !item.is_distractor
@@ -1310,7 +1595,7 @@
                                         <div class="mm-chip ${catClass} ${isSelected} ${isEliminated}"
                                              data-node-id="${escapeHtml(item.id)}"
                                              draggable="false"
-                                             title="Überlege: Ist dieser Begriff ein Hauptast (1. Ebene), ein Folgeschritt (2. Ebene) oder ein klinischer Distraktor?">
+                                             title="Ziehe diesen Baustein auf den passenden Slot – anschließend startet die klinische Tiefenprüfung!">
                                             <span class="mm-chip-cat-tag">${escapeHtml(subBadgeText)}</span>
                                             <span class="mm-chip-label">${escapeHtml(item.label)}</span>
                                         </div>
@@ -1326,7 +1611,7 @@
                                 <span class="mm-tutor-bloom">Bloom: Analyse & Evaluation</span>
                             </div>
                             <div id="mm-tutor-message" class="mm-tutor-content">
-                                Klicke auf einen beliebigen Ziel-Knoten in der Mindmap für eine <strong>sokratische Leitfrage</strong>, oder ziehe einen Baustein darauf.${state.relationChallengeMode ? '<br><span style="color:#38bdf8; font-size:0.78rem;">🧠 <strong>2-Step-Modus aktiv:</strong> Nach dem Ablegen musst du die exakte Kausalbeziehung der Pfeilkante verifizieren!</span>' : ''}
+                                Klicke auf einen Ziel-Knoten für eine <strong>sokratische Leitfrage</strong> oder ziehe einen Baustein darauf.${state.deepComprehensionMode ? '<br><span style="color:#38bdf8; font-size:0.78rem;">🔬 <strong>Deep Mastery Gate aktiv:</strong> Beim Platzieren eines Blocks musst du eine tiefgehende klinische Verständnisfrage beantworten, bevor der Knoten einrastet!</span>' : ''}
                             </div>
                         </div>
                     </div>
@@ -1342,7 +1627,7 @@
                         </div>
 
                         <div class="mm-canvas-help-pill">
-                            🖱️ Hintergrund ziehen zum Verschieben • Mausrad zum Zoomen • Knoten anklicken für sokratische Leitfrage
+                            🖱️ Hintergrund ziehen zum Verschieben • Mausrad zum Zoomen • Gelöste Knoten anklicken zum erneuten Prüfen
                         </div>
 
                         <!-- TRANSFORMABLE XXL STAGE (2400 x 1600) -->
@@ -1391,7 +1676,7 @@
                     ${firstOrder.map(parent => {
                         const pSolved = state.solvedNodeIds.has(parent.id);
                         const pCat = state.blindMode && !pSolved ? 'Unbekannte Kategorie' : (CATEGORIES[parent.category]?.label || parent.category);
-                        const pRel = (state.relationChallengeMode && !pSolved) ? '🔗 [Kausalrelation herleiten]' : (parent.relation_label || 'Verbindung');
+                        const pRel = parent.relation_label || 'Verbindung';
                         const children = secondOrder.filter(c => c.parent_id === parent.id);
 
                         return `
@@ -1405,7 +1690,7 @@
                                 ${children.map(child => {
                                     const cSolved = state.solvedNodeIds.has(child.id);
                                     const cCat = state.blindMode && !cSolved ? 'Folgekonzept' : (CATEGORIES[child.category]?.label || child.category);
-                                    const cRel = (state.relationChallengeMode && !cSolved) ? '🔗 [Folgerelation herleiten]' : (child.relation_label || 'führt zu');
+                                    const cRel = child.relation_label || 'führt zu';
                                     return `
                                         <div class="mm-inspector-substep ${cSolved ? 'is-solved' : ''}" data-ins-slot="${escapeHtml(child.id)}" style="cursor:pointer;">
                                             <span class="mm-ins-rel">↳ 2️⃣ Folgeschritt: <strong>${escapeHtml(cRel)}</strong>:</span>
@@ -1429,12 +1714,7 @@
         const catCfg = CATEGORIES[node.category] || { label: 'Konzept', cssClass: 'cat-blind', icon: '🔹' };
         const isSecondOrder = node.parent_id && node.parent_id !== 'root';
         const isLocked = isSlotCurrentlyLocked(node);
-
-        // Im 2-Step Relation-Challenge-Modus bleibt das Kanten-Label bis zum Beweis verdeckt!
-        const hideRelationText = state.relationChallengeMode && !isSolved;
-        const displayedRelationText = hideRelationText
-            ? '🔗 [Beziehung im 2. Schritt beweisen]'
-            : (node.relation_label || 'Verbindung');
+        const relationText = node.relation_label || 'Verbindung';
 
         let originPrefix = `1. Ebene • Hauptast`;
         if (isSecondOrder) {
@@ -1449,10 +1729,10 @@
                      id="mm-node-dom-${escapeHtml(node.id)}"
                      style="left: ${pos.x}px; top: ${pos.y}px;"
                      data-slot-id="${escapeHtml(node.id)}"
-                     title="Klicken, um die klinische Erklärung zu lesen oder ins Lern-Depot zu pinnen">
+                     title="Klicken für klinische Erklärung, Lern-Depot-Pin oder erneute Tiefen-Prüfungsfrage">
                     <div class="mm-node-rel-banner">
                         <span class="mm-rel-origin">${escapeHtml(originPrefix)}</span>
-                        <strong class="mm-rel-verb">➔ ${escapeHtml(node.relation_label || 'Verbindung')}</strong>
+                        <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                     </div>
                     <div class="mm-node-body-solved">
                         <span class="mm-solved-cat-pill">✅ ${catCfg.icon} ${escapeHtml(catCfg.label)}</span>
@@ -1471,7 +1751,7 @@
                      title="Löse zuerst den inneren Hauptknoten (1. Ebene), um diesen Folgeschritt freizuschalten!">
                     <div class="mm-node-rel-banner">
                         <span class="mm-rel-origin">🔒 Folgeschritt (2. Ebene)</span>
-                        <strong class="mm-rel-verb">➔ ${escapeHtml(displayedRelationText)}</strong>
+                        <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                     </div>
                     <div class="mm-slot-inner">
                         <span class="mm-slot-hint">⏳ Kausal-Sperre aktiv</span>
@@ -1492,11 +1772,11 @@
                  title="Klicken für sokratische Leitfrage oder passenden Begriff hier ablegen">
                 <div class="mm-node-rel-banner">
                     <span class="mm-rel-origin">${escapeHtml(originPrefix)}</span>
-                    <strong class="mm-rel-verb">${escapeHtml(displayedRelationText)}</strong>
+                    <strong class="mm-rel-verb">➔ ${escapeHtml(relationText)}</strong>
                 </div>
                 <div class="mm-slot-inner">
                     <span class="mm-slot-hint">${escapeHtml(slotHintLabel)}</span>
-                    <span class="mm-slot-cta">💡 Klicken für Leitfrage oder Baustein ablegen</span>
+                    <span class="mm-slot-cta">${state.deepComprehensionMode ? '🔬 Ablegen ➔ Tiefen-Verhör' : '💡 Klicken oder Baustein ziehen'}</span>
                 </div>
             </div>
         `;
@@ -1595,14 +1875,10 @@
             if (node.relation_label) {
                 const midX = (x1 + x2) / 2;
                 const midY = (y1 + y2) / 2;
-                const badgeText = (state.relationChallengeMode && !isSolved)
-                    ? '🔗 Kausalrelation?'
-                    : node.relation_label;
-
                 htmlBadges += `
                     <div class="mm-edge-html-badge ${isHovered ? 'is-hovered' : ''}"
                          style="left:${midX.toFixed(1)}px; top:${midY.toFixed(1)}px; border-color:${strokeColor}; opacity:${isLocked ? '0.45' : '1'};">
-                        ${escapeHtml(badgeText)}
+                        ${escapeHtml(node.relation_label)}
                     </div>
                 `;
             }
@@ -1630,8 +1906,17 @@
             });
         });
 
-        document.getElementById('mm-toggle-rel-challenge')?.addEventListener('click', () => {
-            state.relationChallengeMode = !state.relationChallengeMode;
+        document.getElementById('mm-toggle-deep-gate')?.addEventListener('click', () => {
+            state.deepComprehensionMode = !state.deepComprehensionMode;
+            renderModule();
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+            });
+        });
+
+        document.getElementById('mm-toggle-recall-first')?.addEventListener('click', () => {
+            state.activeRecallFirstMode = !state.activeRecallFirstMode;
             renderModule();
             requestAnimationFrame(() => {
                 applyStageTransform();
@@ -1693,7 +1978,6 @@
         document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
         document.getElementById('mm-btn-import')?.addEventListener('click', openImportModal);
 
-        // Wackelkandidaten gebündelt ins Lern-Depot sichern
         document.getElementById('mm-btn-save-weak-depot')?.addEventListener('click', async e => {
             const btn = e.currentTarget;
             for (const weakId of state.weakNodeIds) {
@@ -1729,7 +2013,7 @@
                     newTutor.innerHTML = `<strong style="color:#10b981;">🎯 Starke diagnostische Deduktion (+100 XP)!</strong><br>Du hast das zentrale Krankheitsbild <strong>„${escapeHtml(state.currentMap.central_concept)}“</strong> korrekt aus den Kausalästen abgeleitet!`;
                 }
             } else if (tutorEl) {
-                tutorEl.innerHTML = `<strong style="color:#f59e0b;">🕵️ Noch nicht ganz:</strong> „${escapeHtml(rootGuessInput.value)}“ deckt sich noch nicht mit dem gesuchten Zentralkonzept. Schau dir die spezifischen Befunde der 1. und 2. Ebene im Pool oder über die sokratischen Leitfragen genauer an!`;
+                tutorEl.innerHTML = `<strong style="color:#f59e0b;">🕵️ Noch nicht ganz:</strong> „${escapeHtml(rootGuessInput.value)}“ deckt sich noch nicht mit dem gesuchten Zentralkonzept. Nutze die sokratischen Leitfragen der Hauptäste!`;
             }
         };
         rootGuessBtn?.addEventListener('click', verifyRootDeduction);
@@ -1916,7 +2200,7 @@
     }
 
     // ========================================================================
-    // 9. AUSWERTUNG, DISTRAKTOR-DETEKTION & 2-STEP SYNAPSEN-INTERROGATORIUM
+    // 9. AUSWERTUNG & DEEP CLINICAL MASTERY GATE BEIM PLATZIEREN (NEU V6.0)
     // ========================================================================
 
     async function evaluateDropAttempt(draggedNodeId, targetSlotId, slotElement) {
@@ -1997,14 +2281,16 @@
                 targetNode.label = draggedNode.label;
                 targetNode.socratic_hint = draggedNode.socratic_hint;
                 targetNode.explanation = draggedNode.explanation;
+                targetNode.mastery_question = draggedNode.mastery_question;
                 draggedNode.label = temp.label;
                 draggedNode.socratic_hint = temp.socratic_hint;
                 draggedNode.explanation = temp.explanation;
+                draggedNode.mastery_question = temp.mastery_question;
             }
 
-            // NEU: Wenn 2-Step Beziehungs-Prüfung aktiv ist -> Erst das Kausal-Interrogatorium öffnen!
-            if (state.relationChallengeMode && targetNode.relation_label) {
-                openSynapticRelationInterrogator(targetNode);
+            // NEU V6.0: Öffne das Deep Clinical Mastery Gate (Tiefenverständnis-Prüfung zum platzierten Knoten!)
+            if (state.deepComprehensionMode) {
+                await openDeepComprehensionGate(targetNode, false);
                 return;
             }
 
@@ -2012,7 +2298,7 @@
             return;
         }
 
-        // 4. Fehlversuch -> Gezielte diagnostische & sokratische Rückmeldung
+        // 4. Fehlversuch beim Platzieren -> Sokratisches Feedback
         state.mistakesCount += 1;
         state.streakCount = 0;
         state.weakNodeIds.add(targetNode.id);
@@ -2032,95 +2318,290 @@
     }
 
     /**
-     * NEU: Schritt 2 der Verknüpfung – Das Synapsen-Interrogatorium
-     * Prüft, ob der Student nicht nur den Begriff kennt, sondern auch die EXAKTE Kausalbeziehung (Pfeil-Relation) versteht!
+     * Erzeugt oder lädt eine tiefgehende klinische Verständnisfrage (Staatsexamensniveau) für den Knoten.
+     * Unterstützt 1. Kuratierte/importierte Fragen, 2. Live-KI-Generierung via /api/gemini (mode: 'depot_quiz'), 3. Offline-Synthese-Fallback.
      */
-    function openSynapticRelationInterrogator(targetNode) {
+    async function resolveMasteryQuestionForNode(targetNode, forceAiRegenerate = false) {
+        if (!forceAiRegenerate && targetNode.mastery_question && Array.isArray(targetNode.mastery_question.options) && targetNode.mastery_question.options.length >= 3) {
+            return targetNode.mastery_question;
+        }
+
         const map = state.currentMap;
-        if (!map) return;
+        const parentLabel = getParentLabel(targetNode, true);
+        const catLabel = CATEGORIES[targetNode.category]?.label || targetNode.category;
 
-        const correctRelation = targetNode.relation_label;
-        const parentLabel = getParentLabel(targetNode);
+        const aiPrompt = `Du bist Prüfungsautor für das medizinische Staatsexamen (IMPP / USMLE Step 2 CK).
+Ein Medizinstudent hat in einer klinischen Mindmap zum Thema "${map.central_concept}" (${map.specialty}) soeben den Baustein "${targetNode.label}" (Kategorie: ${catLabel}, Kausalbeziehung: "${targetNode.relation_label}" ausgehend von "${parentLabel}") an der richtigen Stelle platziert.
+Hintergrundinfo zum Knoten: "${targetNode.explanation || targetNode.socratic_hint || ''}".
 
-        // Sammle plausible Distraktor-Relationen aus den anderen Knoten der Mindmap + hochspezifischen klinischen Relationen
-        const otherRelations = Array.from(new Set(
-            map.nodes
-                .map(n => n.relation_label)
-                .filter(rel => rel && rel.trim().toLowerCase() !== correctRelation.trim().toLowerCase())
-        ));
+Erstelle EINE hochspezifische, tiefgehende Verständnisfrage (Bloom-Stufe: Analyse, Evaluation & Pathomechanismus), die prüft, ob der Student diesen konkreten Baustein "${targetNode.label}" im Kontext von "${map.central_concept}" WIRKLICH tiefgründig verstanden hat.
+WICHTIG:
+1. Frage NICHT oberflächlich "Zu welchem Ast gehört ${targetNode.label}?", sondern hinterfrage das WARUM / WIE (z.B. exakter molekularer/hämodynamischer Mechanismus, entscheidende Kontraindikation, diagnostischer Fallstrick, Cutoff oder Abgrenzung zur engsten Differenzialdiagnose).
+2. Erstelle genau 4 Antwortoptionen ("options") mit strikter Längenparität (alle 4 Optionen ähnlich lang, ca. 14 bis 24 Wörter, gleicher Fachstil, keine Test-Wiseness-Hinweise!).
+3. Gib den "correct_index" (0 bis 3), einen "socratic_nudge" (sokratischer Tipp bei falscher Auswahl OHNE die Lösung direkt zu nennen) und eine präzise "rationale" (Begründung inkl. Ausschluss der Distraktoren) an.
 
-        const fallbackClinicalRelations = [
-            'Kompensatorischer Gegenmechanismus',
-            'Reversible Frühkomplikation',
-            'Symptomorientierte Zweitlinientherapie',
-            'Apparativer Ausschluss-Parameter',
-            'Kontraindikation im Akutstadium'
-        ];
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
+[
+  {
+    "question": "Tiefgehende klinisch-pathophysiologische Prüfungsfrage...",
+    "options": [
+      "Option 1...",
+      "Option 2...",
+      "Option 3...",
+      "Option 4..."
+    ],
+    "correct_index": 0,
+    "socratic_nudge": "Sokratischer Denkanstoß bei Fehlversuch ohne Lösungsspoiler...",
+    "rationale": "Klinisch-pathophysiologische Begründung..."
+  }
+]`;
 
-        const distractorPool = shuffleArray([...otherRelations, ...fallbackClinicalRelations])
-            .filter((v, i, a) => a.indexOf(v) === i && v !== correctRelation)
-            .slice(0, 3);
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: 'depot_quiz',
+                    prompt: aiPrompt
+                })
+            });
 
-        const options = shuffleArray([correctRelation, ...distractorPool]);
+            if (response.ok) {
+                const data = await response.json();
+                const item = Array.isArray(data?.result) ? data.result[0] : null;
+                if (item && item.question && Array.isArray(item.options) && item.options.length >= 4) {
+                    const generatedQuiz = {
+                        question: item.question,
+                        options: item.options.slice(0, 4),
+                        correct_index: Number.isInteger(item.correct_index) ? item.correct_index : 0,
+                        socratic_nudge: item.socratic_nudge || targetNode.socratic_hint || 'Überdenke den exakten Pathomechanismus und die Leitlinien-Kriterien dieses Schritts.',
+                        rationale: item.rationale || targetNode.explanation || ''
+                    };
+                    targetNode.mastery_question = generatedQuiz;
+                    // Direkt lokal im Mindmap-Objekt cachen
+                    saveCustomMindmapToDb(map).catch(() => {});
+                    return generatedQuiz;
+                }
+            }
+        } catch (_e) {
+            console.warn('[Mindmap V6.0] Offline-Synthese-Fallback für Mastery-Question aktiv.');
+        }
+
+        // Intelligenter Offline-Fallback aus den Erklärungen der Mindmap-Knoten
+        const correctStatement = targetNode.explanation || `Durch „${targetNode.relation_label}“ resultiert aus „${parentLabel}“ unmittelbar das klinische Konzept „${targetNode.label}“.`;
+        const otherNodes = map.nodes.filter(n => n.id !== targetNode.id && n.explanation);
+        const distractorExplanations = shuffleArray(otherNodes).slice(0, 3).map(n => n.explanation);
+
+        while (distractorExplanations.length < 3) {
+            distractorExplanations.push(
+                'Es handelt sich um einen rein kompensatorischen Begleitmechanismus ohne prognostische Relevanz oder therapeutische Konsequenz im Akutstadium.'
+            );
+        }
+
+        return {
+            question: `Tiefenverständnis-Prüfung zu „${targetNode.label}“: Welche pathophysiologische bzw. klinisch-therapeutische Aussage begründet diesen Baustein im Kontext von „${map.central_concept}“ exakt?`,
+            options: [correctStatement, ...distractorExplanations],
+            correct_index: 0,
+            socratic_nudge: targetNode.socratic_hint || 'Fokussiere dich auf den spezifischen Mechanismus, der genau diesen Knoten von den anderen Ästen der Mindmap unterscheidet.',
+            rationale: correctStatement
+        };
+    }
+
+    /**
+     * NEU V6.0: Öffnet das "Deep Clinical Mastery Gate" (Tiefenverständnis-Prüfung) beim Platzieren eines Blocks
+     * (oder im Review-Modus beim Klick auf einen bereits gelösten Knoten).
+     */
+    async function openDeepComprehensionGate(targetNode, isReviewOnly = false, forceAiRegenerate = false) {
+        const existingModal = document.querySelector('.mm-synapse-modal-backdrop');
+        if (existingModal) existingModal.remove();
+
+        const parentLabel = getParentLabel(targetNode, isReviewOnly);
+        const catCfg = CATEGORIES[targetNode.category] || { label: 'Konzept', icon: '🩺', color: '#38bdf8' };
 
         const backdrop = document.createElement('div');
         backdrop.className = 'mm-synapse-modal-backdrop';
         backdrop.innerHTML = `
             <div class="mm-synapse-modal">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
                     <span style="font-size:0.76rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em;">
-                        🧠 Schritt 2/2: Kausalbeziehung verifizieren
+                        🔬 ${isReviewOnly ? 'Tiefenverständnis-Training (Review)' : 'Schritt 2/2: Klinisches Tiefen-Verhör vor dem Einrasten'}
                     </span>
-                    <span style="font-size:0.75rem; color:#94a3b8;">Clinical Reasoning Check</span>
+                    <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.14); color:#38bdf8; font-weight:700;">
+                        ${catCfg.icon} ${escapeHtml(catCfg.label)}
+                    </span>
                 </div>
-                <h3 style="margin:0 0 6px; font-size:1.05rem;">Warum gehört „${escapeHtml(targetNode.label)}“ an diese Stelle?</h3>
-                <p style="margin:0; font-size:0.82rem; color:#94a3b8;">
-                    Baustein korrekt lokalisiert! Beweise jetzt das <strong>pathophysiologische / klinische Bindeglied</strong> zwischen den beiden Konzepten:
-                </p>
 
                 <div class="mm-synapse-chain-box">
                     <span class="mm-synapse-node-pill">${escapeHtml(parentLabel)}</span>
-                    <span class="mm-synapse-missing-pill">➔ ❓ [Welche Beziehung?] ➔</span>
+                    <span class="mm-synapse-missing-pill">➔ ${escapeHtml(targetNode.relation_label || 'Kausalverbindung')} ➔</span>
                     <span class="mm-synapse-node-pill" style="border-color:#38bdf8;">${escapeHtml(targetNode.label)}</span>
                 </div>
 
-                <div class="mm-synapse-options">
-                    ${options.map((opt, idx) => `
-                        <button type="button" class="mm-synapse-opt-btn" data-rel-opt="${escapeHtml(opt)}">
-                            <span><strong>${String.fromCharCode(65 + idx)})</strong> ${escapeHtml(opt)}</span>
-                            <span style="color:#64748b;">➔</span>
-                        </button>
-                    `).join('')}
+                <div id="mm-gate-body">
+                    <div style="padding:24px; text-align:center; color:#94a3b8; font-size:0.88rem;">
+                        🧠 Generiere tiefgehende klinische Verständnisfrage zu <strong>„${escapeHtml(targetNode.label)}“</strong>...
+                    </div>
                 </div>
-
-                <div id="mm-synapse-feedback" style="font-size:0.8rem; color:#fca5a5; min-height:18px;"></div>
             </div>
         `;
-
         document.body.appendChild(backdrop);
 
-        let hadRelationError = false;
-        backdrop.querySelectorAll('.mm-synapse-opt-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const chosen = btn.getAttribute('data-rel-opt');
-                if (chosen === correctRelation) {
-                    backdrop.remove();
-                    await finalizeNodePlacement(targetNode, !hadRelationError);
-                } else {
-                    hadRelationError = true;
-                    state.mistakesCount += 1;
-                    state.streakCount = 0;
-                    state.weakNodeIds.add(targetNode.id);
-                    btn.classList.add('wrong-choice');
-                    const fb = backdrop.querySelector('#mm-synapse-feedback');
-                    if (fb) {
-                        fb.innerHTML = `⚠️ <strong>Nicht ganz:</strong> „${escapeHtml(chosen)}“ beschreibt nicht die präzise Beziehung zwischen <em>${escapeHtml(parentLabel)}</em> und <em>${escapeHtml(targetNode.label)}</em>. Versuche es erneut!`;
-                    }
-                    const mistakesBadge = document.getElementById('mm-stat-mistakes');
-                    if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
-                }
+        const masteryData = await resolveMasteryQuestionForNode(targetNode, forceAiRegenerate);
+        const gateBody = backdrop.querySelector('#mm-gate-body');
+        if (!gateBody) return;
+
+        // Antwortoptionen zufällig mischen, damit die richtige Antwort nicht immer auf Index 0 liegt
+        const indexedOptions = masteryData.options.map((text, idx) => ({
+            text,
+            isCorrect: idx === (masteryData.correct_index ?? 0)
+        }));
+        const shuffledOptions = shuffleArray(indexedOptions);
+
+        let optionsRevealed = !state.activeRecallFirstMode;
+        let hadWrongAttempt = false;
+        let solvedInModal = false;
+
+        const renderGateContent = (userHypothesisText = '') => {
+            gateBody.innerHTML = `
+                <div class="mm-mastery-question-box">
+                    ${escapeHtml(masteryData.question)}
+                </div>
+
+                ${!optionsRevealed ? `
+                    <div class="mm-recall-first-box">
+                        <div style="font-size:0.8rem; font-weight:800; color:#fcd34d;">
+                            ✍️ Active-Recall-Stufe (Freitext-Hypothese vor den Antwortoptionen):
+                        </div>
+                        <div style="font-size:0.78rem; color:#cbd5e1; margin-top:2px;">
+                            Formuliere in 1–2 Stichworten deine eigene Erklärung, bevor du die 4 Optionen aufdeckst (maximiert den Testing-Effekt!):
+                        </div>
+                        <textarea id="mm-recall-hypothesis-input" class="mm-recall-textarea" placeholder="Meine pathophysiologische / klinische Begründung...">${escapeHtml(userHypothesisText)}</textarea>
+                        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+                            <button type="button" id="mm-btn-reveal-mc" class="mm-btn mm-btn-primary">
+                                🔓 Antwortoptionen aufdecken & verifizieren
+                            </button>
+                        </div>
+                    </div>
+                ` : `
+                    ${userHypothesisText ? `
+                        <div style="margin-bottom:10px; padding:8px 12px; border-radius:8px; background:rgba(56,189,248,0.09); border-left:3px solid #38bdf8; font-size:0.8rem; color:#cbd5e1;">
+                            <strong>Deine Vorab-Hypothese:</strong> <em>„${escapeHtml(userHypothesisText)}“</em>
+                        </div>
+                    ` : ''}
+                    <div class="mm-synapse-options" id="mm-gate-options-list">
+                        ${shuffledOptions.map((opt, idx) => `
+                            <button type="button" class="mm-synapse-opt-btn" data-opt-idx="${idx}">
+                                <span><strong>${String.fromCharCode(65 + idx)})</strong> ${escapeHtml(opt.text)}</span>
+                                <span style="color:#64748b; font-weight:800;">➔</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                `}
+
+                <div id="mm-gate-feedback"></div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08); flex-wrap:wrap;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" id="mm-gate-ai-regen" class="mm-btn" style="font-size:0.76rem;" title="Generiert per KI eine völlig neue klinische Prüfungsfrage zu diesem Knoten">
+                            🔄 Neue KI-Prüfungsfrage (anderer Fokus)
+                        </button>
+                        <button type="button" id="mm-gate-pin-depot" class="mm-btn" style="font-size:0.76rem; color:#38bdf8;">
+                            📌 Ins Lern-Depot
+                        </button>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        ${isReviewOnly ? `
+                            <button type="button" id="mm-gate-close" class="mm-btn">Schließen</button>
+                        ` : ''}
+                        <button type="button" id="mm-gate-confirm-next" class="mm-btn mm-btn-primary" style="display:none;">
+                            ✅ Verstanden & Knoten einrasten ➔
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            gateBody.querySelector('#mm-btn-reveal-mc')?.addEventListener('click', () => {
+                const val = gateBody.querySelector('#mm-recall-hypothesis-input')?.value.trim() || '';
+                optionsRevealed = true;
+                renderGateContent(val);
             });
-        });
+
+            gateBody.querySelector('#mm-gate-ai-regen')?.addEventListener('click', () => {
+                openDeepComprehensionGate(targetNode, isReviewOnly, true);
+            });
+
+            gateBody.querySelector('#mm-gate-pin-depot')?.addEventListener('click', async e => {
+                const btn = e.currentTarget;
+                await saveNodeToLearningDepot(targetNode);
+                btn.textContent = '✅ Im Depot gespeichert!';
+                btn.disabled = true;
+            });
+
+            gateBody.querySelector('#mm-gate-close')?.addEventListener('click', () => {
+                backdrop.remove();
+            });
+
+            gateBody.querySelectorAll('.mm-synapse-opt-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (solvedInModal) return;
+                    const idx = Number(btn.getAttribute('data-opt-idx'));
+                    const chosen = shuffledOptions[idx];
+                    const fbEl = gateBody.querySelector('#mm-gate-feedback');
+
+                    if (chosen.isCorrect) {
+                        solvedInModal = true;
+                        btn.classList.add('correct-choice');
+                        gateBody.querySelectorAll('.mm-synapse-opt-btn').forEach(b => { b.disabled = true; });
+
+                        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+
+                        if (fbEl) {
+                            fbEl.innerHTML = `
+                                <div class="mm-mastery-rationale-box">
+                                    <strong style="color:#10b981;">🎯 Exzellentes Tiefenverständnis!</strong><br>
+                                    ${escapeHtml(masteryData.rationale || targetNode.explanation || '')}
+                                </div>
+                            `;
+                        }
+
+                        const confirmBtn = gateBody.querySelector('#mm-gate-confirm-next');
+                        if (confirmBtn) {
+                            confirmBtn.style.display = 'inline-flex';
+                            confirmBtn.focus();
+                            confirmBtn.addEventListener('click', async () => {
+                                backdrop.remove();
+                                if (!isReviewOnly) {
+                                    await finalizeNodePlacement(targetNode, !hadWrongAttempt);
+                                }
+                            });
+                        }
+                    } else {
+                        hadWrongAttempt = true;
+                        state.mistakesCount += 1;
+                        state.streakCount = 0;
+                        state.weakNodeIds.add(targetNode.id);
+                        btn.classList.add('wrong-choice');
+                        btn.disabled = true;
+
+                        const mistakesBadge = document.getElementById('mm-stat-mistakes');
+                        if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
+                        const streakBadge = document.getElementById('mm-stat-streak');
+                        if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
+
+                        if (fbEl) {
+                            fbEl.innerHTML = `
+                                <div class="mm-mastery-nudge-box">
+                                    <strong>🤔 Sokratischer Denkanstoß (noch nicht ganz):</strong><br>
+                                    ${escapeHtml(masteryData.socratic_nudge || targetNode.socratic_hint || 'Prüfe den exakten pathophysiologischen Mechanismus noch einmal.')}
+                                </div>
+                            `;
+                        }
+                    }
+                });
+            });
+        };
+
+        renderGateContent('');
     }
 
     async function finalizeNodePlacement(targetNode, flawlessFirstTry) {
@@ -2133,6 +2614,9 @@
         if (flawlessFirstTry) {
             state.streakCount += 1;
             if (state.streakCount > state.maxStreak) state.maxStreak = state.streakCount;
+            if (typeof window.applyXpDelta === 'function') {
+                window.applyXpDelta(25, 'Tiefenprüfung 1st-Try');
+            }
         }
 
         const newlyUnlockedChildren = map.nodes.filter(n => n.parent_id === targetNode.id);
@@ -2156,25 +2640,29 @@
         const updatedTutorEl = document.getElementById('mm-tutor-message');
         if (updatedTutorEl) {
             const parentLabel = getParentLabel(targetNode);
-            const pearlText = targetNode.explanation
-                ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; font-size:0.8rem;">💡 <strong>Klinischer Hintergrund:</strong> ${escapeHtml(targetNode.explanation)}</div>`
+            const rationaleText = targetNode.mastery_question?.rationale || targetNode.explanation;
+            const pearlText = rationaleText
+                ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; font-size:0.8rem;">💡 <strong>Klinische Essenz:</strong> ${escapeHtml(rationaleText)}</div>`
                 : '';
             const unlockNotice = newlyUnlockedChildren.length > 0
                 ? `<div style="margin-top:6px; color:#38bdf8; font-size:0.8rem;">🔓 <strong>Folgekaskade freigeschaltet:</strong> ${newlyUnlockedChildren.length} abhängige(r) Knoten der 2. Ebene an „${escapeHtml(targetNode.label)}“ ist jetzt bereit!</div>`
                 : '';
 
             updatedTutorEl.innerHTML = `
-                <strong style="color:#10b981;">✅ Kausalverbindung bewiesen!</strong><br>
+                <strong style="color:#10b981;">✅ Knoten & Tiefenverständnis verifiziert!</strong><br>
                 <strong>„${escapeHtml(targetNode.label)}“</strong> folgt über <em>„${escapeHtml(targetNode.relation_label || 'Verbindung')}“</em> aus <strong>„${escapeHtml(parentLabel)}“</strong>.
                 ${pearlText}
                 ${unlockNotice}
-                <div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
                     <button type="button" class="mm-depot-pin-btn" data-pin-node="${escapeHtml(targetNode.id)}">
-                        📌 Diese Kausalkette ins Lern-Depot pinnen
+                        📌 Ins Lern-Depot pinnen
+                    </button>
+                    <button type="button" class="mm-depot-pin-btn" data-retest-node="${escapeHtml(targetNode.id)}">
+                        🔬 Tiefen-Frage erneut öffnen
                     </button>
                 </div>
             `;
-            bindPinButtonInTutor(updatedTutorEl);
+            bindTutorActionButtons(updatedTutorEl);
         }
 
         if (state.solvedNodeIds.size === map.nodes.length) {
@@ -2183,25 +2671,37 @@
                 const totalAttempts = map.nodes.length + state.mistakesCount;
                 const accuracy = totalAttempts > 0 ? Math.round((map.nodes.length / totalAttempts) * 100) : 100;
                 updatedTutorEl.innerHTML = `
-                    <strong style="color:#10b981;">🏆 Gesamte Mindmap gemeistert (${accuracy}% Präzision, Max-Serie: ${state.maxStreak})!</strong><br>
-                    Du hast alle ${map.nodes.length} Konzepte und ihre Kausalbeziehungen verifiziert (${state.mistakesCount} Fehlversuche). Klicke auf beliebige gelöste Knoten, um ihre klinischen Erklärungen zu wiederholen oder ins Lern-Depot zu pinnen!
+                    <strong style="color:#10b981;">🏆 Gesamte Mindmap & Tiefenprüfung gemeistert (${accuracy}% Präzision, Max-Serie: ${state.maxStreak})!</strong><br>
+                    Du hast alle ${map.nodes.length} Konzepte kausal zugeordnet und ihr klinisches Tiefenverständnis bewiesen (${state.mistakesCount} Fehlversuche). Klicke auf beliebige gelöste Knoten, um dir weitere KI-Prüfungsfragen dazu generieren zu lassen!
                 `;
             }
         }
     }
 
-    function bindPinButtonInTutor(containerEl) {
+    function bindTutorActionButtons(containerEl) {
         const pinBtn = containerEl.querySelector('[data-pin-node]');
-        if (!pinBtn) return;
-        pinBtn.addEventListener('click', async () => {
-            const nodeId = pinBtn.getAttribute('data-pin-node');
-            const node = state.currentMap?.nodes.find(n => n.id === nodeId);
-            if (node) {
-                await saveNodeToLearningDepot(node);
-                pinBtn.textContent = '✅ Im Lern-Depot gespeichert!';
-                pinBtn.disabled = true;
-            }
-        });
+        if (pinBtn) {
+            pinBtn.addEventListener('click', async () => {
+                const nodeId = pinBtn.getAttribute('data-pin-node');
+                const node = state.currentMap?.nodes.find(n => n.id === nodeId);
+                if (node) {
+                    await saveNodeToLearningDepot(node);
+                    pinBtn.textContent = '✅ Im Lern-Depot gespeichert!';
+                    pinBtn.disabled = true;
+                }
+            });
+        }
+
+        const retestBtn = containerEl.querySelector('[data-retest-node]');
+        if (retestBtn) {
+            retestBtn.addEventListener('click', () => {
+                const nodeId = retestBtn.getAttribute('data-retest-node');
+                const node = state.currentMap?.nodes.find(n => n.id === nodeId);
+                if (node) {
+                    openDeepComprehensionGate(node, true, false);
+                }
+            });
+        }
     }
 
     function showSolvedNodeExplanation(slotId) {
@@ -2210,17 +2710,21 @@
         if (!node || !tutorEl) return;
 
         const parentLabel = getParentLabel(node, true);
+        const rationaleText = node.mastery_question?.rationale || node.explanation || node.socratic_hint || 'Klinisch verifiziertes Konzept.';
         tutorEl.innerHTML = `
             <strong style="color:#10b981;">✅ Gelöster Knoten: „${escapeHtml(node.label)}“</strong><br>
             <span style="font-size:0.8rem; color:#94a3b8;">Kausalkette: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(node.relation_label)}</em></span><br>
-            <div style="margin-top:6px;">${escapeHtml(node.explanation || node.socratic_hint || 'Klinisch verifiziertes Konzept.')}</div>
-            <div>
+            <div style="margin-top:6px;">${escapeHtml(rationaleText)}</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
                 <button type="button" class="mm-depot-pin-btn" data-pin-node="${escapeHtml(node.id)}">
                     📌 Ins Lern-Depot pinnen
                 </button>
+                <button type="button" class="mm-depot-pin-btn" data-retest-node="${escapeHtml(node.id)}">
+                    🔬 Tiefenverständnis-Frage öffnen
+                </button>
             </div>
         `;
-        bindPinButtonInTutor(tutorEl);
+        bindTutorActionButtons(tutorEl);
     }
 
     function showSlotSocraticHint(slotId) {
@@ -2238,20 +2742,17 @@
 
         const parentLabel = getParentLabel(targetNode);
         const targetCat = state.blindMode ? 'Kategorie im Blind-Modus verdeckt' : (CATEGORIES[targetNode.category]?.label || targetNode.category);
-        const relHint = state.relationChallengeMode ? 'Beziehung wird im 2. Schritt abgefragt' : (targetNode.relation_label || '');
+        const relHint = targetNode.relation_label || '';
 
         tutorEl.innerHTML = `
             <strong style="color:#38bdf8;">💡 Sokratische Leitfrage für diesen Knoten:</strong><br>
-            <span style="font-size:0.8rem; color:#94a3b8;">Ausgehend von: <strong>${escapeHtml(parentLabel)}</strong> • (${escapeHtml(targetCat)}${relHint ? ' • ' + escapeHtml(relHint) : ''})</span>
+            <span style="font-size:0.8rem; color:#94a3b8;">Gesucht: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(relHint)}</em> (${escapeHtml(targetCat)})</span>
             <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;">
                 ${escapeHtml(targetNode.socratic_hint || 'Überlege, welcher Begriff aus dem Pool kausal an diese Stelle gehört.')}
             </div>
         `;
     }
 
-    /**
-     * BUGFIX: 100% kompatibel mit api/gemini.js durch Nutzung von mode: 'depot_quiz' + JSON-Array-Schema!
-     */
     async function triggerSocraticFeedback(draggedNode, targetNode) {
         const tutorEl = document.getElementById('mm-tutor-message');
         if (!tutorEl) return;
@@ -2306,15 +2807,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt im 
             const firstItem = Array.isArray(data?.result) ? data.result[0] : null;
             const aiFlaw = firstItem?.flaw_analysis || '';
             const aiQuestion = firstItem?.socratic_question || '';
-            const legacyText = data?.text || data?.generatedText || data?.reply;
 
-            if (aiFlaw || aiQuestion || legacyText) {
+            if (aiFlaw || aiQuestion) {
                 tutorEl.innerHTML = `
                     ${structuralHint ? `<div style="margin-bottom:6px; font-size:0.8rem; color:#fcd34d;">${structuralHint}</div>` : ''}
                     <strong style="color:#f59e0b;">🤔 Sokratisches Differential-Feedback:</strong><br>
                     ${aiFlaw ? `<span>${escapeHtml(aiFlaw)}</span><br>` : ''}
                     ${aiQuestion ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;"><strong style="color:#38bdf8;">Leitfrage:</strong> ${escapeHtml(aiQuestion)}</div>` : ''}
-                    ${(!aiFlaw && !aiQuestion && legacyText) ? escapeHtml(legacyText) : ''}
                 `;
                 return;
             }
@@ -2333,29 +2832,28 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt im 
     }
 
     // ========================================================================
-    // 10. VORLESUNGS-PROMPT KOPIERER (MIT DISTRAKTOREN) & JSON-IMPORT MODAL
+    // 10. VORLESUNGS-PROMPT KOPIERER (MIT MASTERY-QUESTIONS) & JSON-IMPORT
     // ========================================================================
 
     function copyExtractionPrompt() {
         const promptTemplate = `# ROLLE & ZIEL
-Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau IMPP/NBME) und Daten-Architekt für das MedCheck Mindmap-Labor V5.0.
+Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau IMPP/NBME) und Daten-Architekt für das MedCheck Mindmap-Labor V6.0 ("Deep Clinical Mastery Gate").
 Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, molekularbiologischen, diagnostischen und therapeutischen Details und überführe sie in ein direkt importierbares, valides JSON-Objekt.
 
-# 1. INHALTLICHE REGELN (ZERO-SUPERFICIALITY & CLINICAL REASONING)
+# 1. INHALTLICHE REGELN (ZERO-SUPERFICIALITY & DEEP COMPREHENSION GATE)
 1. KEINE OBERFLÄCHLICHKEITEN: Begriffe wie "Blutbild", "MRT", "Entzündung" oder "Medikamente" sind verboten! Extrahiere exakte Rezeptoren, Ionenkanäle, Autoantikörper, Genmutationen, pathognomonische Zeichen, spezifische Sequenzen, exakte Cutoffs mit Einheiten und Wirkstoffe inkl. Mechanismus/Kontraindikation.
 2. STRIKTE 2-RING-KAUSALLOGIK (KEINE MEHRDEUTIGKEITEN!):
    - Erstelle insgesamt 10 bis 12 Knoten in "nodes".
    - 5 Knoten sind Hauptäste 1. Ordnung ("parent_id": "root") und decken alle 5 Kategorien ab ("etiology", "pathophysiology", "clinical", "diagnostics", "therapy").
    - 5 bis 7 Knoten sind Vertiefungsäste 2. Ordnung ("parent_id": "n1" etc.), die einen Hauptast logisch-kausal weiterführen (Ursache -> unmittelbare Folge; Primärdiagnostik -> beweisender Befund; Erstlinientherapie -> spezifischer Wirkmechanismus/Prophylaxe).
-   - Jeder Slot muss durch seine "relation_label" und "socratic_hint" EINDEUTIG von allen anderen Knoten unterscheidbar sein!
-3. KLINISCHE DISTRAKTOREN ("distractors") GEGEN AUSSCHLUSSVERFAHREN:
-   - Erstelle zusätzlich 3 bis 4 hochplausible klinische Fallen in "distractors" (z.B. ein typischer Befund einer engen Differenzialdiagnose, eine gefährliche Kontraindikation oder ein häufiger Algorithmus-Fehler im Staatsexamen) inklusive "distractor_reason" (warum dieser Begriff hier falsch ist).
-4. KOMPAKTE UI-LABELS:
-   - "label": Maximal 48 Zeichen.
-   - "relation_label": Präzises kausales Verb/Beziehung (max. 32 Zeichen, z.B. "oxidiert Fe2+ zu Fe3+ in", "beweist transmuralen Schaden", "erfordert als Prophylaxe").
-5. SOKRATISCHE LEITFRAGEN ("socratic_hint") & ERKLÄRUNG ("explanation"):
-   - "socratic_hint": Gezielte Frage, die über den Mechanismus auf den Begriff hinführt, OHNE das Wort aus "label" zu verraten!
-   - "explanation": 1-2 prägnante Sätze mit dem klinischen/pathophysiologischen Merksatz nach dem Lösen.
+3. TIEFENVERSTÄNDNIS-PRÜFUNGSFRAGE ("mastery_question") FÜR JEDEN KNOTEN:
+   - Jeder Knoten MUSS ein Objekt "mastery_question" enthalten, das beim Platzieren des Blocks abfragt, ob der Student das klinische/pathophysiologische Prinzip dahinter WIRKLICH verstanden hat (NICHT bloß "Zu welchem Ast gehört das?", sondern Warum/Wie/Kontraindikation/Mechanismus/Differenzialdiagnose).
+   - "options": 4 hochplausible Antwortoptionen mit kontrollierter Längenparität (10-15% Varianz, gleicher Fachstil, keine Test-Wiseness!).
+   - "correct_index": Index der richtigen Antwort (0 bis 3).
+   - "socratic_nudge": Sokratischer Denkanstoß bei Falschantwort (ohne die Lösung direkt zu verraten).
+   - "rationale": Präzise Begründung inkl. Ausschluss der Distraktoren.
+4. KLINISCHE DISTRAKTOREN ("distractors") GEGEN AUSSCHLUSSVERFAHREN:
+   - Erstelle zusätzlich 3 hochplausible klinische Fallen in "distractors" (Befunde einer engen Differenzialdiagnose oder Kontraindikationen) inklusive "distractor_reason".
 
 # 2. STRIKTES JSON-SCHEMA (Antworte NUR mit reinem JSON ohne Markdown-Block)
 {
@@ -2370,8 +2868,20 @@ Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, m
       "category": "etiology | pathophysiology | clinical | diagnostics | therapy",
       "parent_id": "root",
       "relation_label": "Eindeutige Kausalrelation",
-      "socratic_hint": "Sokratische Frage ohne Lösungsspoiler?",
-      "explanation": "Klinisch-pathophysiologische Begründung nach dem Lösen."
+      "socratic_hint": "Sokratische Frage vor dem Ziehen ohne Lösungsspoiler?",
+      "explanation": "Klinisch-pathophysiologische Zusammenfassung.",
+      "mastery_question": {
+        "question": "Tiefgehende Staatsexamens-Verständnisfrage zum Mechanismus / zur Klinik dieses Bausteins?",
+        "options": [
+          "Präzise korrekte Aussage (Längenparität beachten)...",
+          "Hochplausibler Distraktor 1...",
+          "Hochplausibler Distraktor 2...",
+          "Hochplausibler Distraktor 3..."
+        ],
+        "correct_index": 0,
+        "socratic_nudge": "Sokratischer Tipp bei falscher Auswahl ohne Lösungsspoiler.",
+        "rationale": "Exakte Begründung nach erfolgreichem Lösen."
+      }
     }
   ],
   "distractors": [
@@ -2379,7 +2889,7 @@ Extrahiere aus dem folgenden Vorlesungstext die TIEFSTEN pathophysiologischen, m
       "id": "d1",
       "label": "Täuschend echter Befund einer DD / Kontraindikation",
       "category": "diagnostics | therapy | pathophysiology | clinical | etiology",
-      "distractor_reason": "Klinische Begründung, warum dieser Begriff eine Falle (z.B. andere Diagnose oder Kontraindikation) ist."
+      "distractor_reason": "Klinische Begründung, warum dieser Begriff eine Falle ist."
     }
   ]
 }
@@ -2391,7 +2901,7 @@ Hier ist der Vorlesungstext:
             const btn = document.getElementById('mm-btn-prompt');
             if (btn) {
                 const orig = btn.innerHTML;
-                btn.innerHTML = '✅ V5.0 Deep-Prompt kopiert!';
+                btn.innerHTML = '✅ V6.0 Mastery-Prompt kopiert!';
                 setTimeout(() => { btn.innerHTML = orig; }, 2200);
             }
         });
@@ -2404,7 +2914,7 @@ Hier ist der Vorlesungstext:
             <div class="mm-modal">
                 <h3 style="margin-top:0;">📥 Vorlesungs-Mindmap (JSON) importieren</h3>
                 <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:0.5rem;">
-                    Füge hier das JSON ein, das du mit dem Deep-Prompt oder deinem Mindmap-Extraktor generiert hast (unterstützt auch optionale <code>distractors</code>).
+                    Füge hier das JSON ein (unterstützt <code>mastery_question</code> pro Knoten sowie <code>distractors</code>; ältere JSONs ohne <code>mastery_question</code> werden beim Spielen automatisch live per KI aufgerüstet!).
                 </p>
                 <textarea id="mm-import-textarea" class="mm-textarea" placeholder='{\n  "id": "mm_pharma_opioids_001",\n  "title": "...",\n  "central_concept": "...",\n  "nodes": [ ... ],\n  "distractors": [ ... ]\n}'></textarea>
                 <div id="mm-import-error" style="color:#ef4444; font-size:0.82rem; margin-bottom:0.75rem;"></div>
@@ -2449,7 +2959,8 @@ Hier ist der Vorlesungstext:
         openView,
         selectMindmap,
         deleteCurrentMindmap,
-        applyDifficultyPreset
+        applyDifficultyPreset,
+        openDeepComprehensionGate
     };
 
     if (document.readyState === 'loading') {
