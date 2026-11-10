@@ -462,7 +462,7 @@
     // 1. INITIALISIERUNG, SCOPED CSS & DOM-STRUKTUR
     // ========================================================================
 
-    function ensureMindmapStyles() {
+ function ensureMindmapStyles() {
         if (document.getElementById('medcheck-mindmap-v6-styles')) return;
         const styleEl = document.createElement('style');
         styleEl.id = 'medcheck-mindmap-v6-styles';
@@ -476,8 +476,8 @@
                 padding: 10px 14px;
                 margin-bottom: 12px;
                 border-radius: 12px;
-                background: rgba(15, 23, 42, 0.72);
-                border: 1px solid rgba(56, 189, 248, 0.22);
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.72));
+                border: 1px solid var(--card-border, rgba(56, 189, 248, 0.22));
             }
             .mm-preset-group {
                 display: flex;
@@ -491,26 +491,26 @@
                 font-size: 0.78rem;
                 font-weight: 700;
                 cursor: pointer;
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                background: rgba(30, 41, 59, 0.65);
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.65));
                 color: var(--text-muted, #94a3b8);
                 transition: all 0.18s ease;
             }
             .mm-preset-btn:hover {
-                border-color: rgba(56, 189, 248, 0.45);
+                border-color: var(--accent-cyan, #38bdf8);
                 color: var(--text-main, #f8fafc);
             }
             .mm-preset-btn.active {
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.22));
-                border-color: #38bdf8;
-                color: #f8fafc;
-                box-shadow: 0 0 14px rgba(56, 189, 248, 0.22);
+                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.22));
+                border-color: var(--accent-cyan, #38bdf8);
+                color: var(--text-main, #f8fafc);
+                box-shadow: 0 0 14px rgba(56, 189, 248, 0.18);
             }
             .mm-synapse-modal-backdrop {
                 position: fixed;
                 inset: 0;
                 z-index: 9999;
-                background: rgba(6, 9, 19, 0.82);
+                background: rgba(15, 23, 42, 0.65);
                 backdrop-filter: blur(10px);
                 display: flex;
                 align-items: center;
@@ -523,12 +523,12 @@
                 max-width: 680px;
                 max-height: 92vh;
                 overflow-y: auto;
-                background: #0f172a;
-                border: 1px solid rgba(56, 189, 248, 0.5);
+                background: var(--surface-primary, #0f172a);
+                border: 1px solid var(--card-border, rgba(56, 189, 248, 0.5));
                 border-radius: 18px;
                 padding: 22px 24px;
-                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
-                color: #f8fafc;
+                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+                color: var(--text-main, #f8fafc);
             }
             .mm-synapse-chain-box {
                 display: flex;
@@ -538,44 +538,45 @@
                 padding: 10px 14px;
                 margin: 10px 0 14px;
                 border-radius: 10px;
-                background: rgba(15, 23, 42, 0.92);
-                border: 1px dashed rgba(56, 189, 248, 0.4);
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.92));
+                border: 1px dashed var(--accent-cyan, rgba(56, 189, 248, 0.4));
                 font-size: 0.82rem;
                 flex-wrap: wrap;
             }
             .mm-synapse-node-pill {
                 padding: 5px 10px;
                 border-radius: 8px;
-                background: rgba(30, 41, 59, 0.95);
-                border: 1px solid rgba(255, 255, 255, 0.12);
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.95));
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
                 font-weight: 700;
-                color: #e2e8f0;
+                color: var(--text-main, #e2e8f0);
             }
             .mm-synapse-missing-pill {
                 padding: 4px 10px;
                 border-radius: 999px;
                 background: rgba(16, 185, 129, 0.16);
                 border: 1px solid #10b981;
-                color: #6ee7b7;
+                color: #10b981;
                 font-weight: 800;
                 font-size: 0.75rem;
             }
             .mm-mastery-question-box {
                 padding: 14px 16px;
                 border-radius: 12px;
-                background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-                border-left: 4px solid #38bdf8;
+                background: var(--surface-secondary, rgba(30, 41, 59, 0.9));
+                border: 1px solid var(--card-border, transparent);
+                border-left: 4px solid var(--accent-cyan, #38bdf8);
                 font-size: 0.94rem;
                 font-weight: 700;
                 line-height: 1.5;
-                color: #f8fafc;
+                color: var(--text-main, #f8fafc);
                 margin-bottom: 14px;
             }
             .mm-recall-first-box {
                 padding: 14px;
                 border-radius: 12px;
-                background: rgba(30, 41, 59, 0.55);
-                border: 1px solid rgba(245, 158, 11, 0.4);
+                background: var(--surface-secondary, rgba(30, 41, 59, 0.55));
+                border: 1px solid rgba(245, 158, 11, 0.45);
                 margin-bottom: 14px;
             }
             .mm-recall-textarea {
@@ -584,9 +585,9 @@
                 margin-top: 8px;
                 padding: 10px 12px;
                 border-radius: 8px;
-                border: 1px solid rgba(255, 255, 255, 0.16);
-                background: rgba(6, 9, 19, 0.85);
-                color: #f8fafc;
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.16));
+                background: var(--surface-primary, rgba(6, 9, 19, 0.85));
+                color: var(--text-main, #f8fafc);
                 font-family: inherit;
                 font-size: 0.85rem;
                 resize: vertical;
@@ -601,9 +602,9 @@
                 text-align: left;
                 padding: 12px 15px;
                 border-radius: 11px;
-                border: 1px solid rgba(255, 255, 255, 0.13);
-                background: rgba(30, 41, 59, 0.75);
-                color: #f1f5f9;
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.13));
+                background: var(--surface-secondary, rgba(30, 41, 59, 0.75));
+                color: var(--text-main, #f1f5f9);
                 font-size: 0.86rem;
                 line-height: 1.45;
                 font-weight: 500;
@@ -615,28 +616,28 @@
                 gap: 12px;
             }
             .mm-synapse-opt-btn:hover:not(:disabled) {
-                background: rgba(56, 189, 248, 0.16);
-                border-color: #38bdf8;
+                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.16));
+                border-color: var(--accent-cyan, #38bdf8);
                 transform: translateX(3px);
             }
             .mm-synapse-opt-btn.wrong-choice {
-                background: rgba(239, 68, 68, 0.18) !important;
+                background: rgba(239, 68, 68, 0.14) !important;
                 border-color: #ef4444 !important;
-                color: #fca5a5 !important;
-                opacity: 0.72;
+                color: #ef4444 !important;
+                opacity: 0.78;
             }
             .mm-synapse-opt-btn.correct-choice {
-                background: rgba(16, 185, 129, 0.22) !important;
+                background: rgba(16, 185, 129, 0.18) !important;
                 border-color: #10b981 !important;
-                color: #ecfdf5 !important;
-                box-shadow: 0 0 18px rgba(16, 185, 129, 0.28);
+                color: var(--text-main, #ecfdf5) !important;
+                box-shadow: 0 0 18px rgba(16, 185, 129, 0.22);
             }
             .mm-mastery-rationale-box {
                 padding: 12px 14px;
                 border-radius: 10px;
                 background: rgba(16, 185, 129, 0.12);
                 border: 1px solid rgba(16, 185, 129, 0.4);
-                color: #e2e8f0;
+                color: var(--text-main, #e2e8f0);
                 font-size: 0.84rem;
                 line-height: 1.5;
                 margin-top: 10px;
@@ -646,7 +647,7 @@
                 border-radius: 10px;
                 background: rgba(245, 158, 11, 0.14);
                 border-left: 3px solid #f59e0b;
-                color: #fde68a;
+                color: var(--text-main, #fde68a);
                 font-size: 0.83rem;
                 line-height: 1.45;
                 margin-top: 8px;
@@ -660,15 +661,14 @@
                 border-radius: 7px;
                 font-size: 0.75rem;
                 font-weight: 700;
-                background: rgba(56, 189, 248, 0.14);
-                border: 1px solid rgba(56, 189, 248, 0.4);
-                color: #38bdf8;
+                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.14));
+                border: 1px solid var(--accent-cyan, rgba(56, 189, 248, 0.4));
+                color: var(--accent-blue, #38bdf8);
                 cursor: pointer;
                 transition: all 0.15s ease;
             }
             .mm-depot-pin-btn:hover {
                 background: rgba(56, 189, 248, 0.26);
-                color: #ffffff;
             }
             .mm-chip.distractor-eliminated {
                 opacity: 0.35 !important;
@@ -685,18 +685,18 @@
             .mm-root-deduce-input {
                 padding: 4px 8px;
                 border-radius: 6px;
-                border: 1px solid rgba(56, 189, 248, 0.5);
-                background: rgba(6, 9, 19, 0.85);
-                color: #f8fafc;
+                border: 1px solid var(--accent-cyan, rgba(56, 189, 248, 0.5));
+                background: var(--surface-primary, rgba(6, 9, 19, 0.85));
+                color: var(--text-main, #f8fafc);
                 font-size: 0.78rem;
                 width: 170px;
             }
             .mm-root-deduce-btn {
                 padding: 4px 8px;
                 border-radius: 6px;
-                border: 1px solid #38bdf8;
-                background: rgba(56, 189, 248, 0.25);
-                color: #ffffff;
+                border: 1px solid var(--accent-blue, #38bdf8);
+                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.25));
+                color: var(--text-main, #ffffff);
                 font-size: 0.75rem;
                 font-weight: 700;
                 cursor: pointer;
@@ -708,7 +708,6 @@
         `;
         document.head.appendChild(styleEl);
     }
-
     function clearBrowserTextSelection() {
         try {
             if (window.getSelection) {
