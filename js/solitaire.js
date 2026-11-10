@@ -1,18 +1,17 @@
 /* ==========================================================================
-   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V4.1 (js/solitaire.js)
+   MEDCHECK – SOLITAIRE ASSOCIATIONS JOURNEY MODULE V4.2 (js/solitaire.js)
    ==========================================================================
-   FEATURES V4.1 (IM ORIGINALEN V3.3+ DESIGN):
+   FEATURES V4.2 (IM ORIGINALEN V3.3+ DESIGN):
    01. 100% Originaler V3.3+ Style (5:7 Hochkant-Spielkarten, 👑/🧬/🩺/🔬/💊/⚡ Icons)
    02. Klassische Solitaire-Treppenform im unteren Tableau:
        Links kleinster Stapel (Deck 1 = 1 Karte) bis rechts größter Stapel
        (Deck 6 = 6 Karten: 5 verdeckt + 1 offen).
-   03. Dashboard-Ordner-Architektur (Überordner & Unterordner inkl. Drag & Drop,
+   03. NEU V4.2: Streng kartenadaptives Move-Budget (MinMoves = T + 2*S plus
+       knapper taktischer Puffer von ~15% bzw. ~9% im 🎓 Hard-Mode) sowie
+       einmalige Notfall-Verlängerung (+5 Moves für -150 Pkt) statt Endlos-Moves.
+   04. Dashboard-Ordner-Architektur (Überordner & Unterordner inkl. Drag & Drop,
        ✏️ Umbenennen, 🗑️ Löschen, ⇄ Verschieben & Supabase-Cloud-Sync)
-   04. Modus "🎲 Zufälliges Deck ziehen" (Global über alle Decks oder pro Ordner)
-   05. Modus "🔀 Kategorien-Mixer" (Mischt Krankheitsbilder quer über Decks hinweg):
-       - Einfach:   mind. 35 Karten (35–42 Karten, ~5–6 Krankheitsbilder)
-       - Mittel:    ca. 50 Karten   (48–56 Karten, ~7–8 Krankheitsbilder)
-       - Schwierig: bis 70 Karten   (64–70 Karten, ~10–11 Krankheitsbilder)
+   05. Modus "🎲 Zufälliges Deck ziehen" & "🔀 Kategorien-Mixer" (35 bis 70 Karten)
    06. NEUE REGEL: Auf Krankheitsbild-Karten (👑) kann in den 6 unteren Stapeln
        NICHTS abgelegt werden. Oben in den 4 Ziel-Slots muss die Krankheitsbild-
        Karte zwingend zuunterst liegen, bevor Begriffe darauf gesammelt werden.
@@ -189,7 +188,7 @@ const SolitaireModule = (() => {
                     clinical_pearl: 'Neurochirurgischer Notfall (meist S. aureus) mit klassischer Trias aus lokalem Rückenschmerz, Fieber und progredientem neurologischem Defizit.',
                     cards: [
                         { term: 'Trias: Klopfschmerz + Fieber + Parese', category: 'Klinik', explanation: 'Typische klinische Befundkonstellation bei raumfordernder Eiteransammlung zwischen Dura mater und Wirbelperiost.' },
-                        { term: 'Staphylococcus aureus (häufigster Erreger)', category: 'Pathophysiologie', explanation: 'Hämatogene Streuung (z.B. bei i.v.-Drogenabusus, Endokarditis) oderFortleitung einer Spondylodiszitis.' },
+                        { term: 'Staphylococcus aureus (häufigster Erreger)', category: 'Pathophysiologie', explanation: 'Hämatogene Streuung (z.B. bei i.v.-Drogenabusus, Endokarditis) oder Fortleitung einer Spondylodiszitis.' },
                         { term: 'Ringförmiges KM-Enhancement epidural', category: 'Diagnostik', explanation: 'Beweisender Befund im Kontrastmittel-MRT der gesamten Wirbelsäule mit Kompression des Duralsacks.' },
                         { term: 'CAVE: Keine LP durch infiziertes Gewebe!', category: 'Komplikation', explanation: 'Eine Lumbalpunktion auf Höhe der Läsion birgt das hohe Risiko einer iatrogenen Keimverschleppung in den Subarachnoidalraum.' },
                         { term: 'Notfall-Laminektomie + i.v.-Antibiose', category: 'Therapie', explanation: 'Sofortige chirurgische Dekompression innerhalb weniger Stunden kombiniert mit kalkulierter bakterizider Antibiotikatherapie.' }
@@ -335,10 +334,13 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     let gameState = {
         movesLeft: 0,
         maxMoves: 0,
+        theoreticalMinMoves: 0,
+        tacticalBufferMoves: 0,
+        overtimeUsed: false,
         score: 0,
         comboStreak: 0,
-        hintsLeft: 3,
-        jokersLeft: 2,
+        hintsLeft: 2,
+        jokersLeft: 1,
         foundations: Array(FOUNDATION_SLOTS_COUNT).fill(null),
         completedDiseases: [],
         tableau: Array.from({ length: TABLEAU_COLS_COUNT }, () => []),
@@ -906,7 +908,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         startGameWithDeckObject(virtualMixedDeck);
         showToast(
-            `🔀 <strong>Kategorien-Mixer gestartet (${escapeHtml(diff.label)}):</strong> ${selectedDiseases.length} zufällige Krankheitsbilder mit insgesamt <strong>${totalCardsFinal} Spielkarten</strong> wurden gemischt!`,
+            `🔀 <strong>Kategorien-Mixer gestartet (${escapeHtml(diff.label)}):</strong> ${selectedDiseases.length} zufällige Krankheitsbilder mit <strong>${totalCardsFinal} Karten</strong> und straffem Move-Limit (<strong>${gameState.maxMoves} Moves</strong>)!`,
             'positive'
         );
     }
@@ -1448,7 +1450,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     }
 
     // ----------------------------------------------------------------------
-    // 10. KLASSISCHE SOLITAIRE-TREPPENFORM (1 BIS 6 KARTEN VON LINKS NACH RECHTS)
+    // 10. KLASSISCHE SOLITAIRE-TREPPENFORM & KARTENADAPTIVES MOVE-BUDGET
     // ----------------------------------------------------------------------
     function shuffleArray(arr) {
         const copy = [...arr];
@@ -1464,11 +1466,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const colSizes = Array(numCols).fill(0);
         let cardsAllocated = 0;
 
-        // Klassischer Klondike-Durchlauf:
-        // Pass 0 legt je 1 Karte in Spalte 0..5
-        // Pass 1 legt je 1 Karte in Spalte 1..5
-        // ...
-        // Pass 5 legt 1 Karte in Spalte 5 -> Ergebnis bei ≥21 Karten: [1, 2, 3, 4, 5, 6]
         for (let pass = 0; pass < numCols; pass++) {
             for (let col = pass; col < numCols; col++) {
                 if (cardsAllocated < maxTableauCards) {
@@ -1478,6 +1475,33 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
             }
         }
         return colSizes;
+    }
+
+    // KARTENADAPTIVE MOVE-BERECHNUNG (V4.2):
+    // - Jede Tableau-Karte (T) benötigt mindestens 1 Move zum Ablegen/Bündeln.
+    // - Jede Nachziehstapel-Karte (S) benötigt mindestens 2 Moves (1x Ziehen + 1x Ablegen).
+    // - Darauf wird nur ein straffer, direkt an die Kartenanzahl gekoppelter Rangier-Puffer addiert.
+    function calculateAdaptiveMoveBudget(totalCardsCount, tableauCardsCount, stockCardsCount, isHardMode = false) {
+        const theoreticalMinMoves = tableauCardsCount + (stockCardsCount * 2);
+
+        const bufferFactor = isHardMode ? 0.09 : 0.145;
+        const minBuffer = isHardMode ? 2 : 4;
+        const tacticalBuffer = Math.max(minBuffer, Math.round(totalCardsCount * bufferFactor));
+
+        return {
+            maxMoves: theoreticalMinMoves + tacticalBuffer,
+            theoreticalMinMoves,
+            tacticalBuffer
+        };
+    }
+
+    // Vorschau-Funktion für Lobby-Karten und Mixer-Launchpad
+    function previewDeckMoveBudget(totalCardsCount) {
+        const maxTableauBudget = Math.min(21, Math.max(TABLEAU_COLS_COUNT, totalCardsCount - 3));
+        const staircaseSizes = computeSolitaireStaircaseSizes(TABLEAU_COLS_COUNT, maxTableauBudget);
+        const tableauCount = staircaseSizes.reduce((sum, n) => sum + n, 0);
+        const stockCount = Math.max(0, totalCardsCount - tableauCount);
+        return calculateAdaptiveMoveBudget(totalCardsCount, tableauCount, stockCount, hardMode).maxMoves;
     }
 
     function startNewGame(deckId) {
@@ -1557,7 +1581,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const totalCardsCount = guaranteedInitialCats.length + generalPool.length;
 
         // Klassische Solitaire-Treppe benötigt 1 + 2 + 3 + 4 + 5 + 6 = 21 Karten.
-        // Wir lassen mindestens 2 Karten aus generalPool (+ guaranteedInitialCats[1]) für den Nachziehstapel übrig.
         const availableForTableau = generalPool.length + (guaranteedInitialCats[0] ? 1 : 0);
         const maxTableauBudget = Math.min(21, Math.max(numCols, availableForTableau - 2));
         const staircaseSizes = computeSolitaireStaircaseSizes(numCols, maxTableauBudget);
@@ -1601,13 +1624,27 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         }
         stock.forEach(c => { c.faceUp = false; });
 
-        const calculatedMaxMoves = Math.ceil(totalCardsCount * 1.72) + 16;
-        const initialHints = totalCardsCount >= 55 ? 5 : 3;
-        const initialJokers = totalCardsCount >= 55 ? 3 : 2;
+        const actualTableauCount = tableau.reduce((sum, col) => sum + col.length, 0);
+        const actualStockCount = stock.length;
+
+        // Streng kartenadaptives Move-Budget berechnen
+        const moveBudgetObj = calculateAdaptiveMoveBudget(
+            totalCardsCount,
+            actualTableauCount,
+            actualStockCount,
+            hardMode
+        );
+
+        // Straffer skaliertes Hint- & Joker-Budget passend zur Deckgröße
+        const initialHints = totalCardsCount >= 60 ? 4 : totalCardsCount >= 45 ? 3 : 2;
+        const initialJokers = totalCardsCount >= 45 ? 2 : 1;
 
         gameState = {
-            movesLeft: calculatedMaxMoves,
-            maxMoves: calculatedMaxMoves,
+            movesLeft: moveBudgetObj.maxMoves,
+            maxMoves: moveBudgetObj.maxMoves,
+            theoreticalMinMoves: moveBudgetObj.theoreticalMinMoves,
+            tacticalBufferMoves: moveBudgetObj.tacticalBuffer,
+            overtimeUsed: false,
             totalCardsInSession: totalCardsCount,
             score: 0,
             comboStreak: 0,
@@ -1736,7 +1773,6 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         if (source.zone === 'tableau') {
             const col = gameState.tableau[source.colIdx];
             const removed = col.pop();
-            // Wenn darunter eine verdeckte Karte lag -> aufdecken + kleiner Entdecker-Bonus!
             if (col.length > 0 && !col[col.length - 1].faceUp) {
                 col[col.length - 1].faceUp = true;
                 gameState.score += 5;
@@ -2031,7 +2067,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     function checkGameOverState() {
         const totalDiseases = activeDeck?.diseases?.length || 0;
         if (gameState.completedDiseases.length >= totalDiseases && totalDiseases > 0) {
-            const bonusScore = gameState.movesLeft * 25;
+            const bonusScore = gameState.movesLeft * 35;
             gameState.score += bonusScore;
             recordDeckWin(activeDeck.deck_id, gameState.movesLeft, gameState.score);
             if (typeof applyXpDelta === 'function') {
@@ -2043,10 +2079,18 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
         if (gameState.movesLeft <= 0) {
             setTimeout(() => {
-                if (window.confirm('Keine Züge (Moves) mehr übrig! Möchtest du kostenlos +10 Extra-Moves erhalten, um die Runde zu Ende zu bringen?')) {
-                    gameState.movesLeft += 10;
-                    renderView();
+                if (!gameState.overtimeUsed) {
+                    if (window.confirm('Keine Züge (Moves) mehr übrig!\n\nMöchtest du deine EINMALIGE Notfall-Verlängerung (+5 Extra-Moves gegen -150 Punkte Abzug) nutzen?')) {
+                        gameState.overtimeUsed = true;
+                        gameState.movesLeft += 5;
+                        gameState.score = Math.max(0, gameState.score - 150);
+                        renderView();
+                        showToast('⚠️ <strong>Einmalige Notfall-Verlängerung aktiviert:</strong> +5 Moves (-150 Punkte). Nutze jeden Zug präzise!', 'error');
+                    } else {
+                        startNewGame(activeDeck.deck_id);
+                    }
                 } else {
+                    alert('Keine Züge mehr übrig! Auch die einmalige Notfall-Verlängerung wurde bereits aufgebraucht. Die Partie wird neu gemischt.');
                     startNewGame(activeDeck.deck_id);
                 }
             }, 200);
@@ -2154,9 +2198,9 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         if (revealedCount > 0) {
             showToast(`🃏 Joker eingesetzt: Alle verdeckten Spielkarten in den 6 Decks aufgedeckt!`, 'positive');
         } else {
-            gameState.movesLeft += 5;
+            gameState.movesLeft += 3;
             renderView();
-            showToast(`🃏 Joker eingesetzt: +5 Extra-Moves erhalten!`, 'positive');
+            showToast(`🃏 Joker eingesetzt: +3 Extra-Moves erhalten!`, 'positive');
         }
     }
 
@@ -2272,16 +2316,18 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         const body = document.getElementById('sol-inspect-body');
         if (!modal || !body) return;
 
+        const usedMoves = gameState.maxMoves - gameState.movesLeft + (gameState.overtimeUsed ? 5 : 0);
+
         body.innerHTML = `
             <div style="text-align:center; padding:12px 6px;">
                 <div style="font-size:3rem; margin-bottom:6px;">🏆</div>
                 <h3 style="font-size:1.35rem; color:var(--text-main); margin-bottom:6px;">Deck vollständig gemeistert!</h3>
                 <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:16px;">
-                    Du hast alle <strong>${gameState.completedDiseases.length} Krankheitsbilder</strong> (${gameState.totalCardsInSession || 0} Karten) differentialdiagnostisch perfekt zugeordnet.
+                    Du hast alle <strong>${gameState.completedDiseases.length} Krankheitsbilder</strong> (${gameState.totalCardsInSession || 0} Karten) in <strong>${usedMoves} Zügen</strong> differentialdiagnostisch perfekt zugeordnet.
                 </p>
                 <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
                     <div class="hud-stat"><strong style="color:var(--accent-blue);">${gameState.score}</strong> <span>Punkte</span></div>
-                    <div class="hud-stat"><strong style="color:var(--color-symptom);">${gameState.movesLeft}</strong> <span>Moves übrig</span></div>
+                    <div class="hud-stat"><strong style="color:var(--color-symptom);">${gameState.movesLeft}</strong> <span>Moves übrig (Limit: ${gameState.maxMoves})</span></div>
                 </div>
                 <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                     <button type="button" class="action-btn" onclick="document.getElementById('sol-inspect-modal').style.display='none'; window.SolitaireModule.startNewGame('${activeDeck.deck_id}')">
@@ -2387,6 +2433,8 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
     function renderDeckCardHtml(deck, stats) {
         const dStat = stats[deck.deck_id] || { wins: 0, bestScore: 0 };
         const totalTerms = (deck.diseases || []).reduce((acc, d) => acc + (d.cards?.length || 0), 0);
+        const totalCards = totalTerms + (deck.diseases?.length || 0);
+        const adaptiveMoves = previewDeckMoveBudget(totalCards);
         const isCloudOnline = !!(deck.is_cloud_published || cloudPublishedDeckIds.has(deck.deck_id));
         const subFolder = resolveDeckSubFolder(deck);
 
@@ -2430,7 +2478,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--divider-color);">
                     <span style="font-size:0.72rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">
-                        ${deck.diseases?.length || 0} Diagnosen • ${totalTerms} Karten
+                        ${deck.diseases?.length || 0} Diagnosen • ${totalCards} Karten • 🎯 ${adaptiveMoves} Moves
                     </span>
                     <div style="display:flex; align-items:center; gap:6px;">
                         ${(!deck.is_builtin && !isCloudOnline) ? `
@@ -2501,6 +2549,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         ].join('');
 
         const activePreset = MIXER_PRESETS[mixerConfig.difficulty] || MIXER_PRESETS.easy;
+        const presetMovesPreview = previewDeckMoveBudget(activePreset.targetCards);
 
         let superFoldersHtml = '';
         Object.entries(superFoldersMap).forEach(([superTitle, subFoldersList]) => {
@@ -2606,7 +2655,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div class="friends-kicker">CLINICAL DEDUCTION CARD GAME</div>
                         <h2 class="friends-main-title">🃏 Solitaire Associations Journey</h2>
                         <p class="friends-subtitle">
-                            Klassische Solitaire-Treppe (1 bis 6 Karten von links nach rechts): Lege Krankheitsbilder frei, organisiere Decks in Ordnern oder mische Kategorien quer durch alle Decks.
+                            Klassische Solitaire-Treppe (1 bis 6 Karten) mit streng kartenadaptivem Move-Limit: Jede Entscheidung zählt!
                         </p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -2672,7 +2721,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div>
                             <div class="sol-mixer-kicker">🔀 CROSS-DECK RANDOMIZER • KATEGORIEN-MIXER</div>
                             <div class="sol-mixer-title">Krankheitsbilder deckübergreifend mischen</div>
-                            <div class="sol-mixer-desc">${escapeHtml(activePreset.desc)}</div>
+                            <div class="sol-mixer-desc">${escapeHtml(activePreset.desc)} • <strong>🎯 ca. ${presetMovesPreview} Moves Budget</strong></div>
                         </div>
                         <div class="sol-mixer-controls">
                             <select class="depot-select" onchange="window.SolitaireModule.setMixerScope(this.value)" title="Quell-Decks für den Mix auswählen">
@@ -2698,7 +2747,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
 
                 <div class="sol-rules-strip">
                     <div class="sol-rule-pill"><span>👑</span> <strong>Krankheitsbild-Karte</strong> zuerst oben in einen der 4 Ziel-Slots ziehen (unten nicht bestapelbar!)</div>
-                    <div class="sol-rule-pill"><span>📐</span> <strong>Solitaire-Treppe:</strong> Links kleinster Stapel (1 Karte), rechts größter Stapel (6 Karten)</div>
+                    <div class="sol-rule-pill"><span>🎯</span> <strong>Straffes Move-Limit:</strong> Exakt berechnet aus Tableau-Treppe + Nachziehstapel</div>
                     <div class="sol-rule-pill"><span>☁️</span> <strong>Cloud-Sync:</strong> Veröffentlichte Decks sind auf allen Geräten live!</div>
                 </div>
 
@@ -2967,7 +3016,7 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         <div style="min-width:0;">
                             <div style="font-size:0.86rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(activeDeck.title)}</div>
                             <div style="font-size:0.68rem; color:var(--text-muted);">
-                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> (${gameState.totalCardsInSession || 0} Karten) • <em>6 Kartendecks (Treppe 1–6) • Kein Move-Abzug bei Fehlern</em>
+                                Gelöst: <strong>${solvedDiseasesCount}/${totalDiseases}</strong> (${gameState.totalCardsInSession || 0} Karten) • <em>Par: ${gameState.theoreticalMinMoves} Moves (+${gameState.tacticalBufferMoves} Puffer)</em>
                             </div>
                         </div>
                     </div>
@@ -2981,14 +3030,14 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
                         ${gameState.comboStreak >= 2 ? `
                             <div class="sol-combo-pill">🔥 ${gameState.comboStreak}x</div>
                         ` : ''}
-                        <div class="sol-moves-pill ${gameState.movesLeft <= 8 ? 'critical' : ''}">
+                        <div class="sol-moves-pill ${gameState.movesLeft <= 6 ? 'critical' : ''}" title="Verbleibende Züge: ${gameState.movesLeft} von ${gameState.maxMoves} (Theoretisches Minimum: ${gameState.theoreticalMinMoves} + ${gameState.tacticalBufferMoves} Puffer)">
                             <span>MOVES</span>
-                            <strong>${gameState.movesLeft}</strong>
+                            <strong>${gameState.movesLeft}/${gameState.maxMoves}</strong>
                         </div>
                         <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.undoLastMove()" ${gameState.historyStack.length === 0 ? 'disabled' : ''} title="Rückgängig (Shortcut: Z)">↩</button>
                         <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useHint()" title="Hinweis (Shortcut: H)">💡 ${gameState.hintsLeft}</button>
                         <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.useJoker()" title="Joker einsetzen">🃏 ${gameState.jokersLeft}</button>
-                        <button type="button" class="sol-power-btn ${hardMode ? 'active' : ''}" onclick="window.SolitaireModule.toggleHardMode()" title="Kategorie-Label ein-/ausblenden">🎓</button>
+                        <button type="button" class="sol-power-btn ${hardMode ? 'active' : ''}" onclick="window.SolitaireModule.toggleHardMode()" title="Hard-Mode: Blendet Kategorie-Labels aus & reduziert den Move-Puffer">🎓</button>
                         <button type="button" class="sol-power-btn" onclick="window.SolitaireModule.startNewGame('${activeDeck.deck_id}')" title="Neu mischen">🔄</button>
                     </div>
                 </div>
@@ -3610,6 +3659,20 @@ Auf jeder Spielkarte befindet sich oben rechts ein kleiner Info-Button (ⓘ), mi
         openCardInfoByUid,
         toggleHardMode() {
             hardMode = !hardMode;
+            if (currentViewMode === 'game' && activeDeck) {
+                const usedMovesSoFar = Math.max(0, gameState.maxMoves - gameState.movesLeft);
+                const actualTableauCount = Math.min(21, Math.max(TABLEAU_COLS_COUNT, (gameState.totalCardsInSession || 28) - 3));
+                const actualStockCount = Math.max(0, (gameState.totalCardsInSession || 28) - actualTableauCount);
+                const updatedBudget = calculateAdaptiveMoveBudget(
+                    gameState.totalCardsInSession || 28,
+                    actualTableauCount,
+                    actualStockCount,
+                    hardMode
+                );
+                gameState.maxMoves = updatedBudget.maxMoves;
+                gameState.tacticalBufferMoves = updatedBudget.tacticalBuffer;
+                gameState.movesLeft = Math.max(1, gameState.maxMoves - usedMovesSoFar);
+            }
             renderView();
         },
         inspectCompletedDisease(idx) {
