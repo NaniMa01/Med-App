@@ -58,6 +58,7 @@ const HIDDEN_CLOUD_CASES_KEY     = 'medcheck_hidden_cloud_cases_v1';
 const SIDEBAR_STORAGE_KEY        = 'medcheck_sidebar_width';
 const DEPOT_STORAGE_KEY          = 'medcheck_learning_depot_v1';
 const DD_POOL_KEY                = 'medcheck_global_dd_pool';
+const SPECIALTY_EXCLUDED_SUPERS_KEY = 'medcheck_specialty_excluded_supers_v1';
 
 let openFolders = {};
 let superFolderStates = {
@@ -654,7 +655,8 @@ function exportLocalFolderConfigPayload(customTimestamp = null) {
         dashboardFolderOrder: getDashboardFolderOrder(),
         caseFolderOverrides: getCaseFolderOverrides(),
         deletedFolders: Array.from(getDeletedFoldersSet()),
-        hiddenCloudCases: getHiddenCloudCaseIds()
+        hiddenCloudCases: getHiddenCloudCaseIds(),
+        excludedSpecialtySupers: getExcludedSpecialtySuperFolders()
     };
 }
 
@@ -690,6 +692,9 @@ function applyCloudFolderConfigIfNewer(cloudPayload, forceApply = false) {
         if (Array.isArray(cloudPayload.hiddenCloudCases)) {
             localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(cloudPayload.hiddenCloudCases));
         }
+        if (Array.isArray(cloudPayload.excludedSpecialtySupers)) {
+            localStorage.setItem(SPECIALTY_EXCLUDED_SUPERS_KEY, JSON.stringify(cloudPayload.excludedSpecialtySupers));
+        }
 
         setLocalFolderSyncTimestamp(cloudTs || Date.now());
         initCustomSuperFoldersState();
@@ -700,7 +705,6 @@ function applyCloudFolderConfigIfNewer(cloudPayload, forceApply = false) {
         return false;
     }
 }
-
 function updateFolderSyncStatusBadge(state = 'synced') {
     const btn = document.getElementById('folder-cloud-sync-btn');
     if (!btn) return;
@@ -1484,11 +1488,30 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
         return;
     }
 
-    const confirmMsg = caseCount > 0
-        ? `Möchtest du den Ordner "${clean}" wirklich löschen?\n\nDie darin liegenden ${caseCount} Fall/Fälle werden dauerhaft in den Ordner "Allgemein" verschoben.`
-        : `Möchtest du den leeren Ordner "${clean}" wirklich löschen?`;
+    const res = await MedUI.openDialog({
+        kicker: 'Ordner-Verwaltung',
+        title: `Ordner „${clean}“ entfernen`,
+        message: caseCount > 0
+            ? `In „${clean}“ befinden sich ${caseCount} Fall/Fälle. Möchtest du den Ordner samt Fällen für dich entfernen oder die Fälle in „Allgemein“ behalten?`
+            : `Möchtest du den leeren Ordner „${clean}“ wirklich löschen?`,
+        fields: caseCount > 0 ? [
+            {
+                id: 'deleteMode',
+                type: 'select',
+                label: 'Umgang mit enthaltenen Fällen',
+                defaultValue: 'delete_all',
+                options: [
+                    { value: 'delete_all', label: `Ordner inkl. aller ${caseCount} Fälle für mich entfernen (Empfohlen)` },
+                    { value: 'move_general', label: `Nur Ordner auflösen (${caseCount} Fälle nach „Allgemein“ verschieben)` }
+                ]
+            }
+        ] : [],
+        confirmText: 'Ordner löschen',
+        danger: true
+    });
 
-    if (!window.confirm(confirmMsg)) return;
+    if (!res) return;
+    const deleteMode = (typeof res === 'object' && res.deleteMode) ? res.deleteMode : 'delete_all';
 
     markFolderAsDeleted(clean);
 
@@ -1504,35 +1527,63 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     saveFolderSuperMapping(mapping);
 
     const overrides = getCaseFolderOverrides();
-    Object.keys(overrides).forEach(cId => {
-        if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
-    });
+    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let modifiedCases = [];
 
     const demoCurrentFolder = overrides[BUILTIN_DEMO_CASE.case_id]
         || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
-    if (demoCurrentFolder === clean) {
-        overrides[BUILTIN_DEMO_CASE.case_id] = 'Allgemein';
-    }
 
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-    let modifiedCases = [];
-    customCases.forEach(c => {
-        const cId = c.case_id || c.id;
-        const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
-        if (cFolder === clean) {
-            c.folder_name = 'Allgemein';
-            if (c.metadata) c.metadata.medical_field = 'Allgemein';
-            if (cId) overrides[cId] = 'Allgemein';
-            modifiedCases.push(c);
+    if (deleteMode === 'delete_all') {
+        // Fälle für diesen User komplett ausblenden statt "Allgemein" zu überfluten
+        if (demoCurrentFolder === clean) {
+            addHiddenCloudCaseId(BUILTIN_DEMO_CASE.case_id);
+            delete overrides[BUILTIN_DEMO_CASE.case_id];
         }
-    });
+
+        const keptCustomCases = [];
+        customCases.forEach(c => {
+            if (!c) return;
+            const cId = c.case_id || c.id;
+            const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
+            if (cFolder === clean) {
+                if (cId) {
+                    addHiddenCloudCaseId(cId);
+                    delete overrides[cId];
+                }
+            } else {
+                keptCustomCases.push(c);
+            }
+        });
+        customCases = keptCustomCases;
+    } else {
+        // Nur Ordner auflösen -> Fälle nach "Allgemein" verschieben
+        Object.keys(overrides).forEach(cId => {
+            if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
+        });
+
+        if (demoCurrentFolder === clean) {
+            overrides[BUILTIN_DEMO_CASE.case_id] = 'Allgemein';
+        }
+
+        customCases.forEach(c => {
+            if (!c) return;
+            const cId = c.case_id || c.id;
+            const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
+            if (cFolder === clean) {
+                c.folder_name = 'Allgemein';
+                if (c.metadata) c.metadata.medical_field = 'Allgemein';
+                if (cId) overrides[cId] = 'Allgemein';
+                modifiedCases.push(c);
+            }
+        });
+        openFolders['Allgemein'] = true;
+    }
 
     saveCaseFolderOverrides(overrides);
     localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
     delete openFolders[clean];
     delete bookshelfFolderState[clean];
-    openFolders['Allgemein'] = true;
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
     renderDashboardCases();
@@ -1541,7 +1592,6 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
 
     await syncModifiedCasesToSupabase(modifiedCases);
 };
-
 window.moveCaseToFolder = async function(caseId, targetFolder) {
     if (!caseId || !targetFolder || caseId === FOLDER_CONFIG_CLOUD_ID) return;
     const cleanFolder = targetFolder.trim();
@@ -3254,22 +3304,54 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
 // ==========================================================================
 // 12. PLAYER-LOGIK, CORNELL-OVERVIEW & MINDMAP-KONVERTER
 // ==========================================================================
-function getCustomCases() {
+function getCustomCases(opts = {}) {
     try {
         const raw = JSON.parse(localStorage.getItem('custom_cases')) || [];
-        return raw
-            .filter(c => c && !isSystemOrSolitaireCloudRow(c))
+        const hiddenIds = new Set(getHiddenCloudCaseIds());
+        const deletedFolders = getDeletedFoldersSet();
+        const overrides = getCaseFolderOverrides();
+
+        let list = raw
+            .filter(c => {
+                if (!c || isSystemOrSolitaireCloudRow(c)) return false;
+                const cId = c.case_id || c.id;
+                if (cId && hiddenIds.has(cId)) return false;
+                const rawFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+                if (deletedFolders.has(rawFolder)) return false;
+                return true;
+            })
             .map(c => applyFolderOverridesToCase(c));
+
+        if (!opts.ignoreSpecialtyFilter && window._shouldFilterForSpecialtyMode && window._shouldFilterForSpecialtyMode()) {
+            list = list.filter(c => !window.isCaseExcludedBySpecialtyFilter(c));
+        }
+        return list;
     } catch (_e) {
         return [];
     }
 }
 
-window.getRegisteredCases = function() {
-    const demoCopy = applyFolderOverridesToCase(JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE)));
-    return [demoCopy, ...getCustomCases().filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
-};
+window.getRegisteredCases = function(opts = {}) {
+    const hiddenIds = new Set(getHiddenCloudCaseIds());
+    const deletedFolders = getDeletedFoldersSet();
+    const overrides = getCaseFolderOverrides();
+    const demoId = BUILTIN_DEMO_CASE.case_id;
+    const demoFolder = (overrides[demoId] || BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || 'Allgemein').trim();
 
+    const result = [];
+    if (!hiddenIds.has(demoId) && !deletedFolders.has(demoFolder)) {
+        const demoCopy = applyFolderOverridesToCase(JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE)));
+        result.push(demoCopy);
+    }
+
+    const custom = getCustomCases({ ignoreSpecialtyFilter: true }).filter(c => c.case_id !== demoId);
+    result.push(...custom);
+
+    if (!opts.ignoreSpecialtyFilter && window._shouldFilterForSpecialtyMode && window._shouldFilterForSpecialtyMode()) {
+        return result.filter(c => !window.isCaseExcludedBySpecialtyFilter(c));
+    }
+    return result;
+};
 function applySpecialtyFilters(caseData) {
     if (Array.isArray(caseData.timeline)) {
         caseData.timeline = caseData.timeline.slice(0, 3).map((step, idx) => ({
@@ -5176,10 +5258,46 @@ async function loadCasesFromDatabase() {
         }
 
         // 2. NUR GETEILTE FÄLLE VON MARCO (is_public === true) ODER EIGENE FÄLLE LADEN
-        const realCaseRows = (data || []).filter(d => {
-            if (isSystemOrSolitaireCloudRow(d)) return false;
-            return d.is_public === true || (currentUser && (d.user_id === currentUser.id || d.created_by === currentUser.id));
-        });
+       realCaseRows.forEach(dbCase => {
+                const cloudCase = dbCase.content;
+                if (!cloudCase) return;
+                const cId = cloudCase.case_id || cloudCase.id;
+                if (!cId || isSystemOrSolitaireCloudRow(cId) || hiddenCloudIds.includes(cId)) return;
+
+                // Originales Fachgebiet aus dem Fall-JSON oder der DB-Spalte ermitteln
+                const originalFolder = (
+                    (dbCase.medical_field && dbCase.medical_field !== 'Allgemein' ? dbCase.medical_field : '') ||
+                    cloudCase.metadata?.medical_field ||
+                    cloudCase.folder_name ||
+                    'Allgemein'
+                ).trim();
+
+                // WICHTIG: Wenn der User diesen Online-Ordner für sich gelöscht hat (und den Fall nicht manuell woandershin verschoben hat),
+                // wird der Fall komplett übersprungen und landet NICHT in "Allgemein"!
+                const userOverrideFolder = overrides[cId];
+                if (deletedFolders.has(originalFolder) && (!userOverrideFolder || deletedFolders.has(userOverrideFolder))) {
+                    return;
+                }
+
+                if (originalFolder && !deletedFolders.has(originalFolder)) {
+                    cloudCase.folder_name = originalFolder;
+                    if (cloudCase.metadata) cloudCase.metadata.medical_field = originalFolder;
+                    if (!overrides[cId] || overrides[cId] === 'Allgemein') {
+                        overrides[cId] = originalFolder;
+                    }
+                }
+
+                applyFolderOverridesToCase(cloudCase);
+                registerDynamicFolder(cloudCase.folder_name);
+
+                const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
+                if (idx !== -1) {
+                    customCases[idx] = cloudCase;
+                } else {
+                    customCases.push(cloudCase);
+                }
+                window.registerCaseDDs(cloudCase);
+            });
 
         window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
 
@@ -6639,4 +6757,245 @@ function renderBookshelfFullscreenBoard() {
             }
         };
     }
+})();
+
+// ==========================================================================
+// 20. FACHRICHTUNGS-FILTER (ÜBERORDNER AUSSORTIEREN) & ORDNER-RESTORE
+// ==========================================================================
+let _isRenderingSpecialtyHubInternal = false;
+
+function getExcludedSpecialtySuperFolders() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(SPECIALTY_EXCLUDED_SUPERS_KEY) || '[]');
+        return Array.isArray(raw) ? raw : [];
+    } catch (_e) {
+        return [];
+    }
+}
+window.getExcludedSpecialtySuperFolders = getExcludedSpecialtySuperFolders;
+
+function saveExcludedSpecialtySuperFolders(list) {
+    try {
+        const clean = Array.from(new Set((list || []).map(s => String(s).trim()).filter(Boolean)));
+        localStorage.setItem(SPECIALTY_EXCLUDED_SUPERS_KEY, JSON.stringify(clean));
+    } catch (_e) {}
+}
+
+window.isSuperFolderExcludedInSpecialty = function(superTitle) {
+    if (!superTitle) return false;
+    const excluded = getExcludedSpecialtySuperFolders();
+    return excluded.includes(superTitle.trim());
+};
+
+window.isCaseExcludedBySpecialtyFilter = function(caseObj) {
+    if (!caseObj) return false;
+    const folder = (caseObj.folder_name || caseObj.metadata?.medical_field || 'Allgemein').trim();
+    const superFolder = getSuperFolderForCategory(folder);
+    return window.isSuperFolderExcludedInSpecialty(superFolder);
+};
+
+window._shouldFilterForSpecialtyMode = function() {
+    return _isRenderingSpecialtyHubInternal || currentLearningMode === 'specialty' || !!window.isSpecialtyBlindMode;
+};
+
+window.toggleSpecialtySuperFolderFilter = function(superTitle) {
+    if (!superTitle) return;
+    const clean = superTitle.trim();
+    let excluded = getExcludedSpecialtySuperFolders();
+
+    if (excluded.includes(clean)) {
+        excluded = excluded.filter(s => s !== clean);
+    } else {
+        excluded.push(clean);
+    }
+
+    saveExcludedSpecialtySuperFolders(excluded);
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+    pushFolderConfigToSupabase();
+};
+
+window.setAllSpecialtySuperFolderFilters = function(enableAll = true) {
+    if (enableAll) {
+        saveExcludedSpecialtySuperFolders([]);
+    } else {
+        const allSupers = getSuperFolderOrder();
+        saveExcludedSpecialtySuperFolders(allSupers);
+    }
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+    pushFolderConfigToSupabase();
+};
+
+// Gelöschte Online-Ordner & ausgeblendete Cloud-Fälle bei Bedarf wiederherstellen
+window.restoreDeletedOnlineFoldersModal = async function() {
+    const deletedFolders = Array.from(getDeletedFoldersSet());
+    const hiddenCases = getHiddenCloudCaseIds();
+
+    if (deletedFolders.length === 0 && hiddenCases.length === 0) {
+        await MedUI.openDialog({
+            kicker: 'Ordner-Architektur',
+            title: 'Keine gelöschten Online-Ordner',
+            message: 'Aktuell sind alle verfügbaren Online-Ordner und Fälle für dich eingeblendet.',
+            confirmText: 'OK',
+            cancelText: ''
+        });
+        return;
+    }
+
+    const options = [
+        { value: '__ALL__', label: `Alle wiederherstellen (${deletedFolders.length} Ordner, ${hiddenCases.length} Fälle)` },
+        ...deletedFolders.map(f => ({ value: f, label: `Nur Ordner „${f}“ wiederherstellen` }))
+    ];
+
+    const res = await MedUI.openDialog({
+        kicker: 'Online-Bibliothek',
+        title: 'Gelöschte Ordner wiederherstellen',
+        message: 'Wähle aus, welche zuvor ausgeblendeten Online-Ordner wieder aus der Cloud geladen werden sollen:',
+        fields: [
+            {
+                id: 'target',
+                type: 'select',
+                label: 'Wiederherzustellende Elemente',
+                defaultValue: '__ALL__',
+                options
+            }
+        ],
+        confirmText: 'Wiederherstellen'
+    });
+
+    if (!res || !res.target) return;
+
+    if (res.target === '__ALL__') {
+        localStorage.setItem(DELETED_FOLDERS_SET_KEY, '[]');
+        localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, '[]');
+    } else {
+        unmarkFolderAsDeleted(res.target);
+        // Alle Fälle in hiddenCloudCases freigeben, damit loadCasesFromDatabase den Ordner neu befüllt
+        localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, '[]');
+    }
+
+    await pushFolderConfigToSupabase(true);
+    await loadCasesFromDatabase();
+    renderDashboardCases();
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+};
+
+function renderSpecialtySuperFilterBarHTML() {
+    const allCasesUnfiltered = window.getRegisteredCases({ ignoreSpecialtyFilter: true });
+    const excluded = getExcludedSpecialtySuperFolders();
+    const superOrder = getSuperFolderOrder();
+
+    const superCounts = {};
+    superOrder.forEach(s => { superCounts[s] = 0; });
+    allCasesUnfiltered.forEach(c => {
+        const cat = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+        const sName = getSuperFolderForCategory(cat);
+        superCounts[sName] = (superCounts[sName] || 0) + 1;
+    });
+
+    // Nur Überordner anzeigen, die existieren
+    const relevantSupers = superOrder.filter(s => superCounts[s] > 0 || !DEFAULT_SUPER_FOLDERS.includes(s) || DEFAULT_SUPER_FOLDERS.includes(s));
+    const activeSupersCount = relevantSupers.filter(s => !excluded.includes(s)).length;
+    const activeCasesCount = allCasesUnfiltered.filter(c => !window.isCaseExcludedBySpecialtyFilter(c)).length;
+
+    const chipsHtml = relevantSupers.map(sTitle => {
+        const isExcluded = excluded.includes(sTitle);
+        const count = superCounts[sTitle] || 0;
+        const safeJs = escapeHtml(sTitle).replace(/'/g, "\\'");
+        return `
+            <button type="button"
+                    class="specialty-filter-chip ${isExcluded ? 'is-excluded' : 'is-active'}"
+                    onclick="window.toggleSpecialtySuperFolderFilter('${safeJs}')"
+                    title="${isExcluded ? 'Klicken zum Einblenden' : 'Klicken zum Aussortieren'}">
+                <span class="chip-status-icon">${isExcluded ? '✕' : '✓'}</span>
+                <span class="chip-name">${escapeHtml(sTitle)}</span>
+                <span class="chip-count">${count}</span>
+            </button>
+        `;
+    }).join('');
+
+    const deletedCount = getDeletedFoldersSet().size + getHiddenCloudCaseIds().length;
+    const restoreBtnHtml = deletedCount > 0
+        ? `<button type="button" class="specialty-filter-action-btn" onclick="window.restoreDeletedOnlineFoldersModal()" title="Gelöschte Online-Ordner wiederherstellen">🔄 Gelöschte Ordner (${getDeletedFoldersSet().size})</button>`
+        : '';
+
+    return `
+        <div id="specialty-super-filter-bar" class="specialty-super-filter-bar">
+            <div class="specialty-filter-header">
+                <div class="specialty-filter-title-wrap">
+                    <span class="specialty-filter-kicker">FACHRICHTUNGS-FILTER (ÜBERORDNER)</span>
+                    <span class="specialty-filter-sub">Klicke Überordner an, um unerwünschte Fachrichtungen und deren Themen auszusortieren.</span>
+                </div>
+                <div class="specialty-filter-actions">
+                    <span class="specialty-filter-stat-pill">${activeSupersCount}/${relevantSupers.length} Fachrichtungen · ${activeCasesCount} Fälle aktiv</span>
+                    <button type="button" class="specialty-filter-action-btn" onclick="window.setAllSpecialtySuperFolderFilters(true)">Alle an</button>
+                    <button type="button" class="specialty-filter-action-btn" onclick="window.setAllSpecialtySuperFolderFilters(false)">Alle aus</button>
+                    ${restoreBtnHtml}
+                </div>
+            </div>
+            <div class="specialty-filter-chips-row">
+                ${chipsHtml}
+            </div>
+        </div>
+    `;
+}
+
+(function bindSpecialtySuperFilterEngine() {
+    const attachWrapper = () => {
+        const origRenderSpecialtyHub = window.renderSpecialtyHub;
+        if (typeof origRenderSpecialtyHub !== 'function' || origRenderSpecialtyHub._isWrappedWithSuperFilter) return;
+
+        const wrappedRender = function() {
+            const hub = document.getElementById('specialty-hub');
+            if (!hub) return;
+
+            _isRenderingSpecialtyHubInternal = true;
+            try {
+                origRenderSpecialtyHub.apply(this, arguments);
+            } finally {
+                _isRenderingSpecialtyHubInternal = false;
+            }
+
+            // Falls specialty.js Karten gerendert hat, deren Überordner ausgeschlossen ist (z.B. Demo-Case), zusätzlich im DOM bereinigen
+            const excluded = getExcludedSpecialtySuperFolders();
+            if (excluded.length > 0) {
+                hub.querySelectorAll('.specialty-card').forEach(card => {
+                    const titleEl = card.querySelector('h3');
+                    const cardTitle = titleEl ? titleEl.textContent.trim() : '';
+                    if (!cardTitle) return;
+                    // Prüfen, ob der Kartentitel selbst ein ausgeschlossener Überordner ist oder als Unterordner dazugehört
+                    if (excluded.includes(cardTitle) || excluded.includes(getSuperFolderForCategory(cardTitle))) {
+                        card.remove();
+                    }
+                });
+            }
+
+            // Überordner-Filterleiste ganz oben im Specialty-Hub einfügen
+            const existingBar = document.getElementById('specialty-super-filter-bar');
+            if (existingBar) existingBar.remove();
+            hub.insertAdjacentHTML('afterbegin', renderSpecialtySuperFilterBarHTML());
+
+            // Wenn alle Überordner abgewählt wurden, freundlichen Hinweis anzeigen
+            const remainingCards = hub.querySelectorAll('.specialty-card');
+            const emptyHint = hub.querySelector('.specialty-filter-empty-state');
+            if (remainingCards.length === 0 && !emptyHint) {
+                hub.insertAdjacentHTML('beforeend', `
+                    <div class="specialty-filter-empty-state" style="grid-column: 1 / -1;">
+                        <div style="font-size: 1.4rem; margin-bottom: 6px;">🎯</div>
+                        <div style="font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Alle Fachrichtungen sind aktuell ausgefiltert</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Aktiviere oben mindestens einen Überordner, um die zugehörigen Themen im Blind-Modus zu trainieren.</div>
+                        <button type="button" class="action-btn secondary btn-sm" onclick="window.setAllSpecialtySuperFolderFilters(true)">Alle Überordner aktivieren</button>
+                    </div>
+                `);
+            }
+        };
+
+        wrappedRender._isWrappedWithSuperFilter = true;
+        window.renderSpecialtyHub = wrappedRender;
+    };
+
+    // Sofort binden (da specialty.js vor app.js geladen wird) + Fallback bei DOMContentLoaded
+    attachWrapper();
+    document.addEventListener('DOMContentLoaded', attachWrapper);
 })();
