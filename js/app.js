@@ -3931,7 +3931,7 @@ function sanitizeForgeJsonInput(rawValue) {
     return rawValue
         .replace(/^```(?:json)?\s*/i, '')
         .replace(/\s*```$/i, '')
-        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u201E\u201C\u201D]/g, "'") // Deutsche & englische Anführungszeichen zu sicheren einfachen ' machen!
         .replace(/[\u2018\u2019]/g, "'")
         .trim();
 }
