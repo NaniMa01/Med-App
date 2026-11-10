@@ -8479,3 +8479,530 @@ body.bento-right-collapsed .bento-right-sidebar {
     flex: 1;
     overflow-y: auto;
 }
+
+/* ==========================================================================
+   30. FULLSCREEN BOOKSHELF STUDIO (GANZES FENSTER FÜR ORDNER-VERWALTUNG)
+   ========================================================================== */
+
+/* Klickbarer BOOKSHELF-Titel in der linken Sidebar */
+.bookshelf-title-clickable {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-left: -8px;
+    border-radius: 8px;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.bookshelf-title-clickable:hover {
+    background: var(--badge-primary-bg);
+    color: var(--primary-400) !important;
+    transform: translateX(2px);
+}
+
+.bookshelf-expand-icon {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.bookshelf-title-clickable:hover .bookshelf-expand-icon {
+    opacity: 1;
+    transform: scale(1.18);
+}
+
+/* Vollbild-Backdrop & Fenster */
+.bs-studio-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10020;
+    background: rgba(3, 6, 14, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.18s ease-out both;
+}
+
+.bs-studio-window {
+    width: 100%;
+    max-width: 1560px;
+    height: 92vh;
+    max-height: 92vh;
+    background: var(--surface-canvas, #060913);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+    border-radius: 22px;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.75);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.bs-studio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 20px 26px;
+    background: var(--surface-card, #0f172a);
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+}
+
+.bs-studio-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--primary-400, #38bdf8);
+    margin-bottom: 3px;
+}
+
+.bs-studio-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-strong);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.bs-studio-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted-token);
+    margin: 3px 0 0 0;
+}
+
+.bs-studio-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.bs-studio-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    padding: 7px 14px;
+    min-width: 240px;
+    color: var(--text-muted-token);
+}
+
+.bs-studio-search-wrap:focus-within {
+    border-color: var(--primary-400);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.bs-studio-search-input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--text-strong) !important;
+    font-size: 0.82rem;
+    outline: none;
+    width: 100%;
+    padding: 0 !important;
+}
+
+.bs-studio-close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border-subtle);
+    background: var(--surface-subtle);
+    color: var(--text-strong);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.bs-studio-close-btn:hover {
+    background: rgba(239, 68, 68, 0.18);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: scale(1.06);
+}
+
+/* Info-Leiste */
+.bs-studio-infobar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 10px 26px;
+    background: var(--surface-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.76rem;
+    color: var(--text-muted-token);
+    flex-shrink: 0;
+}
+
+.bs-studio-stats strong {
+    color: var(--primary-400);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Mehrspaltiges Bento-Kanban-Grid */
+.bs-studio-board {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 22px 26px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
+.bs-studio-column {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 18px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: var(--elevation-card-shadow);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.bs-studio-column.drag-target-hover {
+    border-color: var(--primary-400) !important;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.28), var(--elevation-card-hover) !important;
+}
+
+.bs-studio-col-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.bs-studio-col-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.bs-studio-col-title-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.bs-studio-col-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--primary-action);
+    box-shadow: 0 0 8px rgba(2, 132, 199, 0.5);
+    flex-shrink: 0;
+}
+
+.bs-studio-col-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-strong);
+    margin: 0;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.bs-studio-col-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--badge-primary-bg);
+    color: var(--badge-primary-text);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.bs-studio-col-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.bs-studio-col-order-btns,
+.bs-studio-col-edit-btns {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bs-studio-mini-btn {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted-token);
+    border-radius: 7px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.bs-studio-mini-btn svg {
+    width: 13px;
+    height: 13px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+}
+
+.bs-studio-mini-btn:hover:not(:disabled) {
+    border-color: var(--primary-400);
+    color: var(--text-strong);
+    background: var(--badge-primary-bg);
+}
+
+.bs-studio-mini-btn.primary {
+    color: var(--badge-primary-text);
+    background: var(--badge-primary-bg);
+    border-color: rgba(2, 132, 199, 0.3);
+}
+
+.bs-studio-mini-btn.danger:hover {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.bs-studio-mini-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.bs-studio-col-prog-track {
+    width: 100%;
+    height: 5px;
+    background: var(--surface-subtle);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.bs-studio-col-prog-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-action), var(--primary-400));
+    border-radius: 999px;
+    transition: width 0.35s ease;
+}
+
+/* Unterordner-Karten innerhalb einer Spalte */
+.bs-studio-subfolders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 90px;
+}
+
+.bs-studio-empty-drop {
+    border: 1.5px dashed var(--border-subtle);
+    border-radius: 12px;
+    padding: 22px 14px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text-muted-token);
+    font-size: 0.78rem;
+}
+
+.bs-studio-folder-card {
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 10px 12px;
+    cursor: grab;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.bs-studio-folder-card:hover {
+    border-color: rgba(56, 189, 248, 0.45);
+}
+
+.bs-studio-folder-card.is-dragging {
+    opacity: 0.35;
+    transform: scale(0.98);
+}
+
+.bs-studio-folder-card.drag-target-hover {
+    border-color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.08) !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.bs-studio-folder-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.bs-studio-folder-title-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.bs-studio-drag-grip {
+    color: var(--text-muted-token);
+    font-size: 0.9rem;
+    line-height: 1.3;
+    cursor: grab;
+    user-select: none;
+}
+
+.bs-studio-folder-chevron {
+    font-size: 0.65rem;
+    color: var(--primary-400);
+    margin-top: 4px;
+    transition: transform 0.2s ease;
+}
+
+.bs-studio-folder-chevron.open {
+    transform: rotate(90deg);
+}
+
+.bs-studio-code-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--badge-primary-bg);
+    color: var(--badge-primary-text);
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.bs-studio-folder-name {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    line-height: 1.35;
+    word-break: break-word; /* Voller Name lesbar, kein Abschneiden! */
+}
+
+.bs-studio-folder-right {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.bs-studio-folder-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-muted-token);
+    margin-right: 4px;
+}
+
+/* Fälle innerhalb eines Unterordners */
+.bs-studio-cases-wrap {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bs-studio-case-empty {
+    margin-top: 8px;
+    padding: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted-token);
+    font-style: italic;
+    text-align: center;
+}
+
+.bs-studio-case-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-body);
+    cursor: grab;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.bs-studio-case-chip:hover {
+    border-color: var(--primary-400);
+    color: var(--text-strong);
+    transform: translateX(2px);
+}
+
+.bs-case-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-400);
+    flex-shrink: 0;
+}
+
+.bs-case-status-dot.solved {
+    background: #10b981;
+}
+
+.bs-case-chip-title {
+    flex: 1;
+    line-height: 1.3;
+    cursor: pointer;
+    word-break: break-word;
+}
+
+.bs-case-chip-title:hover {
+    text-decoration: underline;
+}
+
+@media screen and (max-width: 768px) {
+    .bs-studio-backdrop {
+        padding: 8px;
+    }
+    .bs-studio-window {
+        height: 96dvh;
+        max-height: 96dvh;
+        border-radius: 16px;
+    }
+    .bs-studio-header {
+        padding: 14px 16px;
+    }
+    .bs-studio-board {
+        grid-template-columns: 1fr;
+        padding: 14px;
+    }
+}
