@@ -1228,6 +1228,21 @@ window.renderBookshelfHeader = function() {
 };
 
 function ensureBookshelfHeaderButtons() {
+    // 1. Titel "BOOKSHELF" klickbar machen -> Öffnet den Vollbild-Manager
+    const titleEl = document.querySelector('.bookshelf-title');
+    if (titleEl && titleEl.dataset.fullscreenBound !== 'true') {
+        titleEl.dataset.fullscreenBound = 'true';
+        titleEl.classList.add('bookshelf-title-clickable');
+        titleEl.title = 'Klicken, um das Bookshelf als Vollbild-Manager zu öffnen';
+        titleEl.innerHTML = `<span>BOOKSHELF</span> <span class="bookshelf-expand-icon">⤢</span>`;
+        titleEl.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.openBookshelfFullscreenModal();
+        });
+    }
+
+    // 2. "+ Über" Button in der Sidebar ergänzen
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn && !document.getElementById('add-bookshelf-super-btn')) {
         const superBtn = document.createElement('button');
@@ -1245,7 +1260,7 @@ function ensureBookshelfHeaderButtons() {
         addFolderBtn.parentNode.insertBefore(superBtn, addFolderBtn);
     }
 
-    // Cloud-Sync-Button in der Dashboard-Subbar ergänzen
+    // 3. Cloud-Sync-Button in der Dashboard-Subbar ergänzen
     const quickBtns = document.querySelector('.dashboard-quick-folder-btns');
     if (quickBtns && !document.getElementById('folder-cloud-sync-btn')) {
         const syncBtn = document.createElement('button');
@@ -1259,6 +1274,7 @@ function ensureBookshelfHeaderButtons() {
         quickBtns.prepend(syncBtn);
     }
 }
+
 
 window.promptCreateNewFolderWithSuper = async function() {
     const availableSupers = getSuperFolderOrder();
@@ -6147,4 +6163,428 @@ window.updateBentoDashboardWidgets = function() {
             window.updateBentoDashboardWidgets();
         }, 120);
     });
+})();
+
+// ==========================================================================
+// 19. FULLSCREEN BOOKSHELF STUDIO (GANZES FENSTER FÜR ORDNER-VERWALTUNG)
+// ==========================================================================
+let isBookshelfModalOpen = false;
+let bookshelfModalSearchQuery = '';
+let bookshelfModalShowCases = true;
+let bsModalSubfolderOpenState = {};
+let bsModalDraggedPayload = null;
+
+function ensureBookshelfModalDOM() {
+    let modal = document.getElementById('bookshelf-fullscreen-modal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'bookshelf-fullscreen-modal';
+    modal.className = 'bs-studio-backdrop hidden';
+    modal.innerHTML = `
+        <div class="bs-studio-window" role="dialog" aria-modal="true" aria-label="Bookshelf Vollbild-Manager">
+            <!-- Header -->
+            <div class="bs-studio-header">
+                <div class="bs-studio-title-group">
+                    <div class="bs-studio-kicker">ORGANISATION & ARCHITEKTUR</div>
+                    <h2 class="bs-studio-title">📚 Bookshelf Studio</h2>
+                    <p class="bs-studio-subtitle">Ziehe Unterordner oder Fälle frei zwischen deinen Überordner-Spalten hin und her.</p>
+                </div>
+
+                <div class="bs-studio-actions">
+                    <div class="bs-studio-search-wrap">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="bs-studio-search-input" class="bs-studio-search-input" placeholder="Ordner oder Fall suchen..." autocomplete="off">
+                    </div>
+
+                    <button type="button" class="ghost-tool-btn" id="bs-studio-toggle-cases-btn" onclick="window.toggleBookshelfModalCasesView()">
+                        📄 Fälle ausblenden
+                    </button>
+                    <button type="button" class="ghost-tool-btn" onclick="window.createNewSuperFolderModal()">
+                        + Überordner
+                    </button>
+                    <button type="button" class="action-btn btn-sm" onclick="window.promptCreateNewFolderWithSuper()">
+                        + Neuer Ordner
+                    </button>
+                    <button type="button" class="bs-studio-close-btn" onclick="window.closeBookshelfFullscreenModal()" title="Schließen (ESC)">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- Info-Strip -->
+            <div class="bs-studio-infobar">
+                <div class="bs-studio-stats" id="bs-studio-stats-text">Lade Struktur...</div>
+                <div class="bs-studio-hint">
+                    <span>💡 <strong>Tipp:</strong> Ziehe einen Ordner per Drag & Drop in eine andere Spalte oder nutze das Symbol <strong>⇄</strong> zum schnellen Verschieben.</span>
+                </div>
+            </div>
+
+            <!-- Kanban / Bento Grid für alle Überordner -->
+            <div class="bs-studio-board" id="bs-studio-board"></div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Klick auf den abgedunkelten Hintergrund schließt das Fenster
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) window.closeBookshelfFullscreenModal();
+    });
+
+    // Live-Suche im Modal
+    const searchInput = modal.querySelector('#bs-studio-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            bookshelfModalSearchQuery = (e.target.value || '').trim().toLowerCase();
+            renderBookshelfFullscreenBoard();
+        });
+    }
+
+    // ESC-Taste zum Schließen
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isBookshelfModalOpen) {
+            // Nicht schließen, falls gerade ein innerer MedUI-Dialog (z.B. Umbenennen) offen ist
+            if (document.getElementById('mc-custom-dialog')) return;
+            window.closeBookshelfFullscreenModal();
+        }
+    });
+
+    return modal;
+}
+
+window.openBookshelfFullscreenModal = function() {
+    const modal = ensureBookshelfModalDOM();
+    isBookshelfModalOpen = true;
+    modal.classList.remove('hidden');
+
+    // Auf Mobile evtl. offene linke Sidebar schließen
+    const sidebar = document.querySelector('sidebar') || document.querySelector('.bento-left-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    renderBookshelfFullscreenBoard();
+};
+
+window.closeBookshelfFullscreenModal = function() {
+    const modal = document.getElementById('bookshelf-fullscreen-modal');
+    if (modal) modal.classList.add('hidden');
+    isBookshelfModalOpen = false;
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+};
+
+window.toggleBookshelfModalCasesView = function() {
+    bookshelfModalShowCases = !bookshelfModalShowCases;
+    const btn = document.getElementById('bs-studio-toggle-cases-btn');
+    if (btn) {
+        btn.textContent = bookshelfModalShowCases ? '📄 Fälle ausblenden' : '📄 Fälle einblenden';
+    }
+    renderBookshelfFullscreenBoard();
+};
+
+window.toggleBsStudioSubfolder = function(folderName) {
+    if (!folderName) return;
+    bsModalSubfolderOpenState[folderName] = !bsModalSubfolderOpenState[folderName];
+    renderBookshelfFullscreenBoard();
+};
+
+function renderBookshelfFullscreenBoard() {
+    if (!isBookshelfModalOpen) return;
+    const board = document.getElementById('bs-studio-board');
+    const statsEl = document.getElementById('bs-studio-stats-text');
+    if (!board) return;
+
+    const allCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+    let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+
+    const folders = {};
+    savedOrder.forEach(name => {
+        if (name && name.trim()) folders[name.trim()] = [];
+    });
+
+    allCases.forEach(c => {
+        const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+        if (!folders[folder]) {
+            folders[folder] = [];
+            if (!savedOrder.includes(folder)) savedOrder.push(folder);
+        }
+        folders[folder].push(c);
+    });
+
+    const orderedSuperTitles = getSuperFolderOrder();
+    const superFolders = {};
+    orderedSuperTitles.forEach(key => { superFolders[key] = []; });
+
+    savedOrder.forEach(folderName => {
+        const clean = folderName.trim();
+        if (!clean) return;
+        const targetSuper = getSuperFolderForCategory(clean);
+        if (!superFolders[targetSuper]) superFolders[targetSuper] = [];
+        if (!superFolders[targetSuper].includes(clean)) {
+            superFolders[targetSuper].push(clean);
+        }
+    });
+
+    const totalSuperCount = Object.keys(superFolders).length;
+    const totalSubCount = Object.keys(folders).length;
+    if (statsEl) {
+        statsEl.innerHTML = `<strong>${totalSuperCount}</strong> Überordner · <strong>${totalSubCount}</strong> Fach-Ordner · <strong>${allCases.length}</strong> Klinische Fälle (${solved.length} gelöst)`;
+    }
+
+    board.innerHTML = '';
+
+    Object.entries(superFolders).forEach(([superTitle, subfolderNames], superIdx) => {
+        const isProtectedDefault = (superTitle === 'Allgemein');
+
+        // Filterung bei aktiver Suche
+        const filteredSubfolders = subfolderNames.filter(fName => {
+            if (!bookshelfModalSearchQuery) return true;
+            if (fName.toLowerCase().includes(bookshelfModalSearchQuery)) return true;
+            if (superTitle.toLowerCase().includes(bookshelfModalSearchQuery)) return true;
+            const cList = folders[fName] || [];
+            return cList.some(c => (c.metadata?.title || c.case_id || '').toLowerCase().includes(bookshelfModalSearchQuery));
+        });
+
+        if (bookshelfModalSearchQuery && filteredSubfolders.length === 0 && !superTitle.toLowerCase().includes(bookshelfModalSearchQuery)) {
+            return;
+        }
+
+        let totalCasesInSuper = 0;
+        let solvedCasesInSuper = 0;
+        subfolderNames.forEach(fName => {
+            const list = folders[fName] || [];
+            totalCasesInSuper += list.length;
+            solvedCasesInSuper += list.filter(c => solved.includes(c.case_id)).length;
+        });
+        const superPct = totalCasesInSuper > 0 ? Math.round((solvedCasesInSuper / totalCasesInSuper) * 100) : 0;
+
+        const colEl = document.createElement('div');
+        colEl.className = 'bs-studio-column';
+        colEl.dataset.superTitle = superTitle;
+
+        const escapedSuperJs = escapeHtml(superTitle).replace(/'/g, "\\'");
+
+        colEl.innerHTML = `
+            <div class="bs-studio-col-header">
+                <div class="bs-studio-col-title-row">
+                    <div class="bs-studio-col-title-left">
+                        <span class="bs-studio-col-dot"></span>
+                        <h3 class="bs-studio-col-title">${escapeHtml(superTitle)}</h3>
+                    </div>
+                    <span class="bs-studio-col-badge">${solvedCasesInSuper}/${totalCasesInSuper} (${superPct}%)</span>
+                </div>
+
+                <div class="bs-studio-col-toolbar">
+                    <div class="bs-studio-col-order-btns">
+                        <button type="button" class="bs-studio-mini-btn" onclick="window.stepSuperFolderOrder('${escapedSuperJs}', -1)" title="Spalte nach links schieben" ${superIdx === 0 ? 'disabled' : ''}>◀</button>
+                        <button type="button" class="bs-studio-mini-btn" onclick="window.stepSuperFolderOrder('${escapedSuperJs}', 1)" title="Spalte nach rechts schieben" ${superIdx === orderedSuperTitles.length - 1 ? 'disabled' : ''}>▶</button>
+                    </div>
+                    <div class="bs-studio-col-edit-btns">
+                        <button type="button" class="bs-studio-mini-btn primary" onclick="window.createSubfolderInSuperFolder('${escapedSuperJs}')">+ Ordner</button>
+                        ${!isProtectedDefault ? `
+                            <button type="button" class="bs-studio-mini-btn" onclick="window.renameSuperFolder('${escapedSuperJs}')" title="Überordner umbenennen">${MedIcons.edit}</button>
+                            <button type="button" class="bs-studio-mini-btn danger" onclick="window.removeCustomSuperFolder('${escapedSuperJs}')" title="Überordner löschen">${MedIcons.trash}</button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div class="bs-studio-col-prog-track">
+                    <div class="bs-studio-col-prog-fill" style="width: ${superPct}%;"></div>
+                </div>
+            </div>
+
+            <div class="bs-studio-subfolders-list"></div>
+        `;
+
+        const subListEl = colEl.querySelector('.bs-studio-subfolders-list');
+
+        if (filteredSubfolders.length === 0) {
+            subListEl.innerHTML = `
+                <div class="bs-studio-empty-drop">
+                    <span>Keine Unterordner in dieser Spalte.</span>
+                    <small>Ziehe einen Ordner hierher oder klicke oben auf „+ Ordner“.</small>
+                </div>
+            `;
+        } else {
+            filteredSubfolders.forEach(folderName => {
+                const casesInFolder = folders[folderName] || [];
+                const solvedCount = casesInFolder.filter(c => solved.includes(c.case_id)).length;
+                const parsedLabel = formatClinicalFolderLabel(folderName);
+                const escapedFolderJs = escapeHtml(folderName).replace(/'/g, "\\'");
+
+                const isSubOpen = bookshelfModalSearchQuery
+                    ? true
+                    : (bsModalSubfolderOpenState[folderName] !== undefined ? bsModalSubfolderOpenState[folderName] : true);
+
+                const subCard = document.createElement('div');
+                subCard.className = 'bs-studio-folder-card';
+                subCard.draggable = true;
+                subCard.dataset.folderName = folderName;
+                subCard.dataset.parentSuper = superTitle;
+
+                const casesHtml = (!bookshelfModalShowCases || !isSubOpen)
+                    ? ''
+                    : (casesInFolder.length === 0
+                        ? `<div class="bs-studio-case-empty">Leer – Fall hierher ziehen</div>`
+                        : `<div class="bs-studio-cases-wrap">
+                            ${casesInFolder.map(c => {
+                                const isCaseSolved = solved.includes(c.case_id);
+                                const safeCaseIdJs = escapeHtml(c.case_id).replace(/'/g, "\\'");
+                                return `
+                                    <div class="bs-studio-case-chip ${isCaseSolved ? 'is-solved' : ''}"
+                                         draggable="true"
+                                         data-case-id="${escapeHtml(c.case_id)}"
+                                         title="Klicken zum Starten · Ziehen zum Verschieben">
+                                        <span class="bs-case-status-dot ${isCaseSolved ? 'solved' : ''}"></span>
+                                        <span class="bs-case-chip-title" onclick="window.closeBookshelfFullscreenModal(); window.loadCaseById('${safeCaseIdJs}');">${escapeHtml(c.metadata?.title || c.case_id)}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>`
+                    );
+
+                subCard.innerHTML = `
+                    <div class="bs-studio-folder-top" onclick="window.toggleBsStudioSubfolder('${escapedFolderJs}')">
+                        <div class="bs-studio-folder-title-wrap">
+                            <span class="bs-studio-drag-grip" title="Ziehen zum Verschieben">⠿</span>
+                            <span class="bs-studio-folder-chevron ${isSubOpen && bookshelfModalShowCases ? 'open' : ''}">▶</span>
+                            ${parsedLabel.code ? `<span class="bs-studio-code-pill">${escapeHtml(parsedLabel.code)}</span>` : `<span class="bs-studio-folder-icon">📁</span>`}
+                            <span class="bs-studio-folder-name">${escapeHtml(parsedLabel.title)}</span>
+                        </div>
+
+                        <div class="bs-studio-folder-right" onclick="event.stopPropagation();">
+                            <span class="bs-studio-folder-count">${solvedCount}/${casesInFolder.length}</span>
+                            <button type="button" class="folder-action-btn move-btn" onclick="window.promptMoveFolderToSuperFolder('${escapedFolderJs}')" title="In anderen Überordner verschieben">${MedIcons.move}</button>
+                            <button type="button" class="folder-action-btn edit-btn" onclick="window.promptRenameSubfolder('${escapedFolderJs}')" title="Ordner umbenennen">${MedIcons.edit}</button>
+                            <button type="button" class="folder-action-btn delete-folder-btn" onclick="window.deleteFolder('${escapedFolderJs}', ${casesInFolder.length})" title="Ordner löschen">${MedIcons.trash}</button>
+                        </div>
+                    </div>
+                    ${casesHtml}
+                `;
+
+                // Drag-Events für den Unterordner
+                subCard.addEventListener('dragstart', (e) => {
+                    if (e.target.closest('.bs-studio-case-chip')) return;
+                    e.stopPropagation();
+                    bsModalDraggedPayload = { type: 'folder', name: folderName, fromSuper: superTitle };
+                    subCard.classList.add('is-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', folderName);
+                    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+                });
+
+                subCard.addEventListener('dragend', () => {
+                    subCard.classList.remove('is-dragging');
+                    bsModalDraggedPayload = null;
+                    board.querySelectorAll('.drag-target-hover').forEach(el => el.classList.remove('drag-target-hover'));
+                });
+
+                // Drop-Zone auf dem Unterordner (für Fälle oder zum Umsortieren von Ordnern)
+                subCard.addEventListener('dragover', (e) => {
+                    if (!bsModalDraggedPayload) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'move';
+                    subCard.classList.add('drag-target-hover');
+                });
+
+                subCard.addEventListener('dragleave', (e) => {
+                    if (!subCard.contains(e.relatedTarget)) {
+                        subCard.classList.remove('drag-target-hover');
+                    }
+                });
+
+                subCard.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    subCard.classList.remove('drag-target-hover');
+                    if (!bsModalDraggedPayload) return;
+
+                    if (bsModalDraggedPayload.type === 'case') {
+                        const cId = bsModalDraggedPayload.id;
+                        bsModalDraggedPayload = null;
+                        await window.moveCaseToFolder(cId, folderName);
+                    } else if (bsModalDraggedPayload.type === 'folder' && bsModalDraggedPayload.name !== folderName) {
+                        const sourceFolder = bsModalDraggedPayload.name;
+                        bsModalDraggedPayload = null;
+                        window.moveFolderToSuperFolder(sourceFolder, superTitle);
+                        reorderDashboardFolders(sourceFolder, folderName);
+                    }
+                });
+
+                // Drag-Events für einzelne Fall-Chips innerhalb des Ordners
+                subCard.querySelectorAll('.bs-studio-case-chip').forEach(chip => {
+                    const cId = chip.dataset.caseId;
+                    chip.addEventListener('dragstart', (e) => {
+                        e.stopPropagation();
+                        bsModalDraggedPayload = { type: 'case', id: cId, fromFolder: folderName };
+                        chip.classList.add('is-dragging');
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', cId);
+                        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+                    });
+                    chip.addEventListener('dragend', () => {
+                        chip.classList.remove('is-dragging');
+                        bsModalDraggedPayload = null;
+                        board.querySelectorAll('.drag-target-hover').forEach(el => el.classList.remove('drag-target-hover'));
+                    });
+                });
+
+                subListEl.appendChild(subCard);
+            });
+        }
+
+        // Drop-Zone auf der gesamten Überordner-Spalte
+        colEl.addEventListener('dragover', (e) => {
+            if (!bsModalDraggedPayload) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            colEl.classList.add('drag-target-hover');
+        });
+
+        colEl.addEventListener('dragleave', (e) => {
+            if (!colEl.contains(e.relatedTarget)) {
+                colEl.classList.remove('drag-target-hover');
+            }
+        });
+
+        colEl.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            colEl.classList.remove('drag-target-hover');
+            if (!bsModalDraggedPayload) return;
+
+            if (bsModalDraggedPayload.type === 'folder') {
+                const fName = bsModalDraggedPayload.name;
+                bsModalDraggedPayload = null;
+                window.moveFolderToSuperFolder(fName, superTitle);
+            } else if (bsModalDraggedPayload.type === 'case') {
+                const cId = bsModalDraggedPayload.id;
+                bsModalDraggedPayload = null;
+                await moveCaseToSuperFolder(cId, superTitle);
+            }
+        });
+
+        board.appendChild(colEl);
+    });
+}
+
+// Automatisch synchron halten, wenn sich im Hintergrund Ordner oder Fälle ändern
+(function hookFullscreenBookshelfSync() {
+    const origRenderDashboardCases = window.renderDashboardCases;
+    if (typeof origRenderDashboardCases === 'function') {
+        window.renderDashboardCases = function() {
+            origRenderDashboardCases.apply(this, arguments);
+            if (isBookshelfModalOpen) {
+                renderBookshelfFullscreenBoard();
+            }
+        };
+    }
 })();
