@@ -5367,99 +5367,124 @@ document.addEventListener('visibilitychange', () => {
     window.syncMobileChallengePicker = syncMobileChallengePicker;
 })();
 
-// Drag & Drop Auto-Scroll Engine V3.0 (Capture-Safe & Zombie-Guard)
+// Drag & Drop Auto-Scroll Engine V4.0 (Edge-Hold-Safe, Multi-Container & Zero-Mouse-Leak)
 (function initDragAutoScroll() {
-    const EDGE_ZONE = 110;
-    const MAX_SPEED = 28;
-    const DRAG_IDLE_TIMEOUT_MS = 180; // Sicherheits-Timeout falls DOM-Knoten beim Drop zerstört wird
+    const EDGE_ZONE = 105; // Pixel-Zone am oberen/unteren Rand
+    const MAX_SPEED = 26;  // Maximale Scroll-Geschwindigkeit pro Frame
 
     let isNativeDragging = false;
+    let activeDragOrigin = null; // 'bookshelf' | 'studio' | 'main'
     let mouseY = -1;
     let mouseX = -1;
-    let lastDragEventTs = 0;
     let animFrame = null;
 
     function isCustomPointerDragging() {
-        return document.body.classList.contains('mm-dragging-active');
+        return document.body.classList.contains('mm-dragging-active') ||
+               document.body.classList.contains('cas-touch-dragging') ||
+               document.body.classList.contains('sol-touch-dragging');
     }
 
-    function isAnyDragActive() {
-        return isNativeDragging || isCustomPointerDragging();
-    }
-
-    function getScrollContainer() {
-        const mw = document.querySelector('.main-wrapper');
-        if (mw && mw.scrollHeight > mw.clientHeight) return mw;
-        return document.scrollingElement || document.documentElement || document.body;
+    function hasActiveInternalDragState() {
+        return !!(
+            isNativeDragging ||
+            isCustomPointerDragging() ||
+            draggedItemState ||
+            draggedDashboardFolder ||
+            draggedSuperFolderTitle ||
+            (typeof bsModalDraggedPayload !== 'undefined' && bsModalDraggedPayload)
+        );
     }
 
     function stopDrag() {
         isNativeDragging = false;
+        activeDragOrigin = null;
         mouseY = -1;
         mouseX = -1;
-        lastDragEventTs = 0;
         if (animFrame) {
             cancelAnimationFrame(animFrame);
             animFrame = null;
         }
     }
 
-    // Global exponieren, damit Re-Renders (z. B. renderDashboardCases) den State aktiv zurücksetzen können
     window.stopMedCheckAutoScroll = stopDrag;
 
+    // Berechnet die Scroll-Geschwindigkeit (auch wenn der Cursor ÜBER den Rand hinausgezogen wird!)
+    function calcEdgeDelta(cursorY, topEdge, bottomEdge, zoneSize, maxSpeed) {
+        if (cursorY < topEdge + zoneSize) {
+            // Je weiter über den oberen Rand hinaus, desto näher an 1.0 (Vollgas)
+            const distIntoZone = (topEdge + zoneSize) - cursorY;
+            const factor = Math.min(1, Math.max(0.15, distIntoZone / zoneSize));
+            return -Math.ceil((factor * factor) * maxSpeed);
+        }
+        if (cursorY > bottomEdge - zoneSize) {
+            const distIntoZone = cursorY - (bottomEdge - zoneSize);
+            const factor = Math.min(1, Math.max(0.15, distIntoZone / zoneSize));
+            return Math.ceil((factor * factor) * maxSpeed);
+        }
+        return 0;
+    }
+
     function scrollLoop() {
-        if (!isAnyDragActive()) {
+        // Sicherheits-Check: Läuft überhaupt noch ein Drag-Vorgang?
+        if (!hasActiveInternalDragState()) {
             stopDrag();
             return;
         }
 
-        // Watchdog: Feuert während eines nativen HTML5-Drags länger als 180ms kein dragover mehr
-        // (z. B. weil das gezogene Element durch innerHTML-Update entfernt wurde), sofort abbrechen!
-        if (isNativeDragging && lastDragEventTs > 0 && (performance.now() - lastDragEventTs > DRAG_IDLE_TIMEOUT_MS)) {
-            stopDrag();
-            return;
-        }
+        if (mouseY >= -200 && mouseX >= -200) {
+            const vh = window.innerHeight;
+            let didScroll = false;
 
-        const vh = window.innerHeight;
-        const bookshelf = document.getElementById('bookshelf-container');
-        let bsScrolled = false;
-
-        // 1. Priorität: Innerhalb des Bookshelf-Containers (Sidebar) scrollen
-        if (bookshelf && mouseX >= 0 && mouseY >= 0 && bookshelf.scrollHeight > bookshelf.clientHeight) {
-            const rect = bookshelf.getBoundingClientRect();
-            if (mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom) {
-                const zone = 55;
-                if (mouseY < rect.top + zone) {
-                    const factor = Math.max(0, (zone - (mouseY - rect.top)) / zone);
-                    bookshelf.scrollTop -= Math.ceil(factor * 18);
-                    bsScrolled = true;
-                } else if (mouseY > rect.bottom - zone) {
-                    const factor = Math.max(0, (mouseY - (rect.bottom - zone)) / zone);
-                    bookshelf.scrollTop += Math.ceil(factor * 18);
-                    bsScrolled = true;
+            // 1. PRIORITÄT: Fullscreen Bookshelf Studio (#bs-studio-board), falls geöffnet
+            const studioModal = document.getElementById('bookshelf-fullscreen-modal');
+            const studioBoard = document.getElementById('bs-studio-board');
+            if (studioModal && !studioModal.classList.contains('hidden') && studioBoard) {
+                const rect = studioBoard.getBoundingClientRect();
+                const delta = calcEdgeDelta(mouseY, rect.top, rect.bottom, EDGE_ZONE, MAX_SPEED);
+                if (delta !== 0) {
+                    studioBoard.scrollTop += delta;
+                    didScroll = true;
                 }
             }
-        }
 
-        // 2. Priorität: Hauptfenster (.main-wrapper) scrollen
-        if (!bsScrolled && mouseY >= 0) {
-            const container = getScrollContainer();
-            let delta = 0;
+            // 2. PRIORITÄT: Linke Sidebar Bookshelf (#bookshelf-container), auch wenn man ÜBER den Container hinauszieht
+            if (!didScroll) {
+                const bookshelf = document.getElementById('bookshelf-container');
+                const sidebar = document.querySelector('sidebar') || document.querySelector('.bento-left-sidebar');
+                if (bookshelf && sidebar) {
+                    const sbRect = sidebar.getBoundingClientRect();
+                    const bsRect = bookshelf.getBoundingClientRect();
+                    const isCursorInSidebarColumn = (mouseX <= sbRect.right + 35) || activeDragOrigin === 'bookshelf';
 
-            if (mouseY < EDGE_ZONE) {
-                const factor = Math.max(0, (EDGE_ZONE - mouseY) / EDGE_ZONE);
-                // Quadratische Kurve (factor * factor) für sanftes Anlaufen und schnelles Scrollen ganz am Rand
-                delta = -Math.ceil((factor * factor) * MAX_SPEED);
-            } else if (mouseY > vh - EDGE_ZONE) {
-                const factor = Math.max(0, (mouseY - (vh - EDGE_ZONE)) / EDGE_ZONE);
-                delta = Math.ceil((factor * factor) * MAX_SPEED);
+                    if (isCursorInSidebarColumn && sbRect.right > 0) {
+                        const delta = calcEdgeDelta(mouseY, bsRect.top, bsRect.bottom, 75, 20);
+                        if (delta !== 0) {
+                            if (bookshelf.scrollHeight > bookshelf.clientHeight) {
+                                bookshelf.scrollTop += delta;
+                            }
+                            if (sidebar.scrollHeight > sidebar.clientHeight) {
+                                sidebar.scrollTop += delta;
+                            }
+                            didScroll = true;
+                        }
+                    }
+                }
             }
 
-            if (delta !== 0) {
-                if (container === document.documentElement || container === document.body) {
-                    window.scrollBy(0, delta);
-                } else {
-                    container.scrollTop += delta;
+            // 3. PRIORITÄT: Haupt-Workspace (.main-wrapper)
+            if (!didScroll) {
+                const mainWrapper = document.querySelector('.main-wrapper');
+                const container = (mainWrapper && mainWrapper.scrollHeight > mainWrapper.clientHeight)
+                    ? mainWrapper
+                    : (document.scrollingElement || document.documentElement || document.body);
+
+                const delta = calcEdgeDelta(mouseY, 0, vh, EDGE_ZONE, MAX_SPEED);
+                if (delta !== 0) {
+                    if (container === document.documentElement || container === document.body) {
+                        window.scrollBy(0, delta);
+                    } else {
+                        container.scrollTop += delta;
+                    }
                 }
             }
         }
@@ -5467,65 +5492,74 @@ document.addEventListener('visibilitychange', () => {
         animFrame = requestAnimationFrame(scrollLoop);
     }
 
-    // CAPTURE-PHASE (true) nutzen, damit e.stopPropagation() in Unterordnern/Karten die Events niemals verschluckt!
+    // Startet NUR bei echtem Drag-Start eines Elements
     window.addEventListener('dragstart', (e) => {
         isNativeDragging = true;
         mouseY = e.clientY;
         mouseX = e.clientX;
-        lastDragEventTs = performance.now();
+
+        if (e.target.closest('#bookshelf-container')) {
+            activeDragOrigin = 'bookshelf';
+        } else if (e.target.closest('#bs-studio-board')) {
+            activeDragOrigin = 'studio';
+        } else {
+            activeDragOrigin = 'main';
+        }
+
         if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
     }, { capture: true, passive: true });
 
+    // Aktualisiert die Koordinaten während des Ziehens (und erlaubt Ziehen bis über den Fensterrand)
     window.addEventListener('dragover', (e) => {
-        // Falls eine externe Datei vom Desktop ins Browserfenster gezogen wird
         if (!isNativeDragging && e.dataTransfer?.types?.includes('Files')) {
             isNativeDragging = true;
         }
-        if (!isNativeDragging) return;
+        if (!hasActiveInternalDragState()) return;
 
+        // Wichtig: Erlaubt dem Browser, den Drag auch über Topbar/Fensterrand flüssig weiterzuführen
+        e.preventDefault();
         mouseY = e.clientY;
         mouseX = e.clientX;
-        lastDragEventTs = performance.now();
         if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
+    }, { capture: true, passive: false });
+
+    window.addEventListener('drag', (e) => {
+        if (!isNativeDragging) return;
+        // Manche Browser liefern im letzten Frame vor dem Drop (0,0) -> ignorieren
+        if (e.clientX === 0 && e.clientY === 0) return;
+        mouseY = e.clientY;
+        mouseX = e.clientX;
     }, { capture: true, passive: true });
 
+    // Sofortiger Stopp beim Loslassen oder Abbrechen
     window.addEventListener('drop', stopDrag, { capture: true, passive: true });
     window.addEventListener('dragend', stopDrag, { capture: true, passive: true });
+    window.addEventListener('mouseup', stopDrag, { capture: true, passive: true });
+    window.addEventListener('touchend', stopDrag, { capture: true, passive: true });
+    window.addEventListener('touchcancel', stopDrag, { capture: true, passive: true });
 
-    // Wenn der Mauszeiger beim Datei-Drag das Browserfenster komplett verlässt
-    window.addEventListener('dragleave', (e) => {
-        if (!e.relatedTarget && !e.toElement) {
-            stopDrag();
+    // ABSOLUTER SCHUTZ: Normale Mausbewegung ohne gedrückte Taste stoppt sofort jeden Auto-Scroll!
+    window.addEventListener('mousemove', (e) => {
+        if (e.buttons === 0) {
+            if (isNativeDragging || animFrame) stopDrag();
         }
     }, { capture: true, passive: true });
 
-    // Schutzschild bei normaler Mausbewegung:
-    // Während eines echten HTML5-Drag-and-Drops feuert der Browser KEINE pointermove-Events.
-    // Feuert pointermove trotzdem (oder ist keine Maustaste gedrückt: e.buttons === 0),
-    // handelt es sich um eine normale Mausbewegung -> sofort jeden Auto-Scroll stoppen!
     window.addEventListener('pointermove', (e) => {
         if (e.pointerType === 'mouse' && e.buttons === 0) {
             if (isNativeDragging || animFrame) stopDrag();
             return;
         }
-
         if (isCustomPointerDragging() && e.buttons > 0) {
             mouseY = e.clientY;
             mouseX = e.clientX;
-            lastDragEventTs = performance.now();
             if (!animFrame) animFrame = requestAnimationFrame(scrollLoop);
-        } else if (isNativeDragging) {
-            // Sollte pointermove trotz isNativeDragging feuern, ist der native Drag bereits beendet
-            stopDrag();
         }
     }, { capture: true, passive: true });
 
     window.addEventListener('pointerup', stopDrag, { capture: true, passive: true });
     window.addEventListener('pointercancel', stopDrag, { capture: true, passive: true });
     window.addEventListener('blur', stopDrag);
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState !== 'visible') stopDrag();
-    });
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') stopDrag();
     }, { capture: true, passive: true });
@@ -6166,13 +6200,40 @@ window.updateBentoDashboardWidgets = function() {
 })();
 
 // ==========================================================================
-// 19. FULLSCREEN BOOKSHELF STUDIO (GANZES FENSTER FÜR ORDNER-VERWALTUNG)
+// 19. FULLSCREEN BOOKSHELF STUDIO (DEFAULT GESCHLOSSENE ORDNER & DRAG-BOARD)
 // ==========================================================================
 let isBookshelfModalOpen = false;
 let bookshelfModalSearchQuery = '';
 let bookshelfModalShowCases = true;
-let bsModalSubfolderOpenState = {};
+let bsModalSubfolderOpenState = {}; // Default leer -> alle Unterordner sind geschlossen (false)!
 let bsModalDraggedPayload = null;
+
+// Stellt sicher, dass beim Start alle Bookshelf-Ordner in Sidebar & Studio geschlossen sind
+function closeAllBookshelfFoldersByDefault() {
+    Object.keys(bookshelfSuperFolderState).forEach(k => { bookshelfSuperFolderState[k] = false; });
+    bookshelfFolderState = {};
+    bsModalSubfolderOpenState = {};
+}
+closeAllBookshelfFoldersByDefault();
+
+// 1-Klick Funktion: Alle Ordner im Bookshelf Studio ein- oder ausklappen
+window.toggleAllBookshelfStudioFolders = function() {
+    const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+    const anyOpen = Object.values(bsModalSubfolderOpenState).some(v => v === true);
+    const nextState = !anyOpen;
+
+    savedOrder.forEach(fName => {
+        if (fName && fName.trim()) {
+            bsModalSubfolderOpenState[fName.trim()] = nextState;
+        }
+    });
+
+    const btn = document.getElementById('bs-studio-toggle-all-btn');
+    if (btn) {
+        btn.textContent = nextState ? '📁 Alle Ordner zuklappen' : '📂 Alle Ordner aufklappen';
+    }
+    renderBookshelfFullscreenBoard();
+};
 
 function ensureBookshelfModalDOM() {
     let modal = document.getElementById('bookshelf-fullscreen-modal');
@@ -6188,7 +6249,7 @@ function ensureBookshelfModalDOM() {
                 <div class="bs-studio-title-group">
                     <div class="bs-studio-kicker">ORGANISATION & ARCHITEKTUR</div>
                     <h2 class="bs-studio-title">📚 Bookshelf Studio</h2>
-                    <p class="bs-studio-subtitle">Ziehe Unterordner oder Fälle frei zwischen deinen Überordner-Spalten hin und her.</p>
+                    <p class="bs-studio-subtitle">Alle Ordner sind für maximale Übersicht eingeklappt. Klicke auf einen Ordner für Details oder ziehe ihn in eine andere Spalte.</p>
                 </div>
 
                 <div class="bs-studio-actions">
@@ -6200,8 +6261,8 @@ function ensureBookshelfModalDOM() {
                         <input type="text" id="bs-studio-search-input" class="bs-studio-search-input" placeholder="Ordner oder Fall suchen..." autocomplete="off">
                     </div>
 
-                    <button type="button" class="ghost-tool-btn" id="bs-studio-toggle-cases-btn" onclick="window.toggleBookshelfModalCasesView()">
-                        📄 Fälle ausblenden
+                    <button type="button" class="ghost-tool-btn" id="bs-studio-toggle-all-btn" onclick="window.toggleAllBookshelfStudioFolders()">
+                        📂 Alle Ordner aufklappen
                     </button>
                     <button type="button" class="ghost-tool-btn" onclick="window.createNewSuperFolderModal()">
                         + Überordner
@@ -6219,7 +6280,7 @@ function ensureBookshelfModalDOM() {
             <div class="bs-studio-infobar">
                 <div class="bs-studio-stats" id="bs-studio-stats-text">Lade Struktur...</div>
                 <div class="bs-studio-hint">
-                    <span>💡 <strong>Tipp:</strong> Ziehe einen Ordner per Drag & Drop in eine andere Spalte oder nutze das Symbol <strong>⇄</strong> zum schnellen Verschieben.</span>
+                    <span>💡 <strong>Auto-Scroll aktiv:</strong> Ziehe Ordner oder Fälle an den oberen/unteren Fensterrand, um automatisch zu scrollen.</span>
                 </div>
             </div>
 
@@ -6230,12 +6291,10 @@ function ensureBookshelfModalDOM() {
 
     document.body.appendChild(modal);
 
-    // Klick auf den abgedunkelten Hintergrund schließt das Fenster
     modal.addEventListener('click', (e) => {
         if (e.target === modal) window.closeBookshelfFullscreenModal();
     });
 
-    // Live-Suche im Modal
     const searchInput = modal.querySelector('#bs-studio-search-input');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
@@ -6244,10 +6303,8 @@ function ensureBookshelfModalDOM() {
         });
     }
 
-    // ESC-Taste zum Schließen
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && isBookshelfModalOpen) {
-            // Nicht schließen, falls gerade ein innerer MedUI-Dialog (z.B. Umbenennen) offen ist
             if (document.getElementById('mc-custom-dialog')) return;
             window.closeBookshelfFullscreenModal();
         }
@@ -6259,9 +6316,13 @@ function ensureBookshelfModalDOM() {
 window.openBookshelfFullscreenModal = function() {
     const modal = ensureBookshelfModalDOM();
     isBookshelfModalOpen = true;
+    // Beim Öffnen starten alle Unterordner standardmäßig geschlossen für beste Übersicht
+    bsModalSubfolderOpenState = {};
+    const toggleBtn = document.getElementById('bs-studio-toggle-all-btn');
+    if (toggleBtn) toggleBtn.textContent = '📂 Alle Ordner aufklappen';
+
     modal.classList.remove('hidden');
 
-    // Auf Mobile evtl. offene linke Sidebar schließen
     const sidebar = document.querySelector('sidebar') || document.querySelector('.bento-left-sidebar');
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.remove('open');
@@ -6275,16 +6336,8 @@ window.closeBookshelfFullscreenModal = function() {
     const modal = document.getElementById('bookshelf-fullscreen-modal');
     if (modal) modal.classList.add('hidden');
     isBookshelfModalOpen = false;
+    if (typeof window.stopMedCheckAutoScroll === 'function') window.stopMedCheckAutoScroll();
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
-};
-
-window.toggleBookshelfModalCasesView = function() {
-    bookshelfModalShowCases = !bookshelfModalShowCases;
-    const btn = document.getElementById('bs-studio-toggle-cases-btn');
-    if (btn) {
-        btn.textContent = bookshelfModalShowCases ? '📄 Fälle ausblenden' : '📄 Fälle einblenden';
-    }
-    renderBookshelfFullscreenBoard();
 };
 
 window.toggleBsStudioSubfolder = function(folderName) {
@@ -6344,7 +6397,6 @@ function renderBookshelfFullscreenBoard() {
     Object.entries(superFolders).forEach(([superTitle, subfolderNames], superIdx) => {
         const isProtectedDefault = (superTitle === 'Allgemein');
 
-        // Filterung bei aktiver Suche
         const filteredSubfolders = subfolderNames.filter(fName => {
             if (!bookshelfModalSearchQuery) return true;
             if (fName.toLowerCase().includes(bookshelfModalSearchQuery)) return true;
@@ -6420,9 +6472,10 @@ function renderBookshelfFullscreenBoard() {
                 const parsedLabel = formatClinicalFolderLabel(folderName);
                 const escapedFolderJs = escapeHtml(folderName).replace(/'/g, "\\'");
 
+                // WICHTIG: Default ist jetzt false (geschlossen!), außer es wird aktiv gesucht oder der Ordner wurde angeklickt
                 const isSubOpen = bookshelfModalSearchQuery
                     ? true
-                    : (bsModalSubfolderOpenState[folderName] !== undefined ? bsModalSubfolderOpenState[folderName] : true);
+                    : !!bsModalSubfolderOpenState[folderName];
 
                 const subCard = document.createElement('div');
                 subCard.className = 'bs-studio-folder-card';
@@ -6470,7 +6523,6 @@ function renderBookshelfFullscreenBoard() {
                     ${casesHtml}
                 `;
 
-                // Drag-Events für den Unterordner
                 subCard.addEventListener('dragstart', (e) => {
                     if (e.target.closest('.bs-studio-case-chip')) return;
                     e.stopPropagation();
@@ -6484,10 +6536,10 @@ function renderBookshelfFullscreenBoard() {
                 subCard.addEventListener('dragend', () => {
                     subCard.classList.remove('is-dragging');
                     bsModalDraggedPayload = null;
+                    if (typeof window.stopMedCheckAutoScroll === 'function') window.stopMedCheckAutoScroll();
                     board.querySelectorAll('.drag-target-hover').forEach(el => el.classList.remove('drag-target-hover'));
                 });
 
-                // Drop-Zone auf dem Unterordner (für Fälle oder zum Umsortieren von Ordnern)
                 subCard.addEventListener('dragover', (e) => {
                     if (!bsModalDraggedPayload) return;
                     e.preventDefault();
@@ -6506,6 +6558,7 @@ function renderBookshelfFullscreenBoard() {
                     e.preventDefault();
                     e.stopPropagation();
                     subCard.classList.remove('drag-target-hover');
+                    if (typeof window.stopMedCheckAutoScroll === 'function') window.stopMedCheckAutoScroll();
                     if (!bsModalDraggedPayload) return;
 
                     if (bsModalDraggedPayload.type === 'case') {
@@ -6520,7 +6573,6 @@ function renderBookshelfFullscreenBoard() {
                     }
                 });
 
-                // Drag-Events für einzelne Fall-Chips innerhalb des Ordners
                 subCard.querySelectorAll('.bs-studio-case-chip').forEach(chip => {
                     const cId = chip.dataset.caseId;
                     chip.addEventListener('dragstart', (e) => {
@@ -6534,6 +6586,7 @@ function renderBookshelfFullscreenBoard() {
                     chip.addEventListener('dragend', () => {
                         chip.classList.remove('is-dragging');
                         bsModalDraggedPayload = null;
+                        if (typeof window.stopMedCheckAutoScroll === 'function') window.stopMedCheckAutoScroll();
                         board.querySelectorAll('.drag-target-hover').forEach(el => el.classList.remove('drag-target-hover'));
                     });
                 });
@@ -6542,7 +6595,6 @@ function renderBookshelfFullscreenBoard() {
             });
         }
 
-        // Drop-Zone auf der gesamten Überordner-Spalte
         colEl.addEventListener('dragover', (e) => {
             if (!bsModalDraggedPayload) return;
             e.preventDefault();
@@ -6559,6 +6611,7 @@ function renderBookshelfFullscreenBoard() {
         colEl.addEventListener('drop', async (e) => {
             e.preventDefault();
             colEl.classList.remove('drag-target-hover');
+            if (typeof window.stopMedCheckAutoScroll === 'function') window.stopMedCheckAutoScroll();
             if (!bsModalDraggedPayload) return;
 
             if (bsModalDraggedPayload.type === 'folder') {
@@ -6576,7 +6629,6 @@ function renderBookshelfFullscreenBoard() {
     });
 }
 
-// Automatisch synchron halten, wenn sich im Hintergrund Ordner oder Fälle ändern
 (function hookFullscreenBookshelfSync() {
     const origRenderDashboardCases = window.renderDashboardCases;
     if (typeof origRenderDashboardCases === 'function') {
