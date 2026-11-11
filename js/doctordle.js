@@ -55,6 +55,8 @@ class DoctordleController {
         });
     }
 
+    initCase(caseData) {
+        this.initDOM();
     hideAutocomplete() {
         if (this.autocompleteList) {
             this.autocompleteList.classList.add('hidden');
