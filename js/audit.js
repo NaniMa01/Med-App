@@ -1,11 +1,16 @@
 // ==========================================================================
-// js/audit.js – Editorial Clinical Audit & PACS Gate Engine (V2.5)
-// Wissenschaftliches Text-Layout mit präziser Phrasen-Gruppierung,
-// persistenter Hotspot-Telemetrie, PACS-Konsil-Gate & Lern-Depot-Export
+// js/audit.js – Editorial Clinical Audit, Patient-Triage & Active-Recall Engine (V3.0)
+// Features:
+// - Patienten-Akten-Filter (Patient 1 / 2 / 3) mit Live-Fortschritt
+// - Automatische Hervorhebung klinischer Messwerte & Laborparameter (Akten-Scan)
+// - Active-Recall Hypothesen-Feld vor Aufdecken der Muster-Synthese (+30 XP Bonus)
+// - Nahtlose Integration des Radiopaedia-Bild-Tresors (RadiopaediaLinkEngine)
+// - Klinische Epikrise (Fehler vs. Goldstandard-Gegenüberstellung) & Depot-Export
 // ==========================================================================
 
 (function initEditorialAuditEngine() {
     let lastUnlockedStudyId = null;
+    let activePatientFilter = 'ALL'; // 'ALL' | 'patient_1' | 'patient_2' | 'patient_3'
 
     function escapeAuditHtml(str) {
         return String(str || '').replace(/[&<>'"]/g, tag => ({
@@ -21,17 +26,20 @@
             .replace(/\u00A0/g, ' ');
     }
 
-    // Liest und speichert den detaillierten Audit-Fortschritt (inkl. einzelner Hotspots)
+    // ----------------------------------------------------------------------
+    // 1. PERSISTENZ (FORTSCHRITT, HOTSPOTS & EIGENE HYPOTHESEN)
+    // ----------------------------------------------------------------------
     function getAuditProgressState() {
         const caseData = window.activeCaseData;
         if (!caseData || !caseData.case_id || window.isSpecialtyBlindMode || typeof ProgressManager === 'undefined') {
-            return { clearedStepsCount: 0, clearedStepsMap: {}, resolvedHotspotsMap: {} };
+            return { clearedStepsCount: 0, clearedStepsMap: {}, resolvedHotspotsMap: {}, userHypothesesMap: {} };
         }
         const saved = ProgressManager.getCaseProgress(caseData.case_id)?.audit || {};
         return {
             clearedStepsCount: saved.clearedStepsCount || 0,
             clearedStepsMap: { ...(saved.clearedStepsMap || {}) },
-            resolvedHotspotsMap: { ...(saved.resolvedHotspotsMap || {}) }
+            resolvedHotspotsMap: { ...(saved.resolvedHotspotsMap || {}) },
+            userHypothesesMap: { ...(saved.userHypothesesMap || {}) }
         };
     }
 
@@ -45,28 +53,36 @@
             ...current,
             ...partialAuditState,
             clearedStepsMap: { ...current.clearedStepsMap, ...(partialAuditState.clearedStepsMap || {}) },
-            resolvedHotspotsMap: { ...current.resolvedHotspotsMap, ...(partialAuditState.resolvedHotspotsMap || {}) }
+            resolvedHotspotsMap: { ...current.resolvedHotspotsMap, ...(partialAuditState.resolvedHotspotsMap || {}) },
+            userHypothesesMap: { ...current.userHypothesesMap, ...(partialAuditState.userHypothesesMap || {}) }
         };
         ProgressManager.saveCaseState(caseData.case_id, { audit: nextState });
     }
 
-    /**
-     * Zerlegt einen Absatz in natürliche sprachliche Sinnabschnitte (Klauseln)
-     * und bewahrt definierte Hotspots exakt als zusammengehörige Einheiten,
-     * ohne dass eckige Klammern [ ] im Text sichtbar bleiben.
-     */
+    // ----------------------------------------------------------------------
+    // 2. KLINISCHER MESSWERT-HIGHLIGHTER (AKTEN-SCANNER FÜR VITALWERTE/LABOR)
+    // ----------------------------------------------------------------------
+    function formatClinicalNumbersInHtml(escapedText) {
+        // Hebt Laborwerte, Dosierungen, Segmente & Vitalparameter dezent typografisch hervor,
+        // ohne die Phrasen-Klickbarkeit zu beeinträchtigen.
+        return escapedText.replace(
+            /\b(\d+(?:[.,]\d+)?\s*(?:mg\/dl|mmol\/l|g\/dl|µg\/l|ng\/ml|U\/l|mmHg|\/min|bpm|°C|mg|g|µg|ml|IE|Segmente?|Segment|Jahre|J\.)|≥\s*\d+|≤\s*\d+|pH\s*\d+[.,]\d+|[CTLS]\d{1,2})\b/g,
+            '<span class="audit-clinical-metric">$1</span>'
+        );
+    }
+
+    // ----------------------------------------------------------------------
+    // 3. TEXT-SEGMENTIERUNG & KLAUSEL-PARSER
+    // ----------------------------------------------------------------------
     function parseParagraphIntoSegments(paragraphText, hotspots = []) {
         if (!paragraphText) return [];
 
-        // 1. Eckige Klammern entfernen, aber Positionen der Hotspots exakt merken
         const cleanText = paragraphText.replace(/\[([^\]]+)\]/g, '$1');
         const normCleanText = normalizeForMatch(cleanText);
 
-        // 2. Alle bekannten Hotspots im bereinigten Text lokalisieren
         const ranges = [];
         hotspots.forEach((hs, idx) => {
             if (!hs || !hs.phrase) return;
-            // FIX: Korrekte Regex-Pipe | statt \vert{} zum Entfernen führender/schließender Klammern
             const cleanPhrase = String(hs.phrase).replace(/^\[|\]$/g, '').trim();
             if (!cleanPhrase) return;
 
@@ -76,7 +92,6 @@
             while (searchStart < normCleanText.length) {
                 let foundPos = normCleanText.indexOf(normPhrase, searchStart);
                 if (foundPos === -1) {
-                    // Case-insensitive Fallback
                     foundPos = normCleanText.toLowerCase().indexOf(normPhrase.toLowerCase(), searchStart);
                 }
                 if (foundPos === -1) break;
@@ -97,7 +112,6 @@
 
         ranges.sort((a, b) => a.start - b.start);
 
-        // 3. Text in abwechselnde Blöcke (Normaltext vs. Hotspot) aufteilen
         const blocks = [];
         let cursor = 0;
 
@@ -117,7 +131,6 @@
             blocks.push({ type: 'plain', text: cleanText.slice(cursor) });
         }
 
-        // 4. Normaltext-Blöcke in angenehme, natürliche Satzbausteine (4-7 Wörter / Klauseln) gliedern
         const finalSegments = [];
 
         blocks.forEach(block => {
@@ -128,7 +141,6 @@
                     hotspotIndex: block.hotspotIndex
                 });
             } else {
-                // Falls der Block mit einem Satzzeichen beginnt (z. B. Punkt nach Hotspot), an vorheriges Segment hängen
                 let textToChunk = block.text;
                 const leadingPunctMatch = textToChunk.match(/^([.,;:!?]+)(\s*)/);
                 if (leadingPunctMatch && finalSegments.length > 0) {
@@ -152,10 +164,6 @@
         return finalSegments;
     }
 
-    /**
-     * Hilfsfunktion: Teilt normalen Fließtext an Satzzeichen, Konjunktionen
-     * oder nach ca. 5-7 Wörtern in ruhige, lesefreundliche Phrasen.
-     */
     function splitIntoNaturalClauses(text) {
         if (!text || !text.trim()) return [];
 
@@ -172,7 +180,6 @@
             const word = tokens[i];
             const cleanWord = word.toLowerCase().replace(/[^a-zäöüß]/g, '');
 
-            // Vor einer Konjunktion trennen, wenn der aktuelle Baustein schon mindestens 3 Wörter hat
             if (conjunctions.has(cleanWord) && currentWords.length >= 3) {
                 clauses.push(currentWords.join(' '));
                 currentWords = [word];
@@ -184,7 +191,6 @@
             const endsWithPunct = /[,;:.!?]$/.test(word);
             const remainingWords = tokens.length - 1 - i;
 
-            // Trennen bei Satzzeichen oder nach 6 Wörtern (verhindert einzelne Waisen-Wörter am Satzende)
             if (endsWithPunct || (currentWords.length >= 6 && remainingWords >= 2)) {
                 clauses.push(currentWords.join(' '));
                 currentWords = [];
@@ -202,17 +208,15 @@
         return clauses;
     }
 
-    /**
-     * Gliedert einen langen Rohtext in logische, gut lesbare Absätze (je 2-3 Sätze),
-     * falls vom Autor noch keine expliziten Absätze (\n\n) gesetzt wurden.
-     */
     function splitStepIntoEditorialParagraphs(rawText) {
         if (!rawText) return [];
 
-        // Doppelt escapte Zeilenumbrüche (\\n\\n aus JSON-Generatoren) sauber normalisieren
-        const normalizedRaw = String(rawText).replace(/\\n/g, '\n');
+        // Entferne redundante "Patient 1\n\n" Kopfzeilen am Anfang, da wir dafür eigene Patienten-Badges rendern
+        const normalizedRaw = String(rawText)
+            .replace(/\\n/g, '\n')
+            .replace(/^Patient\s*\d+\s*\n+/i, '')
+            .trim();
 
-        // 1. Explizite Absätze bevorzugen
         const explicitParagraphs = normalizedRaw
             .split(/\n\s*\n|<br\s*\/?>\s*<br\s*\/?>/i)
             .map(p => p.trim())
@@ -222,9 +226,7 @@
             return explicitParagraphs;
         }
 
-        // 2. Lange Einzelblöcke intelligent alle 2 Sätze gruppieren (schützt Abkürzungen wie "A. spinalis" oder "z. B.")
-        const singleBlock = explicitParagraphs[0] || normalizedRaw.trim();
-        // FIX: Korrekte Regex-Pipes | statt \vert{}
+        const singleBlock = explicitParagraphs[0] || normalizedRaw;
         const sentenceRegex = /[^.!?]+(?:\.(?:\s+(?=[A-ZÄÖÜ0-9"„])|$)|[!?]+(?:\s+|$))/g;
         const rawSentences = singleBlock.match(sentenceRegex);
 
@@ -232,7 +234,6 @@
             return [singleBlock];
         }
 
-        // Kurze Fragmente (z. B. nach "A." oder "ca.") wieder mit dem Folgesatz verschmelzen
         const mergedSentences = [];
         let buffer = '';
 
@@ -253,7 +254,6 @@
             }
         }
 
-        // Jeweils 2 Sätze zu einem ruhigen Lese-Absatz bündeln
         const paragraphs = [];
         for (let i = 0; i < mergedSentences.length; i += 2) {
             paragraphs.push(mergedSentences.slice(i, i + 2).join(' '));
@@ -262,28 +262,200 @@
         return paragraphs;
     }
 
-    /**
-     * Prüft, ob für einen Audit-Schritt eine PACS-/Radiopaedia-Aufnahme verknüpft ist
-     */
-    function getStepImagingGateInfo(step, stepIndex) {
-        const caseId = window.activeCaseData?.case_id;
-        if (!window.ImagingModule || typeof window.ImagingModule.getStudyForAuditStep !== 'function') {
-            return { study: null, isLocked: false };
-        }
-        const study = window.ImagingModule.getStudyForAuditStep(step, stepIndex);
-        if (!study) return { study: null, isLocked: false };
-
-        const isSolved = window.ImagingModule.isStudySolved(caseId, study.id);
-        return {
-            study,
-            isLocked: !isSolved
-        };
+    // ----------------------------------------------------------------------
+    // 4. STYLESHEET FÜR KLINISCHE AKTEN-OPTIK & ACTIVE RECALL
+    // ----------------------------------------------------------------------
+    function injectAuditEnhancementStyles() {
+        if (document.getElementById('mc-audit-v3-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'mc-audit-v3-styles';
+        style.textContent = `
+            .audit-patient-triage-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-bottom: 14px;
+                padding: 8px 12px;
+                border-radius: 12px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.55));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.2));
+            }
+            .audit-patient-pills {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .audit-patient-pill {
+                padding: 5px 11px;
+                border-radius: 8px;
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.25));
+                background: transparent;
+                color: var(--text-muted, #94a3b8);
+                font-size: 0.75rem;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .audit-patient-pill.active {
+                background: var(--badge-primary-bg, rgba(2, 132, 199, 0.2));
+                border-color: var(--accent-blue, #38bdf8);
+                color: var(--text-main, #f8fafc);
+            }
+            .audit-patient-pill.is-done {
+                border-color: rgba(16, 185, 129, 0.45);
+            }
+            .audit-clinical-metric {
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 0.88em;
+                font-weight: 600;
+                color: var(--accent-cyan, #38bdf8);
+                background: rgba(56, 189, 248, 0.08);
+                padding: 0 4px;
+                border-radius: 4px;
+            }
+            html[data-theme="daylight"] .audit-clinical-metric,
+            html[data-theme="tropical"] .audit-clinical-metric {
+                color: #0369a1;
+                background: rgba(2, 132, 199, 0.1);
+            }
+            .audit-step-status-strip {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.72rem;
+                font-weight: 700;
+            }
+            .audit-recall-box {
+                margin-top: 10px;
+                padding: 10px 12px;
+                border-radius: 10px;
+                background: rgba(15, 23, 42, 0.45);
+                border: 1px dashed rgba(56, 189, 248, 0.35);
+            }
+            html[data-theme="daylight"] .audit-recall-box,
+            html[data-theme="tropical"] .audit-recall-box {
+                background: rgba(2, 132, 199, 0.05);
+            }
+            .audit-recall-input {
+                width: 100%;
+                margin-top: 6px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.3));
+                background: var(--surface-primary, rgba(6, 9, 19, 0.8));
+                color: var(--text-main, #f8fafc);
+                font-size: 0.82rem;
+                font-family: inherit;
+                resize: vertical;
+                min-height: 54px;
+            }
+            .audit-epikrise-card {
+                margin-top: 20px;
+                padding: 18px;
+                border-radius: 14px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.75));
+                border: 1px solid rgba(16, 185, 129, 0.35);
+            }
+            .audit-epikrise-row {
+                padding: 10px 12px;
+                border-radius: 10px;
+                background: var(--surface-primary, rgba(6, 9, 19, 0.65));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.18));
+                margin-top: 8px;
+                font-size: 0.82rem;
+                line-height: 1.5;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
-    /**
-     * Haupt-Renderer für das klinische Audit
-     */
+    // ----------------------------------------------------------------------
+    // 5. PATIENTEN-AKTEN-GRUPPIERUNG & EPIKRISE-GENERATOR
+    // ----------------------------------------------------------------------
+    function detectPatientGroups(timeline, clearedMap) {
+        const groups = {};
+        timeline.forEach((step, idx) => {
+            const rawPid = step.patient_id || (step.phase?.match(/Patient\s*(\d+)/i)?.[0]?.toLowerCase().replace(/\s+/, '_')) || null;
+            if (!rawPid) return;
+            if (!groups[rawPid]) {
+                const numMatch = rawPid.match(/\d+/);
+                groups[rawPid] = {
+                    id: rawPid,
+                    label: numMatch ? `Patient ${numMatch[0]}` : rawPid,
+                    total: 0,
+                    cleared: 0
+                };
+            }
+            groups[rawPid].total += 1;
+            if (clearedMap[idx]) groups[rawPid].cleared += 1;
+        });
+        return Object.values(groups);
+    }
+
+    function buildEpikriseSummaryHtml(timeline, clearedMap, resolvedHsMap) {
+        const solvedErrors = [];
+        timeline.forEach((step, stepIdx) => {
+            (step.hotspots || []).forEach((hs, hsIdx) => {
+                if (!hs.is_error) return;
+                const status = resolvedHsMap[`${stepIdx}_${hsIdx}`];
+                if (status === 'signal' || status === 'corrected' || clearedMap[stepIdx]) {
+                    solvedErrors.push({
+                        stepNum: stepIdx + 1,
+                        phase: step.phase || `Abschnitt ${stepIdx + 1}`,
+                        wrongPhrase: hs.phrase,
+                        correction: hs.correct_pathophysiology || hs.synthesis || hs.correction || hs.feedback || ''
+                    });
+                }
+            });
+        });
+
+        if (solvedErrors.length === 0) return '';
+
+        const totalSteps = timeline.length;
+        const clearedTotal = Object.keys(clearedMap).filter(k => clearedMap[k]).length;
+
+        return `
+            <section class="audit-epikrise-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <div>
+                        <div style="font-size:0.68rem; font-weight:800; color:#10b981; text-transform:uppercase; letter-spacing:0.06em;">
+                            📋 KLINISCHE VISITE & FEHLER-EPIKRISE
+                        </div>
+                        <h4 style="margin:2px 0 0 0; font-size:0.95rem; color:var(--text-main);">
+                            Aufgedeckte Fallstricke & Pathophysiologische Korrekturen (${solvedErrors.length})
+                        </h4>
+                    </div>
+                    <span class="case-status-pill ${clearedTotal === totalSteps ? 'status-solved' : 'status-progress'}">
+                        ${clearedTotal}/${totalSteps} Abschnitte validiert
+                    </span>
+                </div>
+                ${solvedErrors.map(err => `
+                    <div class="audit-epikrise-row">
+                        <div style="font-size:0.72rem; font-weight:800; color:var(--text-muted); margin-bottom:3px;">
+                            Abschnitt ${err.stepNum} · ${escapeAuditHtml(err.phase)}
+                        </div>
+                        <div style="color:#fca5a5; margin-bottom:4px;">
+                            <strong>✕ Fehler im Bericht:</strong> „${escapeAuditHtml(err.wrongPhrase)}“
+                        </div>
+                        <div style="color:var(--text-main);">
+                            <strong style="color:#6ee7b7;">✓ Korrektes Vorgehen:</strong> ${escapeAuditHtml(err.correction)}
+                        </div>
+                    </div>
+                `).join('')}
+            </section>
+        `;
+    }
+
+    // ----------------------------------------------------------------------
+    // 6. HAUPT-RENDERER FÜR DAS KLINISCHE AUDIT
+    // ----------------------------------------------------------------------
     function renderTimeline() {
+        injectAuditEnhancementStyles();
         const container = document.getElementById('player-container');
         const caseData = window.activeCaseData;
         if (!container || !caseData || !Array.isArray(caseData.timeline)) return;
@@ -292,7 +464,6 @@
         const clearedMap = auditState.clearedStepsMap || {};
         const resolvedHsMap = auditState.resolvedHotspotsMap || {};
 
-        // Synchronisiere globalen Zähler mit den tatsächlich gespeicherten Abschnitten
         const clearedCount = Object.keys(clearedMap).filter(k => clearedMap[k]).length;
         if (typeof window.clearedStepsCount !== 'undefined') {
             window.clearedStepsCount = clearedCount;
@@ -302,14 +473,57 @@
             badge.innerText = `${clearedCount}/${caseData.timeline.length}`;
         }
 
-        container.innerHTML = caseData.timeline.map((step, stepIndex) => {
+        // Patienten-Akten-Filter (falls der Fall mehrere Patienten-Szenarien enthält)
+        const patientGroups = detectPatientGroups(caseData.timeline, clearedMap);
+        if (activePatientFilter !== 'ALL' && !patientGroups.some(g => g.id === activePatientFilter)) {
+            activePatientFilter = 'ALL';
+        }
+
+        const patientTriageHtml = patientGroups.length > 1
+            ? `
+                <div class="audit-patient-triage-bar">
+                    <span style="font-size:0.72rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
+                        🏥 Stations-Akte:
+                    </span>
+                    <div class="audit-patient-pills">
+                        <button type="button" class="audit-patient-pill ${activePatientFilter === 'ALL' ? 'active' : ''}"
+                                onclick="window.setAuditPatientFilter('ALL')">
+                            Alle Abschnitte (${clearedCount}/${caseData.timeline.length})
+                        </button>
+                        ${patientGroups.map(pg => `
+                            <button type="button" class="audit-patient-pill ${activePatientFilter === pg.id ? 'active' : ''} ${pg.cleared === pg.total ? 'is-done' : ''}"
+                                    onclick="window.setAuditPatientFilter('${escapeAuditHtml(pg.id)}')">
+                                ${pg.cleared === pg.total ? '✓ ' : ''}${escapeAuditHtml(pg.label)} (${pg.cleared}/${pg.total})
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `
+            : '';
+
+        // Radiopaedia-Links des Falls auslesen (für direkte Einbettung pro Abschnitt)
+        const radLinks = (window.RadiopaediaLinkEngine && typeof window.RadiopaediaLinkEngine.getLinksForCase === 'function')
+            ? window.RadiopaediaLinkEngine.getLinksForCase(caseData)
+            : [];
+
+        const stepsHtml = caseData.timeline.map((step, stepIndex) => {
+            const stepPatientId = step.patient_id || (step.phase?.match(/Patient\s*\d+/i)?.[0]?.toLowerCase().replace(/\s+/, '_')) || null;
+            if (activePatientFilter !== 'ALL' && stepPatientId !== activePatientFilter) {
+                return '';
+            }
+
             const rawText = step.content || '';
             const hotspots = step.hotspots || [];
             const isStepCleared = !!clearedMap[stepIndex];
 
-            // PACS-Befundungs-Gate prüfen
-            const { study: linkedStudy, isLocked: isPacsLocked } = getStepImagingGateInfo(step, stepIndex);
-            const justUnlocked = linkedStudy && !isPacsLocked && lastUnlockedStudyId === linkedStudy.id;
+            // Zähle bereits gefundene Fehler / geprüfte Distraktoren in diesem Abschnitt
+            let foundErrorsCount = 0;
+            let checkedDistractorsCount = 0;
+            hotspots.forEach((hs, hIdx) => {
+                const st = resolvedHsMap[`${stepIndex}_${hIdx}`];
+                if (hs.is_error && (st === 'signal' || st === 'corrected')) foundErrorsCount++;
+                if (!hs.is_error && st === 'noise') checkedDistractorsCount++;
+            });
 
             const paragraphs = splitStepIntoEditorialParagraphs(rawText);
 
@@ -317,86 +531,57 @@
                 const segments = parseParagraphIntoSegments(paraText, hotspots);
 
                 const spansHTML = segments.map(seg => {
+                    const formattedSegHtml = formatClinicalNumbersInHtml(escapeAuditHtml(seg.text));
                     if (seg.isHotspot) {
                         const hsKey = `${stepIndex}_${seg.hotspotIndex}`;
-                        const savedHsStatus = resolvedHsMap[hsKey]; // 'signal' | 'corrected' | 'noise'
+                        const savedHsStatus = resolvedHsMap[hsKey];
                         let stateClasses = 'stealth-hotspot';
                         if (savedHsStatus === 'signal') stateClasses += ' resolved-signal';
                         else if (savedHsStatus === 'corrected') stateClasses += ' resolved-signal resolved-corrected';
                         else if (savedHsStatus === 'noise') stateClasses += ' resolved-noise';
 
-                        const clickHandler = isPacsLocked
-                            ? `window.handleLockedAuditPacsClick('${escapeAuditHtml(linkedStudy.id)}')`
-                            : `window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex})`;
-
-                        return `<span class="${stateClasses}" data-hs-group="hs-${stepIndex}-${seg.hotspotIndex}" id="hs-${stepIndex}-${seg.hotspotIndex}" role="button" tabindex="0" onclick="${clickHandler}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${clickHandler};}">${escapeAuditHtml(seg.text)}</span>`;
+                        return `<span class="${stateClasses}" data-hs-group="hs-${stepIndex}-${seg.hotspotIndex}" id="hs-${stepIndex}-${seg.hotspotIndex}" role="button" tabindex="0" onclick="window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex});}">${formattedSegHtml}</span>`;
                     } else {
-                        const clickHandler = isPacsLocked
-                            ? `window.handleLockedAuditPacsClick('${escapeAuditHtml(linkedStudy.id)}')`
-                            : `window.handleGenericChunkClick(this, ${stepIndex})`;
-
-                        return `<span class="stealth-word" onclick="${clickHandler}">${escapeAuditHtml(seg.text)}</span>`;
+                        return `<span class="stealth-word" onclick="window.handleGenericChunkClick(this, ${stepIndex})">${formattedSegHtml}</span>`;
                     }
                 }).join(' ');
 
                 return `<p class="audit-paragraph">${spansHTML}</p>`;
             }).join('');
 
-            // PACS-Konsil-Button im Header (falls Bildgebung zu diesem Schritt gehört)
-            const pacsHeaderBtnHtml = linkedStudy ? `
-                <button type="button" class="pacs-tool-btn" style="margin-left:auto;"
-                        onclick="window.ImagingModule.focusStudyFromAudit('${escapeAuditHtml(linkedStudy.id)}')">
-                    🩻 ${escapeAuditHtml(linkedStudy.modality)} ${isPacsLocked ? '(Befundung offen)' : '✓ Befundet'}
-                </button>
-            ` : '';
+            // Verknüpfte Radiopaedia-Bildserien genau für diesen Abschnitt
+            const stepRadLinks = radLinks.filter(l => l.stepIndex !== null && Number(l.stepIndex) === stepIndex);
+            const stepRadHtml = stepRadLinks.map(link => `
+                <a href="${escapeAuditHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="mc-rad-link-pill" title="${escapeAuditHtml(link.note || link.url)}">
+                    🩻 ${escapeAuditHtml(link.modality)}: ${escapeAuditHtml(link.title)} ↗
+                </a>
+            `).join('');
 
-            // PACS-Konsil-Blocker Banner (falls Bild noch nicht im PACS gelöst wurde)
-            const pacsGateBannerHtml = isPacsLocked ? `
-                <div class="audit-pacs-gate-lock">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:1.3rem;">🔒</span>
-                        <div>
-                            <div style="font-weight:800; color:#fcd34d; font-size:0.84rem;">
-                                Radiologische Befundung ausstehend: ${escapeAuditHtml(linkedStudy.title)}
-                            </div>
-                            <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">
-                                Bitte markiere und befunde zuerst die Aufnahme im PACS-Monitor oben, bevor du diesen klinischen Abschnitt auditierst.
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:6px; flex-shrink:0;">
-                        <button type="button" class="action-btn btn-sm"
-                                onclick="window.ImagingModule.focusStudyFromAudit('${escapeAuditHtml(linkedStudy.id)}')">
-                            🩻 Jetzt im PACS befunden
-                        </button>
-                        <button type="button" class="pacs-tool-btn"
-                                onclick="window.ImagingModule.toggleDockRight(true); window.ImagingModule.focusStudyFromAudit('${escapeAuditHtml(linkedStudy.id)}')">
-                            ◫ Split-Screen
-                        </button>
-                    </div>
+            const statusBadgesHtml = `
+                <div class="audit-step-status-strip">
+                    ${stepRadHtml}
+                    ${foundErrorsCount > 0 ? `<span class="case-status-pill" style="background:rgba(239,68,68,0.16); color:#fca5a5; border:1px solid rgba(239,68,68,0.35);">🚨 ${foundErrorsCount} Fehler enttarnt</span>` : ''}
+                    ${isStepCleared ? `<span class="case-status-pill status-solved">✓ Validiert</span>` : ''}
                 </div>
-            ` : '';
+            `;
 
-            // FIX: Sauberes einzelnes class-Attribut für #audit-fb-${stepIndex}
             const fbClass = isStepCleared ? 'feedback-box feedback-success' : 'feedback-box';
             const fbDisplay = isStepCleared ? 'block' : 'none';
             const fbInitialContent = isStepCleared
-                ? '<strong>Abschnitt validiert:</strong> Dieser klinische Abschnitt wurde bereits vollständig geprüft. (Klicke auf markierte Textstellen, um die Synthese erneut einzusehen.)'
+                ? '<strong>Abschnitt validiert:</strong> Dieser klinische Abschnitt wurde erfolgreich auditiert. Klicke auf markierte Phrasen, um die pathophysiologische Synthese erneut einzusehen.'
                 : '';
 
             return `
-                <article class="audit-step-container ${justUnlocked ? 'pacs-gate-unlocked-anim' : ''}" id="audit-step-${stepIndex}">
+                <article class="audit-step-container" id="audit-step-${stepIndex}">
                     <header class="audit-step-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                         <div>
                             <span class="audit-step-kicker">Abschnitt ${stepIndex + 1}</span>
                             <h3 class="audit-step-title">${escapeAuditHtml(step.phase || 'Klinischer Verlauf')}</h3>
                         </div>
-                        ${pacsHeaderBtnHtml}
+                        ${statusBadgesHtml}
                     </header>
 
-                    ${pacsGateBannerHtml}
-
-                    <div class="step-content audit-editorial-body" style="${isPacsLocked ? 'opacity:0.65;' : ''}">
+                    <div class="step-content audit-editorial-body">
                         ${paragraphsHTML}
                     </div>
 
@@ -405,27 +590,32 @@
                     </div>
 
                     <div class="audit-step-footer" id="audit-footer-${stepIndex}" style="display:${isStepCleared ? 'none' : 'flex'};">
-                        <button type="button" class="action-btn secondary audit-clear-btn" id="clear-step-btn-${stepIndex}"
-                                ${isPacsLocked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}
-                                onclick="window.clearStep(${stepIndex})">
-                            ${isPacsLocked ? '🔒 Erst PACS-Aufnahme oben befunden' : 'Abschnitt als fachlich korrekt freigeben'}
+                        <button type="button" class="action-btn secondary audit-clear-btn" id="clear-step-btn-${stepIndex}" onclick="window.clearStep(${stepIndex})">
+                            Abschnitt als fachlich korrekt freigeben
                         </button>
                     </div>
                 </article>
             `;
         }).join('');
+
+        const epikriseHtml = buildEpikriseSummaryHtml(caseData.timeline, clearedMap, resolvedHsMap);
+
+        container.innerHTML = patientTriageHtml + stepsHtml + epikriseHtml;
+
+        // Radiopaedia-Leiste oben im Audit synchronisieren
+        if (window.RadiopaediaLinkEngine && typeof window.RadiopaediaLinkEngine.refreshUI === 'function') {
+            window.RadiopaediaLinkEngine.refreshUI();
+        }
     }
 
-    window.handleLockedAuditPacsClick = function(studyId) {
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(18);
-        if (window.ImagingModule && typeof window.ImagingModule.focusStudyFromAudit === 'function') {
-            window.ImagingModule.focusStudyFromAudit(studyId);
-        }
+    window.setAuditPatientFilter = function(patientId) {
+        activePatientFilter = patientId || 'ALL';
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+        renderTimeline();
     };
 
     window.handleGenericChunkClick = function(el, stepIndex) {
         if (!el) return;
-        // Wenn der Abschnitt bereits abgeschlossen ist, keine Minuspunkte beim Lesen vergeben
         const auditState = getAuditProgressState();
         if (stepIndex !== undefined && auditState.clearedStepsMap[stepIndex]) return;
 
@@ -441,14 +631,6 @@
 
         const step = caseData.timeline[stepIndex];
         const hotspots = step.hotspots || [];
-
-        // Prüfen, ob ein PACS-Gate noch offen ist
-        const { study: linkedStudy, isLocked: isPacsLocked } = getStepImagingGateInfo(step, stepIndex);
-        if (isPacsLocked && linkedStudy) {
-            window.handleLockedAuditPacsClick(linkedStudy.id);
-            return;
-        }
-
         const auditState = getAuditProgressState();
         const resolvedHsMap = auditState.resolvedHotspotsMap || {};
 
@@ -476,20 +658,6 @@
             if (typeof applyXpDelta === 'function') applyXpDelta(100, 'Abschnitt validiert');
             if (typeof trackSkill === 'function') trackSkill('Diagnostik', true);
 
-            fb.className = 'feedback-box feedback-success';
-
-            if (hotspots.filter(hs => hs.is_error).length === 0) {
-                fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Korrekt eingeschätzt. Dieser Abschnitt enthielt keine pathophysiologischen oder klinischen Fehler (Null-Fehler-Kontrolle).`;
-            } else {
-                fb.innerHTML = `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle kritischen Fehler in diesem Abschnitt wurden erfolgreich identifiziert.`;
-            }
-
-            const footer = document.getElementById(`audit-footer-${stepIndex}`);
-            if (footer) footer.style.display = 'none';
-
-            const btn = document.getElementById(`clear-step-btn-${stepIndex}`);
-            if (btn) btn.style.display = 'none';
-
             const clearedStepsMap = { ...(auditState.clearedStepsMap || {}), [stepIndex]: true };
             const newClearedCount = Object.keys(clearedStepsMap).filter(k => clearedStepsMap[k]).length;
 
@@ -497,37 +665,29 @@
                 window.clearedStepsCount = newClearedCount;
             }
 
-            const badge = document.getElementById('badge-mode-audit');
-            if (badge && typeof window.totalStepsCount !== 'undefined') {
-                badge.innerText = `${newClearedCount}/${window.totalStepsCount}`;
-            }
-
-            // Fortschritt dauerhaft speichern
             saveAuditProgressState({
                 clearedStepsCount: newClearedCount,
                 clearedStepsMap: clearedStepsMap
             });
 
-            // Kompatibler Hook für SpacedRepetitionEngine (unterstützt Leitner V2 & SM-2 Legacy)
-            if (window.SpacedRepetitionEngine && caseData.case_id) {
-                if (typeof window.SpacedRepetitionEngine.logConceptSuccess === 'function') {
-                    window.SpacedRepetitionEngine.logConceptSuccess(caseData.case_id, 'Klinisches Audit');
-                }
-                if (typeof window.SpacedRepetitionEngine.deriveQualityFromMetrics === 'function' && typeof window.SpacedRepetitionEngine.recordReview === 'function') {
-                    const total = window.totalStepsCount || caseData.timeline.length || 1;
-                    const scorePercent = Math.round((newClearedCount / total) * 100);
-                    const quality = window.SpacedRepetitionEngine.deriveQualityFromMetrics('audit', { scorePercent });
-                    Promise.resolve(window.SpacedRepetitionEngine.recordReview({
-                        itemId: caseData.case_id,
-                        moduleType: 'audit',
-                        quality,
-                        medicalField: caseData.metadata?.medical_field || caseData.folder_name
-                    })).catch(err => console.warn('[Audit] SR Record Warning:', err));
-                }
+            if (window.SpacedRepetitionEngine && caseData.case_id && typeof window.SpacedRepetitionEngine.logConceptSuccess === 'function') {
+                window.SpacedRepetitionEngine.logConceptSuccess(caseData.case_id, 'Klinisches Audit');
             }
 
             if (typeof window.checkFinalCompletion === 'function') {
                 window.checkFinalCompletion();
+            }
+
+            // Neu rendern, damit die Epikrise & Patienten-Badges sofort aktualisiert werden
+            renderTimeline();
+
+            const updatedFb = document.getElementById(`audit-fb-${stepIndex}`);
+            if (updatedFb) {
+                updatedFb.style.display = 'block';
+                updatedFb.className = 'feedback-box feedback-success';
+                updatedFb.innerHTML = hotspots.filter(hs => hs.is_error).length === 0
+                    ? `<strong>Abschnitt freigegeben (+100 XP):</strong> Korrekt eingeschätzt (Null-Fehler-Kontrolle).`
+                    : `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle kritischen Fehler in diesem Abschnitt wurden erfolgreich identifiziert.`;
             }
         }
     };
@@ -539,17 +699,15 @@
         const fb = document.getElementById(`audit-fb-${stepIndex}`);
         if (!step || !hs || !fb) return;
 
-        // Alle zusammengehörigen Spans dieses Hotspots selektieren
         const spans = document.querySelectorAll(`[data-hs-group="hs-${stepIndex}-${hotspotIndex}"]`);
         const primarySpan = document.getElementById(`hs-${stepIndex}-${hotspotIndex}`);
         if (!primarySpan) return;
 
         const alreadyResolved = primarySpan.classList.contains('resolved-noise') || primarySpan.classList.contains('resolved-signal');
 
-        // Wenn ein Fehler bereits zuvor gelöst wurde, beim erneuten Klick direkt die Synthese/Erklärung zeigen
         if (alreadyResolved) {
             if (hs.is_error) {
-                window.revealSynthesis(stepIndex, hotspotIndex, true);
+                window.revealSynthesis(stepIndex, hotspotIndex, false);
             } else {
                 fb.style.display = 'block';
                 fb.className = 'feedback-box feedback-neutral';
@@ -565,6 +723,8 @@
 
         fb.style.display = 'block';
         const hsKey = `${stepIndex}_${hotspotIndex}`;
+        const auditState = getAuditProgressState();
+        const savedHypothesis = auditState.userHypothesesMap[hsKey] || '';
 
         if (hs.is_error) {
             spans.forEach(s => s.classList.add('resolved-signal'));
@@ -578,16 +738,19 @@
 
             fb.className = 'feedback-box feedback-error';
             fb.innerHTML = `
-                <div class="audit-fb-title">Klinische Unstimmigkeit identifiziert (+100 XP)</div>
-                <p class="audit-fb-text">
-                    Diese Passage enthält eine fachlich inkorrekte Aussage. Überlege dir zunächst selbstständig die pathophysiologische Korrektur, bevor du die Auflösung einblendest.
-                </p>
-                <div class="audit-fb-actions">
+                <div class="audit-fb-title">🚨 Klinische Unstimmigkeit identifiziert (+100 XP)</div>
+                <div class="audit-recall-box">
+                    <label for="audit-hyp-${hsKey}" style="font-size:0.75rem; font-weight:800; color:var(--accent-cyan, #38bdf8); display:block;">
+                        🧠 Active Recall (Bloom-Synthese): Warum ist diese Maßnahme fehlerhaft und wie lautet dein korrektes Vorgehen?
+                    </label>
+                    <textarea id="audit-hyp-${hsKey}" class="audit-recall-input" placeholder="Formuliere deine klinische Korrektur in 1 Satz (bringt +30 XP Bonus beim Aufdecken)...">${escapeAuditHtml(savedHypothesis)}</textarea>
+                </div>
+                <div class="audit-fb-actions" style="margin-top:10px;">
                     <button type="button" class="action-btn secondary" onclick="window.revealHint(${stepIndex}, ${hotspotIndex})">
                         Sokratischen Impuls anzeigen (-50 XP)
                     </button>
-                    <button type="button" class="action-btn" onclick="window.revealSynthesis(${stepIndex}, ${hotspotIndex})">
-                        Synthese und Korrektur anzeigen
+                    <button type="button" class="action-btn" onclick="window.revealSynthesis(${stepIndex}, ${hotspotIndex}, true)">
+                        Synthese & Musterlösung abgleichen
                     </button>
                 </div>
             `;
@@ -616,6 +779,13 @@
         const fb = document.getElementById(`audit-fb-${stepIndex}`);
         if (!hs || !fb) return;
 
+        // Falls der Student schon etwas ins Active-Recall-Feld getippt hat, zwischenspeichern
+        const hsKey = `${stepIndex}_${hotspotIndex}`;
+        const hypVal = document.getElementById(`audit-hyp-${hsKey}`)?.value?.trim();
+        if (hypVal) {
+            saveAuditProgressState({ userHypothesesMap: { [hsKey]: hypVal } });
+        }
+
         if (typeof applyXpDelta === 'function') applyXpDelta(-50, 'Tutor-Impuls angefordert');
         const explanationText = hs.socratic_trap || hs.explanation || hs.feedback || 'Überlege, welche pathophysiologischen Mechanismen in dieser Konstellation greifen.';
 
@@ -623,23 +793,34 @@
             <div class="audit-fb-title">Sokratischer Impuls (-50 XP)</div>
             <p class="audit-fb-text">${escapeAuditHtml(explanationText)}</p>
             <div class="audit-fb-actions">
-                <button type="button" class="action-btn" onclick="window.revealSynthesis(${stepIndex}, ${hotspotIndex})">
+                <button type="button" class="action-btn" onclick="window.revealSynthesis(${stepIndex}, ${hotspotIndex}, true)">
                     Klinische Korrektur und Synthese aufdecken
                 </button>
             </div>
         `;
     };
 
-    window.revealSynthesis = function(stepIndex, hotspotIndex) {
+    window.revealSynthesis = function(stepIndex, hotspotIndex, rewardActiveRecall = false) {
         const hs = window.activeCaseData?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
         const fb = document.getElementById(`audit-fb-${stepIndex}`);
         if (!hs || !fb) return;
+
+        const hsKey = `${stepIndex}_${hotspotIndex}`;
+        const auditState = getAuditProgressState();
+        const inputEl = document.getElementById(`audit-hyp-${hsKey}`);
+        const typedHypothesis = inputEl ? inputEl.value.trim() : (auditState.userHypothesesMap[hsKey] || '');
+
+        // Active-Recall-Bonus vergeben, wenn der Student selbst eine Begründung formuliert hat
+        if (rewardActiveRecall && typedHypothesis.length >= 8 && !auditState.userHypothesesMap[hsKey]) {
+            if (typeof applyXpDelta === 'function') applyXpDelta(30, 'Active-Recall Begründung');
+        }
 
         const spans = document.querySelectorAll(`[data-hs-group="hs-${stepIndex}-${hotspotIndex}"]`);
         spans.forEach(s => s.classList.add('resolved-signal', 'resolved-corrected'));
 
         saveAuditProgressState({
-            resolvedHotspotsMap: { [`${stepIndex}_${hotspotIndex}`]: 'corrected' }
+            resolvedHotspotsMap: { [hsKey]: 'corrected' },
+            ...(typedHypothesis ? { userHypothesesMap: { [hsKey]: typedHypothesis } } : {})
         });
 
         const synthesisText = hs.correct_pathophysiology
@@ -649,6 +830,12 @@
                            || hs.pathophysiology
                            || hs.feedback
                            || 'Keine detaillierte Synthese hinterlegt.';
+
+        const userComparisonHtml = typedHypothesis
+            ? `<div style="padding:8px 10px; border-radius:8px; background:rgba(56,189,248,0.12); border-left:3px solid #38bdf8; margin-bottom:8px; font-size:0.8rem;">
+                   <strong style="color:#38bdf8;">Deine Begründung:</strong> ${escapeAuditHtml(typedHypothesis)}
+               </div>`
+            : '';
 
         fb.style.display = 'block';
         fb.className = 'feedback-box feedback-success';
@@ -660,11 +847,11 @@
                     📌 In Lern-Depot sichern
                 </button>
             </div>
+            ${userComparisonHtml}
             <p class="audit-fb-text">${escapeAuditHtml(synthesisText)}</p>
         `;
     };
 
-    // Speichert eine wichtige Audit-Korrektur direkt im persönlichen Lern-Depot (Knowledge Vault)
     window.saveAuditSynthesisToDepot = async function(stepIndex, hotspotIndex, btnEl) {
         const caseData = window.activeCaseData;
         const step = caseData?.timeline?.[stepIndex];
@@ -693,49 +880,23 @@
         }
     };
 
-    // Globale Exporte für app.js & Tests
+    // Bei Fallwechsel Filter zurücksetzen
+    const origLoadCase = window.loadCaseById;
+    if (typeof origLoadCase === 'function') {
+        window.loadCaseById = async function(caseId, opts = {}) {
+            activePatientFilter = 'ALL';
+            return await origLoadCase.apply(this, arguments);
+        };
+    }
+
+    // Globale Exporte
     window.parseParagraphIntoSegments = parseParagraphIntoSegments;
     window.splitIntoNaturalClauses = splitIntoNaturalClauses;
     window.splitStepIntoEditorialParagraphs = splitStepIntoEditorialParagraphs;
     window.renderTimeline = renderTimeline;
 
-    // Live-Entsperrung, sobald im PACS-Monitor oben das Bild gelöst wurde
     window.addEventListener('medcheck:imagingSolved', (e) => {
         lastUnlockedStudyId = e.detail?.studyId || null;
         renderTimeline();
     });
-})();
-
-// ==========================================================================
-// RADIOPAEDIA LINK-TRESOR HOOK FÜR DIE AUDIT-ABSCHNITTE
-// ==========================================================================
-(function bindAuditRadiopaediaVaultHook() {
-    const baseRenderTimeline = window.renderTimeline;
-    if (typeof baseRenderTimeline !== 'function') return;
-
-    window.renderTimeline = function() {
-        baseRenderTimeline.apply(this, arguments);
-
-        if (!window.RadiopaediaLinkEngine) return;
-        window.RadiopaediaLinkEngine.refreshUI();
-
-        const links = window.RadiopaediaLinkEngine.getLinksForCase(window.activeCaseData);
-        links.forEach(link => {
-            if (link.stepIndex === null || link.stepIndex === undefined) return;
-            const stepEl = document.getElementById(`audit-step-${link.stepIndex}`);
-            const headerEl = stepEl?.querySelector('.audit-step-header');
-            if (!headerEl || headerEl.querySelector(`[data-rad-id="${link.id}"]`)) return;
-
-            const pill = document.createElement('a');
-            pill.href = link.url;
-            pill.target = '_blank';
-            pill.rel = 'noopener noreferrer';
-            pill.className = 'mc-rad-link-pill';
-            pill.dataset.radId = link.id;
-            pill.style.marginLeft = 'auto';
-            pill.title = link.note || link.url;
-            pill.textContent = `🩻 ${link.modality}: ${link.title} ↗`;
-            headerEl.appendChild(pill);
-        });
-    };
 })();
