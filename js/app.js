@@ -9092,8 +9092,8 @@ const ClinicalDidacticsEngine = (() => {
 ClinicalDidacticsEngine.init();
 
 // ==========================================================================
-// 24. CLINICAL PACS & PHOTO-SERIES ENGINE V2.0
-// (INKL. RADIOPAEDIA/WIKIMEDIA AUTO-RESOLVER, LIVE-SUCHE & CINE-LOOP)
+// 24. CLINICAL PACS & RADIOPAEDIA SERIES ENGINE V3.0
+// (EXAKTE ORIGINALE RADIOPAEDIA-SERIEN, /api/radiopaedia & SOURCE-PARSER)
 // ==========================================================================
 const ClinicalMediaEngine = (() => {
     let isViewerOpen = false;
@@ -9104,11 +9104,11 @@ const ClinicalMediaEngine = (() => {
     let showReport = false;
     let showMeasureGrid = false;
 
-    // Cine-Loop State (automatisches Durchlaufen der Schichten)
+    // Cine-Loop State
     let cineLoopTimer = null;
     let isCinePlaying = false;
 
-    // Bild-Transformationen (PACS / Foto-Labor)
+    // Bild-Transformationen (PACS Fensterung & Zoom)
     let zoomLevel = 1;
     let panX = 0;
     let panY = 0;
@@ -9120,13 +9120,22 @@ const ClinicalMediaEngine = (() => {
     let isInverted = false;
     let wheelThrottleTimer = null;
 
-    // Touch-Swipe States
+    // Touch-Swipe & Rail-Scrubbing States
     let touchStartX = 0;
     let touchStartY = 0;
+    let isScrubbingRail = false;
 
-    // Temporärer State für das "➕ Fotoserie anhängen"-Studio
-    let importStudioResults = [];
-    let importStudioSelectedItems = [];
+    // Import-Studio State
+    let parsedStudioStudies = [];
+
+    function decodeEntities(str) {
+        return String(str || '')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
+    }
 
     function stripHtmlTags(html) {
         const div = document.createElement('div');
@@ -9135,202 +9144,93 @@ const ClinicalMediaEngine = (() => {
     }
 
     // ----------------------------------------------------------------------
-    // 1. SMART URL RESOLVER (WANDELT RADIOPAEDIA- & WIKIMEDIA-SEITENLINKS
-    //    ODER SUCHBEGRIFFE AUTOMATISCH IN DIREKTE BILDDATEI-URLS UM)
+    // 1. EXAKTER RADIOPAEDIA-EXTRAKTOR (SERVER-API + LOKALER QUELLTEXT-PARSER)
     // ----------------------------------------------------------------------
-    function isNonImageWebpageOrQuery(inputStr) {
-        const s = String(inputStr || '').trim();
-        if (!s) return false;
-        if (s.startsWith('data:image/') || s.startsWith('blob:')) return false;
-        // Lokale Bilddateien im Projekt
-        if (!/^https?:\/\//i.test(s) && /\.(jpe?g|png|webp|gif|svg|bmp|avif)(\?.*)?$/i.test(s)) {
-            return false;
-        }
-        // Reine Suchbegriffe ohne http/Pfad
-        if (!/^https?:\/\//i.test(s) && !s.includes('/')) {
-            return true;
-        }
-        // Radiopaedia Fall- oder Artikel-Webseiten
-        if (/radiopaedia\.org\/(cases|articles)\//i.test(s)) {
-            return true;
-        }
-        // Wikimedia Commons Seitenlinks statt upload.wikimedia.org
-        if (/commons\.wikimedia\.org\/wiki\//i.test(s) || /wikipedia\.org\/wiki\/.*File:/i.test(s)) {
-            return true;
-        }
-        return false;
+    function normalizeRadiopaediaUrl(rawUrl) {
+        let clean = String(rawUrl || '').replace(/\\\//g, '/').trim();
+        if (clean.startsWith('//')) clean = 'https:' + clean;
+        return clean.replace(/_(tiny|thumb|teaser|small|medium|square|gallery)\.(jpe?g|png|webp)$/i, '_big_gallery.$2');
     }
 
-    async function searchWikimediaCommonsApi(queryText, limit = 8) {
-        const cleanQuery = String(queryText || '')
-            .replace(/[-_]+/g, ' ')
-            .replace(/\b(cases|articles|radiopaedia|http|https|www|org|com)\b/gi, '')
-            .trim();
+    // Extrahiert originale Radiopaedia-Schichtserien direkt aus kopiertem Seitenquelltext / HTML
+    function extractRadiopaediaFromRawSource(rawSource, sourceUrl = '') {
+        const text = String(rawSource || '').replace(/\\\//g, '/');
+        const sliceMap = new Map();
 
-        const searchQuery = `filetype:bitmap (radiopaedia OR CT OR MRI OR ultrasound OR X-ray OR radiograph OR clinical) ${cleanQuery}`;
-        const endpoint = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchQuery)}&gsrnamespace=6&gsrlimit=${limit}&prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1000&format=json&origin=*`;
-
-        const res = await fetch(endpoint);
-        const data = await res.json();
-        const pages = Object.values(data?.query?.pages || {});
-
-        return pages.map(p => {
-            const info = p.imageinfo?.[0];
-            if (!info) return null;
-            const meta = info.extmetadata || {};
-            const cleanTitle = p.title.replace(/^File:/i, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-            const desc = stripHtmlTags(meta.ImageDescription?.value || cleanTitle);
-            const artist = stripHtmlTags(meta.Artist?.value || 'Radiopaedia / Wikimedia Commons');
-            const license = stripHtmlTags(meta.LicenseShortName?.value || 'CC BY-SA');
-
-            return {
-                url: info.thumburl || info.url,
-                fullUrl: info.url,
-                label: cleanTitle.slice(0, 65),
-                finding_summary: desc.slice(0, 220),
-                caption: `Quelle: ${artist} (${license})`
-            };
-        }).filter(Boolean);
-    }
-
-    async function resolveInputToImageItems(rawInput) {
-        const clean = String(rawInput || '').trim();
-        if (!clean) return [];
-
-        // A) Direkte Bilddatei oder Data-URI -> direkt behalten
-        if (!isNonImageWebpageOrQuery(clean)) {
-            return [{
-                url: clean,
-                label: 'Klinische Aufnahme',
-                finding_summary: 'Klinischer Bildbefund',
-                caption: ''
-            }];
-        }
-
-        // B) Wikimedia Commons / Wikipedia "File:..." Seitenlink
-        const wikiFileMatch = clean.match(/(?:File:|Datei:)([^#?&/]+)/i);
-        if (wikiFileMatch && wikiFileMatch[1]) {
-            try {
-                const fileName = decodeURIComponent(wikiFileMatch[1]);
-                const api = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1200&format=json&origin=*`;
-                const r = await fetch(api);
-                const d = await r.json();
-                const page = Object.values(d?.query?.pages || {})[0];
-                const info = page?.imageinfo?.[0];
-                if (info?.url) {
-                    const desc = stripHtmlTags(info.extmetadata?.ImageDescription?.value || fileName);
-                    return [{
-                        url: info.thumburl || info.url,
-                        label: fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' '),
-                        finding_summary: desc.slice(0, 240),
-                        caption: 'Aufgelöst via Wikimedia Commons API'
-                    }];
-                }
-            } catch (_e) {}
-        }
-
-        // C) Radiopaedia Fall-/Artikel-URL (z. B. https://radiopaedia.org/cases/...)
-        if (/radiopaedia\.org\/(cases|articles)\//i.test(clean)) {
-            // 1. Versuch: Direkt die Radiopaedia-Serienbilder / og:image über CORS-Proxy extrahieren
-            try {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 4000);
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(clean)}`;
-                const res = await fetch(proxyUrl, { signal: controller.signal });
-                clearTimeout(timer);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const html = data?.contents || '';
-
-                    // Suche nach allen hochauflösenden Schichtbildern im Fall
-                    const imgRegex = /https:\/\/prod-images-static\.radiopaedia\.org\/images\/\d+\/[a-zA-Z0-9_-]+(?:_big_gallery|_gallery|_jumbo)?\.(?:jpg|jpeg|png)/gi;
-                    const matches = Array.from(new Set(html.match(imgRegex) || []));
-
-                    // Auf beste Auflösung normieren
-                    const fullUrls = Array.from(new Set(matches.map(u =>
-                        u.replace(/_(tiny|thumb|teaser|Square)\./i, '_big_gallery.')
-                    ))).slice(0, 16);
-
-                    // Fallback auf og:image im HTML-Header
-                    if (fullUrls.length === 0) {
-                        const ogMatch = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
-                                     || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
-                        if (ogMatch && ogMatch[1]) fullUrls.push(ogMatch[1]);
-                    }
-
-                    if (fullUrls.length > 0) {
-                        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-                        const cleanCaseTitle = titleMatch ? titleMatch[1].replace(/\|.*$/, '').trim() : 'Radiopaedia Fall';
-                        return fullUrls.map((u, idx) => ({
-                            url: u,
-                            label: `Schicht ${idx + 1} / ${fullUrls.length} · ${cleanCaseTitle}`,
-                            finding_summary: cleanCaseTitle,
-                            caption: `Radiopaedia Case (${clean})`
-                        }));
-                    }
-                }
-            } catch (_proxyErr) {
-                console.info('[PACS Resolver] Radiopaedia Direkt-Extraktion blockiert, nutze Open-Access-Fallback...');
+        const jsonImgRegex = /"id"\s*:\s*(\d+)[^}]*?"(?:fullscreen_filename|public_filename|big_gallery)"\s*:\s*"(https?:\/\/prod-images-static\.radiopaedia\.org\/images\/\d+\/[^"]+)"/gi;
+        let m;
+        while ((m = jsonImgRegex.exec(text)) !== null) {
+            const imageId = m[1];
+            const url = normalizeRadiopaediaUrl(m[2]);
+            if (!sliceMap.has(imageId)) {
+                sliceMap.set(imageId, { imageId, url });
             }
-
-            // 2. Zuverlässiger Fallback: Slug aus der Radiopaedia-URL lesen und passende CC-Serie laden
-            const slugMatch = clean.match(/radiopaedia\.org\/(?:cases|articles)\/([^/?#]+)/i);
-            const slugQuery = slugMatch ? decodeURIComponent(slugMatch[1]).replace(/-\d+$/, '').replace(/-/g, ' ') : clean;
-            const fallbackItems = await searchWikimediaCommonsApi(slugQuery, 6);
-            if (fallbackItems.length > 0) return fallbackItems;
         }
 
-        // D) Allgemeiner Suchbegriff oder sonstige nicht-direkte URL -> Wikimedia/Radiopaedia-CC Suche
-        const searchItems = await searchWikimediaCommonsApi(clean, 6);
-        return searchItems;
+        const cdnRegex = /https?:\/\/prod-images-static\.radiopaedia\.org\/images\/(\d+)\/([a-zA-Z0-9._-]+?\.(?:jpe?g|png|webp))/gi;
+        while ((m = cdnRegex.exec(text)) !== null) {
+            const imageId = m[1];
+            const url = normalizeRadiopaediaUrl(m[0]);
+            if (!sliceMap.has(imageId)) {
+                sliceMap.set(imageId, { imageId, url });
+            }
+        }
+
+        const slices = Array.from(sliceMap.values());
+        if (slices.length === 0) return null;
+
+        const titleMatch = text.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || text.match(/<title>([\s\S]*?)<\/title>/i);
+        const caseTitle = titleMatch
+            ? stripHtmlTags(titleMatch[1]).replace(/\|\s*Radiology Case.*$/i, '').trim()
+            : 'Radiopaedia Original-Serie';
+
+        const findingsMatch = text.match(/id="case-findings"[\s\S]*?<div[^>]*class="[^"]*body[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+        const findings = findingsMatch ? stripHtmlTags(findingsMatch[1]) : '';
+
+        return {
+            caseTitle,
+            findings,
+            studies: [{
+                studyId: 'source_import_' + Date.now(),
+                title: caseTitle,
+                modality: 'Radiopaedia PACS',
+                caption: findings,
+                sourceUrl,
+                slices: slices.map((s, idx) => ({
+                    id: `rad_slice_${s.imageId}_${idx}`,
+                    url: s.url,
+                    label: `Schicht ${idx + 1} / ${slices.length}`,
+                    finding_summary: findings || caseTitle,
+                    caption: sourceUrl ? `Originalquelle: ${sourceUrl}` : 'Radiopaedia Original-Serie',
+                    annotations: []
+                }))
+            }]
+        };
     }
 
-    // Repariert automatisch bereits gespeicherte kaputte Links (wie in deinem Screenshot!)
-    async function healBrokenSlideIfNeeded(seriesIdx, slideIdx) {
-        const seriesList = getNormalizedSeriesForCase(activeCaseData);
-        const series = seriesList[seriesIdx];
-        const item = series?.items?.[slideIdx];
-        if (!item || item._healAttempted) return;
-        item._healAttempted = true;
-
-        const statusBadge = document.getElementById('mc-pacs-hud-topleft');
-        if (statusBadge) {
-            statusBadge.innerHTML = `<div>⏳ Löse Radiopaedia / Bild-Link automatisch auf...</div>`;
+    async function fetchOriginalRadiopaediaCase(radiopaediaUrl) {
+        const clean = String(radiopaediaUrl || '').trim();
+        if (!/radiopaedia\.org\//i.test(clean)) {
+            throw new Error('Bitte gib einen gültigen Link von radiopaedia.org ein (z. B. https://radiopaedia.org/cases/...).');
         }
 
-        // Falls die URL eine Webseite ist ODER das Bild ein onerror geworfen hat:
-        const querySource = isNonImageWebpageOrQuery(item.url)
-            ? item.url
-            : (series.title !== 'Klinische Fotoserie / Bildgebung' ? series.title : (activeCaseData?.metadata?.primary_disease || activeCaseData?.metadata?.title || 'spinal cord MRI'));
+        const res = await fetch('/api/radiopaedia', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: clean })
+        });
 
-        const resolvedItems = await resolveInputToImageItems(querySource);
-        if (resolvedItems && resolvedItems.length > 0) {
-            // Ersetze das kaputte Item (oder füge alle gefundenen Schichten der Serie ein!)
-            if (Array.isArray(activeCaseData?.image_series) && activeCaseData.image_series[seriesIdx]) {
-                activeCaseData.image_series[seriesIdx].items = resolvedItems.map((r, i) => ({
-                    id: `healed_${Date.now()}_${i}`,
-                    url: r.url,
-                    label: r.label || `Schicht ${i + 1} / ${resolvedItems.length}`,
-                    finding_summary: r.finding_summary || item.finding_summary || 'Klinischer Bildbefund',
-                    caption: r.caption || item.caption || '',
-                    annotations: item.annotations || []
-                }));
-
-                // Reparierten Fall dauerhaft in LocalStorage sichern
-                let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-                customCases = customCases.filter(c => (c.case_id || c.id) !== activeCaseData.case_id);
-                customCases.push(activeCaseData);
-                localStorage.setItem('custom_cases', JSON.stringify(customCases));
-            }
-            activeSlideIndex = 0;
-            renderActiveViewerState();
-            injectPlayerMediaAccessUI();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+            const err = new Error(data.error || `Radiopaedia konnte nicht direkt abgerufen werden (HTTP ${res.status}).`);
+            err.blocked = !!data.blocked;
+            throw err;
         }
+        return data;
     }
 
     // ----------------------------------------------------------------------
-    // 2. PROCEDURAL CLINICAL SVG GENERATOR (FALLBACK & DEMO-SCHICHTEN)
+    // 2. DEMO-FALLBACK FÜR DEN BUILT-IN MYELOPATHIE-FALL
     // ----------------------------------------------------------------------
     function generateClinicalPresetDataUri(preset) {
         let svg = '';
@@ -9346,10 +9246,10 @@ const ClinicalMediaEngine = (() => {
                 <path d="M282,20 L322,20 L322,420 L282,420 Z" fill="#334155"/>
                 <rect x="283" y="165" width="16" height="155" rx="6" fill="#38bdf8" opacity="0.95"/>
                 <rect x="285" y="170" width="11" height="145" rx="4" fill="#ffffff"/>
-                <text x="20" y="32" fill="#38bdf8" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w SAGITTAL (SCHICHT 1/4)</text>
+                <text x="20" y="32" fill="#38bdf8" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w SAGITTAL (SCHICHT 1/2)</text>
                 <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Ventrale Myelon-Ischämie (A. spinalis anterior)</text>
             </svg>`;
-        } else if (preset === 'mri_axial_owleyes') {
+        } else {
             svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
                 <rect width="600" height="450" fill="#050811"/>
                 <ellipse cx="300" cy="115" rx="95" ry="62" fill="#1e293b" stroke="#475569" stroke-width="2.5"/>
@@ -9359,36 +9259,8 @@ const ClinicalMediaEngine = (() => {
                 <path d="M272,230 Q285,255 274,278 Q290,262 300,262 Q310,262 326,278 Q315,255 328,230 Q312,248 300,248 Q288,248 272,230 Z" fill="#475569"/>
                 <circle cx="278" cy="238" r="10" fill="#38bdf8"/><circle cx="278" cy="238" r="6" fill="#ffffff"/>
                 <circle cx="322" cy="238" r="10" fill="#38bdf8"/><circle cx="322" cy="238" r="6" fill="#ffffff"/>
-                <circle cx="300" cy="211" r="4.5" fill="#ef4444"/>
-                <text x="20" y="32" fill="#38bdf8" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w AXIAL HÖHE Th3 (SCHICHT 2/4)</text>
+                <text x="20" y="32" fill="#38bdf8" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w AXIAL HÖHE Th3 (SCHICHT 2/2)</text>
                 <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Eulenaugen-Zeichen (Bilaterale Vorderhorn-Ischämie)</text>
-            </svg>`;
-        } else if (preset === 'mri_sagittal_letm') {
-            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
-                <rect width="600" height="450" fill="#050811"/>
-                <g fill="#1e293b" stroke="#475569" stroke-width="2">
-                    <rect x="170" y="35" width="75" height="48" rx="6"/><rect x="170" y="98" width="75" height="48" rx="6"/>
-                    <rect x="170" y="161" width="75" height="48" rx="6"/><rect x="170" y="224" width="75" height="48" rx="6"/>
-                    <rect x="170" y="287" width="75" height="48" rx="6"/><rect x="170" y="350" width="75" height="48" rx="6"/>
-                </g>
-                <path d="M260,20 L345,20 L345,420 L260,420 Z" fill="#e2e8f0" opacity="0.85"/>
-                <path d="M279,20 L325,20 L325,420 L279,420 Z" fill="#334155"/>
-                <rect x="283" y="95" width="38" height="260" rx="16" fill="#f59e0b" opacity="0.85"/>
-                <rect x="289" y="108" width="26" height="235" rx="12" fill="#fef3c7"/>
-                <text x="20" y="32" fill="#f59e0b" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w SAGITTAL LETM (SCHICHT 3/4)</text>
-                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Langstreckige Myelitis ≥ 3 Segmente (NMOSD)</text>
-            </svg>`;
-        } else {
-            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
-                <rect width="600" height="450" fill="#050811"/>
-                <ellipse cx="300" cy="115" rx="95" ry="62" fill="#1e293b" stroke="#475569" stroke-width="2.5"/>
-                <circle cx="300" cy="255" r="78" fill="#e2e8f0" stroke="#64748b" stroke-width="3"/>
-                <ellipse cx="300" cy="255" rx="52" ry="42" fill="#334155" stroke="#1e293b" stroke-width="2"/>
-                <path d="M272,230 Q285,255 274,278 Q290,262 300,262 Q310,262 326,278 Q315,255 328,230 Q312,248 300,248 Q288,248 272,230 Z" fill="#475569"/>
-                <path d="M276,288 L300,260 L324,288 L314,294 L300,274 L286,294 Z" fill="#10b981"/>
-                <path d="M280,287 L300,264 L320,287" stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round"/>
-                <text x="20" y="32" fill="#10b981" font-family="monospace" font-size="13" font-weight="bold">MRT HWS/BWS · T2w AXIAL (SCHICHT 4/4)</text>
-                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Umgekehrtes V-Zeichen (Hinterstrang-Degeneration / B12)</text>
             </svg>`;
         }
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
@@ -9399,51 +9271,28 @@ const ClinicalMediaEngine = (() => {
             BUILTIN_DEMO_CASE.image_series = [
                 {
                     series_id: "spine_mri_series_01",
-                    title: "Spinales MRT: Vaskuläre vs. Entzündliche & Metabolische Myelopathie",
+                    title: "Spinales MRT: Vaskuläre Myelopathie (Demo-Serie)",
                     modality: "MRT (T2w)",
-                    clinical_context: "Notfall-Triage bei akuter und subakuter Paraparese (4 durchscrollbare Schichten)",
-                    socratic_question: "Scrolle mit dem Mausrad oder Regler durch die 4 Schichten: Anhand welcher anatomischen Verteilung im Myelon-Querschnitt unterscheidest du das A.-spinalis-anterior-Syndrom (Schicht 1–2) von einer NMOSD (Schicht 3) und einer funikulären Myelose (Schicht 4)?",
+                    clinical_context: "Notfall-Triage bei akuter Paraparese",
+                    socratic_question: "Scrolle durch die Schichten: Welche anatomischen Strukturen im Myelon-Querschnitt sind selektiv betroffen?",
                     items: [
                         {
                             id: "slice_1",
-                            label: "Schicht 1/4 · Sagittal T2w (Ventrale Ischämie)",
+                            label: "Schicht 1 / 2 · Sagittal T2w",
                             url: generateClinicalPresetDataUri('mri_sagittal_asa'),
-                            finding_summary: "Bleistiftförmige ventrale T2-Hyperintensität (Th2–Th4) unter Aussparung des dorsalen Myelons.",
-                            caption: "Sagittale T2-Wichtung: Scharf demarkierte Hyperintensität in den ventralen 2/3 des Myelons (Versorgungsgebiet der A. spinalis anterior).",
-                            annotations: [
-                                { x: 48, y: 52, label: "Ventrale Myelon-Ischämie (2/3)", detail: "Tractus corticospinalis & spinothalamicus betroffen → Paraparese + dissoziierte Empfindungsstörung." },
-                                { x: 53, y: 52, label: "Intakte Hinterstränge (dorsal)", detail: "Versorgung über Aa. spinales posteriores → Lagesinn bleibt erhalten!" }
-                            ]
+                            finding_summary: "Bleistiftförmige ventrale T2-Hyperintensität (Th2–Th4).",
+                            caption: "Versorgungsgebiet der A. spinalis anterior (ventrale 2/3 des Myelons).",
+                            annotations: [{ x: 48, y: 52, label: "Ventrale Myelon-Ischämie", detail: "Tractus corticospinalis & spinothalamicus betroffen." }]
                         },
                         {
                             id: "slice_2",
-                            label: "Schicht 2/4 · Axial T2w (Eulenaugen-Zeichen)",
+                            label: "Schicht 2 / 2 · Axial T2w (Eulenaugen-Zeichen)",
                             url: generateClinicalPresetDataUri('mri_axial_owleyes'),
-                            finding_summary: "Pathognomonisches bilaterales Eulenaugen-Zeichen (Owl-Eyes) der Vorderhörner.",
-                            caption: "Axiale T2-Wichtung auf Höhe Th3: Symmetrische Hyperintensität der beiden Vorderhörner der grauen Substanz.",
+                            finding_summary: "Bilaterale T2-Hyperintensität der Vorderhörner (Owl-Eyes).",
+                            caption: "Symmetrische Ischämie der stoffwechselaktiven Alpha-Motoneurone.",
                             annotations: [
-                                { x: 46.3, y: 52.8, label: "Rechtes Vorderhorn (Owl-Eye)", detail: "Untergang der Alpha-Motoneurone → schlaffe Parese in der Akutphase." },
-                                { x: 53.6, y: 52.8, label: "Linkes Vorderhorn (Owl-Eye)", detail: "Bilaterale symmetrische Ischämie im A.-spinalis-anterior-Stromgebiet." }
-                            ]
-                        },
-                        {
-                            id: "slice_3",
-                            label: "Schicht 3/4 · Sagittal T2w (LETM ≥ 3 Segmente)",
-                            url: generateClinicalPresetDataUri('mri_sagittal_letm'),
-                            finding_summary: "Longitudinale extensive transversale Myelitis (LETM) über 4 Wirbelkörpersegmente.",
-                            caption: "Sagittale T2-Wichtung (Patient 2): Kontinuierliche Läsion über ≥ 3 Segmente (AQP4-IgG NMOSD).",
-                            annotations: [
-                                { x: 50.3, y: 50.0, label: "LETM (4 Segmente)", detail: "Befall von ≥ 3 Wirbelkörpersegmenten → Cave: Kein Interferon-beta!" }
-                            ]
-                        },
-                        {
-                            id: "slice_4",
-                            label: "Schicht 4/4 · Axial T2w (Umgekehrtes V-Zeichen)",
-                            url: generateClinicalPresetDataUri('mri_axial_inv_v'),
-                            finding_summary: "Symmetrische T2-Hyperintensität der Hinterstränge (Inverted-V-Sign).",
-                            caption: "Axiale T2-Wichtung (Differentialdiagnose funikuläre Myelose / N2O): Selektive Demyelinisierung von Fasciculus gracilis und cuneatus.",
-                            annotations: [
-                                { x: 50.0, y: 61.5, label: "Umgekehrtes V-Zeichen", detail: "Ausfall der tiefen Sensibilität (Pallhypästhesie, sensible Ataxie) durch funktionellen B12-Mangel (MMA ↑↑)." }
+                                { x: 46.3, y: 52.8, label: "Rechtes Vorderhorn", detail: "Schlaffe Parese in der Akutphase." },
+                                { x: 53.6, y: 52.8, label: "Linkes Vorderhorn", detail: "A.-spinalis-anterior-Syndrom." }
                             ]
                         }
                     ]
@@ -9452,9 +9301,17 @@ const ClinicalMediaEngine = (() => {
         }
     }
 
-    // ----------------------------------------------------------------------
-    // 3. NORMALISIERUNG DER BILDSERIEN DES AKTUELLEN FALLS
-    // ----------------------------------------------------------------------
+    // Bereinigt kaputte alte Serien (z. B. wenn noch eine unaufgelöste Webseite darin gespeichert war)
+    function isValidDirectImageUrl(url) {
+        const s = String(url || '').trim();
+        if (!s) return false;
+        if (s.startsWith('data:image/') || s.startsWith('blob:')) return true;
+        if (/radiopaedia\.org\/(cases|articles|studies)\//i.test(s) && !/\.(jpe?g|png|webp|gif)(\?.*)?$/i.test(s)) {
+            return false;
+        }
+        return true;
+    }
+
     function getNormalizedSeriesForCase(caseData = activeCaseData) {
         if (!caseData) return [];
         if (caseData.case_id === BUILTIN_DEMO_CASE.case_id && (!caseData.image_series || caseData.image_series.length === 0)) {
@@ -9464,18 +9321,17 @@ const ClinicalMediaEngine = (() => {
 
         const rawSeriesList = [];
 
-        // Unterstützt sowohl `image_series` als auch das `imaging`-Array aus dem Forge-Kalibrator!
-        if (Array.isArray(caseData.imaging) && caseData.imaging.length > 0) {
+        if (Array.isArray(caseData.imaging)) {
             caseData.imaging.forEach((st, idx) => {
                 const slices = Array.isArray(st.slices) && st.slices.length > 0
                     ? st.slices
                     : (st.image_url ? [{ url: st.image_url, label: st.title }] : []);
                 rawSeriesList.push({
                     series_id: st.id || `imaging_${idx}`,
-                    title: st.title || `PACS-Studie ${idx + 1}`,
+                    title: st.title || `Radiopaedia Studie ${idx + 1}`,
                     modality: st.modality || 'Radiologie',
                     clinical_context: st.attribution || '',
-                    socratic_question: st.clinical_question || 'Beurteile die Aufnahme systematisch.',
+                    socratic_question: st.clinical_question || 'Beurteile die originalen Radiopaedia-Schichten systematisch.',
                     items: slices.map((sl, sIdx) => ({
                         id: `sl_${idx}_${sIdx}`,
                         url: typeof sl === 'string' ? sl : (sl.url || sl.image_url || st.image_url),
@@ -9488,52 +9344,34 @@ const ClinicalMediaEngine = (() => {
             });
         }
 
-        const candidates = [
-            caseData.image_series,
-            caseData.media_series,
-            caseData.pacs_series,
-            caseData.extra_tasks?.image_series
-        ];
-
-        candidates.forEach(cand => {
-            if (!cand) return;
-            if (Array.isArray(cand)) {
-                if (cand.length > 0 && (cand[0].items || cand[0].slices || cand[0].images)) {
-                    rawSeriesList.push(...cand);
-                } else if (cand.length > 0 && (cand[0].url || cand[0].src || cand[0].image_url)) {
-                    rawSeriesList.push({
-                        series_id: `series_${caseData.case_id}_main`,
-                        title: caseData.metadata?.title || 'Klinische Bildserie',
-                        modality: cand[0].modality || 'Klinik-Serie',
-                        clinical_context: caseData.case_overview?.topic || '',
-                        items: cand
-                    });
-                }
-            }
-        });
+        if (Array.isArray(caseData.image_series)) {
+            rawSeriesList.push(...caseData.image_series);
+        }
 
         return rawSeriesList.map((series, sIdx) => {
             const rawItems = series.items || series.slices || series.images || [];
+            const validItems = rawItems.map((it, iIdx) => ({
+                id: it.id || `item_${sIdx}_${iIdx}`,
+                url: typeof it === 'string' ? it : (it.url || it.src || it.image_url || ''),
+                label: it.label || it.title || `Schicht ${iIdx + 1} / ${rawItems.length}`,
+                caption: it.caption || it.description || '',
+                finding_summary: it.finding_summary || it.finding || '',
+                annotations: Array.isArray(it.annotations) ? it.annotations : []
+            })).filter(it => isValidDirectImageUrl(it.url));
+
             return {
                 series_id: series.series_id || series.id || `series_${sIdx + 1}`,
-                title: series.title || `Bildserie ${sIdx + 1}`,
-                modality: series.modality || 'Klinik / PACS',
+                title: series.title || `Radiopaedia Serie ${sIdx + 1}`,
+                modality: series.modality || 'Radiopaedia PACS',
                 clinical_context: series.clinical_context || series.description || '',
-                socratic_question: series.socratic_question || series.hint || 'Beurteile die Bildserie systematisch von Schicht zu Schicht, bevor du die Marker und den Befundbericht einblendest.',
-                items: rawItems.map((it, iIdx) => ({
-                    id: it.id || `item_${sIdx}_${iIdx}`,
-                    url: typeof it === 'string' ? it : (it.url || it.src || it.image_url || ''),
-                    label: it.label || it.title || `Aufnahme ${iIdx + 1} / ${rawItems.length}`,
-                    caption: it.caption || it.description || '',
-                    finding_summary: it.finding_summary || it.finding || '',
-                    annotations: Array.isArray(it.annotations) ? it.annotations : []
-                })).filter(it => !!it.url)
+                socratic_question: series.socratic_question || series.hint || 'Scrolle mit dem Mausrad oder der Schicht-Leiste durch alle Schichten und erarbeite dir den radiologischen Befund.',
+                items: validItems
             };
         }).filter(s => s.items.length > 0);
     }
 
     // ----------------------------------------------------------------------
-    // 4. STYLESHEET INJECTION
+    // 3. STYLESHEET INJECTION
     // ----------------------------------------------------------------------
     function injectMediaEngineStyles() {
         if (document.getElementById('mc-pacs-media-engine-css')) return;
@@ -9559,6 +9397,12 @@ const ClinicalMediaEngine = (() => {
                 70% { box-shadow: 0 0 0 7px rgba(56, 189, 248, 0); }
                 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
             }
+            .mc-audit-pacs-banner {
+                margin: 0 0 16px 0; padding: 14px 16px; border-radius: 14px;
+                background: linear-gradient(135deg, rgba(11, 17, 33, 0.92) 0%, rgba(15, 23, 42, 0.85) 100%);
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+            }
             .mc-inline-series-strip {
                 margin: 12px 0 18px 0; padding: 14px 16px; border-radius: 14px;
                 background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.28);
@@ -9571,17 +9415,17 @@ const ClinicalMediaEngine = (() => {
                 display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
             }
             .mc-inline-thumb-card {
-                flex: 0 0 155px; border-radius: 10px; overflow: hidden; background: #060913;
+                flex: 0 0 140px; border-radius: 10px; overflow: hidden; background: #060913;
                 border: 1px solid rgba(148, 163, 184, 0.25); cursor: pointer; transition: all 0.18s ease;
             }
             .mc-inline-thumb-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
-            .mc-inline-thumb-card img { width: 100%; height: 92px; object-fit: cover; display: block; background: #020617; }
+            .mc-inline-thumb-card img { width: 100%; height: 88px; object-fit: cover; display: block; background: #020617; }
             .mc-inline-thumb-label {
-                padding: 6px 8px; font-size: 0.71rem; font-weight: 700; color: var(--text-main);
+                padding: 5px 8px; font-size: 0.7rem; font-weight: 700; color: var(--text-main);
                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             }
             .mc-pacs-backdrop {
-                position: fixed; inset: 0; z-index: 9950; background: rgba(2, 6, 23, 0.84);
+                position: fixed; inset: 0; z-index: 9950; background: rgba(2, 6, 23, 0.86);
                 backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center;
                 padding: 18px; transition: all 0.25s ease;
             }
@@ -9596,7 +9440,7 @@ const ClinicalMediaEngine = (() => {
                 }
             }
             .mc-pacs-window {
-                width: 100%; max-width: 1240px; height: min(90vh, 860px); background: #070b16;
+                width: 100%; max-width: 1260px; height: min(91vh, 880px); background: #070b16;
                 border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 18px;
                 box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75); display: flex; flex-direction: column;
                 overflow: hidden; color: #f8fafc;
@@ -9628,13 +9472,13 @@ const ClinicalMediaEngine = (() => {
             .mc-pacs-tool-btn:hover { border-color: #38bdf8; color: #ffffff; }
             .mc-pacs-tool-btn.active { background: rgba(16, 185, 129, 0.22); border-color: #10b981; color: #6ee7b7; }
             .mc-pacs-body {
-                flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 340px; overflow: hidden;
+                flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 350px; overflow: hidden;
             }
             .mc-pacs-backdrop.is-split-mode .mc-pacs-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
             @media (max-width: 900px) { .mc-pacs-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
             .mc-pacs-viewport-wrap {
-                position: relative; background: radial-gradient(circle at center, #0a0f1e 0%, #02040a 100%);
-                display: flex; flex-direction: column; min-height: 280px; overflow: hidden; user-select: none;
+                position: relative; background: #02040a;
+                display: flex; flex-direction: column; min-height: 300px; overflow: hidden; user-select: none;
             }
             .mc-pacs-stage {
                 flex: 1; position: relative; overflow: hidden; display: flex; align-items: center;
@@ -9643,11 +9487,11 @@ const ClinicalMediaEngine = (() => {
             .mc-pacs-stage.is-panning { cursor: grabbing; }
             .mc-pacs-img-layer {
                 position: relative; display: inline-flex; align-items: center; justify-content: center;
-                max-width: 92%; max-height: 92%; transform-origin: center center; transition: transform 0.06s linear;
+                max-width: 94%; max-height: 94%; transform-origin: center center; transition: transform 0.05s linear;
             }
             .mc-pacs-main-img {
-                max-width: 100%; max-height: 62vh; object-fit: contain; border-radius: 6px;
-                display: block; pointer-events: none; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+                max-width: 100%; max-height: 64vh; object-fit: contain; border-radius: 4px;
+                display: block; pointer-events: none;
             }
             .mc-pacs-measure-grid {
                 position: absolute; inset: 0;
@@ -9671,20 +9515,21 @@ const ClinicalMediaEngine = (() => {
             .mc-pacs-hud-topleft {
                 position: absolute; top: 12px; left: 14px; pointer-events: none;
                 font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: #38bdf8;
-                background: rgba(6, 9, 19, 0.78); padding: 6px 10px; border-radius: 8px;
-                border: 1px solid rgba(56, 189, 248, 0.25); z-index: 20;
+                background: rgba(6, 9, 19, 0.82); padding: 6px 10px; border-radius: 8px;
+                border: 1px solid rgba(56, 189, 248, 0.28); z-index: 20;
             }
             .mc-pacs-hud-bottomleft {
                 position: absolute; bottom: 12px; left: 14px; pointer-events: none;
                 font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #94a3b8;
-                background: rgba(6, 9, 19, 0.75); padding: 4px 9px; border-radius: 6px; z-index: 20;
+                background: rgba(6, 9, 19, 0.78); padding: 4px 9px; border-radius: 6px; z-index: 20;
             }
             .mc-pacs-vertical-scrubber {
-                position: absolute; top: 16px; bottom: 16px; right: 12px; width: 14px;
-                background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.25);
-                border-radius: 999px; display: flex; flex-direction: column; padding: 3px; gap: 3px; z-index: 20;
+                position: absolute; top: 14px; bottom: 14px; right: 12px; width: 18px;
+                background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35);
+                border-radius: 999px; display: flex; flex-direction: column; padding: 3px; gap: 2px;
+                z-index: 20; cursor: ns-resize; touch-action: none;
             }
-            .mc-pacs-v-tick { flex: 1; border-radius: 999px; background: rgba(148, 163, 184, 0.22); cursor: pointer; }
+            .mc-pacs-v-tick { flex: 1; border-radius: 999px; background: rgba(148, 163, 184, 0.25); }
             .mc-pacs-v-tick.active { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
             .mc-pacs-filmstrip-bar {
                 padding: 10px 14px; background: #090e1c; border-top: 1px solid rgba(148, 163, 184, 0.15);
@@ -9694,7 +9539,7 @@ const ClinicalMediaEngine = (() => {
             .mc-pacs-range-slider { flex: 1; accent-color: #38bdf8; cursor: pointer; }
             .mc-pacs-thumbs-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
             .mc-pacs-thumb-item {
-                flex: 0 0 68px; height: 46px; border-radius: 6px; overflow: hidden;
+                flex: 0 0 64px; height: 44px; border-radius: 6px; overflow: hidden;
                 border: 2px solid transparent; opacity: 0.55; cursor: pointer; background: #020617;
             }
             .mc-pacs-thumb-item.active { border-color: #38bdf8; opacity: 1; transform: scale(1.04); }
@@ -9708,7 +9553,7 @@ const ClinicalMediaEngine = (() => {
     }
 
     // ----------------------------------------------------------------------
-    // 5. MODAL DOM & VIEWPORT EVENTS (INKL. ONERROR SELF-HEALING)
+    // 4. MODAL DOM & INTERAKTIONEN
     // ----------------------------------------------------------------------
     function ensureViewerModalDOM() {
         injectMediaEngineStyles();
@@ -9719,12 +9564,12 @@ const ClinicalMediaEngine = (() => {
         modal.id = 'mc-pacs-viewer-modal';
         modal.className = 'mc-pacs-backdrop hidden';
         modal.innerHTML = `
-            <div class="mc-pacs-window" role="dialog" aria-modal="true" aria-label="Klinische Bildserie & PACS Viewer">
+            <div class="mc-pacs-window" role="dialog" aria-modal="true" aria-label="Radiopaedia PACS Viewer">
                 <div class="mc-pacs-topbar">
                     <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-                        <span style="font-size:1.1rem;">🔬</span>
+                        <span style="font-size:1.15rem;">🩻</span>
                         <div>
-                            <div style="font-size:0.65rem; font-weight:800; letter-spacing:0.08em; color:#38bdf8; text-transform:uppercase;">Klinische Bildserie & PACS-Workstation</div>
+                            <div style="font-size:0.65rem; font-weight:800; letter-spacing:0.08em; color:#38bdf8; text-transform:uppercase;">RADIOPAEDIA PACS WORKSTATION</div>
                             <div id="mc-pacs-series-title" style="font-size:0.9rem; font-weight:800; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Bildserie</div>
                         </div>
                     </div>
@@ -9732,10 +9577,10 @@ const ClinicalMediaEngine = (() => {
                     <div class="mc-pacs-series-tabs" id="mc-pacs-series-tabs"></div>
 
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <button type="button" class="mc-pacs-tool-btn" style="border-color:#38bdf8; color:#7dd3fc;" onclick="window.ClinicalMediaEngine.openAddSeriesDialog()" title="Radiopaedia/Wikimedia durchsuchen, Fall-Link auflösen oder eigene Bilder hochladen">
-                            ➕ Fotoserie anhängen / Suche
+                        <button type="button" class="mc-pacs-tool-btn" style="border-color:#38bdf8; color:#7dd3fc;" onclick="window.ClinicalMediaEngine.openAddSeriesDialog()">
+                            ➕ Radiopaedia-Serie laden
                         </button>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-split-btn" onclick="window.ClinicalMediaEngine.toggleSplitScreen()" title="Als Split-Screen neben dem Fall andocken">
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-split-btn" onclick="window.ClinicalMediaEngine.toggleSplitScreen()">
                             ◫ Split-Ansicht
                         </button>
                         <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.close()" style="border-color:rgba(239,68,68,0.4); color:#fca5a5;">
@@ -9749,25 +9594,21 @@ const ClinicalMediaEngine = (() => {
                         <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.stepSlide(-1)">◀ Zurück</button>
                         <span id="mc-pacs-slice-counter" style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#38bdf8; min-width:95px; text-align:center;">Schicht 1 / 1</span>
                         <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.stepSlide(1)">Weiter ▶</button>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-cine-btn" onclick="window.ClinicalMediaEngine.toggleCineLoop()" title="Schichten automatisch als Cine-Loop abspielen">▶️ Cine-Loop</button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-cine-btn" onclick="window.ClinicalMediaEngine.toggleCineLoop()">▶️ Cine-Loop</button>
                     </div>
 
                     <div class="mc-pacs-tool-group">
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.applyWindowPreset('default')" title="Standard-Fensterung">Std</button>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.applyWindowPreset('brain')" title="Hirn / Subdural-Kontrast">Hirn</button>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.applyWindowPreset('bone')" title="Knochen / Kontrastverstärkung">Knochen</button>
                         <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.adjustZoom(0.35)">🔍+</button>
                         <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.adjustZoom(-0.35)">🔍-</button>
-                        <label style="display:inline-flex; align-items:center; gap:4px; color:#94a3b8; font-size:0.7rem;">
-                            ☀️ <input type="range" id="mc-pacs-bright-slider" min="50" max="170" value="100" style="width:55px; accent-color:#38bdf8;">
-                        </label>
-                        <label style="display:inline-flex; align-items:center; gap:4px; color:#94a3b8; font-size:0.7rem;">
-                            ◐ <input type="range" id="mc-pacs-contrast-slider" min="60" max="200" value="100" style="width:55px; accent-color:#38bdf8;">
-                        </label>
                         <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-invert-btn" onclick="window.ClinicalMediaEngine.toggleInvert()">🌓 Invert</button>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-grid-btn" onclick="window.ClinicalMediaEngine.toggleGrid()">📏 Gitter</button>
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.resetViewTransform()">↺ Reset</button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-grid-btn" onclick="window.ClinicalMediaEngine.toggleGrid()">📏</button>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.resetViewTransform()">↺</button>
                     </div>
 
                     <div class="mc-pacs-tool-group">
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-roi-btn" onclick="window.ClinicalMediaEngine.toggleAnnotations()">🎯 ROI-Marker</button>
                         <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-report-btn" onclick="window.ClinicalMediaEngine.toggleReport()">📋 Befund aufdecken</button>
                     </div>
                 </div>
@@ -9775,13 +9616,12 @@ const ClinicalMediaEngine = (() => {
                 <div class="mc-pacs-body">
                     <div class="mc-pacs-viewport-wrap">
                         <div class="mc-pacs-stage" id="mc-pacs-stage">
-                            <div class="mc-pacs-hud-topleft" id="mc-pacs-hud-topleft">MODALITY · SLICE</div>
-                            <div class="mc-pacs-hud-bottomleft">🖱️ Mausrad = Durchscrollen · Strg+Mausrad = Zoom · Drag = Verschieben</div>
-                            <div class="mc-pacs-vertical-scrubber" id="mc-pacs-vertical-scrubber"></div>
+                            <div class="mc-pacs-hud-topleft" id="mc-pacs-hud-topleft">RADIOPAEDIA PACS</div>
+                            <div class="mc-pacs-hud-bottomleft">🖱️ Mausrad = Schichten durchscrollen · Strg+Mausrad = Zoom · Drag = Verschieben</div>
+                            <div class="mc-pacs-vertical-scrubber" id="mc-pacs-vertical-scrubber" title="Ziehen zum schnellen Durchscrollen"></div>
 
                             <div class="mc-pacs-img-layer" id="mc-pacs-img-layer">
-                                <!-- WICHTIG: referrerpolicy="no-referrer" verhindert Hotlink-Blockaden bei Radiopaedia! -->
-                                <img id="mc-pacs-main-img" class="mc-pacs-main-img" referrerpolicy="no-referrer" crossOrigin="anonymous" src="" alt="Klinische Aufnahme">
+                                <img id="mc-pacs-main-img" class="mc-pacs-main-img" referrerpolicy="no-referrer" src="" alt="Radiopaedia Schicht">
                                 <div id="mc-pacs-measure-grid" class="mc-pacs-measure-grid" style="display:none;"></div>
                                 <div id="mc-pacs-roi-container"></div>
                             </div>
@@ -9808,27 +9648,10 @@ const ClinicalMediaEngine = (() => {
 
     function bindViewportEvents(modal) {
         const stage = modal.querySelector('#mc-pacs-stage');
-        const mainImg = modal.querySelector('#mc-pacs-main-img');
         const sliceSlider = modal.querySelector('#mc-pacs-slice-slider');
-        const brightSlider = modal.querySelector('#mc-pacs-bright-slider');
-        const contrastSlider = modal.querySelector('#mc-pacs-contrast-slider');
+        const vScrubber = modal.querySelector('#mc-pacs-vertical-scrubber');
 
-        // AUTOMATISCHES SELF-HEALING BEI FEHLERHAFTEN / RADIOPAEDIA-WEBSEITEN-LINKS
-        if (mainImg) {
-            mainImg.addEventListener('error', () => {
-                // Falls crossOrigin="anonymous" von einem Server abgelehnt wurde, zuerst ohne CORS-Attribut probieren
-                if (mainImg.hasAttribute('crossOrigin')) {
-                    mainImg.removeAttribute('crossOrigin');
-                    const currentSrc = mainImg.getAttribute('src');
-                    if (currentSrc && !isNonImageWebpageOrQuery(currentSrc)) {
-                        mainImg.setAttribute('src', currentSrc);
-                        return;
-                    }
-                }
-                healBrokenSlideIfNeeded(activeSeriesIndex, activeSlideIndex);
-            });
-        }
-
+        // 1. Mausrad-Stack-Scrolling
         stage.addEventListener('wheel', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -9837,10 +9660,35 @@ const ClinicalMediaEngine = (() => {
                 return;
             }
             if (wheelThrottleTimer) return;
-            wheelThrottleTimer = setTimeout(() => { wheelThrottleTimer = null; }, 55);
+            wheelThrottleTimer = setTimeout(() => { wheelThrottleTimer = null; }, 45);
             stepSlide((e.deltaY > 0 || e.deltaX > 0) ? 1 : -1);
         }, { passive: false });
 
+        // 2. Vertikaler Touch-/Maus-Scrubber rechts (wie OsiriX / Visage PACS)
+        const scrubFromPointerY = (clientY) => {
+            const seriesList = getNormalizedSeriesForCase(activeCaseData);
+            const currentSeries = seriesList[activeSeriesIndex];
+            if (!currentSeries || currentSeries.items.length <= 1 || !vScrubber) return;
+            const rect = vScrubber.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+            const targetIdx = Math.round(ratio * (currentSeries.items.length - 1));
+            if (targetIdx !== activeSlideIndex) {
+                selectSlide(targetIdx);
+            }
+        };
+
+        vScrubber?.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            isScrubbingRail = true;
+            vScrubber.setPointerCapture(e.pointerId);
+            scrubFromPointerY(e.clientY);
+        });
+        vScrubber?.addEventListener('pointermove', (e) => {
+            if (isScrubbingRail) scrubFromPointerY(e.clientY);
+        });
+        vScrubber?.addEventListener('pointerup', () => { isScrubbingRail = false; });
+
+        // 3. Drag-Panning
         stage.addEventListener('mousedown', (e) => {
             if (e.target.closest('.mc-pacs-roi-pin') || e.target.closest('.mc-pacs-vertical-scrubber')) return;
             isPanning = true;
@@ -9848,14 +9696,12 @@ const ClinicalMediaEngine = (() => {
             panStartY = e.clientY - panY;
             stage.classList.add('is-panning');
         });
-
         window.addEventListener('mousemove', (e) => {
             if (!isPanning) return;
             panX = e.clientX - panStartX;
             panY = e.clientY - panStartY;
             applyImageTransform();
         });
-
         window.addEventListener('mouseup', () => {
             if (isPanning) {
                 isPanning = false;
@@ -9863,30 +9709,35 @@ const ClinicalMediaEngine = (() => {
             }
         });
 
+        // 4. Touch-Swipe auf Mobile/iPad
         stage.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
             }
         }, { passive: true });
-
         stage.addEventListener('touchend', (e) => {
             if (zoomLevel > 1.05 || !e.changedTouches.length) return;
             const dx = e.changedTouches[0].clientX - touchStartX;
             const dy = e.changedTouches[0].clientY - touchStartY;
-            if (Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy)) {
+            if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy)) {
                 stepSlide(dx < 0 ? 1 : -1);
             }
         }, { passive: true });
 
         sliceSlider?.addEventListener('input', (e) => selectSlide(parseInt(e.target.value, 10)));
-        brightSlider?.addEventListener('input', (e) => { brightness = parseInt(e.target.value, 10); applyImageTransform(); });
-        contrastSlider?.addEventListener('input', (e) => { contrast = parseInt(e.target.value, 10); applyImageTransform(); });
     }
 
     // ----------------------------------------------------------------------
-    // 6. VIEWER CONTROLS & CINE-LOOP
+    // 5. PACS CONTROLS & WINDOWING PRESETS
     // ----------------------------------------------------------------------
+    function applyWindowPreset(preset) {
+        if (preset === 'brain') { brightness = 108; contrast = 148; }
+        else if (preset === 'bone') { brightness = 92; contrast = 175; }
+        else { brightness = 100; contrast = 100; }
+        applyImageTransform();
+    }
+
     function toggleCineLoop() {
         const btn = document.getElementById('mc-pacs-cine-btn');
         if (isCinePlaying) {
@@ -9907,7 +9758,7 @@ const ClinicalMediaEngine = (() => {
             if (!s || !isViewerOpen) { toggleCineLoop(); return; }
             activeSlideIndex = (activeSlideIndex + 1) % s.items.length;
             renderActiveViewerState();
-        }, 650);
+        }, 450);
     }
 
     function applyImageTransform() {
@@ -9919,10 +9770,6 @@ const ClinicalMediaEngine = (() => {
 
     function resetViewTransform() {
         zoomLevel = 1; panX = 0; panY = 0; brightness = 100; contrast = 100; isInverted = false;
-        const bSlider = document.getElementById('mc-pacs-bright-slider');
-        const cSlider = document.getElementById('mc-pacs-contrast-slider');
-        if (bSlider) bSlider.value = '100';
-        if (cSlider) cSlider.value = '100';
         document.getElementById('mc-pacs-invert-btn')?.classList.remove('active');
         applyImageTransform();
     }
@@ -9944,11 +9791,6 @@ const ClinicalMediaEngine = (() => {
         const gridEl = document.getElementById('mc-pacs-measure-grid');
         if (gridEl) gridEl.style.display = showMeasureGrid ? 'block' : 'none';
         document.getElementById('mc-pacs-grid-btn')?.classList.toggle('active', showMeasureGrid);
-    }
-
-    function toggleAnnotations() {
-        showAnnotations = !showAnnotations;
-        renderActiveViewerState();
     }
 
     function toggleReport() {
@@ -10015,7 +9857,7 @@ const ClinicalMediaEngine = (() => {
         const seriesList = getNormalizedSeriesForCase(activeCaseData);
 
         if (seriesList.length === 0) {
-            modal.querySelector('#mc-pacs-series-title').textContent = 'Noch keine Bildserie hinterlegt';
+            modal.querySelector('#mc-pacs-series-title').textContent = 'Keine Radiopaedia-Serie hinterlegt';
             return;
         }
 
@@ -10023,11 +9865,6 @@ const ClinicalMediaEngine = (() => {
         const series = seriesList[activeSeriesIndex];
         if (activeSlideIndex >= series.items.length) activeSlideIndex = 0;
         const item = series.items[activeSlideIndex];
-
-        // Falls in der Serie noch ein unaufgelöster Radiopaedia-/Webseiten-Link steckt -> sofort im Hintergrund auflösen!
-        if (isNonImageWebpageOrQuery(item.url) && !item._healAttempted) {
-            healBrokenSlideIfNeeded(activeSeriesIndex, activeSlideIndex);
-        }
 
         modal.querySelector('#mc-pacs-series-title').textContent = series.title;
         const tabsEl = modal.querySelector('#mc-pacs-series-tabs');
@@ -10047,7 +9884,7 @@ const ClinicalMediaEngine = (() => {
         modal.querySelector('#mc-pacs-slice-counter').textContent = `Schicht ${activeSlideIndex + 1} / ${series.items.length}`;
         modal.querySelector('#mc-pacs-hud-topleft').innerHTML = `
             <div>${escapeHtml(series.modality.toUpperCase())} · ${escapeHtml(item.label)}</div>
-            <div style="font-size:0.66rem; color:#94a3b8; margin-top:2px;">${escapeHtml(series.clinical_context || '')}</div>
+            <div style="font-size:0.66rem; color:#94a3b8; margin-top:2px;">${escapeHtml(series.title)}</div>
         `;
 
         const slider = modal.querySelector('#mc-pacs-slice-slider');
@@ -10070,31 +9907,18 @@ const ClinicalMediaEngine = (() => {
                     <img src="${escapeHtml(it.url)}" referrerpolicy="no-referrer" alt="${escapeHtml(it.label)}">
                 </div>
             `).join('');
+            const activeThumb = thumbsStrip.children[activeSlideIndex];
+            if (activeThumb) activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }
 
-        const annotations = item.annotations || [];
-        modal.querySelector('#mc-pacs-roi-btn')?.classList.toggle('active', showAnnotations);
         modal.querySelector('#mc-pacs-report-btn')?.classList.toggle('active', showReport);
-
-        const roiContainer = modal.querySelector('#mc-pacs-roi-container');
-        if (roiContainer) {
-            roiContainer.innerHTML = (!showAnnotations || !annotations.length) ? '' : annotations.map((ann, aIdx) => `
-                <div class="mc-pacs-roi-pin" style="left:${ann.x}%; top:${ann.y}%;" onclick="this.classList.toggle('is-open')">
-                    ${aIdx + 1}
-                    <div class="mc-pacs-roi-tooltip">
-                        <div style="font-weight:800; color:#38bdf8; margin-bottom:3px;">${escapeHtml(ann.label)}</div>
-                        <div>${escapeHtml(ann.detail || '')}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
 
         const inspector = modal.querySelector('#mc-pacs-inspector');
         if (inspector) {
             inspector.innerHTML = `
                 <div style="padding:12px; border-radius:10px; background:rgba(14,165,233,0.1); border:1px solid rgba(56,189,248,0.3);">
                     <div style="font-size:0.68rem; font-weight:800; color:#38bdf8; text-transform:uppercase; margin-bottom:4px;">
-                        🧭 Sokratischer Befund-Auftrag (Active Recall)
+                        🧭 Sokratischer Befund-Auftrag (Klinik-PACS)
                     </div>
                     <div style="font-size:0.8rem; color:#f8fafc; line-height:1.45;">
                         ${escapeHtml(series.socratic_question)}
@@ -10103,25 +9927,25 @@ const ClinicalMediaEngine = (() => {
 
                 <div style="padding:12px; border-radius:10px; background:rgba(15,23,42,0.75); border:1px solid rgba(148,163,184,0.18);">
                     <div style="font-size:0.72rem; font-weight:800; color:#94a3b8; margin-bottom:6px;">
-                        🔍 Aktuelle Schicht (${activeSlideIndex + 1}/${series.items.length}): ${escapeHtml(item.label)}
+                        🔍 Schicht ${activeSlideIndex + 1} von ${series.items.length}
                     </div>
                     ${!showReport ? `
                         <div style="font-size:0.78rem; color:#94a3b8; line-height:1.45; margin-bottom:10px;">
-                            <em>Blind-Befundung aktiv:</em> Scrolle erst durch die Aufnahmen und bilde dir ein eigenes Urteil.
+                            <em>Blind-Befundung aktiv:</em> Scrolle mit dem Mausrad durch alle Schichten der Serie und formuliere deine Diagnose, bevor du den Originalbefund aufdeckst.
                         </div>
                         <button type="button" class="mc-pacs-tool-btn" style="border-color:#38bdf8; color:#38bdf8;" onclick="window.ClinicalMediaEngine.toggleReport()">
-                            📋 Facharzt-Befund aufdecken
+                            📋 Radiopaedia-Befund aufdecken
                         </button>
                     ` : `
                         <div style="padding:10px; border-radius:8px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); margin-bottom:8px;">
-                            <div style="font-size:0.73rem; font-weight:800; color:#6ee7b7; margin-bottom:3px;">✓ Leitbefund dieser Schicht:</div>
+                            <div style="font-size:0.73rem; font-weight:800; color:#6ee7b7; margin-bottom:3px;">✓ Radiologischer Befund:</div>
                             <div style="font-size:0.81rem; color:#f8fafc; font-weight:600; line-height:1.45;">
-                                ${escapeHtml(item.finding_summary || item.caption || 'Klinischer Bildbefund')}
+                                ${escapeHtml(item.finding_summary || series.title)}
                             </div>
                         </div>
-                        ${item.caption ? `<div style="font-size:0.76rem; color:#94a3b8; margin-bottom:8px;">${escapeHtml(item.caption)}</div>` : ''}
+                        ${item.caption ? `<div style="font-size:0.74rem; color:#94a3b8; margin-bottom:8px;">${escapeHtml(item.caption)}</div>` : ''}
                         <button type="button" class="mc-pacs-tool-btn" style="width:100%; justify-content:center; margin-top:6px; border-color:rgba(56,189,248,0.45); color:#7dd3fc;" onclick="window.ClinicalMediaEngine.saveCurrentFindingToDepot()">
-                            📌 Diesen Bildbefund ins Lern-Depot sichern
+                            📌 Diesen Befund ins Lern-Depot sichern
                         </button>
                     `}
                 </div>
@@ -10130,230 +9954,178 @@ const ClinicalMediaEngine = (() => {
     }
 
     // ----------------------------------------------------------------------
-    // 7. UPGRADED „➕ FOTOSERIE ANHÄNGEN“-STUDIO (LIVE-SUCHE, LINK-RESOLVER & UPLOAD)
+    // 6. RADIOPAEDIA DIREKT-IMPORT DIALOG (EXAKTE SERIEN LADEN)
     // ----------------------------------------------------------------------
     function openAddSeriesDialog() {
         if (!activeCaseData) return;
-        importStudioResults = [];
-        importStudioSelectedItems = [];
+        parsedStudioStudies = [];
 
         const existing = document.getElementById('mc-pacs-import-studio');
         if (existing) existing.remove();
-
-        const defaultQuery = activeCaseData.metadata?.primary_disease || activeCaseData.metadata?.title || 'subdural hematoma CT';
 
         const backdrop = document.createElement('div');
         backdrop.id = 'mc-pacs-import-studio';
         backdrop.className = 'mc-dialog-backdrop';
         backdrop.style.zIndex = '10020';
         backdrop.innerHTML = `
-            <div class="mc-dialog-card" style="max-width: 780px; width: 95%; max-height: 88vh; overflow-y: auto;">
-                <div class="mc-dialog-kicker">RADIOPAEDIA CC / WIKIMEDIA & LOKALER SERIEN-IMPORT</div>
-                <div class="mc-dialog-title">🔬 Neue Bildserie / Fotoserie zum Fall hinzufügen</div>
+            <div class="mc-dialog-card" style="max-width: 720px; width: 95%; max-height: 88vh; overflow-y: auto;">
+                <div class="mc-dialog-kicker">ORIGINALE RADIOPAEDIA-SERIEN LADEN</div>
+                <div class="mc-dialog-title">🩻 Radiopaedia-Fall oder Studie direkt in den Fall importieren</div>
                 <div class="mc-dialog-message">
-                    Suche direkt nach echten CT-/MRT-/Röntgen-/Klinik-Aufnahmen, füge einen <strong>Radiopaedia-Link</strong> ein (wird automatisch in Bilder aufgelöst) oder wähle eigene Fotos von deinem Gerät.
+                    Füge den Link deines gewünschten Radiopaedia-Falls (z. B. <code>https://radiopaedia.org/cases/...</code>) oder einer Studie (<code>https://radiopaedia.org/studies/...</code>) ein. Es werden <strong>ausschließlich die originalen Schichten</strong> dieses Falls geladen.
                 </div>
 
-                <!-- 1. Live-Suche & Radiopaedia-Link-Auflöser -->
                 <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-                    <input type="text" id="mc-studio-search-input" class="mc-dialog-input" style="flex:1; min-width:220px;"
-                           value="${escapeHtml(defaultQuery)}"
-                           placeholder="Suchbegriff (z.B. pneumothorax, spinal cord MRI) ODER Radiopaedia-Link einfügen..."
-                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.ClinicalMediaEngine.runStudioSearch();}">
-                    <button type="button" class="action-btn btn-sm" onclick="window.ClinicalMediaEngine.runStudioSearch()">
-                        🔍 Suchen / Link auflösen
+                    <input type="url" id="mc-rad-url-input" class="mc-dialog-input" style="flex:1; min-width:240px;"
+                           placeholder="https://radiopaedia.org/cases/..."
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.ClinicalMediaEngine.fetchRadiopaediaLink();}">
+                    <button type="button" class="action-btn btn-sm" id="mc-rad-fetch-btn" onclick="window.ClinicalMediaEngine.fetchRadiopaediaLink()">
+                        ⚡ Originale Serie laden
                     </button>
-                    <label class="action-btn secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
-                        📁 Eigene Bilder wählen
-                        <input type="file" accept="image/*" multiple style="display:none;" onchange="window.ClinicalMediaEngine.handleLocalFilesUpload(this.files)">
-                    </label>
                 </div>
 
-                <div id="mc-studio-status" style="font-size:0.75rem; color:#38bdf8; margin-bottom:8px;"></div>
+                <div id="mc-rad-status" style="font-size:0.78rem; color:#38bdf8; margin-bottom:10px;"></div>
 
-                <!-- Suchergebnisse zum Anklicken -->
-                <div id="mc-studio-results-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(135px, 1fr)); gap:8px; max-height:240px; overflow-y:auto; padding:4px; margin-bottom:12px;"></div>
-
-                <!-- Ausgewählte Schichten für die Serie -->
-                <div style="padding:10px 12px; border-radius:10px; background:rgba(15,23,42,0.75); border:1px solid rgba(56,189,248,0.3); margin-bottom:12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <span id="mc-studio-stack-count" style="font-size:0.76rem; font-weight:800; color:#6ee7b7;">
-                            Ausgewählte Bilder für die durchscrollbare Serie (0):
-                        </span>
-                        <button type="button" class="mc-pacs-tool-btn" style="font-size:0.68rem; padding:2px 7px;" onclick="window.ClinicalMediaEngine.clearStudioStack()">Stapel leeren</button>
+                <!-- Cloudflare-Fallback: Falls Radiopaedia die Server-IP blockiert, kann man den Seitenquelltext direkt einfügen -->
+                <div id="mc-rad-fallback-box" style="display:none; padding:12px; border-radius:10px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.4); margin-bottom:12px;">
+                    <div style="font-weight:800; color:#fcd34d; font-size:0.8rem; margin-bottom:4px;">
+                        🛡️ Direkter 1-Klick-Workaround (Cloudflare-Schutz aktiv)
                     </div>
-                    <div id="mc-studio-stack-preview" style="display:flex; gap:8px; overflow-x:auto; min-height:54px; align-items:center; font-size:0.75rem; color:#94a3b8;">
-                        Noch keine Bilder ausgewählt – klicke oben auf 1 oder mehrere Suchergebnisse.
+                    <div style="font-size:0.75rem; color:#cbd5e1; line-height:1.45; margin-bottom:8px;">
+                        Öffne deinen Radiopaedia-Tab im Browser, drücke <strong>Cmd+U</strong> (bzw. <strong>Strg+U</strong> für Seitenquelltext) → <strong>Cmd+A</strong> → <strong>Cmd+C</strong> und füge den Quelltext hier ein. Alle Schichten der Originalserie werden sofort extrahiert:
                     </div>
+                    <textarea id="mc-rad-raw-source" class="mc-dialog-input" style="min-height:85px; font-family:monospace; font-size:0.72rem;"
+                              placeholder="Seitenquelltext von Radiopaedia hier einfügen (Cmd+V / Strg+V)..."
+                              oninput="window.ClinicalMediaEngine.parsePastedRadiopaediaSource()"></textarea>
                 </div>
 
-                <!-- Metadaten der Serie -->
-                <div style="display:grid; grid-template-columns: 1fr 180px; gap:8px; margin-bottom:8px;">
-                    <input type="text" id="mc-studio-title" class="mc-dialog-input" placeholder="Titel der Bildserie" value="Klinische Bildgebung & Verlauf">
-                    <input type="text" id="mc-studio-modality" class="mc-dialog-input" placeholder="Modalität (CT / MRT / Foto)" value="CT / MRT / Klinik">
-                </div>
-                <input type="text" id="mc-studio-finding" class="mc-dialog-input" style="margin-bottom:14px;" placeholder="Leitbefund für die Auflösung (wird bei Klick auf ein Bild automatisch vorgeschlagen)">
+                <!-- Vorschau der extrahierten Original-Serien -->
+                <div id="mc-rad-preview-area"></div>
 
-                <div class="mc-dialog-actions">
+                <div class="mc-dialog-actions" style="margin-top:14px;">
                     <button type="button" class="action-btn secondary btn-sm" onclick="document.getElementById('mc-pacs-import-studio')?.remove()">Abbrechen</button>
-                    <button type="button" class="action-btn btn-sm" onclick="window.ClinicalMediaEngine.confirmStudioSeriesSave()">
-                        ✓ Serie speichern & im PACS öffnen
+                    <button type="button" class="action-btn btn-sm" id="mc-rad-save-btn" style="display:none;" onclick="window.ClinicalMediaEngine.saveExtractedRadiopaediaToCase()">
+                        ✓ Original-Serien in diesen Fall übernehmen
                     </button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(backdrop);
-        runStudioSearch();
+        setTimeout(() => document.getElementById('mc-rad-url-input')?.focus(), 40);
     }
 
-    async function runStudioSearch() {
-        const inputEl = document.getElementById('mc-studio-search-input');
-        const statusEl = document.getElementById('mc-studio-status');
-        const gridEl = document.getElementById('mc-studio-results-grid');
-        if (!inputEl || !gridEl) return;
+    async function fetchRadiopaediaLink() {
+        const urlInput = document.getElementById('mc-rad-url-input');
+        const statusEl = document.getElementById('mc-rad-status');
+        const btn = document.getElementById('mc-rad-fetch-btn');
+        const fallbackBox = document.getElementById('mc-rad-fallback-box');
+        if (!urlInput) return;
 
-        const rawQuery = inputEl.value.trim();
-        if (!rawQuery) return;
+        const url = urlInput.value.trim();
+        if (!url) return;
 
-        if (statusEl) statusEl.textContent = '⏳ Suche Aufnahmen / löse Radiopaedia-Link auf...';
-        gridEl.innerHTML = '';
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Lade Schichten...'; }
+        if (statusEl) { statusEl.style.color = '#38bdf8'; statusEl.textContent = '🔍 Extrahiere originale Bildserien von Radiopaedia...'; }
 
         try {
-            const items = await resolveInputToImageItems(rawQuery);
-            importStudioResults = items;
+            const result = await fetchOriginalRadiopaediaCase(url);
+            parsedStudioStudies = result.studies.map((st, idx) => ({
+                series_id: `rad_${st.studyId}_${Date.now()}_${idx}`,
+                title: st.title || result.caseTitle,
+                modality: st.modality || 'Radiopaedia PACS',
+                clinical_context: result.presentation || '',
+                socratic_question: 'Scrolle durch alle Schichten dieser Radiopaedia-Serie: Welche anatomischen Auffälligkeiten sichern die Diagnose?',
+                items: st.slices.map((sl, sIdx) => ({
+                    id: `rad_sl_${st.studyId}_${sIdx}`,
+                    url: sl.url,
+                    label: sl.label,
+                    finding_summary: st.caption || result.findings || result.caseTitle,
+                    caption: `Radiopaedia Original-Serie: ${url}`,
+                    annotations: []
+                }))
+            }));
 
-            if (items.length === 0) {
-                if (statusEl) statusEl.textContent = '⚠️ Keine Treffer. Tipp: Nutze englische Fachbegriffe wie "subdural hematoma", "pneumothorax", "spinal cord infarction".';
-                return;
-            }
-
-            // Falls der User direkt einen konkreten Link eingefügt hat, alle aufgelösten Schichten sofort in den Stapel legen!
-            if (/^https?:\/\//i.test(rawQuery)) {
-                items.forEach(it => importStudioSelectedItems.push(it));
-                renderStudioStackPreview();
-                const findingInput = document.getElementById('mc-studio-finding');
-                if (findingInput && !findingInput.value && items[0]?.finding_summary) {
-                    findingInput.value = items[0].finding_summary;
-                }
-            }
-
-            if (statusEl) statusEl.textContent = `✓ ${items.length} Aufnahmen bereit – klicke Bilder an, um sie deiner durchscrollbaren Serie hinzuzufügen:`;
-
-            gridEl.innerHTML = items.map((item, idx) => `
-                <div class="img-forge-thumb-card" onclick="window.ClinicalMediaEngine.addStudioResultToStack(${idx})" title="Klicken, um als Schicht zur Serie hinzuzufügen">
-                    <img src="${escapeHtml(item.url)}" referrerpolicy="no-referrer" alt="${escapeHtml(item.label)}" style="height:90px; width:100%; object-fit:cover;">
-                    <div style="padding:5px 7px; font-size:0.68rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        ➕ ${escapeHtml(item.label)}
-                    </div>
-                </div>
-            `).join('');
+            if (fallbackBox) fallbackBox.style.display = 'none';
+            renderExtractedRadiopaediaPreview(result.caseTitle, result.findings);
         } catch (err) {
-            if (statusEl) statusEl.textContent = `Fehler: ${err.message}`;
+            if (statusEl) {
+                statusEl.style.color = '#fca5a5';
+                statusEl.textContent = `⚠️ ${err.message}`;
+            }
+            if (fallbackBox) fallbackBox.style.display = 'block';
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '⚡ Originale Serie laden'; }
         }
     }
 
-    function addStudioResultToStack(idx) {
-        const item = importStudioResults[idx];
-        if (!item) return;
-        importStudioSelectedItems.push({ ...item });
-        const findingInput = document.getElementById('mc-studio-finding');
-        if (findingInput && !findingInput.value && item.finding_summary) {
-            findingInput.value = item.finding_summary;
+    function parsePastedRadiopaediaSource() {
+        const rawText = document.getElementById('mc-rad-raw-source')?.value || '';
+        const sourceUrl = document.getElementById('mc-rad-url-input')?.value.trim() || '';
+        const statusEl = document.getElementById('mc-rad-status');
+        if (rawText.length < 100) return;
+
+        const extracted = extractRadiopaediaFromRawSource(rawText, sourceUrl);
+        if (extracted && extracted.studies.length > 0) {
+            parsedStudioStudies = extracted.studies;
+            if (statusEl) {
+                statusEl.style.color = '#6ee7b7';
+                statusEl.textContent = `✓ ${extracted.studies[0].items.length} originale Schichten aus dem Seitenquelltext extrahiert!`;
+            }
+            renderExtractedRadiopaediaPreview(extracted.caseTitle, extracted.findings);
         }
-        renderStudioStackPreview();
     }
 
-    function handleLocalFilesUpload(fileList) {
-        if (!fileList || fileList.length === 0) return;
-        Array.from(fileList).forEach((file) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                importStudioSelectedItems.push({
-                    url: e.target.result,
-                    label: file.name.replace(/\.[^.]+$/, ''),
-                    finding_summary: 'Lokale Klinik-Aufnahme',
-                    caption: 'Eigener Upload'
-                });
-                renderStudioStackPreview();
-            };
-            reader.readAsDataURL(file);
-        });
-    }
+    function renderExtractedRadiopaediaPreview(caseTitle, findings) {
+        const previewEl = document.getElementById('mc-rad-preview-area');
+        const saveBtn = document.getElementById('mc-rad-save-btn');
+        const statusEl = document.getElementById('mc-rad-status');
+        if (!previewEl || parsedStudioStudies.length === 0) return;
 
-    function clearStudioStack() {
-        importStudioSelectedItems = [];
-        renderStudioStackPreview();
-    }
-
-    function renderStudioStackPreview() {
-        const countEl = document.getElementById('mc-studio-stack-count');
-        const previewEl = document.getElementById('mc-studio-stack-preview');
-        if (countEl) countEl.textContent = `Ausgewählte Bilder für die durchscrollbare Serie (${importStudioSelectedItems.length}):`;
-        if (!previewEl) return;
-
-        if (importStudioSelectedItems.length === 0) {
-            previewEl.innerHTML = 'Noch keine Bilder ausgewählt – klicke oben auf 1 oder mehrere Suchergebnisse.';
-            return;
+        const totalSlices = parsedStudioStudies.reduce((sum, s) => sum + s.items.length, 0);
+        if (statusEl) {
+            statusEl.style.color = '#6ee7b7';
+            statusEl.textContent = `✓ Bereit: ${parsedStudioStudies.length} Original-Serie(n) mit insgesamt ${totalSlices} Schichten gefunden!`;
         }
+        if (saveBtn) saveBtn.style.display = 'inline-flex';
 
-        previewEl.innerHTML = importStudioSelectedItems.map((it, idx) => `
-            <div style="position:relative; flex:0 0 64px; height:48px; border-radius:6px; overflow:hidden; border:1.5px solid #38bdf8;">
-                <img src="${escapeHtml(it.url)}" referrerpolicy="no-referrer" style="width:100%; height:100%; object-fit:cover;">
-                <span style="position:absolute; bottom:2px; right:3px; background:rgba(0,0,0,0.75); color:#fff; font-size:0.6rem; padding:0 4px; border-radius:4px;">#${idx + 1}</span>
+        previewEl.innerHTML = parsedStudioStudies.map(st => `
+            <div style="padding:10px 12px; border-radius:10px; background:rgba(15,23,42,0.8); border:1px solid rgba(56,189,248,0.35); margin-bottom:8px;">
+                <div style="font-size:0.8rem; font-weight:800; color:#f8fafc; margin-bottom:6px;">
+                    🩻 ${escapeHtml(st.title)} (${st.items.length} Schichten)
+                </div>
+                <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;">
+                    ${st.items.slice(0, 12).map(sl => `
+                        <div style="flex:0 0 64px; height:52px; border-radius:6px; overflow:hidden; border:1px solid rgba(148,163,184,0.3); background:#020617;">
+                            <img src="${escapeHtml(sl.url)}" referrerpolicy="no-referrer" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                    `).join('')}
+                    ${st.items.length > 12 ? `<div style="display:flex; align-items:center; padding:0 10px; font-size:0.75rem; color:#38bdf8; font-weight:700;">+${st.items.length - 12} weitere</div>` : ''}
+                </div>
             </div>
         `).join('');
     }
 
-    function confirmStudioSeriesSave() {
-        if (!activeCaseData) return;
+    function saveExtractedRadiopaediaToCase() {
+        if (!activeCaseData || parsedStudioStudies.length === 0) return;
 
-        // Falls der User noch nicht auf ein Thumbnail geklickt hat, aber ein Link/Ergebnis da ist -> erstes Ergebnis nehmen
-        if (importStudioSelectedItems.length === 0 && importStudioResults.length > 0) {
-            importStudioSelectedItems.push(importStudioResults[0]);
-        }
-        if (importStudioSelectedItems.length === 0) {
-            alert('Bitte wähle mindestens ein Bild aus den Suchergebnissen aus.');
-            return;
-        }
-
-        const title = document.getElementById('mc-studio-title')?.value.trim() || 'Klinische Bildserie';
-        const modality = document.getElementById('mc-studio-modality')?.value.trim() || 'CT / MRT / Foto';
-        const finding = document.getElementById('mc-studio-finding')?.value.trim() || '';
-
-        if (!Array.isArray(activeCaseData.image_series)) {
-            activeCaseData.image_series = getNormalizedSeriesForCase(activeCaseData);
-        }
-
-        const newSeries = {
-            series_id: `series_${Date.now()}`,
-            title,
-            modality,
-            clinical_context: activeCaseData.metadata?.title || '',
-            socratic_question: 'Scrolle mit dem Mausrad durch die Aufnahmen: Welche pathologischen Leitbefunde sichern hier die Diagnose?',
-            items: importStudioSelectedItems.map((it, idx) => ({
-                id: `img_${Date.now()}_${idx}`,
-                url: it.url,
-                label: `Schicht ${idx + 1}/${importStudioSelectedItems.length} · ${it.label || title}`,
-                finding_summary: finding || it.finding_summary || 'Klinischer Leitbefund',
-                caption: it.caption || '',
-                annotations: []
-            }))
-        };
-
-        activeCaseData.image_series.push(newSeries);
+        // Bereinige alte Demo-/Platzhalter-Serien, falls der Nutzer seine eigene Radiopaedia-Serie lädt
+        const existingSeries = getNormalizedSeriesForCase(activeCaseData).filter(s => s.series_id !== 'spine_mri_series_01');
+        activeCaseData.image_series = [...existingSeries, ...parsedStudioStudies];
 
         let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
         customCases = customCases.filter(c => (c.case_id || c.id) !== activeCaseData.case_id);
         customCases.push(activeCaseData);
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
         if (typeof syncModifiedCasesToSupabase === 'function') {
             syncModifiedCasesToSupabase([activeCaseData]);
         }
 
         document.getElementById('mc-pacs-import-studio')?.remove();
         injectPlayerMediaAccessUI();
-        openViewer(activeCaseData.image_series.length - 1, 0);
+        if (typeof window.renderTimeline === 'function') window.renderTimeline();
+        openViewer(activeCaseData.image_series.length - parsedStudioStudies.length, 0);
     }
 
     function openViewer(seriesIdx = 0, slideIdx = 0, forceSplit = null) {
@@ -10381,16 +10153,16 @@ const ClinicalMediaEngine = (() => {
         if (!item || typeof createDepotEntry !== 'function') return;
 
         await createDepotEntry({
-            case_id: activeCaseData?.case_id || 'clinical_media',
+            case_id: activeCaseData?.case_id || 'radiopaedia_media',
             case_title: activeCaseData?.metadata?.title || series.title,
             category: activeCaseData?.folder_name || series.modality,
-            cue_context: `🖼️ Bildbefund (${item.label})`,
-            highlighted_text: `${item.finding_summary || ''} ${item.caption || ''}`.trim()
+            cue_context: `🩻 Radiopaedia (${series.title})`,
+            highlighted_text: item.finding_summary || series.title
         });
     }
 
     // ----------------------------------------------------------------------
-    // 8. DIREKTER ZUGRIFF IM FALL (HEADER, OVERVIEW & AUDIT)
+    // 7. DIREKTER ZUGRIFF IM FALL (HEADER, OVERVIEW & AUDIT-LEISTE)
     // ----------------------------------------------------------------------
     function injectPlayerMediaAccessUI() {
         injectMediaEngineStyles();
@@ -10399,6 +10171,7 @@ const ClinicalMediaEngine = (() => {
         const seriesList = getNormalizedSeriesForCase(activeCaseData);
         const totalImages = seriesList.reduce((acc, s) => acc + s.items.length, 0);
 
+        // A) Button in der Player-Tab-Leiste
         const navBar = document.querySelector('.challenge-nav-bar');
         if (navBar) {
             let existingBtn = document.getElementById('mc-player-pacs-btn');
@@ -10409,48 +10182,46 @@ const ClinicalMediaEngine = (() => {
                 existingBtn.className = 'mc-pacs-trigger-btn';
                 navBar.appendChild(existingBtn);
             }
-            existingBtn.innerHTML = totalImages > 0
-                ? `<span class="mc-pacs-pulse-dot"></span> 🖼️ Bildserie / PACS (${totalImages})`
-                : `🖼️ + Bildserie`;
+            existingBtn.innerHTML = `<span class="mc-pacs-pulse-dot"></span> 🩻 Radiopaedia PACS (${totalImages})`;
             existingBtn.onclick = () => openViewer(0, 0);
         }
 
-        const overviewContainer = document.getElementById('overview-container');
-        if (overviewContainer && seriesList.length > 0) {
-            const oldStrip = document.getElementById('mc-overview-series-strip');
-            if (oldStrip) oldStrip.remove();
+        // B) Direkte Radiopaedia-Leiste oben im Audit-Tab (#player-container)
+        const auditContainer = document.getElementById('player-container');
+        if (auditContainer) {
+            const oldBanner = document.getElementById('mc-audit-radiopaedia-banner');
+            if (oldBanner) oldBanner.remove();
 
-            const strip = document.createElement('div');
-            strip.id = 'mc-overview-series-strip';
-            strip.className = 'mc-inline-series-strip';
+            const banner = document.createElement('div');
+            banner.id = 'mc-audit-radiopaedia-banner';
+            banner.className = 'mc-audit-pacs-banner';
 
-            const allThumbsHtml = seriesList.map((series, sIdx) =>
-                series.items.map((it, iIdx) => `
-                    <div class="mc-inline-thumb-card" onclick="window.ClinicalMediaEngine.open(${sIdx}, ${iIdx})">
-                        <img src="${escapeHtml(it.url)}" referrerpolicy="no-referrer" alt="${escapeHtml(it.label)}">
-                        <div class="mc-inline-thumb-label">${escapeHtml(it.label)}</div>
-                    </div>
-                `).join('')
-            ).join('');
+            const seriesButtonsHtml = seriesList.map((s, idx) => `
+                <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(${idx}, 0, true)">
+                    🩻 ${escapeHtml(s.modality)} (${s.items.length} Schichten)
+                </button>
+            `).join('');
 
-            strip.innerHTML = `
-                <div class="mc-inline-series-header">
+            banner.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px; min-width:220px;">
+                    <span style="font-size:1.3rem;">🔬</span>
                     <div>
-                        <div style="font-size:0.7rem; font-weight:800; color:#38bdf8; text-transform:uppercase;">
-                            🔬 Interaktive Klinik-Bildserien (${seriesList.length} ${seriesList.length === 1 ? 'Serie' : 'Serien'} · ${totalImages} Aufnahmen)
+                        <div style="font-size:0.68rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em;">
+                            KLINISCHE BILDGEBUNG IM AUDIT (RADIOPAEDIA PACS)
                         </div>
-                        <div style="font-size:0.82rem; font-weight:700; color:var(--text-main);">
-                            Klicke auf eine Aufnahme zum Durchscrollen oder öffne die Split-Screen Workstation
+                        <div style="font-size:0.8rem; color:var(--text-main); font-weight:600;">
+                            ${seriesList.length > 0 ? `${seriesList.length} durchscrollbare Bildserie(n) (${totalImages} Schichten) bereit` : 'Noch keine Radiopaedia-Serie verknüpft'}
                         </div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(0, 0, true)">◫ Split-Screen</button>
-                        <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(0, 0, false)">⤢ Vollbild-PACS</button>
                     </div>
                 </div>
-                <div class="mc-inline-thumbs-row">${allThumbsHtml}</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    ${seriesButtonsHtml}
+                    <button type="button" class="action-btn secondary btn-sm" onclick="window.ClinicalMediaEngine.openAddSeriesDialog()">
+                        ➕ Radiopaedia-Link laden
+                    </button>
+                </div>
             `;
-            overviewContainer.prepend(strip);
+            auditContainer.prepend(banner);
         }
     }
 
@@ -10466,9 +10237,6 @@ const ClinicalMediaEngine = (() => {
                 showAnnotations = false;
                 showReport = false;
                 const res = await origLoadCase.apply(this, arguments);
-                if (window.ImagingModule && typeof window.ImagingModule.loadForCase === 'function' && window.activeCaseData) {
-                    window.ImagingModule.loadForCase(window.activeCaseData, 'imaging-container');
-                }
                 setTimeout(injectPlayerMediaAccessUI, 60);
                 return res;
             };
@@ -10492,20 +10260,18 @@ const ClinicalMediaEngine = (() => {
         selectSlide,
         stepSlide,
         toggleCineLoop,
+        applyWindowPreset,
         adjustZoom,
         toggleInvert,
         toggleGrid,
-        toggleAnnotations,
         toggleReport,
         toggleSplitScreen,
         resetViewTransform,
         saveCurrentFindingToDepot,
         openAddSeriesDialog,
-        runStudioSearch,
-        addStudioResultToStack,
-        handleLocalFilesUpload,
-        clearStudioStack,
-        confirmStudioSeriesSave,
+        fetchRadiopaediaLink,
+        parsePastedRadiopaediaSource,
+        saveExtractedRadiopaediaToCase,
         getNormalizedSeriesForCase,
         refreshUI: injectPlayerMediaAccessUI
     };
