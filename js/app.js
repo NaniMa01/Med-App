@@ -9128,13 +9128,86 @@ const ClinicalMediaEngine = (() => {
     // Import-Studio State
     let parsedStudioStudies = [];
 
-    function decodeEntities(str) {
-        return String(str || '')
+   function decodeAllWebEncodings(raw) {
+        return String(raw || '')
             .replace(/&quot;/g, '"')
+            .replace(/&#34;/g, '"')
             .replace(/&#39;/g, "'")
+            .replace(/&apos;/g, "'")
             .replace(/&amp;/g, '&')
             .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>');
+            .replace(/&gt;/g, '>')
+            .replace(/&#x2F;|&#47;/gi, '/')
+            .replace(/\\u002F/gi, '/')
+            .replace(/\\\//g, '/');
+    }
+
+    function normalizeRadiopaediaUrl(rawUrl) {
+        let clean = decodeAllWebEncodings(rawUrl).trim();
+        if (clean.startsWith('//')) clean = 'https:' + clean;
+        const [basePath] = clean.split('?');
+        return basePath.replace(
+            /_(tiny|thumb|teaser|small|medium|square|gallery)\.(jpe?g|png|webp)$/i,
+            '_big_gallery.$2'
+        );
+    }
+
+    // Extrahiert originale Radiopaedia-Schichtserien direkt aus kopiertem Seitenquelltext (Cmd+U)
+    function extractRadiopaediaFromRawSource(rawSource, sourceUrl = '') {
+        const text = decodeAllWebEncodings(rawSource);
+        const sliceMap = new Map();
+
+        // 1. Strukturierte JSON / data-props Einträge auslesen
+        const structuredRegex = /"id"\s*:\s*(\d{5,12})[^{}]{0,400}?"(?:fullscreen_filename|public_filename|big_gallery|gallery_filename)"\s*:\s*"((?:https?:)?\/\/prod-images-static\.radiopaedia\.org\/images\/\d+\/[^"]+)"/gi;
+        let m;
+        while ((m = structuredRegex.exec(text)) !== null) {
+            const imageId = m[1];
+            const url = normalizeRadiopaediaUrl(m[2]);
+            if (url && !sliceMap.has(imageId)) {
+                sliceMap.set(imageId, { imageId, url });
+            }
+        }
+
+        // 2. Alle direkten CDN-URLs (inkl. //prod-images-static... und ?timestamp)
+        const cdnRegex = /(?:https?:)?\/\/prod-images-static\.radiopaedia\.org\/images\/(\d{4,12})\/([a-zA-Z0-9._-]+?\.(?:jpe?g|png|webp))(?:\?[^"'\s<>)]*)?/gi;
+        while ((m = cdnRegex.exec(text)) !== null) {
+            const imageId = m[1];
+            const url = normalizeRadiopaediaUrl(m[0]);
+            if (url && !sliceMap.has(imageId)) {
+                sliceMap.set(imageId, { imageId, url });
+            }
+        }
+
+        const slices = Array.from(sliceMap.values());
+        if (slices.length === 0) return null;
+
+        const titleMatch = text.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || text.match(/<title>([\s\S]*?)<\/title>/i);
+        const caseTitle = titleMatch
+            ? stripHtmlTags(titleMatch[1]).replace(/\|\s*Radiology Case.*$/i, '').trim()
+            : 'Radiopaedia Original-Serie';
+
+        const findingsMatch = text.match(/id="case-findings"[\s\S]*?<div[^>]*class="[^"]*body[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+        const findings = findingsMatch ? stripHtmlTags(findingsMatch[1]) : '';
+
+        return {
+            caseTitle,
+            findings,
+            studies: [{
+                studyId: 'source_import_' + Date.now(),
+                title: caseTitle,
+                modality: 'Radiopaedia PACS',
+                caption: findings,
+                sourceUrl,
+                slices: slices.map((s, idx) => ({
+                    id: `rad_slice_${s.imageId}_${idx}`,
+                    url: s.url,
+                    label: `Schicht ${idx + 1} / ${slices.length}`,
+                    finding_summary: findings || caseTitle,
+                    caption: sourceUrl ? `Originalquelle: ${sourceUrl}` : 'Radiopaedia Original-Serie',
+                    annotations: []
+                }))
+            }]
+        };
     }
 
     function stripHtmlTags(html) {
@@ -10058,12 +10131,11 @@ const ClinicalMediaEngine = (() => {
             if (btn) { btn.disabled = false; btn.textContent = '⚡ Originale Serie laden'; }
         }
     }
-
-    function parsePastedRadiopaediaSource() {
+function parsePastedRadiopaediaSource() {
         const rawText = document.getElementById('mc-rad-raw-source')?.value || '';
         const sourceUrl = document.getElementById('mc-rad-url-input')?.value.trim() || '';
         const statusEl = document.getElementById('mc-rad-status');
-        if (rawText.length < 100) return;
+        if (rawText.length < 50) return;
 
         const extracted = extractRadiopaediaFromRawSource(rawText, sourceUrl);
         if (extracted && extracted.studies.length > 0) {
@@ -10073,6 +10145,9 @@ const ClinicalMediaEngine = (() => {
                 statusEl.textContent = `✓ ${extracted.studies[0].items.length} originale Schichten aus dem Seitenquelltext extrahiert!`;
             }
             renderExtractedRadiopaediaPreview(extracted.caseTitle, extracted.findings);
+        } else if (statusEl) {
+            statusEl.style.color = '#fcd34d';
+            statusEl.textContent = `⚠️ ${rawText.length} Zeichen geprüft, aber keine prod-images-static.radiopaedia.org-Bilder gefunden. Prüfe, ob du den Quelltext der Fall-Seite (Cmd+U) kopiert hast.`;
         }
     }
 
