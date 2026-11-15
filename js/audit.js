@@ -705,3 +705,37 @@
         renderTimeline();
     });
 })();
+
+// ==========================================================================
+// RADIOPAEDIA LINK-TRESOR HOOK FÜR DIE AUDIT-ABSCHNITTE
+// ==========================================================================
+(function bindAuditRadiopaediaVaultHook() {
+    const baseRenderTimeline = window.renderTimeline;
+    if (typeof baseRenderTimeline !== 'function') return;
+
+    window.renderTimeline = function() {
+        baseRenderTimeline.apply(this, arguments);
+
+        if (!window.RadiopaediaLinkEngine) return;
+        window.RadiopaediaLinkEngine.refreshUI();
+
+        const links = window.RadiopaediaLinkEngine.getLinksForCase(window.activeCaseData);
+        links.forEach(link => {
+            if (link.stepIndex === null || link.stepIndex === undefined) return;
+            const stepEl = document.getElementById(`audit-step-${link.stepIndex}`);
+            const headerEl = stepEl?.querySelector('.audit-step-header');
+            if (!headerEl || headerEl.querySelector(`[data-rad-id="${link.id}"]`)) return;
+
+            const pill = document.createElement('a');
+            pill.href = link.url;
+            pill.target = '_blank';
+            pill.rel = 'noopener noreferrer';
+            pill.className = 'mc-rad-link-pill';
+            pill.dataset.radId = link.id;
+            pill.style.marginLeft = 'auto';
+            pill.title = link.note || link.url;
+            pill.textContent = `🩻 ${link.modality}: ${link.title} ↗`;
+            headerEl.appendChild(pill);
+        });
+    };
+})();
