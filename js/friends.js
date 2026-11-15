@@ -15,13 +15,13 @@ const FriendsModule = (() => {
     let authListenerAttached = false;
 
     const CHALLENGE_LABELS = {
-        audit:          { name: 'Klinisches Audit', icon: '📋', color: '#38bdf8' },
-        quiz:           { name: 'Master-Exam (MC)', icon: '🎓', color: '#818cf8' },
-        synapses:       { name: 'Synapsen-Matrix',  icon: '🧠', color: '#22d3ee' },
-        cascades:       { name: 'Clinical Cascades', icon: '🔗', color: '#f59e0b' },
-        categorization: { name: 'Taxonomie',        icon: '🏷️', color: '#a855f7' },
-        doctordle:      { name: 'Doctordle',        icon: '🔍', color: '#10b981' },
-        flashcards:     { name: 'Flashcards',       icon: '🗂️', color: '#ec4899' }
+        audit:          { name: 'Klinisches Audit',  icon: '📋', color: 'var(--primary-500, #0ea5e9)' },
+        quiz:           { name: 'Master-Exam (MC)',  icon: '🎓', color: 'var(--accent-indigo, #6366f1)' },
+        synapses:       { name: 'Synapsen-Matrix',   icon: '🧠', color: 'var(--accent-cyan, #0891b2)' },
+        cascades:       { name: 'Clinical Cascades', icon: '🔗', color: 'var(--warning, #d97706)' },
+        categorization: { name: 'Taxonomie',         icon: '🏷️', color: 'var(--color-lab, #9333ea)' },
+        doctordle:      { name: 'Doctordle',         icon: '🔍', color: 'var(--color-symptom, #059669)' },
+        flashcards:     { name: 'Flashcards',        icon: '🗂️', color: 'var(--secondary-500, #f43f5e)' }
     };
 
     // ======================================================================
@@ -34,7 +34,6 @@ const FriendsModule = (() => {
             }
             const current = JSON.parse(localStorage.getItem(FRIENDS_LIST_KEY) || '[]');
             if (Array.isArray(current)) {
-                // Behalte ausschließlich verifizierte Cloud-Profile mit echter Supabase-ID
                 const cleaned = current.filter(f =>
                     f &&
                     f.isCloudVerified === true &&
@@ -168,7 +167,6 @@ const FriendsModule = (() => {
     // 2. SPIELER-PROFIL & FREUNDESLISTE VERWALTEN
     // ======================================================================
     function getMyFriendCode(userId) {
-        // Deterministischer Code anhand der Supabase-User-ID (identisch auf allen Geräten)
         const uid = userId || window.currentSessionUser?.id;
         if (uid && typeof uid === 'string' && uid.length >= 6) {
             const deterministic = 'MC-BS-' + uid.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
@@ -244,7 +242,7 @@ const FriendsModule = (() => {
             streak: streak,
             favoriteChallenge: getMyFavoriteChallenge(telemetry.challengeCounts),
             challengeCounts: telemetry.challengeCounts,
-            statusText: 'Aktiv im Dienst',
+            statusText: sessionUser ? 'Aktiv im Dienst' : 'Lokal aktiv (nicht eingeloggt)',
             isOnline: true
         };
     }
@@ -279,7 +277,6 @@ const FriendsModule = (() => {
     // 3. SUPABASE CLOUD-SYNC (PROFIL + FREUNDESLISTE + LIVE-STATS)
     // ======================================================================
     function getSupabase() {
-        // Wichtig: Prüfe auf .from (echte Client-Instanz), nicht auf das globale CDN-Namespace-Objekt!
         if (window.supabaseClient && typeof window.supabaseClient.from === 'function') {
             return window.supabaseClient;
         }
@@ -383,13 +380,11 @@ const FriendsModule = (() => {
                 updated_at: new Date().toISOString()
             };
 
-            // Versuch 1: Upsert mit friend_ids (falls Spalte in user_profiles existiert)
             let { error } = await sb.from('user_profiles').upsert(
                 { ...basePayload, friend_ids: friendIds },
                 { onConflict: 'id' }
             );
 
-            // Fallback: Falls friend_ids als Spalte noch nicht angelegt wurde, ohne friend_ids speichern
             if (error && error.message && error.message.includes('friend_ids')) {
                 const retry = await sb.from('user_profiles').upsert(basePayload, { onConflict: 'id' });
                 error = retry.error;
@@ -413,7 +408,6 @@ const FriendsModule = (() => {
         }
     }
 
-    // Speichert die Freundes-IDs zusätzlich in den Supabase User-Metadaten (100% Schema-unabhängig)
     async function syncFriendIdsToAuthMetadata(friendsArray) {
         const sb = getSupabase();
         if (!sb || !sb.auth) return;
@@ -447,16 +441,13 @@ const FriendsModule = (() => {
             window.currentSessionUser = session.user;
             const myUid = session.user.id;
 
-            // 1. Eigenes Profil vorher pushen, damit unsere aktuellen Stats in der DB stehen
             await syncMyStatsToCloud();
 
-            // 2. Lokale Freunde + evtl. in der Cloud gespeicherte Freunde (aus Auth-Metadata oder user_profiles) zusammenführen
             const localFriends = getFriendsList();
             const metaFriends = Array.isArray(session.user.user_metadata?.medcheck_friends_v2)
                 ? session.user.user_metadata.medcheck_friends_v2
                 : [];
 
-            // Prüfe auch, ob in user_profiles.friend_ids IDs hinterlegt sind
             let profileFriendIds = [];
             const { data: myRow } = await sb
                 .from('user_profiles')
@@ -468,13 +459,12 @@ const FriendsModule = (() => {
                 profileFriendIds = myRow.friend_ids;
             }
 
-            // Alle bekannten Identifier (IDs & E-Mails) unserer hinzugefügten Freunde sammeln
             const targetIds = new Set([
                 ...localFriends.map(f => f.id).filter(Boolean),
                 ...metaFriends.map(f => f.id).filter(Boolean),
                 ...profileFriendIds.filter(Boolean)
             ]);
-            targetIds.delete(myUid); // Mich selbst nie als Freund führen
+            targetIds.delete(myUid);
 
             const targetEmails = new Set([
                 ...localFriends.map(f => (f.email || '').toLowerCase()).filter(Boolean),
@@ -482,17 +472,14 @@ const FriendsModule = (() => {
             ]);
             if (session.user.email) targetEmails.delete(session.user.email.toLowerCase());
 
-            // Wenn der User noch gar keine Freunde geaddet hat -> Liste bleibt leer!
             if (targetIds.size === 0 && targetEmails.size === 0) {
                 saveFriendsList([]);
                 syncState = 'synced';
                 return;
             }
 
-            // 3. Live-Daten dieser Freunde aus Supabase abrufen
             const idList = Array.from(targetIds);
             const emailList = Array.from(targetEmails);
-
             let matchedRows = [];
 
             if (idList.length > 0) {
@@ -521,7 +508,6 @@ const FriendsModule = (() => {
                 }
             }
 
-            // 4. Nur tatsächlich in Supabase existierende Profile übernehmen & aktualisieren
             const syncedFriends = matchedRows
                 .filter(row => row.id !== myUid)
                 .map(row => {
@@ -591,13 +577,12 @@ const FriendsModule = (() => {
         }
 
         try {
-            // Suche den User live in der Supabase-Tabelle user_profiles
-            // Wir prüfen exakt/case-insensitive auf email, friend_code oder display_name
-            const cleanQuery = raw.replace(/[,()]/g, '').trim();
+            // Anführungszeichen im PostgREST .or()-Filter verhindern Parse-Fehler bei Leerzeichen im Namen
+            const cleanQuery = raw.replace(/[,()"\\]/g, '').trim();
             const { data: candidates, error } = await sb
                 .from('user_profiles')
                 .select('*')
-                .or(`email.ilike.${cleanQuery},friend_code.ilike.${cleanQuery},display_name.ilike.%${cleanQuery}%`)
+                .or(`email.ilike."${cleanQuery}",friend_code.ilike."${cleanQuery}",display_name.ilike."%${cleanQuery}%"`)
                 .limit(5);
 
             if (error) {
@@ -605,7 +590,6 @@ const FriendsModule = (() => {
                 return;
             }
 
-            // Eigenes Profil aus den Treffern herausfiltern
             const validMatches = (candidates || []).filter(row => row.id !== session.user.id);
 
             if (validMatches.length === 0) {
@@ -613,7 +597,6 @@ const FriendsModule = (() => {
                 return;
             }
 
-            // Bevorzuge exakten Treffer auf E-Mail oder Pager-Code, sonst ersten Namens-Treffer
             const exactMatch = validMatches.find(row =>
                 (row.email && row.email.toLowerCase() === cleanQuery.toLowerCase()) ||
                 (row.friend_code && row.friend_code.toLowerCase() === cleanQuery.toLowerCase()) ||
@@ -629,7 +612,6 @@ const FriendsModule = (() => {
             friends.push(newFriend);
             saveFriendsList(friends);
 
-            // Synchronisiere die aktualisierte Freundesliste sofort in die Cloud
             await syncFriendIdsToAuthMetadata(friends);
             await syncMyStatsToCloud();
 
@@ -647,12 +629,23 @@ const FriendsModule = (() => {
         }
     }
 
+    async function confirmAction(title, message) {
+        if (typeof window.showCustomConfirm === 'function') {
+            return await window.showCustomConfirm(title, message, { danger: true, confirmText: 'Entfernen' });
+        }
+        return window.confirm(message);
+    }
+
     async function removeFriend(friendId) {
         const friends = getFriendsList();
         const target = friends.find(f => f.id === friendId);
         if (!target) return;
 
-        if (!window.confirm(`Möchtest du „${target.name}“ wirklich aus deiner Freundesliste entfernen?`)) return;
+        const confirmed = await confirmAction(
+            'Kollege entfernen',
+            `Möchtest du „${target.name}“ wirklich aus deiner Freundesliste entfernen?`
+        );
+        if (!confirmed) return;
 
         const filtered = friends.filter(f => f.id !== friendId);
         saveFriendsList(filtered);
@@ -730,7 +723,7 @@ const FriendsModule = (() => {
     }
 
     // ======================================================================
-    // 5. STATISTIK-AGGREGATION & RENDERING
+    // 5. STATISTIK-AGGREGATION & RENDERING (THEME-AWARE)
     // ======================================================================
     function setSortBy(sortKey) {
         currentSortBy = sortKey;
@@ -771,7 +764,7 @@ const FriendsModule = (() => {
                 key,
                 count,
                 pct: rawTotalRuns > 0 ? Math.round((count / divisor) * 100) : 0,
-                meta: CHALLENGE_LABELS[key] || { name: key, icon: '⚡', color: '#38bdf8' }
+                meta: CHALLENGE_LABELS[key] || { name: key, icon: '⚡', color: 'var(--primary-action, #0284c7)' }
             }))
             .sort((a, b) => b.count - a.count);
 
@@ -786,15 +779,15 @@ const FriendsModule = (() => {
 
     function getSyncBadgeHtml() {
         if (syncState === 'syncing') {
-            return `<span style="font-size:0.75rem; color:#38bdf8;">🔄 Synchronisiere...</span>`;
+            return `<span style="font-size:0.75rem; font-weight:700; color:var(--primary-action, #0284c7);">🔄 Synchronisiere...</span>`;
         }
         if (syncState === 'synced') {
-            return `<span style="font-size:0.75rem; color:#10b981;">🟢 Cloud synchronisiert</span>`;
+            return `<span style="font-size:0.75rem; font-weight:700; color:var(--color-symptom, #059669);">🟢 Cloud synchronisiert</span>`;
         }
         if (syncState === 'error') {
-            return `<span style="font-size:0.75rem; color:#f43f5e;" title="${escapeSafe(syncErrorMessage)}">⚠️ Sync-Fehler (Prüfe DB)</span>`;
+            return `<span style="font-size:0.75rem; font-weight:700; color:var(--color-risk, #dc2626);" title="${escapeSafe(syncErrorMessage)}">⚠️ Sync-Fehler (Prüfe DB)</span>`;
         }
-        return `<span style="font-size:0.75rem; color:var(--text-muted);">🟠 Offline / Lokal</span>`;
+        return `<span style="font-size:0.75rem; font-weight:600; color:var(--text-muted);">🟠 Offline / Lokal</span>`;
     }
 
     function renderView() {
@@ -802,7 +795,7 @@ const FriendsModule = (() => {
         if (!container) return;
 
         const me = getMyProfile();
-        const friends = getFriendsList(); // Enthält NUR echte, hinzugefügte Freunde!
+        const friends = getFriendsList();
         updateSidebarBadge(friends.length);
 
         const allParticipants = [me, ...friends];
@@ -828,7 +821,6 @@ const FriendsModule = (() => {
             return (b.xp || 0) - (a.xp || 0);
         });
 
-        // Podium-Reihenfolge: Wenn 3+ Personen -> [Platz 2, Platz 1, Platz 3], sonst absteigend
         const podiumOrder = fullSorted.length >= 3 ? [1, 0, 2] : fullSorted.map((_, i) => i);
 
         container.innerHTML = `
@@ -914,7 +906,7 @@ const FriendsModule = (() => {
                     <div class="friends-board-card">
                         <div class="friends-board-header">
                             <div>
-                                <h3 style="margin: 0; font-size: 1.1rem;">🏆 Kollegiums-Scoreboard (${friends.length} ${friends.length === 1 ? 'Freund' : 'Freunde'})</h3>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-strong);">🏆 Kollegiums-Scoreboard (${friends.length} ${friends.length === 1 ? 'Freund' : 'Freunde'})</h3>
                                 <span style="font-size: 0.78rem; color: var(--text-muted);">Sortiert nach ${currentSortBy === 'xp' ? 'Gesamt-XP' : (currentSortBy === 'monthly' ? `Fällen im ${currentMonthName}` : 'Dienst-Streak')}</span>
                             </div>
                             <div class="segmented-control" style="margin: 0;">
@@ -1000,9 +992,9 @@ const FriendsModule = (() => {
                             }).join('')}
 
                             ${friends.length === 0 ? `
-                                <div style="margin-top: 14px; padding: 18px; border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 12px; text-align: center; background: rgba(15, 23, 42, 0.4);">
+                                <div style="margin-top: 14px; padding: 18px; border: 1px dashed var(--border-hover, rgba(2, 132, 199, 0.4)); border-radius: 12px; text-align: center; background: var(--surface-subtle);">
                                     <div style="font-size: 1.5rem; margin-bottom: 6px;">📟</div>
-                                    <strong style="display: block; margin-bottom: 4px; color: var(--text-main);">Noch keine Kollegen in deiner Freundesliste</strong>
+                                    <strong style="display: block; margin-bottom: 4px; color: var(--text-strong);">Noch keine Kollegen in deiner Freundesliste</strong>
                                     <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted);">
                                         Teile deinen Pager-Code <code>${escapeSafe(me.friendCode)}</code> oder gib oben die E-Mail-Adresse bzw. den Code eines registrierten Kommilitonen ein.
                                     </p>
@@ -1014,7 +1006,7 @@ const FriendsModule = (() => {
                     <!-- RECHTS: CHALLENGE-BELIEBTHEIT & MONATS-ANALYSE -->
                     <div class="friends-analytics-col">
                         <div class="friends-analytics-card">
-                            <h3 style="margin: 0 0 4px 0; font-size: 1.02rem;">📊 Beliebteste Challenges im Kollegium</h3>
+                            <h3 style="margin: 0 0 4px 0; font-size: 1.02rem; color: var(--text-strong);">📊 Beliebteste Challenges im Kollegium</h3>
                             <p style="margin: 0 0 16px 0; font-size: 0.78rem; color: var(--text-muted);">
                                 Auswertung über alle <strong>${stats.totalChallengeRuns} absolvierten Einzel-Challenges</strong> deiner Lerngruppe:
                             </p>
@@ -1040,7 +1032,7 @@ const FriendsModule = (() => {
 
                         <!-- Monats-Durchsatz Vergleich -->
                         <div class="friends-analytics-card">
-                            <h3 style="margin: 0 0 4px 0; font-size: 1.02rem;">📈 Monats-Durchsatz (${currentMonthName})</h3>
+                            <h3 style="margin: 0 0 4px 0; font-size: 1.02rem; color: var(--text-strong);">📈 Monats-Durchsatz (${currentMonthName})</h3>
                             <p style="margin: 0 0 14px 0; font-size: 0.78rem; color: var(--text-muted);">
                                 Gelöste klinische Komplettfälle in diesem Monat im direkten Vergleich:
                             </p>
@@ -1051,11 +1043,11 @@ const FriendsModule = (() => {
                                     return `
                                         <div class="monthly-comp-row">
                                             <div class="monthly-comp-label">
-                                                <span>${p.avatar || '🩺'} ${escapeSafe(p.name)}</span>
-                                                <strong>${p.monthlyCases || 0} Fälle</strong>
+                                                <span style="color: var(--text-strong);">${p.avatar || '🩺'} ${escapeSafe(p.name)}</span>
+                                                <strong style="color: var(--text-strong);">${p.monthlyCases || 0} Fälle</strong>
                                             </div>
                                             <div class="popularity-bar-track">
-                                                <div class="popularity-bar-fill" style="width: ${(p.monthlyCases || 0) > 0 ? Math.max(5, widthPct) : 0}%; background: ${p.isMe ? 'var(--accent-blue)' : 'var(--color-symptom)'};"></div>
+                                                <div class="popularity-bar-fill" style="width: ${(p.monthlyCases || 0) > 0 ? Math.max(5, widthPct) : 0}%; background: ${p.isMe ? 'var(--primary-action, #0284c7)' : 'var(--color-symptom, #059669)'};"></div>
                                             </div>
                                         </div>
                                     `;
@@ -1114,6 +1106,8 @@ const FriendsModule = (() => {
         challengeFriendToDuel,
         copyMyFriendCode,
         manualSync,
+        getFriendsList,
+        getMyProfile,
         recordChallengeActivity,
         recordMonthlyCaseSolved
     };
