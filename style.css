@@ -9158,3 +9158,324 @@ body.bento-right-collapsed .bento-right-sidebar {
     background: var(--surface-card);
     border: 1px dashed var(--border-subtle);
 }
+
+/* ==========================================================================
+   32. BUGFIXES, FEHLENDE BENTO-KLASSEN & VOLLSTÄNDIGER LIGHT-MODE-FIX
+   ========================================================================== */
+
+/* 1. Reparatur der Selektoren aus Sektion 29 & fehlende Klassen aus index.html */
+.bento-folder-prog-fill-solved-100,
+.bento-folder-prog-fill-solved.is-100 {
+    background: var(--color-symptom, #10b981) !important;
+}
+
+.bento-bar.bar-current,
+.bento-bar.bar-Current {
+    background: linear-gradient(180deg, var(--primary-400) 0%, var(--primary-600) 100%);
+    box-shadow: 0 0 12px rgba(2, 132, 199, 0.28);
+}
+
+.bento-active-case-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--badge-primary-bg);
+    border: 1px solid rgba(2, 132, 199, 0.28);
+    color: var(--badge-primary-text);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.bento-active-case-pill span {
+    color: var(--text-strong);
+    font-weight: 800;
+}
+
+.bento-inner-box {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--elevation-card-shadow);
+}
+
+/* 2. Globale Light-Mode Harmonisierung (Daylight & Tropical – keine schwarzen Boxen) */
+[data-theme="daylight"] .bento-topbar,
+[data-theme="tropical"] .bento-topbar {
+    background: var(--surface-canvas) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    box-shadow: none !important;
+}
+
+[data-theme="daylight"] .skeleton,
+[data-theme="tropical"] .skeleton {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%) !important;
+    background-size: 200% 100% !important;
+}
+
+/* Cornell Notes Highlight: Kontraststarke dunkelblaue/petrol Schrift bei Hover */
+[data-theme="daylight"] .cornell-notes.highlight-target strong,
+[data-theme="daylight"] .cornell-notes.highlight-target b,
+[data-theme="daylight"] .cornell-grid:has(.cornell-cue-item:hover) .cornell-notes strong,
+[data-theme="daylight"] .cornell-grid:has(.cornell-cue-item:hover) .cornell-notes b {
+    color: #0369a1 !important;
+    text-shadow: none !important;
+}
+
+[data-theme="tropical"] .cornell-notes.highlight-target strong,
+[data-theme="tropical"] .cornell-notes.highlight-target b,
+[data-theme="tropical"] .cornell-grid:has(.cornell-cue-item:hover) .cornell-notes strong,
+[data-theme="tropical"] .cornell-grid:has(.cornell-cue-item:hover) .cornell-notes b {
+    color: #0f766e !important;
+    text-shadow: none !important;
+}
+
+/* Klinik-Duell Light-Mode Fixes (behebt schwarze Feedback-Box & unleserliche Schrift) */
+[data-theme="daylight"] .duel-instant-feedback,
+[data-theme="tropical"] .duel-instant-feedback {
+    background: var(--surface-subtle) !important;
+    border: 1px solid var(--border-subtle) !important;
+    color: var(--text-strong) !important;
+}
+
+[data-theme="daylight"] .duel-fb-expl,
+[data-theme="tropical"] .duel-fb-expl {
+    color: var(--text-body) !important;
+}
+
+[data-theme="daylight"] .duel-fb-title.correct,
+[data-theme="tropical"] .duel-fb-title.correct {
+    color: #059669 !important;
+}
+
+[data-theme="daylight"] .duel-fb-title.wrong,
+[data-theme="daylight"] .duel-fb-title.timeout,
+[data-theme="tropical"] .duel-fb-title.wrong,
+[data-theme="tropical"] .duel-fb-title.timeout {
+    color: #dc2626 !important;
+}
+
+[data-theme="daylight"] .duel-timer-bar-track,
+[data-theme="tropical"] .duel-timer-bar-track {
+    background: #e2e8f0 !important;
+}
+
+[data-theme="daylight"] .duel-opt-btn.duel-opt-correct,
+[data-theme="tropical"] .duel-opt-btn.duel-opt-correct {
+    background: #ecfdf5 !important;
+    border-color: #059669 !important;
+    color: #065f46 !important;
+}
+
+[data-theme="daylight"] .duel-opt-btn.duel-opt-wrong,
+[data-theme="tropical"] .duel-opt-btn.duel-opt-wrong {
+    background: #fef2f2 !important;
+    border-color: #dc2626 !important;
+    color: #991b1b !important;
+}
+
+[data-theme="daylight"] .duel-turn-pill.waiting,
+[data-theme="tropical"] .duel-turn-pill.waiting {
+    background: #e2e8f0 !important;
+    color: #334155 !important;
+}
+
+[data-theme="daylight"] .duel-turn-pill.won,
+[data-theme="tropical"] .duel-turn-pill.won {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+}
+
+[data-theme="daylight"] .duel-turn-pill.lost,
+[data-theme="tropical"] .duel-turn-pill.lost {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+}
+
+/* Mindmap-Labor Light-Mode Fixes (behebt schwarzes Modal, schwarze Textarea & dunkle HUDs) */
+[data-theme="daylight"] .mm-modal,
+[data-theme="tropical"] .mm-modal {
+    background: var(--surface-card) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-strong) !important;
+    box-shadow: var(--elevation-card-hover) !important;
+}
+
+[data-theme="daylight"] .mm-textarea,
+[data-theme="tropical"] .mm-textarea {
+    background: var(--surface-subtle) !important;
+    color: #0369a1 !important;
+    border-color: var(--border-subtle) !important;
+}
+
+[data-theme="daylight"] .mm-canvas-HUD,
+[data-theme="daylight"] .mm-canvas-help-pill,
+[data-theme="tropical"] .mm-canvas-HUD,
+[data-theme="tropical"] .mm-canvas-help-pill {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-strong) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+[data-theme="daylight"] .mm-hud-btn,
+[data-theme="tropical"] .mm-hud-btn {
+    background: var(--surface-subtle) !important;
+    color: var(--text-strong) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+[data-theme="daylight"] .mm-node-slot:hover,
+[data-theme="daylight"] .mm-node-slot.drag-over,
+[data-theme="tropical"] .mm-node-slot:hover,
+[data-theme="tropical"] .mm-node-slot.drag-over {
+    background: #f0f9ff !important;
+}
+
+[data-theme="daylight"] .mm-chip.selected-chip,
+[data-theme="tropical"] .mm-chip.selected-chip {
+    background: #e0f2fe !important;
+    outline-color: #0284c7 !important;
+}
+
+/* Solitaire Journey Light-Mode Fixes (helle Kartenrückseiten, Slots & Badges) */
+[data-theme="daylight"] .sol-playing-card.sol-card-back,
+[data-theme="tropical"] .sol-playing-card.sol-card-back {
+    background: linear-gradient(145deg, #e0f2fe 0%, #bae6fd 100%) !important;
+    border-color: #7dd3fc !important;
+}
+
+[data-theme="daylight"] .sol-card-back-inner,
+[data-theme="tropical"] .sol-card-back-inner {
+    border-color: rgba(2, 132, 199, 0.35) !important;
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(2, 132, 199, 0.08),
+        rgba(2, 132, 199, 0.08) 6px,
+        transparent 6px,
+        transparent 12px
+    ) !important;
+}
+
+[data-theme="daylight"] .sol-stock-empty-icon,
+[data-theme="daylight"] .sol-empty-card-outline,
+[data-theme="daylight"] .sol-tableau-empty-dropzone,
+[data-theme="daylight"] .sol-foundation-slot.is-empty-foundation,
+[data-theme="tropical"] .sol-stock-empty-icon,
+[data-theme="tropical"] .sol-empty-card-outline,
+[data-theme="tropical"] .sol-tableau-empty-dropzone,
+[data-theme="tropical"] .sol-foundation-slot.is-empty-foundation {
+    background: var(--surface-subtle) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-muted) !important;
+}
+
+[data-theme="daylight"] .sol-completed-pill,
+[data-theme="tropical"] .sol-completed-pill {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #065f46 !important;
+}
+
+[data-theme="daylight"] .sol-fx-floating-badge,
+[data-theme="tropical"] .sol-fx-floating-badge {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="daylight"] .sol-feedback-banner.positive,
+[data-theme="tropical"] .sol-feedback-banner.positive {
+    background: #ecfdf5 !important;
+    color: #065f46 !important;
+}
+
+[data-theme="daylight"] .sol-feedback-banner.error,
+[data-theme="tropical"] .sol-feedback-banner.error {
+    background: #fef2f2 !important;
+    color: #991b1b !important;
+}
+
+[data-theme="daylight"] .sol-feedback-banner.neutral,
+[data-theme="tropical"] .sol-feedback-banner.neutral {
+    background: #f0f9ff !important;
+    color: #075985 !important;
+}
+
+/* Gamification Toasts, Konsil-Kommentare & Community-Badges im Light Mode */
+[data-theme="daylight"] .gamification-toast,
+[data-theme="tropical"] .gamification-toast {
+    background: #ffffff !important;
+    border-color: var(--primary-500) !important;
+    color: #0f172a !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14) !important;
+}
+
+[data-theme="daylight"] .gamification-toast.critical,
+[data-theme="tropical"] .gamification-toast.critical {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+    border-color: #f59e0b !important;
+    color: #92400e !important;
+}
+
+[data-theme="daylight"] .mc-comment-text,
+[data-theme="tropical"] .mc-comment-text {
+    color: var(--text-strong) !important;
+}
+
+[data-theme="daylight"] .mc-comment-tag.tag-question,
+[data-theme="tropical"] .mc-comment-tag.tag-question {
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .mc-comment-tag.tag-correction,
+[data-theme="tropical"] .mc-comment-tag.tag-correction {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+}
+
+[data-theme="daylight"] .mc-comment-tag.tag-pearl,
+[data-theme="tropical"] .mc-comment-tag.tag-pearl {
+    background: #dcfce7 !important;
+    color: #065f46 !important;
+}
+
+[data-theme="daylight"] .mc-comment-tag.tag-discussion,
+[data-theme="tropical"] .mc-comment-tag.tag-discussion {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+}
+
+[data-theme="daylight"] .friend-online-dot,
+[data-theme="tropical"] .friend-online-dot {
+    border-color: #ffffff !important;
+}
+
+[data-theme="daylight"] .top-choice-pill,
+[data-theme="tropical"] .top-choice-pill {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+[data-theme="daylight"] .friend-title-pill,
+[data-theme="tropical"] .friend-title-pill {
+    background: #e0e7ff !important;
+    color: #3730a3 !important;
+}
+
+[data-theme="daylight"] .landscape-fab-menu button,
+[data-theme="tropical"] .landscape-fab-menu button {
+    background: var(--surface-subtle) !important;
+    color: var(--text-strong) !important;
+}
+
+/* Custom-Scrollbars in Light-Themes dezent halten */
+[data-theme="daylight"] * {
+    scrollbar-color: rgba(100, 116, 139, 0.35) #f1f5f9;
+}
+[data-theme="tropical"] * {
+    scrollbar-color: rgba(217, 119, 6, 0.3) #fffaf2;
+}
