@@ -9092,7 +9092,8 @@ const ClinicalDidacticsEngine = (() => {
 ClinicalDidacticsEngine.init();
 
 // ==========================================================================
-// 24. CLINICAL PACS & PHOTO-SERIES ENGINE (STACK-SCROLL, SPLIT-VIEW & ROI)
+// 24. CLINICAL PACS & PHOTO-SERIES ENGINE V2.0
+// (INKL. RADIOPAEDIA/WIKIMEDIA AUTO-RESOLVER, LIVE-SUCHE & CINE-LOOP)
 // ==========================================================================
 const ClinicalMediaEngine = (() => {
     let isViewerOpen = false;
@@ -9102,6 +9103,10 @@ const ClinicalMediaEngine = (() => {
     let showAnnotations = false;
     let showReport = false;
     let showMeasureGrid = false;
+
+    // Cine-Loop State (automatisches Durchlaufen der Schichten)
+    let cineLoopTimer = null;
+    let isCinePlaying = false;
 
     // Bild-Transformationen (PACS / Foto-Labor)
     let zoomLevel = 1;
@@ -9115,99 +9120,263 @@ const ClinicalMediaEngine = (() => {
     let isInverted = false;
     let wheelThrottleTimer = null;
 
-    // Touch-Swipe & Scrubber States
+    // Touch-Swipe States
     let touchStartX = 0;
     let touchStartY = 0;
 
+    // Temporärer State für das "➕ Fotoserie anhängen"-Studio
+    let importStudioResults = [];
+    let importStudioSelectedItems = [];
+
+    function stripHtmlTags(html) {
+        const div = document.createElement('div');
+        div.innerHTML = html || '';
+        return (div.textContent || div.innerText || '').trim();
+    }
+
     // ----------------------------------------------------------------------
-    // 1. PROCEDURAL CLINICAL SVG GENERATOR (Kristallklare Fall-Schichten)
+    // 1. SMART URL RESOLVER (WANDELT RADIOPAEDIA- & WIKIMEDIA-SEITENLINKS
+    //    ODER SUCHBEGRIFFE AUTOMATISCH IN DIREKTE BILDDATEI-URLS UM)
+    // ----------------------------------------------------------------------
+    function isNonImageWebpageOrQuery(inputStr) {
+        const s = String(inputStr || '').trim();
+        if (!s) return false;
+        if (s.startsWith('data:image/') || s.startsWith('blob:')) return false;
+        // Lokale Bilddateien im Projekt
+        if (!/^https?:\/\//i.test(s) && /\.(jpe?g|png|webp|gif|svg|bmp|avif)(\?.*)?$/i.test(s)) {
+            return false;
+        }
+        // Reine Suchbegriffe ohne http/Pfad
+        if (!/^https?:\/\//i.test(s) && !s.includes('/')) {
+            return true;
+        }
+        // Radiopaedia Fall- oder Artikel-Webseiten
+        if (/radiopaedia\.org\/(cases|articles)\//i.test(s)) {
+            return true;
+        }
+        // Wikimedia Commons Seitenlinks statt upload.wikimedia.org
+        if (/commons\.wikimedia\.org\/wiki\//i.test(s) || /wikipedia\.org\/wiki\/.*File:/i.test(s)) {
+            return true;
+        }
+        return false;
+    }
+
+    async function searchWikimediaCommonsApi(queryText, limit = 8) {
+        const cleanQuery = String(queryText || '')
+            .replace(/[-_]+/g, ' ')
+            .replace(/\b(cases|articles|radiopaedia|http|https|www|org|com)\b/gi, '')
+            .trim();
+
+        const searchQuery = `filetype:bitmap (radiopaedia OR CT OR MRI OR ultrasound OR X-ray OR radiograph OR clinical) ${cleanQuery}`;
+        const endpoint = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchQuery)}&gsrnamespace=6&gsrlimit=${limit}&prop=imageinfo&iiprop=url|size|extmetadata&iiurlwidth=1000&format=json&origin=*`;
+
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        const pages = Object.values(data?.query?.pages || {});
+
+        return pages.map(p => {
+            const info = p.imageinfo?.[0];
+            if (!info) return null;
+            const meta = info.extmetadata || {};
+            const cleanTitle = p.title.replace(/^File:/i, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+            const desc = stripHtmlTags(meta.ImageDescription?.value || cleanTitle);
+            const artist = stripHtmlTags(meta.Artist?.value || 'Radiopaedia / Wikimedia Commons');
+            const license = stripHtmlTags(meta.LicenseShortName?.value || 'CC BY-SA');
+
+            return {
+                url: info.thumburl || info.url,
+                fullUrl: info.url,
+                label: cleanTitle.slice(0, 65),
+                finding_summary: desc.slice(0, 220),
+                caption: `Quelle: ${artist} (${license})`
+            };
+        }).filter(Boolean);
+    }
+
+    async function resolveInputToImageItems(rawInput) {
+        const clean = String(rawInput || '').trim();
+        if (!clean) return [];
+
+        // A) Direkte Bilddatei oder Data-URI -> direkt behalten
+        if (!isNonImageWebpageOrQuery(clean)) {
+            return [{
+                url: clean,
+                label: 'Klinische Aufnahme',
+                finding_summary: 'Klinischer Bildbefund',
+                caption: ''
+            }];
+        }
+
+        // B) Wikimedia Commons / Wikipedia "File:..." Seitenlink
+        const wikiFileMatch = clean.match(/(?:File:|Datei:)([^#?&/]+)/i);
+        if (wikiFileMatch && wikiFileMatch[1]) {
+            try {
+                const fileName = decodeURIComponent(wikiFileMatch[1]);
+                const api = `https://commons.wikimedia.org/w/api.php?action=query&titles=File:${encodeURIComponent(fileName)}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1200&format=json&origin=*`;
+                const r = await fetch(api);
+                const d = await r.json();
+                const page = Object.values(d?.query?.pages || {})[0];
+                const info = page?.imageinfo?.[0];
+                if (info?.url) {
+                    const desc = stripHtmlTags(info.extmetadata?.ImageDescription?.value || fileName);
+                    return [{
+                        url: info.thumburl || info.url,
+                        label: fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' '),
+                        finding_summary: desc.slice(0, 240),
+                        caption: 'Aufgelöst via Wikimedia Commons API'
+                    }];
+                }
+            } catch (_e) {}
+        }
+
+        // C) Radiopaedia Fall-/Artikel-URL (z. B. https://radiopaedia.org/cases/...)
+        if (/radiopaedia\.org\/(cases|articles)\//i.test(clean)) {
+            // 1. Versuch: Direkt die Radiopaedia-Serienbilder / og:image über CORS-Proxy extrahieren
+            try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 4000);
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(clean)}`;
+                const res = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timer);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const html = data?.contents || '';
+
+                    // Suche nach allen hochauflösenden Schichtbildern im Fall
+                    const imgRegex = /https:\/\/prod-images-static\.radiopaedia\.org\/images\/\d+\/[a-zA-Z0-9_-]+(?:_big_gallery|_gallery|_jumbo)?\.(?:jpg|jpeg|png)/gi;
+                    const matches = Array.from(new Set(html.match(imgRegex) || []));
+
+                    // Auf beste Auflösung normieren
+                    const fullUrls = Array.from(new Set(matches.map(u =>
+                        u.replace(/_(tiny|thumb|teaser|Square)\./i, '_big_gallery.')
+                    ))).slice(0, 16);
+
+                    // Fallback auf og:image im HTML-Header
+                    if (fullUrls.length === 0) {
+                        const ogMatch = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
+                                     || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
+                        if (ogMatch && ogMatch[1]) fullUrls.push(ogMatch[1]);
+                    }
+
+                    if (fullUrls.length > 0) {
+                        const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+                        const cleanCaseTitle = titleMatch ? titleMatch[1].replace(/\|.*$/, '').trim() : 'Radiopaedia Fall';
+                        return fullUrls.map((u, idx) => ({
+                            url: u,
+                            label: `Schicht ${idx + 1} / ${fullUrls.length} · ${cleanCaseTitle}`,
+                            finding_summary: cleanCaseTitle,
+                            caption: `Radiopaedia Case (${clean})`
+                        }));
+                    }
+                }
+            } catch (_proxyErr) {
+                console.info('[PACS Resolver] Radiopaedia Direkt-Extraktion blockiert, nutze Open-Access-Fallback...');
+            }
+
+            // 2. Zuverlässiger Fallback: Slug aus der Radiopaedia-URL lesen und passende CC-Serie laden
+            const slugMatch = clean.match(/radiopaedia\.org\/(?:cases|articles)\/([^/?#]+)/i);
+            const slugQuery = slugMatch ? decodeURIComponent(slugMatch[1]).replace(/-\d+$/, '').replace(/-/g, ' ') : clean;
+            const fallbackItems = await searchWikimediaCommonsApi(slugQuery, 6);
+            if (fallbackItems.length > 0) return fallbackItems;
+        }
+
+        // D) Allgemeiner Suchbegriff oder sonstige nicht-direkte URL -> Wikimedia/Radiopaedia-CC Suche
+        const searchItems = await searchWikimediaCommonsApi(clean, 6);
+        return searchItems;
+    }
+
+    // Repariert automatisch bereits gespeicherte kaputte Links (wie in deinem Screenshot!)
+    async function healBrokenSlideIfNeeded(seriesIdx, slideIdx) {
+        const seriesList = getNormalizedSeriesForCase(activeCaseData);
+        const series = seriesList[seriesIdx];
+        const item = series?.items?.[slideIdx];
+        if (!item || item._healAttempted) return;
+        item._healAttempted = true;
+
+        const statusBadge = document.getElementById('mc-pacs-hud-topleft');
+        if (statusBadge) {
+            statusBadge.innerHTML = `<div>⏳ Löse Radiopaedia / Bild-Link automatisch auf...</div>`;
+        }
+
+        // Falls die URL eine Webseite ist ODER das Bild ein onerror geworfen hat:
+        const querySource = isNonImageWebpageOrQuery(item.url)
+            ? item.url
+            : (series.title !== 'Klinische Fotoserie / Bildgebung' ? series.title : (activeCaseData?.metadata?.primary_disease || activeCaseData?.metadata?.title || 'spinal cord MRI'));
+
+        const resolvedItems = await resolveInputToImageItems(querySource);
+        if (resolvedItems && resolvedItems.length > 0) {
+            // Ersetze das kaputte Item (oder füge alle gefundenen Schichten der Serie ein!)
+            if (Array.isArray(activeCaseData?.image_series) && activeCaseData.image_series[seriesIdx]) {
+                activeCaseData.image_series[seriesIdx].items = resolvedItems.map((r, i) => ({
+                    id: `healed_${Date.now()}_${i}`,
+                    url: r.url,
+                    label: r.label || `Schicht ${i + 1} / ${resolvedItems.length}`,
+                    finding_summary: r.finding_summary || item.finding_summary || 'Klinischer Bildbefund',
+                    caption: r.caption || item.caption || '',
+                    annotations: item.annotations || []
+                }));
+
+                // Reparierten Fall dauerhaft in LocalStorage sichern
+                let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+                customCases = customCases.filter(c => (c.case_id || c.id) !== activeCaseData.case_id);
+                customCases.push(activeCaseData);
+                localStorage.setItem('custom_cases', JSON.stringify(customCases));
+            }
+            activeSlideIndex = 0;
+            renderActiveViewerState();
+            injectPlayerMediaAccessUI();
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // 2. PROCEDURAL CLINICAL SVG GENERATOR (FALLBACK & DEMO-SCHICHTEN)
     // ----------------------------------------------------------------------
     function generateClinicalPresetDataUri(preset) {
         let svg = '';
         if (preset === 'mri_sagittal_asa') {
             svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
                 <rect width="600" height="450" fill="#050811"/>
-                <g stroke="#1e293b" stroke-width="1" opacity="0.4">
-                    <line x1="300" y1="0" x2="300" y2="450"/><line x1="0" y1="225" x2="600" y2="225"/>
-                </g>
-                <!-- Wirbelkörper C7 bis Th6 -->
                 <g fill="#1e293b" stroke="#475569" stroke-width="2">
-                    <rect x="170" y="35" width="75" height="48" rx="6"/>
-                    <rect x="170" y="98" width="75" height="48" rx="6"/>
-                    <rect x="170" y="161" width="75" height="48" rx="6"/>
-                    <rect x="170" y="224" width="75" height="48" rx="6"/>
-                    <rect x="170" y="287" width="75" height="48" rx="6"/>
-                    <rect x="170" y="350" width="75" height="48" rx="6"/>
+                    <rect x="170" y="35" width="75" height="48" rx="6"/><rect x="170" y="98" width="75" height="48" rx="6"/>
+                    <rect x="170" y="161" width="75" height="48" rx="6"/><rect x="170" y="224" width="75" height="48" rx="6"/>
+                    <rect x="170" y="287" width="75" height="48" rx="6"/><rect x="170" y="350" width="75" height="48" rx="6"/>
                 </g>
-                <!-- Bandscheiben (T2-hyperintens) -->
-                <g fill="#94a3b8">
-                    <ellipse cx="207" cy="90" rx="34" ry="5"/><ellipse cx="207" cy="153" rx="34" ry="5"/>
-                    <ellipse cx="207" cy="216" rx="34" ry="5"/><ellipse cx="207" cy="279" rx="34" ry="5"/>
-                    <ellipse cx="207" cy="342" rx="34" ry="5"/>
-                </g>
-                <!-- Liquorraum (T2-hell) -->
                 <path d="M260,20 L345,20 L345,420 L260,420 Z" fill="#e2e8f0" opacity="0.85"/>
-                <!-- Myelon -->
                 <path d="M282,20 L322,20 L322,420 L282,420 Z" fill="#334155"/>
-                <!-- Ventrale Bleistift-Ischämie (A. spinalis anterior) Th2-Th4 -->
                 <rect x="283" y="165" width="16" height="155" rx="6" fill="#38bdf8" opacity="0.95"/>
                 <rect x="285" y="170" width="11" height="145" rx="4" fill="#ffffff"/>
-                <!-- Dornfortsätze -->
-                <g fill="#1e293b" stroke="#475569" stroke-width="1.5">
-                    <polygon points="360,45 420,60 415,78 360,68"/>
-                    <polygon points="360,108 420,123 415,141 360,131"/>
-                    <polygon points="360,171 420,186 415,204 360,194"/>
-                    <polygon points="360,234 420,249 415,267 360,257"/>
-                    <polygon points="360,297 420,312 415,330 360,320"/>
-                </g>
                 <text x="20" y="32" fill="#38bdf8" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w SAGITTAL (SCHICHT 1/4)</text>
-                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">TR: 3800 ms · TE: 102 ms · SD: 3.0 mm</text>
-                <text x="140" y="190" fill="#64748b" font-family="monospace" font-size="12">Th2</text>
-                <text x="140" y="253" fill="#64748b" font-family="monospace" font-size="12">Th3</text>
-                <text x="140" y="316" fill="#64748b" font-family="monospace" font-size="12">Th4</text>
+                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Ventrale Myelon-Ischämie (A. spinalis anterior)</text>
             </svg>`;
         } else if (preset === 'mri_axial_owleyes') {
             svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
                 <rect width="600" height="450" fill="#050811"/>
-                <!-- Wirbelkörper ventral -->
                 <ellipse cx="300" cy="115" rx="95" ry="62" fill="#1e293b" stroke="#475569" stroke-width="2.5"/>
-                <!-- Spinalkanal / Duralsack (T2 Liquor hell) -->
                 <circle cx="300" cy="255" r="78" fill="#e2e8f0" stroke="#64748b" stroke-width="3"/>
-                <!-- Wirbelbogen & Dornfortsatz dorsal -->
                 <path d="M210,230 Q180,310 285,355 L300,425 L315,355 Q420,310 390,230" fill="#1e293b" stroke="#475569" stroke-width="2.5"/>
-                <!-- Myelon Querschnitt -->
                 <ellipse cx="300" cy="255" rx="52" ry="42" fill="#334155" stroke="#1e293b" stroke-width="2"/>
-                <!-- Graue Substanz (Schmetterlingsform) -->
                 <path d="M272,230 Q285,255 274,278 Q290,262 300,262 Q310,262 326,278 Q315,255 328,230 Q312,248 300,248 Q288,248 272,230 Z" fill="#475569"/>
-                <!-- EULENAUGEN-ZEICHEN: Bilaterale T2-Hyperintensität der Vorderhörner -->
-                <circle cx="278" cy="238" r="10" fill="#38bdf8"/>
-                <circle cx="278" cy="238" r="6" fill="#ffffff"/>
-                <circle cx="322" cy="238" r="10" fill="#38bdf8"/>
-                <circle cx="322" cy="238" r="6" fill="#ffffff"/>
-                <!-- A. spinalis anterior ventral in der Fissura mediana anterior -->
+                <circle cx="278" cy="238" r="10" fill="#38bdf8"/><circle cx="278" cy="238" r="6" fill="#ffffff"/>
+                <circle cx="322" cy="238" r="10" fill="#38bdf8"/><circle cx="322" cy="238" r="6" fill="#ffffff"/>
                 <circle cx="300" cy="211" r="4.5" fill="#ef4444"/>
                 <text x="20" y="32" fill="#38bdf8" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w AXIAL HÖHE Th3 (SCHICHT 2/4)</text>
-                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">ORIENTIERUNG: VENTRAL OBEN · DORSAL UNTEN</text>
+                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Eulenaugen-Zeichen (Bilaterale Vorderhorn-Ischämie)</text>
             </svg>`;
         } else if (preset === 'mri_sagittal_letm') {
             svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
                 <rect width="600" height="450" fill="#050811"/>
                 <g fill="#1e293b" stroke="#475569" stroke-width="2">
-                    <rect x="170" y="35" width="75" height="48" rx="6"/>
-                    <rect x="170" y="98" width="75" height="48" rx="6"/>
-                    <rect x="170" y="161" width="75" height="48" rx="6"/>
-                    <rect x="170" y="224" width="75" height="48" rx="6"/>
-                    <rect x="170" y="287" width="75" height="48" rx="6"/>
-                    <rect x="170" y="350" width="75" height="48" rx="6"/>
+                    <rect x="170" y="35" width="75" height="48" rx="6"/><rect x="170" y="98" width="75" height="48" rx="6"/>
+                    <rect x="170" y="161" width="75" height="48" rx="6"/><rect x="170" y="224" width="75" height="48" rx="6"/>
+                    <rect x="170" y="287" width="75" height="48" rx="6"/><rect x="170" y="350" width="75" height="48" rx="6"/>
                 </g>
                 <path d="M260,20 L345,20 L345,420 L260,420 Z" fill="#e2e8f0" opacity="0.85"/>
-                <!-- Myelon mit leichtem Ödem -->
                 <path d="M279,20 L325,20 L325,420 L279,420 Z" fill="#334155"/>
-                <!-- LETM: Langstreckige zentrale T2-Läsion über 4 Segmente (Th2 bis Th5) -->
                 <rect x="283" y="95" width="38" height="260" rx="16" fill="#f59e0b" opacity="0.85"/>
                 <rect x="289" y="108" width="26" height="235" rx="12" fill="#fef3c7"/>
                 <text x="20" y="32" fill="#f59e0b" font-family="monospace" font-size="13" font-weight="bold">MRT BWS · T2w SAGITTAL LETM (SCHICHT 3/4)</text>
-                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">VERGLEICHSPATIENT 2 (77 J., SUBAKUTE PARAPLEGIE)</text>
+                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Langstreckige Myelitis ≥ 3 Segmente (NMOSD)</text>
             </svg>`;
         } else {
             svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
@@ -9216,17 +9385,15 @@ const ClinicalMediaEngine = (() => {
                 <circle cx="300" cy="255" r="78" fill="#e2e8f0" stroke="#64748b" stroke-width="3"/>
                 <ellipse cx="300" cy="255" rx="52" ry="42" fill="#334155" stroke="#1e293b" stroke-width="2"/>
                 <path d="M272,230 Q285,255 274,278 Q290,262 300,262 Q310,262 326,278 Q315,255 328,230 Q312,248 300,248 Q288,248 272,230 Z" fill="#475569"/>
-                <!-- UMGEKEHRTES V-ZEICHEN (Hinterstränge: Fasciculus gracilis & cuneatus) -->
                 <path d="M276,288 L300,260 L324,288 L314,294 L300,274 L286,294 Z" fill="#10b981"/>
                 <path d="M280,287 L300,264 L320,287" stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round"/>
                 <text x="20" y="32" fill="#10b981" font-family="monospace" font-size="13" font-weight="bold">MRT HWS/BWS · T2w AXIAL (SCHICHT 4/4)</text>
-                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">METABOLISCHE DIFFERENZIALDIAGNOSE (N2O / VITAMIN B12)</text>
+                <text x="20" y="52" fill="#94a3b8" font-family="monospace" font-size="11">Umgekehrtes V-Zeichen (Hinterstrang-Degeneration / B12)</text>
             </svg>`;
         }
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    // Statte den Built-in Demo-Fall standardmäßig mit einer realistischen Bildserie aus
     function ensureDemoCaseMediaSeries() {
         if (!BUILTIN_DEMO_CASE.image_series) {
             BUILTIN_DEMO_CASE.image_series = [
@@ -9242,62 +9409,41 @@ const ClinicalMediaEngine = (() => {
                             label: "Schicht 1/4 · Sagittal T2w (Ventrale Ischämie)",
                             url: generateClinicalPresetDataUri('mri_sagittal_asa'),
                             finding_summary: "Bleistiftförmige ventrale T2-Hyperintensität (Th2–Th4) unter Aussparung des dorsalen Myelons.",
-                            caption: "Sagittale T2-Wichtung: Scharf demarkierte Hyperintensität in den ventralen 2/3 des Myelons (Versorgungsgebiet der A. spinalis anterior). Bandscheiben und Wirbelkörper ohne Kompression.",
+                            caption: "Sagittale T2-Wichtung: Scharf demarkierte Hyperintensität in den ventralen 2/3 des Myelons (Versorgungsgebiet der A. spinalis anterior).",
                             annotations: [
                                 { x: 48, y: 52, label: "Ventrale Myelon-Ischämie (2/3)", detail: "Tractus corticospinalis & spinothalamicus betroffen → Paraparese + dissoziierte Empfindungsstörung." },
-                                { x: 53, y: 52, label: "Intakte Hinterstränge (dorsal)", detail: "Versorgung über Aa. spinales posteriores → Lagesinn und Vibrationsempfinden bleiben erhalten!" }
+                                { x: 53, y: 52, label: "Intakte Hinterstränge (dorsal)", detail: "Versorgung über Aa. spinales posteriores → Lagesinn bleibt erhalten!" }
                             ]
                         },
                         {
                             id: "slice_2",
                             label: "Schicht 2/4 · Axial T2w (Eulenaugen-Zeichen)",
                             url: generateClinicalPresetDataUri('mri_axial_owleyes'),
-                            finding_summary: "Pathognomonisches bilaterales Eulenaugen-Zeichen (Snake-Eyes / Owl-Eyes) der Vorderhörner.",
-                            caption: "Axiale T2-Wichtung auf Höhe Th3: Symmetrische Hyperintensität der beiden Vorderhörner der grauen Substanz aufgrund der hohen metabolischen Vulnerabilität der Alpha-Motoneurone bei Ischämie.",
+                            finding_summary: "Pathognomonisches bilaterales Eulenaugen-Zeichen (Owl-Eyes) der Vorderhörner.",
+                            caption: "Axiale T2-Wichtung auf Höhe Th3: Symmetrische Hyperintensität der beiden Vorderhörner der grauen Substanz.",
                             annotations: [
-                                { x: 46.3, y: 52.8, label: "Rechtes Vorderhorn (Owl-Eye)", detail: "Untergang der motorischen Vorderhornneurone → schlaffe Parese & Areflexie in der Akutphase." },
-                                { x: 53.6, y: 52.8, label: "Linkes Vorderhorn (Owl-Eye)", detail: "Bilaterale symmetrische Ischämie im A.-spinalis-anterior-Stromgebiet." },
-                                { x: 50.0, y: 46.8, label: "A. spinalis anterior (Fissura mediana)", detail: "Unpaares Gefäß ventral – Verschluss z. B. durch Aortendissektion (Verlegung der A. radicularis magna / Adamkiewicz)." }
+                                { x: 46.3, y: 52.8, label: "Rechtes Vorderhorn (Owl-Eye)", detail: "Untergang der Alpha-Motoneurone → schlaffe Parese in der Akutphase." },
+                                { x: 53.6, y: 52.8, label: "Linkes Vorderhorn (Owl-Eye)", detail: "Bilaterale symmetrische Ischämie im A.-spinalis-anterior-Stromgebiet." }
                             ]
                         },
                         {
                             id: "slice_3",
                             label: "Schicht 3/4 · Sagittal T2w (LETM ≥ 3 Segmente)",
                             url: generateClinicalPresetDataUri('mri_sagittal_letm'),
-                            finding_summary: "Longitudinale extensive transversale Myelitis (LETM) über 4 Wirbelkörpersegmente mit zentralem Myelonödem.",
-                            caption: "Sagittale T2-Wichtung (Patient 2): Kontinuierliche, zentral betonte Läsion über ≥ 3 vertebrale Segmente. Radiologisches Hauptkriterium einer AQP4-IgG-positiven NMOSD (schließt klassische MS-Plaques weitgehend aus).",
+                            finding_summary: "Longitudinale extensive transversale Myelitis (LETM) über 4 Wirbelkörpersegmente.",
+                            caption: "Sagittale T2-Wichtung (Patient 2): Kontinuierliche Läsion über ≥ 3 Segmente (AQP4-IgG NMOSD).",
                             annotations: [
-                                { x: 50.3, y: 50.0, label: "LETM (Ausdehnung über 4 Segmente)", detail: "Befall von ≥ 3 Wirbelkörpersegmenten → AQP4-IgG und MOG-IgG im Serum bestimmen! Cave: Kein Interferon-beta!" }
+                                { x: 50.3, y: 50.0, label: "LETM (4 Segmente)", detail: "Befall von ≥ 3 Wirbelkörpersegmenten → Cave: Kein Interferon-beta!" }
                             ]
                         },
                         {
                             id: "slice_4",
                             label: "Schicht 4/4 · Axial T2w (Umgekehrtes V-Zeichen)",
                             url: generateClinicalPresetDataUri('mri_axial_inv_v'),
-                            finding_summary: "Symmetrische T2-Hyperintensität der Hinterstränge in Form eines umgekehrten V (Inverted-V-Sign).",
-                            caption: "Axiale T2-Wichtung (Differentialdiagnose funikuläre Myelose / Lachgas-Abusus): Selektive Demyelinisierung von Fasciculus gracilis und cuneatus dorsal.",
+                            finding_summary: "Symmetrische T2-Hyperintensität der Hinterstränge (Inverted-V-Sign).",
+                            caption: "Axiale T2-Wichtung (Differentialdiagnose funikuläre Myelose / N2O): Selektive Demyelinisierung von Fasciculus gracilis und cuneatus.",
                             annotations: [
-                                { x: 50.0, y: 61.5, label: "Umgekehrtes V-Zeichen (Hinterstränge)", detail: "Ausfall der tiefen Sensibilität (Pallhypästhesie, Lagesinnstörung, sensible Ataxie) durch funktionellen Vitamin-B12-Mangel (MMA ↑↑)." }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    series_id: "clinical_cardio_photo_02",
-                    title: "Klinische Aufnahme & kardiovaskuläres Notfall-Assessment",
-                    modality: "Klinik-Foto / EKG",
-                    clinical_context: "Ausschluss einer Aortendissektion Stanford Typ A/B als Ursache der spinalen Ischämie",
-                    socratic_question: "Auf welche klinischen Zeichen (Pulsstatus, Blutdruckdifferenz, Auskultation) und EKG-Veränderungen achtest du sofort, wenn ein Patient mit reißendem Rückenschmerz und akutem Querschnitt eintrifft?",
-                    items: [
-                        {
-                            id: "photo_1",
-                            label: "Aufnahme 1/1 · Kardiovaskulärer Status & EKG-Korrelation",
-                            url: "csm_EKG_Stetoskop_AdobeStock_309834451_7335931d23.jpeg",
-                            finding_summary: "Sofortige bilaterale Blutdruckmessung (Pulsdefizit?), Auskultation (Diastolikum bei Aortenklappeninsuffizienz?) und 12-Kanal-EKG (Koronarostien-Mitbeteiligung, meist RCA).",
-                            caption: "Bei jedem perakuten A.-spinalis-anterior-Syndrom mit thorakolumbalem Vernichtungsschmerz muss vor einer eventuellen Lysetherapie zwingend eine Aortendissektion mittels Angio-CT ausgeschlossen werden.",
-                            annotations: [
-                                { x: 35, y: 45, label: "12-Kanal-EKG Triage", detail: "Eine Typ-A-Dissektion kann das rechte Koronarostium verlegen und einen inferioren STEMI imitieren – eine blinde Dual-Plättchenhemmung/Lyse wäre fatal!" },
-                                { x: 68, y: 58, label: "Auskultation & Pulsstatus", detail: "Achte auf ein neu aufgetretenes frühdiastolisches Decrescendo-Geräusch (Aorteninsuffizienz) und Seitendifferenzen der Extremitätenpulse." }
+                                { x: 50.0, y: 61.5, label: "Umgekehrtes V-Zeichen", detail: "Ausfall der tiefen Sensibilität (Pallhypästhesie, sensible Ataxie) durch funktionellen B12-Mangel (MMA ↑↑)." }
                             ]
                         }
                     ]
@@ -9307,31 +9453,51 @@ const ClinicalMediaEngine = (() => {
     }
 
     // ----------------------------------------------------------------------
-    // 2. NORMALISIERUNG BELIEBIGER JSON-BILD-SCHEMATA
+    // 3. NORMALISIERUNG DER BILDSERIEN DES AKTUELLEN FALLS
     // ----------------------------------------------------------------------
     function getNormalizedSeriesForCase(caseData = activeCaseData) {
         if (!caseData) return [];
-        if (caseData.case_id === BUILTIN_DEMO_CASE.case_id && !caseData.image_series) {
+        if (caseData.case_id === BUILTIN_DEMO_CASE.case_id && (!caseData.image_series || caseData.image_series.length === 0)) {
             ensureDemoCaseMediaSeries();
             caseData.image_series = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE.image_series));
         }
 
         const rawSeriesList = [];
 
-        // 1. Top-Level `image_series`, `media_series`, `pacs_series` oder `extra_tasks.image_series`
+        // Unterstützt sowohl `image_series` als auch das `imaging`-Array aus dem Forge-Kalibrator!
+        if (Array.isArray(caseData.imaging) && caseData.imaging.length > 0) {
+            caseData.imaging.forEach((st, idx) => {
+                const slices = Array.isArray(st.slices) && st.slices.length > 0
+                    ? st.slices
+                    : (st.image_url ? [{ url: st.image_url, label: st.title }] : []);
+                rawSeriesList.push({
+                    series_id: st.id || `imaging_${idx}`,
+                    title: st.title || `PACS-Studie ${idx + 1}`,
+                    modality: st.modality || 'Radiologie',
+                    clinical_context: st.attribution || '',
+                    socratic_question: st.clinical_question || 'Beurteile die Aufnahme systematisch.',
+                    items: slices.map((sl, sIdx) => ({
+                        id: `sl_${idx}_${sIdx}`,
+                        url: typeof sl === 'string' ? sl : (sl.url || sl.image_url || st.image_url),
+                        label: sl.label || `Schicht ${sIdx + 1} / ${slices.length}`,
+                        finding_summary: st.hotspot?.label || st.finding_options?.[st.correct_finding_index] || '',
+                        caption: st.radiology_pearl || '',
+                        annotations: st.hotspot ? [{ x: st.hotspot.x, y: st.hotspot.y, label: st.hotspot.label || 'Pathologie', detail: st.radiology_pearl || '' }] : []
+                    }))
+                });
+            });
+        }
+
         const candidates = [
             caseData.image_series,
             caseData.media_series,
             caseData.pacs_series,
-            caseData.clinical_media,
-            caseData.extra_tasks?.image_series,
-            caseData.extra_tasks?.clinical_media
+            caseData.extra_tasks?.image_series
         ];
 
         candidates.forEach(cand => {
             if (!cand) return;
             if (Array.isArray(cand)) {
-                // Prüfen, ob es ein Array von Serien oder direkt ein Array von Einzelbildern ist
                 if (cand.length > 0 && (cand[0].items || cand[0].slices || cand[0].images)) {
                     rawSeriesList.push(...cand);
                 } else if (cand.length > 0 && (cand[0].url || cand[0].src || cand[0].image_url)) {
@@ -9343,42 +9509,9 @@ const ClinicalMediaEngine = (() => {
                         items: cand
                     });
                 }
-            } else if (typeof cand === 'object' && (cand.items || cand.slices || cand.images)) {
-                rawSeriesList.push(cand);
             }
         });
 
-        // 2. Zusätzlich Bilder aus einzelnen `timeline`-Schritten einsammeln, falls vorhanden
-        if (Array.isArray(caseData.timeline)) {
-            const stepImages = [];
-            caseData.timeline.forEach((step, idx) => {
-                const imgs = step.images || step.image_series || (step.image_url ? [{ url: step.image_url, label: step.phase }] : null);
-                if (Array.isArray(imgs)) {
-                    imgs.forEach((img, iIdx) => {
-                        stepImages.push({
-                            id: `step_${step.step_id || idx + 1}_img_${iIdx + 1}`,
-                            url: typeof img === 'string' ? img : (img.url || img.src || img.image_url),
-                            label: img.label || `${step.phase || 'Verlauf'} (Bild ${iIdx + 1})`,
-                            caption: img.caption || img.description || '',
-                            finding_summary: img.finding_summary || img.finding || '',
-                            annotations: Array.isArray(img.annotations) ? img.annotations : [],
-                            step_id: step.step_id || (idx + 1)
-                        });
-                    });
-                }
-            });
-            if (stepImages.length > 0) {
-                rawSeriesList.push({
-                    series_id: `timeline_series_${caseData.case_id}`,
-                    title: 'Verlaufs-Bildserie (Audit-Timeline)',
-                    modality: 'Klinischer Verlauf',
-                    clinical_context: 'Chronologische Befunddokumentation aus den Patientenschritten',
-                    items: stepImages
-                });
-            }
-        }
-
-        // Sauber normalisieren
         return rawSeriesList.map((series, sIdx) => {
             const rawItems = series.items || series.slices || series.images || [];
             return {
@@ -9400,41 +9533,25 @@ const ClinicalMediaEngine = (() => {
     }
 
     // ----------------------------------------------------------------------
-    // 3. STYLESHEET INJECTION (DARK MODE, BRIGHT MODE & SPLIT-SCREEN)
+    // 4. STYLESHEET INJECTION
     // ----------------------------------------------------------------------
     function injectMediaEngineStyles() {
         if (document.getElementById('mc-pacs-media-engine-css')) return;
         const style = document.createElement('style');
         style.id = 'mc-pacs-media-engine-css';
         style.textContent = `
-            /* Floating & Header Trigger Buttons */
             .mc-pacs-trigger-btn {
-                display: inline-flex;
-                align-items: center;
-                gap: 7px;
-                padding: 6px 13px;
-                border-radius: 999px;
-                background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(37, 99, 235, 0.28) 100%);
-                border: 1px solid rgba(56, 189, 248, 0.55);
-                color: #7dd3fc;
-                font-size: 0.78rem;
-                font-weight: 800;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                box-shadow: 0 2px 12px rgba(14, 165, 233, 0.2);
-                white-space: nowrap;
+                display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px;
+                border-radius: 999px; background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(37, 99, 235, 0.28) 100%);
+                border: 1px solid rgba(56, 189, 248, 0.55); color: #7dd3fc; font-size: 0.78rem;
+                font-weight: 800; cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
             }
             .mc-pacs-trigger-btn:hover {
                 transform: translateY(-1px);
                 background: linear-gradient(135deg, rgba(14, 165, 233, 0.35) 0%, rgba(37, 99, 235, 0.42) 100%);
-                box-shadow: 0 4px 16px rgba(56, 189, 248, 0.35);
             }
             .mc-pacs-pulse-dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: #38bdf8;
-                box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+                width: 8px; height: 8px; border-radius: 50%; background: #38bdf8;
                 animation: mcPacsPulse 1.8s infinite;
             }
             @keyframes mcPacsPulse {
@@ -9442,443 +9559,156 @@ const ClinicalMediaEngine = (() => {
                 70% { box-shadow: 0 0 0 7px rgba(56, 189, 248, 0); }
                 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
             }
-
-            /* Inline Preview Strip in Overview & Audit */
             .mc-inline-series-strip {
-                margin: 12px 0 18px 0;
-                padding: 14px 16px;
-                border-radius: 14px;
-                background: rgba(15, 23, 42, 0.65);
-                border: 1px solid rgba(56, 189, 248, 0.28);
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
+                margin: 12px 0 18px 0; padding: 14px 16px; border-radius: 14px;
+                background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.28);
+                display: flex; flex-direction: column; gap: 12px;
             }
             .mc-inline-series-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                flex-wrap: wrap;
-                gap: 8px;
+                display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
             }
             .mc-inline-thumbs-row {
-                display: flex;
-                gap: 10px;
-                overflow-x: auto;
-                padding-bottom: 4px;
-                scrollbar-width: thin;
+                display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
             }
             .mc-inline-thumb-card {
-                flex: 0 0 155px;
-                border-radius: 10px;
-                overflow: hidden;
-                background: #060913;
-                border: 1px solid rgba(148, 163, 184, 0.25);
-                cursor: pointer;
-                transition: all 0.18s ease;
-                position: relative;
+                flex: 0 0 155px; border-radius: 10px; overflow: hidden; background: #060913;
+                border: 1px solid rgba(148, 163, 184, 0.25); cursor: pointer; transition: all 0.18s ease;
             }
-            .mc-inline-thumb-card:hover {
-                border-color: #38bdf8;
-                transform: translateY(-2px);
-            }
-            .mc-inline-thumb-card img {
-                width: 100%;
-                height: 92px;
-                object-fit: cover;
-                display: block;
-                background: #020617;
-            }
+            .mc-inline-thumb-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
+            .mc-inline-thumb-card img { width: 100%; height: 92px; object-fit: cover; display: block; background: #020617; }
             .mc-inline-thumb-label {
-                padding: 6px 8px;
-                font-size: 0.71rem;
-                font-weight: 700;
-                color: var(--text-main);
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                padding: 6px 8px; font-size: 0.71rem; font-weight: 700; color: var(--text-main);
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             }
-
-            /* PACS Modal & Split-Screen Workstation */
             .mc-pacs-backdrop {
-                position: fixed;
-                inset: 0;
-                z-index: 9950;
-                background: rgba(2, 6, 23, 0.82);
-                backdrop-filter: blur(10px);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 18px;
-                transition: all 0.25s ease;
+                position: fixed; inset: 0; z-index: 9950; background: rgba(2, 6, 23, 0.84);
+                backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center;
+                padding: 18px; transition: all 0.25s ease;
             }
-            .mc-pacs-backdrop.hidden {
-                display: none !important;
-            }
-            /* Split-Screen Workstation Mode (KIS links, PACS rechts) */
+            .mc-pacs-backdrop.hidden { display: none !important; }
             .mc-pacs-backdrop.is-split-mode {
-                inset: 64px 12px 12px auto;
-                width: min(48vw, 680px);
-                padding: 0;
-                background: transparent;
-                backdrop-filter: none;
-                pointer-events: auto;
+                inset: 64px 12px 12px auto; width: min(48vw, 680px); padding: 0;
+                background: transparent; backdrop-filter: none;
             }
             @media (min-width: 1024px) {
                 body.mc-pacs-split-open #player-view {
                     width: calc(100% - min(48vw, 680px) - 20px) !important;
-                    transition: width 0.25s ease;
                 }
             }
-            @media (max-width: 1023px) {
-                .mc-pacs-backdrop.is-split-mode {
-                    inset: auto 8px 8px 8px;
-                    width: auto;
-                    height: 58vh;
-                }
-            }
-
             .mc-pacs-window {
-                width: 100%;
-                max-width: 1240px;
-                height: min(90vh, 860px);
-                background: #070b16;
-                border: 1px solid rgba(56, 189, 248, 0.35);
-                border-radius: 18px;
-                box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75);
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-                color: #f8fafc;
+                width: 100%; max-width: 1240px; height: min(90vh, 860px); background: #070b16;
+                border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 18px;
+                box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75); display: flex; flex-direction: column;
+                overflow: hidden; color: #f8fafc;
             }
-            .mc-pacs-backdrop.is-split-mode .mc-pacs-window {
-                height: 100%;
-                max-width: none;
-                box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
-            }
-
-            /* Topbar im PACS Viewer */
+            .mc-pacs-backdrop.is-split-mode .mc-pacs-window { height: 100%; max-width: none; }
             .mc-pacs-topbar {
-                padding: 10px 16px;
-                background: #0b1121;
-                border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 10px;
-                flex-wrap: wrap;
+                padding: 10px 16px; background: #0b1121; border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+                display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
             }
-            .mc-pacs-series-tabs {
-                display: flex;
-                gap: 6px;
-                overflow-x: auto;
-                align-items: center;
-            }
+            .mc-pacs-series-tabs { display: flex; gap: 6px; overflow-x: auto; align-items: center; }
             .mc-pacs-series-tab {
-                padding: 5px 11px;
-                border-radius: 8px;
-                border: 1px solid rgba(148, 163, 184, 0.22);
-                background: rgba(15, 23, 42, 0.7);
-                color: #94a3b8;
-                font-size: 0.75rem;
-                font-weight: 700;
-                cursor: pointer;
-                white-space: nowrap;
+                padding: 5px 11px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.22);
+                background: rgba(15, 23, 42, 0.7); color: #94a3b8; font-size: 0.75rem; font-weight: 700;
+                cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
             }
             .mc-pacs-series-tab.active {
-                background: rgba(14, 165, 233, 0.2);
-                border-color: #38bdf8;
-                color: #f8fafc;
+                background: rgba(14, 165, 233, 0.2); border-color: #38bdf8; color: #f8fafc;
             }
-
-            /* Workstation Toolbar (Zoom, W/L, Invert, ROI, Befund) */
             .mc-pacs-toolbar {
-                padding: 8px 16px;
-                background: #090e1c;
-                border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 10px;
-                flex-wrap: wrap;
-                font-size: 0.74rem;
+                padding: 8px 16px; background: #090e1c; border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+                display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
             }
-            .mc-pacs-tool-group {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                flex-wrap: wrap;
-            }
+            .mc-pacs-tool-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
             .mc-pacs-tool-btn {
-                padding: 5px 10px;
-                border-radius: 7px;
-                border: 1px solid rgba(148, 163, 184, 0.24);
-                background: rgba(15, 23, 42, 0.8);
-                color: #cbd5e1;
-                font-size: 0.73rem;
-                font-weight: 700;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-                transition: all 0.15s ease;
+                padding: 5px 10px; border-radius: 7px; border: 1px solid rgba(148, 163, 184, 0.24);
+                background: rgba(15, 23, 42, 0.8); color: #cbd5e1; font-size: 0.73rem; font-weight: 700;
+                cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
             }
-            .mc-pacs-tool-btn:hover {
-                border-color: #38bdf8;
-                color: #ffffff;
-            }
-            .mc-pacs-tool-btn.active {
-                background: rgba(16, 185, 129, 0.22);
-                border-color: #10b981;
-                color: #6ee7b7;
-            }
-
-            /* Haupt-Workspace: Links Viewport + Scrubber, Rechts/Unten Befund-Panel */
+            .mc-pacs-tool-btn:hover { border-color: #38bdf8; color: #ffffff; }
+            .mc-pacs-tool-btn.active { background: rgba(16, 185, 129, 0.22); border-color: #10b981; color: #6ee7b7; }
             .mc-pacs-body {
-                flex: 1;
-                min-height: 0;
-                display: grid;
-                grid-template-columns: 1fr 340px;
-                overflow: hidden;
+                flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 340px; overflow: hidden;
             }
-            .mc-pacs-backdrop.is-split-mode .mc-pacs-body {
-                grid-template-columns: 1fr;
-                grid-template-rows: 1fr auto;
-            }
-            @media (max-width: 900px) {
-                .mc-pacs-body {
-                    grid-template-columns: 1fr;
-                    grid-template-rows: 1fr auto;
-                }
-            }
-
-            /* Bild-Viewport mit Mausrad-Scrubbing & Vertikaler Schicht-Leiste */
+            .mc-pacs-backdrop.is-split-mode .mc-pacs-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+            @media (max-width: 900px) { .mc-pacs-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } }
             .mc-pacs-viewport-wrap {
-                position: relative;
-                background: radial-gradient(circle at center, #0a0f1e 0%, #02040a 100%);
-                display: flex;
-                flex-direction: column;
-                min-height: 280px;
-                overflow: hidden;
-                user-select: none;
+                position: relative; background: radial-gradient(circle at center, #0a0f1e 0%, #02040a 100%);
+                display: flex; flex-direction: column; min-height: 280px; overflow: hidden; user-select: none;
             }
             .mc-pacs-stage {
-                flex: 1;
-                position: relative;
-                overflow: hidden;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: grab;
+                flex: 1; position: relative; overflow: hidden; display: flex; align-items: center;
+                justify-content: center; cursor: grab;
             }
-            .mc-pacs-stage.is-panning {
-                cursor: grabbing;
-            }
+            .mc-pacs-stage.is-panning { cursor: grabbing; }
             .mc-pacs-img-layer {
-                position: relative;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                max-width: 92%;
-                max-height: 92%;
-                transform-origin: center center;
-                transition: transform 0.06s linear;
+                position: relative; display: inline-flex; align-items: center; justify-content: center;
+                max-width: 92%; max-height: 92%; transform-origin: center center; transition: transform 0.06s linear;
             }
             .mc-pacs-main-img {
-                max-width: 100%;
-                max-height: 62vh;
-                object-fit: contain;
-                border-radius: 6px;
-                display: block;
-                pointer-events: none;
-                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+                max-width: 100%; max-height: 62vh; object-fit: contain; border-radius: 6px;
+                display: block; pointer-events: none; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
             }
-
-            /* Radiologisches / Forensisches Messgitter */
             .mc-pacs-measure-grid {
-                position: absolute;
-                inset: 0;
-                background-image:
-                    linear-gradient(to right, rgba(56, 189, 248, 0.14) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(56, 189, 248, 0.14) 1px, transparent 1px);
-                background-size: 32px 32px;
-                pointer-events: none;
+                position: absolute; inset: 0;
+                background-image: linear-gradient(to right, rgba(56, 189, 248, 0.14) 1px, transparent 1px),
+                                  linear-gradient(to bottom, rgba(56, 189, 248, 0.14) 1px, transparent 1px);
+                background-size: 32px 32px; pointer-events: none;
             }
-
-            /* Interaktive ROI-Marker auf dem Bild */
             .mc-pacs-roi-pin {
-                position: absolute;
-                width: 26px;
-                height: 26px;
-                margin-left: -13px;
-                margin-top: -13px;
-                border-radius: 50%;
-                background: rgba(239, 68, 68, 0.28);
-                border: 2px solid #ef4444;
-                color: #ffffff;
-                font-size: 0.7rem;
-                font-weight: 800;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
-                transition: transform 0.15s ease;
-                z-index: 15;
-            }
-            .mc-pacs-roi-pin:hover {
-                transform: scale(1.2);
-                background: #ef4444;
+                position: absolute; width: 26px; height: 26px; margin-left: -13px; margin-top: -13px;
+                border-radius: 50%; background: rgba(239, 68, 68, 0.28); border: 2px solid #ef4444;
+                color: #ffffff; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center;
+                justify-content: center; cursor: pointer; z-index: 15;
             }
             .mc-pacs-roi-tooltip {
-                position: absolute;
-                bottom: calc(100% + 8px);
-                left: 50%;
-                transform: translateX(-50%);
-                width: 230px;
-                padding: 8px 10px;
-                border-radius: 8px;
-                background: rgba(9, 14, 28, 0.96);
-                border: 1px solid #38bdf8;
-                color: #f8fafc;
-                font-size: 0.72rem;
-                line-height: 1.4;
-                pointer-events: none;
-                opacity: 0;
-                transition: opacity 0.15s ease;
-                box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-                z-index: 25;
+                position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+                width: 230px; padding: 8px 10px; border-radius: 8px; background: rgba(9, 14, 28, 0.96);
+                border: 1px solid #38bdf8; color: #f8fafc; font-size: 0.72rem; line-height: 1.4;
+                pointer-events: none; opacity: 0; transition: opacity 0.15s ease; z-index: 25;
             }
-            .mc-pacs-roi-pin:hover .mc-pacs-roi-tooltip,
-            .mc-pacs-roi-pin.is-open .mc-pacs-roi-tooltip {
-                opacity: 1;
-            }
-
-            /* HUD-Overlays im PACS Viewport (Oben links & Rechts) */
+            .mc-pacs-roi-pin:hover .mc-pacs-roi-tooltip, .mc-pacs-roi-pin.is-open .mc-pacs-roi-tooltip { opacity: 1; }
             .mc-pacs-hud-topleft {
-                position: absolute;
-                top: 12px;
-                left: 14px;
-                pointer-events: none;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 0.74rem;
-                color: #38bdf8;
-                background: rgba(6, 9, 19, 0.75);
-                padding: 6px 10px;
-                border-radius: 8px;
-                border: 1px solid rgba(56, 189, 248, 0.25);
-                z-index: 20;
+                position: absolute; top: 12px; left: 14px; pointer-events: none;
+                font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: #38bdf8;
+                background: rgba(6, 9, 19, 0.78); padding: 6px 10px; border-radius: 8px;
+                border: 1px solid rgba(56, 189, 248, 0.25); z-index: 20;
             }
             .mc-pacs-hud-bottomleft {
-                position: absolute;
-                bottom: 12px;
-                left: 14px;
-                pointer-events: none;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 0.7rem;
-                color: #94a3b8;
-                background: rgba(6, 9, 19, 0.75);
-                padding: 4px 9px;
-                border-radius: 6px;
-                z-index: 20;
+                position: absolute; bottom: 12px; left: 14px; pointer-events: none;
+                font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #94a3b8;
+                background: rgba(6, 9, 19, 0.75); padding: 4px 9px; border-radius: 6px; z-index: 20;
             }
-
-            /* Vertikale Schicht-Scrubber-Leiste rechts am Bildrand */
             .mc-pacs-vertical-scrubber {
-                position: absolute;
-                top: 16px;
-                bottom: 16px;
-                right: 12px;
-                width: 14px;
-                background: rgba(15, 23, 42, 0.8);
-                border: 1px solid rgba(148, 163, 184, 0.25);
-                border-radius: 999px;
-                display: flex;
-                flex-direction: column;
-                padding: 3px;
-                gap: 3px;
-                z-index: 20;
+                position: absolute; top: 16px; bottom: 16px; right: 12px; width: 14px;
+                background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.25);
+                border-radius: 999px; display: flex; flex-direction: column; padding: 3px; gap: 3px; z-index: 20;
             }
-            .mc-pacs-v-tick {
-                flex: 1;
-                border-radius: 999px;
-                background: rgba(148, 163, 184, 0.22);
-                cursor: pointer;
-                transition: background 0.12s ease;
-            }
-            .mc-pacs-v-tick.active {
-                background: #38bdf8;
-                box-shadow: 0 0 8px #38bdf8;
-            }
-
-            /* Untere Scrubber- & Filmstreifen-Leiste */
+            .mc-pacs-v-tick { flex: 1; border-radius: 999px; background: rgba(148, 163, 184, 0.22); cursor: pointer; }
+            .mc-pacs-v-tick.active { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
             .mc-pacs-filmstrip-bar {
-                padding: 10px 14px;
-                background: #090e1c;
-                border-top: 1px solid rgba(148, 163, 184, 0.15);
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
+                padding: 10px 14px; background: #090e1c; border-top: 1px solid rgba(148, 163, 184, 0.15);
+                display: flex; flex-direction: column; gap: 8px;
             }
-            .mc-pacs-slider-row {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-            .mc-pacs-range-slider {
-                flex: 1;
-                accent-color: #38bdf8;
-                cursor: pointer;
-            }
-            .mc-pacs-thumbs-strip {
-                display: flex;
-                gap: 8px;
-                overflow-x: auto;
-                padding-bottom: 2px;
-            }
+            .mc-pacs-slider-row { display: flex; align-items: center; gap: 10px; }
+            .mc-pacs-range-slider { flex: 1; accent-color: #38bdf8; cursor: pointer; }
+            .mc-pacs-thumbs-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
             .mc-pacs-thumb-item {
-                flex: 0 0 68px;
-                height: 46px;
-                border-radius: 6px;
-                overflow: hidden;
-                border: 2px solid transparent;
-                opacity: 0.55;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                background: #020617;
+                flex: 0 0 68px; height: 46px; border-radius: 6px; overflow: hidden;
+                border: 2px solid transparent; opacity: 0.55; cursor: pointer; background: #020617;
             }
-            .mc-pacs-thumb-item.active {
-                border-color: #38bdf8;
-                opacity: 1;
-                transform: scale(1.04);
-            }
-            .mc-pacs-thumb-item img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
-
-            /* Rechtes Didaktik- & Befund-Panel */
+            .mc-pacs-thumb-item.active { border-color: #38bdf8; opacity: 1; transform: scale(1.04); }
+            .mc-pacs-thumb-item img { width: 100%; height: 100%; object-fit: cover; }
             .mc-pacs-inspector {
-                background: #0b1121;
-                border-left: 1px solid rgba(148, 163, 184, 0.15);
-                padding: 16px;
-                overflow-y: auto;
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
-            }
-            .mc-pacs-backdrop.is-split-mode .mc-pacs-inspector {
-                border-left: none;
-                border-top: 1px solid rgba(148, 163, 184, 0.15);
-                max-height: 36vh;
+                background: #0b1121; border-left: 1px solid rgba(148, 163, 184, 0.15);
+                padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
             }
         `;
         document.head.appendChild(style);
     }
 
     // ----------------------------------------------------------------------
-    // 4. MODAL DOM ERZEUGEN & INTERAKTIONEN BINDEN
+    // 5. MODAL DOM & VIEWPORT EVENTS (INKL. ONERROR SELF-HEALING)
     // ----------------------------------------------------------------------
     function ensureViewerModalDOM() {
         injectMediaEngineStyles();
@@ -9890,7 +9720,6 @@ const ClinicalMediaEngine = (() => {
         modal.className = 'mc-pacs-backdrop hidden';
         modal.innerHTML = `
             <div class="mc-pacs-window" role="dialog" aria-modal="true" aria-label="Klinische Bildserie & PACS Viewer">
-                <!-- Topbar -->
                 <div class="mc-pacs-topbar">
                     <div style="display:flex; align-items:center; gap:10px; min-width:0;">
                         <span style="font-size:1.1rem;">🔬</span>
@@ -9903,10 +9732,10 @@ const ClinicalMediaEngine = (() => {
                     <div class="mc-pacs-series-tabs" id="mc-pacs-series-tabs"></div>
 
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.openAddSeriesDialog()" title="Eigene Bilder/Fotoserie zu diesem Fall hinzufügen">
-                            ➕ Fotoserie anhängen
+                        <button type="button" class="mc-pacs-tool-btn" style="border-color:#38bdf8; color:#7dd3fc;" onclick="window.ClinicalMediaEngine.openAddSeriesDialog()" title="Radiopaedia/Wikimedia durchsuchen, Fall-Link auflösen oder eigene Bilder hochladen">
+                            ➕ Fotoserie anhängen / Suche
                         </button>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-split-btn" onclick="window.ClinicalMediaEngine.toggleSplitScreen()" title="Als Split-Screen neben dem Fall andocken (Workstation-Modus)">
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-split-btn" onclick="window.ClinicalMediaEngine.toggleSplitScreen()" title="Als Split-Screen neben dem Fall andocken">
                             ◫ Split-Ansicht
                         </button>
                         <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.close()" style="border-color:rgba(239,68,68,0.4); color:#fca5a5;">
@@ -9915,49 +9744,44 @@ const ClinicalMediaEngine = (() => {
                     </div>
                 </div>
 
-                <!-- Workstation Toolbar -->
                 <div class="mc-pacs-toolbar">
                     <div class="mc-pacs-tool-group">
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.stepSlide(-1)" title="Vorheriges Bild (Pfeil hoch / links)">◀ Zurück</button>
-                        <span id="mc-pacs-slice-counter" style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#38bdf8; min-width:95px; text-align:center;">Bild 1 / 1</span>
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.stepSlide(1)" title="Nächstes Bild (Pfeil runter / rechts)">Weiter ▶</button>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.stepSlide(-1)">◀ Zurück</button>
+                        <span id="mc-pacs-slice-counter" style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#38bdf8; min-width:95px; text-align:center;">Schicht 1 / 1</span>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.stepSlide(1)">Weiter ▶</button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-cine-btn" onclick="window.ClinicalMediaEngine.toggleCineLoop()" title="Schichten automatisch als Cine-Loop abspielen">▶️ Cine-Loop</button>
                     </div>
 
                     <div class="mc-pacs-tool-group">
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.adjustZoom(0.35)" title="Vergrößern">🔍+</button>
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.adjustZoom(-0.35)" title="Verkleinern">🔍-</button>
-                        <label style="display:inline-flex; align-items:center; gap:4px; color:#94a3b8; font-size:0.7rem;" title="Helligkeit (Fensterung)">
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.adjustZoom(0.35)">🔍+</button>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.adjustZoom(-0.35)">🔍-</button>
+                        <label style="display:inline-flex; align-items:center; gap:4px; color:#94a3b8; font-size:0.7rem;">
                             ☀️ <input type="range" id="mc-pacs-bright-slider" min="50" max="170" value="100" style="width:55px; accent-color:#38bdf8;">
                         </label>
-                        <label style="display:inline-flex; align-items:center; gap:4px; color:#94a3b8; font-size:0.7rem;" title="Kontrast (Fensterung)">
+                        <label style="display:inline-flex; align-items:center; gap:4px; color:#94a3b8; font-size:0.7rem;">
                             ◐ <input type="range" id="mc-pacs-contrast-slider" min="60" max="200" value="100" style="width:55px; accent-color:#38bdf8;">
                         </label>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-invert-btn" onclick="window.ClinicalMediaEngine.toggleInvert()" title="Negativ-Darstellung (Invertieren)">🌓 Invert</button>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-grid-btn" onclick="window.ClinicalMediaEngine.toggleGrid()" title="Klinisches Messgitter einblenden">📏 Gitter</button>
-                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.resetViewTransform()" title="Ansicht zurücksetzen">↺ Reset</button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-invert-btn" onclick="window.ClinicalMediaEngine.toggleInvert()">🌓 Invert</button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-grid-btn" onclick="window.ClinicalMediaEngine.toggleGrid()">📏 Gitter</button>
+                        <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.resetViewTransform()">↺ Reset</button>
                     </div>
 
                     <div class="mc-pacs-tool-group">
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-roi-btn" onclick="window.ClinicalMediaEngine.toggleAnnotations()" title="Pathologie-Marker auf dem Bild ein-/ausblenden (Leertaste)">
-                            🎯 ROI-Marker
-                        </button>
-                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-report-btn" onclick="window.ClinicalMediaEngine.toggleReport()" title="Strukturierten Facharzt-Befund aufdecken (Taste B)">
-                            📋 Befund aufdecken
-                        </button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-roi-btn" onclick="window.ClinicalMediaEngine.toggleAnnotations()">🎯 ROI-Marker</button>
+                        <button type="button" class="mc-pacs-tool-btn" id="mc-pacs-report-btn" onclick="window.ClinicalMediaEngine.toggleReport()">📋 Befund aufdecken</button>
                     </div>
                 </div>
 
-                <!-- Main Body -->
                 <div class="mc-pacs-body">
-                    <!-- Viewport + Filmstrip -->
                     <div class="mc-pacs-viewport-wrap">
                         <div class="mc-pacs-stage" id="mc-pacs-stage">
                             <div class="mc-pacs-hud-topleft" id="mc-pacs-hud-topleft">MODALITY · SLICE</div>
                             <div class="mc-pacs-hud-bottomleft">🖱️ Mausrad = Durchscrollen · Strg+Mausrad = Zoom · Drag = Verschieben</div>
-                            <div class="mc-pacs-vertical-scrubber" id="mc-pacs-vertical-scrubber" title="Klicken oder ziehen zum Durchscrollen der Schichten"></div>
+                            <div class="mc-pacs-vertical-scrubber" id="mc-pacs-vertical-scrubber"></div>
 
                             <div class="mc-pacs-img-layer" id="mc-pacs-img-layer">
-                                <img id="mc-pacs-main-img" class="mc-pacs-main-img" src="" alt="Klinische Aufnahme">
+                                <!-- WICHTIG: referrerpolicy="no-referrer" verhindert Hotlink-Blockaden bei Radiopaedia! -->
+                                <img id="mc-pacs-main-img" class="mc-pacs-main-img" referrerpolicy="no-referrer" crossOrigin="anonymous" src="" alt="Klinische Aufnahme">
                                 <div id="mc-pacs-measure-grid" class="mc-pacs-measure-grid" style="display:none;"></div>
                                 <div id="mc-pacs-roi-container"></div>
                             </div>
@@ -9972,7 +9796,6 @@ const ClinicalMediaEngine = (() => {
                         </div>
                     </div>
 
-                    <!-- Inspector / Socratic Active Recall Panel -->
                     <div class="mc-pacs-inspector" id="mc-pacs-inspector"></div>
                 </div>
             </div>
@@ -9985,34 +9808,39 @@ const ClinicalMediaEngine = (() => {
 
     function bindViewportEvents(modal) {
         const stage = modal.querySelector('#mc-pacs-stage');
+        const mainImg = modal.querySelector('#mc-pacs-main-img');
         const sliceSlider = modal.querySelector('#mc-pacs-slice-slider');
         const brightSlider = modal.querySelector('#mc-pacs-bright-slider');
         const contrastSlider = modal.querySelector('#mc-pacs-contrast-slider');
 
-        // 1. MAUSRAD-SCROLLING DURCH DIE BILDSERIE (wie im Klinik-PACS!)
+        // AUTOMATISCHES SELF-HEALING BEI FEHLERHAFTEN / RADIOPAEDIA-WEBSEITEN-LINKS
+        if (mainImg) {
+            mainImg.addEventListener('error', () => {
+                // Falls crossOrigin="anonymous" von einem Server abgelehnt wurde, zuerst ohne CORS-Attribut probieren
+                if (mainImg.hasAttribute('crossOrigin')) {
+                    mainImg.removeAttribute('crossOrigin');
+                    const currentSrc = mainImg.getAttribute('src');
+                    if (currentSrc && !isNonImageWebpageOrQuery(currentSrc)) {
+                        mainImg.setAttribute('src', currentSrc);
+                        return;
+                    }
+                }
+                healBrokenSlideIfNeeded(activeSeriesIndex, activeSlideIndex);
+            });
+        }
+
         stage.addEventListener('wheel', (e) => {
             e.preventDefault();
             e.stopPropagation();
-
-            // Strg/Cmd + Mausrad = Stufenloser Zoom
             if (e.ctrlKey || e.metaKey) {
-                const deltaZoom = e.deltaY < 0 ? 0.22 : -0.22;
-                adjustZoom(deltaZoom);
+                adjustZoom(e.deltaY < 0 ? 0.22 : -0.22);
                 return;
             }
-
-            // Normales Mausrad = Durch die Fotoserie / Schichten scrollen!
             if (wheelThrottleTimer) return;
             wheelThrottleTimer = setTimeout(() => { wheelThrottleTimer = null; }, 55);
-
-            if (e.deltaY > 0 || e.deltaX > 0) {
-                stepSlide(1);
-            } else if (e.deltaY < 0 || e.deltaX < 0) {
-                stepSlide(-1);
-            }
+            stepSlide((e.deltaY > 0 || e.deltaX > 0) ? 1 : -1);
         }, { passive: false });
 
-        // 2. DRAG-PANNING BEI ZOOM
         stage.addEventListener('mousedown', (e) => {
             if (e.target.closest('.mc-pacs-roi-pin') || e.target.closest('.mc-pacs-vertical-scrubber')) return;
             isPanning = true;
@@ -10035,7 +9863,6 @@ const ClinicalMediaEngine = (() => {
             }
         });
 
-        // 3. TOUCH-SWIPE (Mobile / iPad)
         stage.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 touchStartX = e.touches[0].clientX;
@@ -10052,71 +9879,51 @@ const ClinicalMediaEngine = (() => {
             }
         }, { passive: true });
 
-        // 4. SLIDER EVENTS
-        sliceSlider?.addEventListener('input', (e) => {
-            selectSlide(parseInt(e.target.value, 10));
-        });
-
-        brightSlider?.addEventListener('input', (e) => {
-            brightness = parseInt(e.target.value, 10);
-            applyImageTransform();
-        });
-
-        contrastSlider?.addEventListener('input', (e) => {
-            contrast = parseInt(e.target.value, 10);
-            applyImageTransform();
-        });
-
-        // 5. TASTATUR-NAVIGATION (Pfeiltasten, Leertaste, B, Escape)
-        document.addEventListener('keydown', (e) => {
-            if (!isViewerOpen) return;
-            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-
-            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-                e.preventDefault();
-                stepSlide(1);
-            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-                e.preventDefault();
-                stepSlide(-1);
-            } else if (e.key === ' ') {
-                e.preventDefault();
-                toggleAnnotations();
-            } else if (e.key.toLowerCase() === 'b') {
-                e.preventDefault();
-                toggleReport();
-            } else if (e.key === 'Escape' && !isSplitScreen) {
-                closeViewer();
-            }
-        });
+        sliceSlider?.addEventListener('input', (e) => selectSlide(parseInt(e.target.value, 10)));
+        brightSlider?.addEventListener('input', (e) => { brightness = parseInt(e.target.value, 10); applyImageTransform(); });
+        contrastSlider?.addEventListener('input', (e) => { contrast = parseInt(e.target.value, 10); applyImageTransform(); });
     }
 
     // ----------------------------------------------------------------------
-    // 5. RENDERING & STEUERUNG DES VIEWERS
+    // 6. VIEWER CONTROLS & CINE-LOOP
     // ----------------------------------------------------------------------
+    function toggleCineLoop() {
+        const btn = document.getElementById('mc-pacs-cine-btn');
+        if (isCinePlaying) {
+            clearInterval(cineLoopTimer);
+            cineLoopTimer = null;
+            isCinePlaying = false;
+            if (btn) { btn.classList.remove('active'); btn.innerHTML = '▶️ Cine-Loop'; }
+            return;
+        }
+        const seriesList = getNormalizedSeriesForCase(activeCaseData);
+        const currentSeries = seriesList[activeSeriesIndex];
+        if (!currentSeries || currentSeries.items.length <= 1) return;
+
+        isCinePlaying = true;
+        if (btn) { btn.classList.add('active'); btn.innerHTML = '⏸️ Stopp'; }
+        cineLoopTimer = setInterval(() => {
+            const s = getNormalizedSeriesForCase(activeCaseData)[activeSeriesIndex];
+            if (!s || !isViewerOpen) { toggleCineLoop(); return; }
+            activeSlideIndex = (activeSlideIndex + 1) % s.items.length;
+            renderActiveViewerState();
+        }, 650);
+    }
+
     function applyImageTransform() {
         const layer = document.getElementById('mc-pacs-img-layer');
         const img = document.getElementById('mc-pacs-main-img');
-        if (layer) {
-            layer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
-        }
-        if (img) {
-            img.style.filter = `brightness(${brightness}%) contrast(${contrast}%) ${isInverted ? 'invert(1)' : ''}`;
-        }
+        if (layer) layer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+        if (img) img.style.filter = `brightness(${brightness}%) contrast(${contrast}%) ${isInverted ? 'invert(1)' : ''}`;
     }
 
     function resetViewTransform() {
-        zoomLevel = 1;
-        panX = 0;
-        panY = 0;
-        brightness = 100;
-        contrast = 100;
-        isInverted = false;
+        zoomLevel = 1; panX = 0; panY = 0; brightness = 100; contrast = 100; isInverted = false;
         const bSlider = document.getElementById('mc-pacs-bright-slider');
         const cSlider = document.getElementById('mc-pacs-contrast-slider');
-        const invBtn = document.getElementById('mc-pacs-invert-btn');
         if (bSlider) bSlider.value = '100';
         if (cSlider) cSlider.value = '100';
-        if (invBtn) invBtn.classList.remove('active');
+        document.getElementById('mc-pacs-invert-btn')?.classList.remove('active');
         applyImageTransform();
     }
 
@@ -10141,13 +9948,11 @@ const ClinicalMediaEngine = (() => {
 
     function toggleAnnotations() {
         showAnnotations = !showAnnotations;
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
         renderActiveViewerState();
     }
 
     function toggleReport() {
         showReport = !showReport;
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
         renderActiveViewerState();
     }
 
@@ -10161,7 +9966,22 @@ const ClinicalMediaEngine = (() => {
             splitBtn.classList.toggle('active', isSplitScreen);
             splitBtn.innerHTML = isSplitScreen ? '⤢ Vollbild' : '◫ Split-Ansicht';
         }
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+    }
+
+    function deleteSeries(seriesIdx, event) {
+        if (event) event.stopPropagation();
+        if (!activeCaseData || !Array.isArray(activeCaseData.image_series)) return;
+        activeCaseData.image_series.splice(seriesIdx, 1);
+
+        let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        customCases = customCases.filter(c => (c.case_id || c.id) !== activeCaseData.case_id);
+        customCases.push(activeCaseData);
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+
+        activeSeriesIndex = 0;
+        activeSlideIndex = 0;
+        renderActiveViewerState();
+        injectPlayerMediaAccessUI();
     }
 
     function selectSeries(seriesIdx, initialSlideIdx = 0) {
@@ -10179,11 +9999,7 @@ const ClinicalMediaEngine = (() => {
         const seriesList = getNormalizedSeriesForCase(activeCaseData);
         const currentSeries = seriesList[activeSeriesIndex];
         if (!currentSeries) return;
-        const clamped = Math.max(0, Math.min(currentSeries.items.length - 1, slideIdx));
-        if (clamped !== activeSlideIndex) {
-            activeSlideIndex = clamped;
-            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
-        }
+        activeSlideIndex = Math.max(0, Math.min(currentSeries.items.length - 1, slideIdx));
         renderActiveViewerState();
     }
 
@@ -10200,11 +10016,6 @@ const ClinicalMediaEngine = (() => {
 
         if (seriesList.length === 0) {
             modal.querySelector('#mc-pacs-series-title').textContent = 'Noch keine Bildserie hinterlegt';
-            modal.querySelector('#mc-pacs-inspector').innerHTML = `
-                <div style="padding:14px; border-radius:10px; background:rgba(15,23,42,0.7); border:1px dashed rgba(56,189,248,0.35); font-size:0.82rem;">
-                    Für diesen Fall ist noch keine Bildserie hinterlegt. Klicke oben rechts auf <strong>„➕ Fotoserie anhängen“</strong>, um eigene Aufnahmen hinzuzufügen.
-                </div>
-            `;
             return;
         }
 
@@ -10213,18 +10024,23 @@ const ClinicalMediaEngine = (() => {
         if (activeSlideIndex >= series.items.length) activeSlideIndex = 0;
         const item = series.items[activeSlideIndex];
 
-        // 1. Header & Serien-Tabs
+        // Falls in der Serie noch ein unaufgelöster Radiopaedia-/Webseiten-Link steckt -> sofort im Hintergrund auflösen!
+        if (isNonImageWebpageOrQuery(item.url) && !item._healAttempted) {
+            healBrokenSlideIfNeeded(activeSeriesIndex, activeSlideIndex);
+        }
+
         modal.querySelector('#mc-pacs-series-title').textContent = series.title;
         const tabsEl = modal.querySelector('#mc-pacs-series-tabs');
         tabsEl.innerHTML = seriesList.map((s, idx) => `
-            <button type="button" class="mc-pacs-series-tab ${idx === activeSeriesIndex ? 'active' : ''}" onclick="window.ClinicalMediaEngine.selectSeries(${idx}, 0)">
-                ${escapeHtml(s.modality)}: ${escapeHtml(s.title.slice(0, 28))}${s.title.length > 28 ? '…' : ''} (${s.items.length})
-            </button>
+            <div class="mc-pacs-series-tab ${idx === activeSeriesIndex ? 'active' : ''}" onclick="window.ClinicalMediaEngine.selectSeries(${idx}, 0)">
+                <span>${escapeHtml(s.modality)}: ${escapeHtml(s.title.slice(0, 24))} (${s.items.length})</span>
+                ${seriesList.length > 1 ? `<span onclick="window.ClinicalMediaEngine.deleteSeries(${idx}, event)" title="Serie entfernen" style="opacity:0.65; margin-left:4px;">✕</span>` : ''}
+            </div>
         `).join('');
 
-        // 2. Hauptbild, Zähler & Scrubber aktualisieren
         const mainImg = modal.querySelector('#mc-pacs-main-img');
         if (mainImg && mainImg.getAttribute('src') !== item.url) {
+            mainImg.setAttribute('referrerpolicy', 'no-referrer');
             mainImg.setAttribute('src', item.url);
         }
 
@@ -10240,65 +10056,44 @@ const ClinicalMediaEngine = (() => {
             slider.value = String(activeSlideIndex);
         }
 
-        // Vertikale Scrubber-Ticks rechts im Bild
         const vScrubber = modal.querySelector('#mc-pacs-vertical-scrubber');
         if (vScrubber) {
             vScrubber.innerHTML = series.items.map((_, idx) => `
-                <div class="mc-pacs-v-tick ${idx === activeSlideIndex ? 'active' : ''}"
-                     onclick="window.ClinicalMediaEngine.selectSlide(${idx})"
-                     title="Schicht ${idx + 1}"></div>
+                <div class="mc-pacs-v-tick ${idx === activeSlideIndex ? 'active' : ''}" onclick="window.ClinicalMediaEngine.selectSlide(${idx})"></div>
             `).join('');
         }
 
-        // Untere Filmstreifen-Thumbnails
         const thumbsStrip = modal.querySelector('#mc-pacs-thumbs-strip');
         if (thumbsStrip) {
             thumbsStrip.innerHTML = series.items.map((it, idx) => `
-                <div class="mc-pacs-thumb-item ${idx === activeSlideIndex ? 'active' : ''}"
-                     onclick="window.ClinicalMediaEngine.selectSlide(${idx})"
-                     title="${escapeHtml(it.label)}">
-                    <img src="${escapeHtml(it.url)}" alt="${escapeHtml(it.label)}">
+                <div class="mc-pacs-thumb-item ${idx === activeSlideIndex ? 'active' : ''}" onclick="window.ClinicalMediaEngine.selectSlide(${idx})">
+                    <img src="${escapeHtml(it.url)}" referrerpolicy="no-referrer" alt="${escapeHtml(it.label)}">
                 </div>
             `).join('');
         }
 
-        // 3. ROI-Marker (Annotationen) auf dem Bild rendern
-        const roiBtn = modal.querySelector('#mc-pacs-roi-btn');
-        const reportBtn = modal.querySelector('#mc-pacs-report-btn');
-        const roiContainer = modal.querySelector('#mc-pacs-roi-container');
         const annotations = item.annotations || [];
+        modal.querySelector('#mc-pacs-roi-btn')?.classList.toggle('active', showAnnotations);
+        modal.querySelector('#mc-pacs-report-btn')?.classList.toggle('active', showReport);
 
-        if (roiBtn) {
-            roiBtn.classList.toggle('active', showAnnotations);
-            roiBtn.innerHTML = `🎯 ROI-Marker (${annotations.length})`;
-        }
-        if (reportBtn) {
-            reportBtn.classList.toggle('active', showReport);
-            reportBtn.innerHTML = showReport ? '📋 Befund sichtbar' : '📋 Befund aufdecken';
-        }
-
+        const roiContainer = modal.querySelector('#mc-pacs-roi-container');
         if (roiContainer) {
-            if (!showAnnotations || annotations.length === 0) {
-                roiContainer.innerHTML = '';
-            } else {
-                roiContainer.innerHTML = annotations.map((ann, aIdx) => `
-                    <div class="mc-pacs-roi-pin" style="left:${ann.x}%; top:${ann.y}%;" onclick="this.classList.toggle('is-open')">
-                        ${aIdx + 1}
-                        <div class="mc-pacs-roi-tooltip">
-                            <div style="font-weight:800; color:#38bdf8; margin-bottom:3px;">${escapeHtml(ann.label)}</div>
-                            <div>${escapeHtml(ann.detail || '')}</div>
-                        </div>
+            roiContainer.innerHTML = (!showAnnotations || !annotations.length) ? '' : annotations.map((ann, aIdx) => `
+                <div class="mc-pacs-roi-pin" style="left:${ann.x}%; top:${ann.y}%;" onclick="this.classList.toggle('is-open')">
+                    ${aIdx + 1}
+                    <div class="mc-pacs-roi-tooltip">
+                        <div style="font-weight:800; color:#38bdf8; margin-bottom:3px;">${escapeHtml(ann.label)}</div>
+                        <div>${escapeHtml(ann.detail || '')}</div>
                     </div>
-                `).join('');
-            }
+                </div>
+            `).join('');
         }
 
-        // 4. Rechtes Didaktik- & Befund-Panel rendern
         const inspector = modal.querySelector('#mc-pacs-inspector');
         if (inspector) {
             inspector.innerHTML = `
                 <div style="padding:12px; border-radius:10px; background:rgba(14,165,233,0.1); border:1px solid rgba(56,189,248,0.3);">
-                    <div style="font-size:0.68rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">
+                    <div style="font-size:0.68rem; font-weight:800; color:#38bdf8; text-transform:uppercase; margin-bottom:4px;">
                         🧭 Sokratischer Befund-Auftrag (Active Recall)
                     </div>
                     <div style="font-size:0.8rem; color:#f8fafc; line-height:1.45;">
@@ -10312,41 +10107,20 @@ const ClinicalMediaEngine = (() => {
                     </div>
                     ${!showReport ? `
                         <div style="font-size:0.78rem; color:#94a3b8; line-height:1.45; margin-bottom:10px;">
-                            <em>Blind-Befundung aktiv:</em> Inspiziere erst das Bild (nutze Mausrad zum Durchscrollen). Decke danach die ROI-Marker oder den Facharzt-Befund auf.
+                            <em>Blind-Befundung aktiv:</em> Scrolle erst durch die Aufnahmen und bilde dir ein eigenes Urteil.
                         </div>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                            ${annotations.length > 0 ? `
-                                <button type="button" class="mc-pacs-tool-btn" onclick="window.ClinicalMediaEngine.toggleAnnotations()">
-                                    🎯 ${annotations.length} Marker einblenden
-                                </button>
-                            ` : ''}
-                            <button type="button" class="mc-pacs-tool-btn" style="border-color:#38bdf8; color:#38bdf8;" onclick="window.ClinicalMediaEngine.toggleReport()">
-                                📋 Facharzt-Befund aufdecken
-                            </button>
-                        </div>
+                        <button type="button" class="mc-pacs-tool-btn" style="border-color:#38bdf8; color:#38bdf8;" onclick="window.ClinicalMediaEngine.toggleReport()">
+                            📋 Facharzt-Befund aufdecken
+                        </button>
                     ` : `
                         <div style="padding:10px; border-radius:8px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); margin-bottom:8px;">
                             <div style="font-size:0.73rem; font-weight:800; color:#6ee7b7; margin-bottom:3px;">✓ Leitbefund dieser Schicht:</div>
                             <div style="font-size:0.81rem; color:#f8fafc; font-weight:600; line-height:1.45;">
-                                ${escapeHtml(item.finding_summary || item.caption || 'Siehe Detailbeschreibung.')}
+                                ${escapeHtml(item.finding_summary || item.caption || 'Klinischer Bildbefund')}
                             </div>
                         </div>
-                        ${item.caption ? `
-                            <div style="font-size:0.78rem; color:#cbd5e1; line-height:1.5; margin-bottom:10px;">
-                                ${escapeHtml(item.caption)}
-                            </div>
-                        ` : ''}
-                        ${annotations.length > 0 ? `
-                            <div style="border-top:1px dashed rgba(148,163,184,0.2); padding-top:8px; margin-top:6px;">
-                                <div style="font-size:0.7rem; font-weight:800; color:#38bdf8; margin-bottom:6px;">Markierte Strukturen (ROIs):</div>
-                                ${annotations.map((a, i) => `
-                                    <div style="font-size:0.75rem; color:#cbd5e1; margin-bottom:5px; line-height:1.4;">
-                                        <strong style="color:#fca5a5;">[${i + 1}] ${escapeHtml(a.label)}:</strong> ${escapeHtml(a.detail || '')}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                        <button type="button" class="mc-pacs-tool-btn" style="width:100%; justify-content:center; margin-top:8px; border-color:rgba(56,189,248,0.45); color:#7dd3fc;" onclick="window.ClinicalMediaEngine.saveCurrentFindingToDepot()">
+                        ${item.caption ? `<div style="font-size:0.76rem; color:#94a3b8; margin-bottom:8px;">${escapeHtml(item.caption)}</div>` : ''}
+                        <button type="button" class="mc-pacs-tool-btn" style="width:100%; justify-content:center; margin-top:6px; border-color:rgba(56,189,248,0.45); color:#7dd3fc;" onclick="window.ClinicalMediaEngine.saveCurrentFindingToDepot()">
                             📌 Diesen Bildbefund ins Lern-Depot sichern
                         </button>
                     `}
@@ -10355,27 +10129,245 @@ const ClinicalMediaEngine = (() => {
         }
     }
 
+    // ----------------------------------------------------------------------
+    // 7. UPGRADED „➕ FOTOSERIE ANHÄNGEN“-STUDIO (LIVE-SUCHE, LINK-RESOLVER & UPLOAD)
+    // ----------------------------------------------------------------------
+    function openAddSeriesDialog() {
+        if (!activeCaseData) return;
+        importStudioResults = [];
+        importStudioSelectedItems = [];
+
+        const existing = document.getElementById('mc-pacs-import-studio');
+        if (existing) existing.remove();
+
+        const defaultQuery = activeCaseData.metadata?.primary_disease || activeCaseData.metadata?.title || 'subdural hematoma CT';
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'mc-pacs-import-studio';
+        backdrop.className = 'mc-dialog-backdrop';
+        backdrop.style.zIndex = '10020';
+        backdrop.innerHTML = `
+            <div class="mc-dialog-card" style="max-width: 780px; width: 95%; max-height: 88vh; overflow-y: auto;">
+                <div class="mc-dialog-kicker">RADIOPAEDIA CC / WIKIMEDIA & LOKALER SERIEN-IMPORT</div>
+                <div class="mc-dialog-title">🔬 Neue Bildserie / Fotoserie zum Fall hinzufügen</div>
+                <div class="mc-dialog-message">
+                    Suche direkt nach echten CT-/MRT-/Röntgen-/Klinik-Aufnahmen, füge einen <strong>Radiopaedia-Link</strong> ein (wird automatisch in Bilder aufgelöst) oder wähle eigene Fotos von deinem Gerät.
+                </div>
+
+                <!-- 1. Live-Suche & Radiopaedia-Link-Auflöser -->
+                <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+                    <input type="text" id="mc-studio-search-input" class="mc-dialog-input" style="flex:1; min-width:220px;"
+                           value="${escapeHtml(defaultQuery)}"
+                           placeholder="Suchbegriff (z.B. pneumothorax, spinal cord MRI) ODER Radiopaedia-Link einfügen..."
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.ClinicalMediaEngine.runStudioSearch();}">
+                    <button type="button" class="action-btn btn-sm" onclick="window.ClinicalMediaEngine.runStudioSearch()">
+                        🔍 Suchen / Link auflösen
+                    </button>
+                    <label class="action-btn secondary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+                        📁 Eigene Bilder wählen
+                        <input type="file" accept="image/*" multiple style="display:none;" onchange="window.ClinicalMediaEngine.handleLocalFilesUpload(this.files)">
+                    </label>
+                </div>
+
+                <div id="mc-studio-status" style="font-size:0.75rem; color:#38bdf8; margin-bottom:8px;"></div>
+
+                <!-- Suchergebnisse zum Anklicken -->
+                <div id="mc-studio-results-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(135px, 1fr)); gap:8px; max-height:240px; overflow-y:auto; padding:4px; margin-bottom:12px;"></div>
+
+                <!-- Ausgewählte Schichten für die Serie -->
+                <div style="padding:10px 12px; border-radius:10px; background:rgba(15,23,42,0.75); border:1px solid rgba(56,189,248,0.3); margin-bottom:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <span id="mc-studio-stack-count" style="font-size:0.76rem; font-weight:800; color:#6ee7b7;">
+                            Ausgewählte Bilder für die durchscrollbare Serie (0):
+                        </span>
+                        <button type="button" class="mc-pacs-tool-btn" style="font-size:0.68rem; padding:2px 7px;" onclick="window.ClinicalMediaEngine.clearStudioStack()">Stapel leeren</button>
+                    </div>
+                    <div id="mc-studio-stack-preview" style="display:flex; gap:8px; overflow-x:auto; min-height:54px; align-items:center; font-size:0.75rem; color:#94a3b8;">
+                        Noch keine Bilder ausgewählt – klicke oben auf 1 oder mehrere Suchergebnisse.
+                    </div>
+                </div>
+
+                <!-- Metadaten der Serie -->
+                <div style="display:grid; grid-template-columns: 1fr 180px; gap:8px; margin-bottom:8px;">
+                    <input type="text" id="mc-studio-title" class="mc-dialog-input" placeholder="Titel der Bildserie" value="Klinische Bildgebung & Verlauf">
+                    <input type="text" id="mc-studio-modality" class="mc-dialog-input" placeholder="Modalität (CT / MRT / Foto)" value="CT / MRT / Klinik">
+                </div>
+                <input type="text" id="mc-studio-finding" class="mc-dialog-input" style="margin-bottom:14px;" placeholder="Leitbefund für die Auflösung (wird bei Klick auf ein Bild automatisch vorgeschlagen)">
+
+                <div class="mc-dialog-actions">
+                    <button type="button" class="action-btn secondary btn-sm" onclick="document.getElementById('mc-pacs-import-studio')?.remove()">Abbrechen</button>
+                    <button type="button" class="action-btn btn-sm" onclick="window.ClinicalMediaEngine.confirmStudioSeriesSave()">
+                        ✓ Serie speichern & im PACS öffnen
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(backdrop);
+        runStudioSearch();
+    }
+
+    async function runStudioSearch() {
+        const inputEl = document.getElementById('mc-studio-search-input');
+        const statusEl = document.getElementById('mc-studio-status');
+        const gridEl = document.getElementById('mc-studio-results-grid');
+        if (!inputEl || !gridEl) return;
+
+        const rawQuery = inputEl.value.trim();
+        if (!rawQuery) return;
+
+        if (statusEl) statusEl.textContent = '⏳ Suche Aufnahmen / löse Radiopaedia-Link auf...';
+        gridEl.innerHTML = '';
+
+        try {
+            const items = await resolveInputToImageItems(rawQuery);
+            importStudioResults = items;
+
+            if (items.length === 0) {
+                if (statusEl) statusEl.textContent = '⚠️ Keine Treffer. Tipp: Nutze englische Fachbegriffe wie "subdural hematoma", "pneumothorax", "spinal cord infarction".';
+                return;
+            }
+
+            // Falls der User direkt einen konkreten Link eingefügt hat, alle aufgelösten Schichten sofort in den Stapel legen!
+            if (/^https?:\/\//i.test(rawQuery)) {
+                items.forEach(it => importStudioSelectedItems.push(it));
+                renderStudioStackPreview();
+                const findingInput = document.getElementById('mc-studio-finding');
+                if (findingInput && !findingInput.value && items[0]?.finding_summary) {
+                    findingInput.value = items[0].finding_summary;
+                }
+            }
+
+            if (statusEl) statusEl.textContent = `✓ ${items.length} Aufnahmen bereit – klicke Bilder an, um sie deiner durchscrollbaren Serie hinzuzufügen:`;
+
+            gridEl.innerHTML = items.map((item, idx) => `
+                <div class="img-forge-thumb-card" onclick="window.ClinicalMediaEngine.addStudioResultToStack(${idx})" title="Klicken, um als Schicht zur Serie hinzuzufügen">
+                    <img src="${escapeHtml(item.url)}" referrerpolicy="no-referrer" alt="${escapeHtml(item.label)}" style="height:90px; width:100%; object-fit:cover;">
+                    <div style="padding:5px 7px; font-size:0.68rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        ➕ ${escapeHtml(item.label)}
+                    </div>
+                </div>
+            `).join('');
+        } catch (err) {
+            if (statusEl) statusEl.textContent = `Fehler: ${err.message}`;
+        }
+    }
+
+    function addStudioResultToStack(idx) {
+        const item = importStudioResults[idx];
+        if (!item) return;
+        importStudioSelectedItems.push({ ...item });
+        const findingInput = document.getElementById('mc-studio-finding');
+        if (findingInput && !findingInput.value && item.finding_summary) {
+            findingInput.value = item.finding_summary;
+        }
+        renderStudioStackPreview();
+    }
+
+    function handleLocalFilesUpload(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        Array.from(fileList).forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                importStudioSelectedItems.push({
+                    url: e.target.result,
+                    label: file.name.replace(/\.[^.]+$/, ''),
+                    finding_summary: 'Lokale Klinik-Aufnahme',
+                    caption: 'Eigener Upload'
+                });
+                renderStudioStackPreview();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function clearStudioStack() {
+        importStudioSelectedItems = [];
+        renderStudioStackPreview();
+    }
+
+    function renderStudioStackPreview() {
+        const countEl = document.getElementById('mc-studio-stack-count');
+        const previewEl = document.getElementById('mc-studio-stack-preview');
+        if (countEl) countEl.textContent = `Ausgewählte Bilder für die durchscrollbare Serie (${importStudioSelectedItems.length}):`;
+        if (!previewEl) return;
+
+        if (importStudioSelectedItems.length === 0) {
+            previewEl.innerHTML = 'Noch keine Bilder ausgewählt – klicke oben auf 1 oder mehrere Suchergebnisse.';
+            return;
+        }
+
+        previewEl.innerHTML = importStudioSelectedItems.map((it, idx) => `
+            <div style="position:relative; flex:0 0 64px; height:48px; border-radius:6px; overflow:hidden; border:1.5px solid #38bdf8;">
+                <img src="${escapeHtml(it.url)}" referrerpolicy="no-referrer" style="width:100%; height:100%; object-fit:cover;">
+                <span style="position:absolute; bottom:2px; right:3px; background:rgba(0,0,0,0.75); color:#fff; font-size:0.6rem; padding:0 4px; border-radius:4px;">#${idx + 1}</span>
+            </div>
+        `).join('');
+    }
+
+    function confirmStudioSeriesSave() {
+        if (!activeCaseData) return;
+
+        // Falls der User noch nicht auf ein Thumbnail geklickt hat, aber ein Link/Ergebnis da ist -> erstes Ergebnis nehmen
+        if (importStudioSelectedItems.length === 0 && importStudioResults.length > 0) {
+            importStudioSelectedItems.push(importStudioResults[0]);
+        }
+        if (importStudioSelectedItems.length === 0) {
+            alert('Bitte wähle mindestens ein Bild aus den Suchergebnissen aus.');
+            return;
+        }
+
+        const title = document.getElementById('mc-studio-title')?.value.trim() || 'Klinische Bildserie';
+        const modality = document.getElementById('mc-studio-modality')?.value.trim() || 'CT / MRT / Foto';
+        const finding = document.getElementById('mc-studio-finding')?.value.trim() || '';
+
+        if (!Array.isArray(activeCaseData.image_series)) {
+            activeCaseData.image_series = getNormalizedSeriesForCase(activeCaseData);
+        }
+
+        const newSeries = {
+            series_id: `series_${Date.now()}`,
+            title,
+            modality,
+            clinical_context: activeCaseData.metadata?.title || '',
+            socratic_question: 'Scrolle mit dem Mausrad durch die Aufnahmen: Welche pathologischen Leitbefunde sichern hier die Diagnose?',
+            items: importStudioSelectedItems.map((it, idx) => ({
+                id: `img_${Date.now()}_${idx}`,
+                url: it.url,
+                label: `Schicht ${idx + 1}/${importStudioSelectedItems.length} · ${it.label || title}`,
+                finding_summary: finding || it.finding_summary || 'Klinischer Leitbefund',
+                caption: it.caption || '',
+                annotations: []
+            }))
+        };
+
+        activeCaseData.image_series.push(newSeries);
+
+        let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        customCases = customCases.filter(c => (c.case_id || c.id) !== activeCaseData.case_id);
+        customCases.push(activeCaseData);
+        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        if (typeof syncModifiedCasesToSupabase === 'function') {
+            syncModifiedCasesToSupabase([activeCaseData]);
+        }
+
+        document.getElementById('mc-pacs-import-studio')?.remove();
+        injectPlayerMediaAccessUI();
+        openViewer(activeCaseData.image_series.length - 1, 0);
+    }
+
     function openViewer(seriesIdx = 0, slideIdx = 0, forceSplit = null) {
         const modal = ensureViewerModalDOM();
         isViewerOpen = true;
-        if (typeof forceSplit === 'boolean') {
-            isSplitScreen = forceSplit;
-        }
+        if (typeof forceSplit === 'boolean') isSplitScreen = forceSplit;
         modal.classList.remove('hidden');
         modal.classList.toggle('is-split-mode', isSplitScreen);
         document.body.classList.toggle('mc-pacs-split-open', isSplitScreen);
-
-        const splitBtn = document.getElementById('mc-pacs-split-btn');
-        if (splitBtn) {
-            splitBtn.classList.toggle('active', isSplitScreen);
-            splitBtn.innerHTML = isSplitScreen ? '⤢ Vollbild' : '◫ Split-Ansicht';
-        }
-
         selectSeries(seriesIdx, slideIdx);
-        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
     }
 
     function closeViewer() {
+        if (isCinePlaying) toggleCineLoop();
         const modal = document.getElementById('mc-pacs-viewer-modal');
         if (modal) modal.classList.add('hidden');
         isViewerOpen = false;
@@ -10398,63 +10390,7 @@ const ClinicalMediaEngine = (() => {
     }
 
     // ----------------------------------------------------------------------
-    // 6. CREATOR TOOL: EIGENE FOTOSERIE LIVE ZUM FALL HINZUFÜGEN
-    // ----------------------------------------------------------------------
-    async function openAddSeriesDialog() {
-        if (!activeCaseData) return;
-
-        const res = await MedUI.openDialog({
-            kicker: 'PACS & Foto-Studio',
-            title: 'Bildserie / Fotos zum aktuellen Fall hinzufügen',
-            message: 'Gib kommagetrennte Bild-Pfade/URLs ein (z. B. images/wunde1.jpg, images/wunde2.jpg). Du kannst danach direkt im Fall durch die Bilder scrollen.',
-            fields: [
-                { id: 'title', label: 'Titel der Bildserie', defaultValue: 'Klinische Fotoserie / Bildgebung' },
-                { id: 'modality', label: 'Modalität (z. B. Foto-Serie, CT, MRT, EKG, Rechtsmedizin)', defaultValue: 'Foto-Serie' },
-                { id: 'urls', label: 'Bild-URLs oder Pfade (kommagetrennt)', placeholder: 'images/bild1.jpg, images/bild2.jpg' },
-                { id: 'finding', label: 'Leitbefund (für Active-Recall Auflösung)', placeholder: 'Pathognomonischer Befund...' }
-            ],
-            confirmText: 'Serie zum Fall speichern'
-        });
-
-        if (!res || !res.urls) return;
-        const urlList = res.urls.split(',').map(u => u.trim()).filter(Boolean);
-        if (urlList.length === 0) return;
-
-        if (!Array.isArray(activeCaseData.image_series)) {
-            activeCaseData.image_series = getNormalizedSeriesForCase(activeCaseData);
-        }
-
-        const newSeries = {
-            series_id: `custom_series_${Date.now()}`,
-            title: res.title || 'Klinische Bildserie',
-            modality: res.modality || 'Foto-Serie',
-            clinical_context: activeCaseData.metadata?.title || '',
-            socratic_question: 'Beurteile die Aufnahmen systematisch im Verlauf: Welche morphologischen Kriterien führen dich zur Diagnose?',
-            items: urlList.map((u, idx) => ({
-                id: `img_${Date.now()}_${idx}`,
-                url: u,
-                label: `Aufnahme ${idx + 1} / ${urlList.length}`,
-                finding_summary: res.finding || 'Klinischer Bildbefund',
-                caption: '',
-                annotations: []
-            }))
-        };
-
-        activeCaseData.image_series.push(newSeries);
-
-        // In LocalStorage & Supabase persistieren
-        let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-        customCases = customCases.filter(c => (c.case_id || c.id) !== activeCaseData.case_id);
-        customCases.push(activeCaseData);
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
-        syncModifiedCasesToSupabase([activeCaseData]);
-
-        injectPlayerMediaAccessUI();
-        selectSeries(activeCaseData.image_series.length - 1, 0);
-    }
-
-    // ----------------------------------------------------------------------
-    // 7. DIREKTER ZUGRIFF IM FALL (HEADER-BUTTON, OVERVIEW & AUDIT-STEPS)
+    // 8. DIREKTER ZUGRIFF IM FALL (HEADER, OVERVIEW & AUDIT)
     // ----------------------------------------------------------------------
     function injectPlayerMediaAccessUI() {
         injectMediaEngineStyles();
@@ -10463,7 +10399,6 @@ const ClinicalMediaEngine = (() => {
         const seriesList = getNormalizedSeriesForCase(activeCaseData);
         const totalImages = seriesList.reduce((acc, s) => acc + s.items.length, 0);
 
-        // A) Button in der Challenge-Navigationsleiste & im Sticky-Header verankern
         const navBar = document.querySelector('.challenge-nav-bar');
         if (navBar) {
             let existingBtn = document.getElementById('mc-player-pacs-btn');
@@ -10480,9 +10415,11 @@ const ClinicalMediaEngine = (() => {
             existingBtn.onclick = () => openViewer(0, 0);
         }
 
-        // B) Inline-Vorschau-Galerie im Tab "🧭 Übersicht" (#overview-container)
         const overviewContainer = document.getElementById('overview-container');
-        if (overviewContainer && seriesList.length > 0 && !document.getElementById('mc-overview-series-strip')) {
+        if (overviewContainer && seriesList.length > 0) {
+            const oldStrip = document.getElementById('mc-overview-series-strip');
+            if (oldStrip) oldStrip.remove();
+
             const strip = document.createElement('div');
             strip.id = 'mc-overview-series-strip';
             strip.className = 'mc-inline-series-strip';
@@ -10490,7 +10427,7 @@ const ClinicalMediaEngine = (() => {
             const allThumbsHtml = seriesList.map((series, sIdx) =>
                 series.items.map((it, iIdx) => `
                     <div class="mc-inline-thumb-card" onclick="window.ClinicalMediaEngine.open(${sIdx}, ${iIdx})">
-                        <img src="${escapeHtml(it.url)}" alt="${escapeHtml(it.label)}">
+                        <img src="${escapeHtml(it.url)}" referrerpolicy="no-referrer" alt="${escapeHtml(it.label)}">
                         <div class="mc-inline-thumb-label">${escapeHtml(it.label)}</div>
                     </div>
                 `).join('')
@@ -10499,7 +10436,7 @@ const ClinicalMediaEngine = (() => {
             strip.innerHTML = `
                 <div class="mc-inline-series-header">
                     <div>
-                        <div style="font-size:0.7rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.06em;">
+                        <div style="font-size:0.7rem; font-weight:800; color:#38bdf8; text-transform:uppercase;">
                             🔬 Interaktive Klinik-Bildserien (${seriesList.length} ${seriesList.length === 1 ? 'Serie' : 'Serien'} · ${totalImages} Aufnahmen)
                         </div>
                         <div style="font-size:0.82rem; font-weight:700; color:var(--text-main);">
@@ -10507,54 +10444,16 @@ const ClinicalMediaEngine = (() => {
                         </div>
                     </div>
                     <div style="display:flex; gap:8px;">
-                        <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(0, 0, true)">
-                            ◫ Als Split-Screen öffnen
-                        </button>
-                        <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(0, 0, false)">
-                            ⤢ Vollbild-PACS starten
-                        </button>
+                        <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(0, 0, true)">◫ Split-Screen</button>
+                        <button type="button" class="mc-pacs-trigger-btn" onclick="window.ClinicalMediaEngine.open(0, 0, false)">⤢ Vollbild-PACS</button>
                     </div>
                 </div>
                 <div class="mc-inline-thumbs-row">${allThumbsHtml}</div>
             `;
             overviewContainer.prepend(strip);
         }
-
-        // C) Direkter Kontext-Button in den klinischen Audit-Schritten (#player-container)
-        const auditContainer = document.getElementById('player-container');
-        if (auditContainer && seriesList.length > 0) {
-            const stepCards = auditContainer.querySelectorAll('.step-card, .audit-step-container');
-            stepCards.forEach((card, idx) => {
-                if (card.querySelector('.mc-audit-step-pacs-bar')) return;
-                const text = card.textContent || '';
-                const hasImagingKeyword = /(MRT|CT|Angio|Röntgen|EKG|Sonographie|Bild|Aufnahme|Läsion|Querschnitt|Inspektion|Foto)/i.test(text);
-                if (!hasImagingKeyword && idx > 0) return;
-
-                const matchingSeriesIdx = Math.min(seriesList.length - 1, idx % seriesList.length);
-                const bar = document.createElement('div');
-                bar.className = 'mc-audit-step-pacs-bar';
-                bar.style.cssText = 'margin-top:10px; padding-top:10px; border-top:1px dashed rgba(56,189,248,0.25); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;';
-                bar.innerHTML = `
-                    <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">
-                        🔬 Zu diesem klinischen Schritt liegt eine durchscrollbare Bildserie vor:
-                    </span>
-                    <div style="display:flex; gap:6px;">
-                        <button type="button" class="mc-pacs-trigger-btn" onclick="event.stopPropagation(); window.ClinicalMediaEngine.open(${matchingSeriesIdx}, 0, true)">
-                            ◫ Split-Ansicht neben Text
-                        </button>
-                        <button type="button" class="mc-pacs-trigger-btn" onclick="event.stopPropagation(); window.ClinicalMediaEngine.open(${matchingSeriesIdx}, 0, false)">
-                            🖼️ Bildserie durchscrollen (${seriesList[matchingSeriesIdx].items.length})
-                        </button>
-                    </div>
-                `;
-                card.appendChild(bar);
-            });
-        }
     }
 
-    // ----------------------------------------------------------------------
-    // 8. LIFECYCLE-HOOKS IN APP.JS
-    // ----------------------------------------------------------------------
     function init() {
         ensureDemoCaseMediaSeries();
         injectMediaEngineStyles();
@@ -10567,6 +10466,9 @@ const ClinicalMediaEngine = (() => {
                 showAnnotations = false;
                 showReport = false;
                 const res = await origLoadCase.apply(this, arguments);
+                if (window.ImagingModule && typeof window.ImagingModule.loadForCase === 'function' && window.activeCaseData) {
+                    window.ImagingModule.loadForCase(window.activeCaseData, 'imaging-container');
+                }
                 setTimeout(injectPlayerMediaAccessUI, 60);
                 return res;
             };
@@ -10579,26 +10481,6 @@ const ClinicalMediaEngine = (() => {
                 injectPlayerMediaAccessUI();
             };
         }
-
-        const origSwitchMode = window.switchPlayerMode;
-        if (typeof origSwitchMode === 'function') {
-            window.switchPlayerMode = async function(mode) {
-                const res = await origSwitchMode.apply(this, arguments);
-                setTimeout(injectPlayerMediaAccessUI, 80);
-                return res;
-            };
-        }
-
-        // Tastatur-Shortcut im Player: Alt + B öffnet/schließt sofort die Bildserie
-        document.addEventListener('keydown', (e) => {
-            const playerView = document.getElementById('player-view');
-            if (!playerView || playerView.style.display === 'none') return;
-            if (e.altKey && e.key.toLowerCase() === 'b') {
-                e.preventDefault();
-                if (isViewerOpen) closeViewer();
-                else openViewer(0, 0);
-            }
-        });
     }
 
     return {
@@ -10606,8 +10488,10 @@ const ClinicalMediaEngine = (() => {
         open: openViewer,
         close: closeViewer,
         selectSeries,
+        deleteSeries,
         selectSlide,
         stepSlide,
+        toggleCineLoop,
         adjustZoom,
         toggleInvert,
         toggleGrid,
@@ -10617,6 +10501,11 @@ const ClinicalMediaEngine = (() => {
         resetViewTransform,
         saveCurrentFindingToDepot,
         openAddSeriesDialog,
+        runStudioSearch,
+        addStudioResultToStack,
+        handleLocalFilesUpload,
+        clearStudioStack,
+        confirmStudioSeriesSave,
         getNormalizedSeriesForCase,
         refreshUI: injectPlayerMediaAccessUI
     };
