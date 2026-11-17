@@ -1,11 +1,13 @@
 /**
- * MedCheck - Klinik-Duell Module V2.0 (Cloud-Sync & Multiplayer Fix)
+ * MedCheck - Klinik-Duell Module V3.0 (Multiplayer, Leitner-Sync & Round-Inspector)
  * Fixes & Features:
- *  - Separate INSERT vs. UPDATE Supabase queries (fixes Player 2 RLS rejection bug!)
- *  - Atomic State Merging before saving (prevents overwriting opponent's answers)
- *  - Auth State Listener (automatically detects login/logout from js/auth.js)
- *  - Dual Sync: Supabase Realtime WebSockets + 5-Second Auto-Polling Backup
- *  - 5 Rounds x 3 Questions = Max 15 Points with 20s Top-Center Countdown Banner
+ *  - Deterministic State-Transition Calculation AFTER Atomic Cloud Merge (fixes Race Conditions)
+ *  - Interactive Round-Inspector: Click any played round to review questions, answers & explanations
+ *  - Clean Medical Explanation Parser (strips Masterprompt 'Zeichenvergleich' boilerplate)
+ *  - Expanded Question Pool: Automatically integrates Case Master-Quizzes + Pharmacology Compass Sets
+ *  - Direct Integration with Lern-Depot (1-Click Save) & SpacedRepetitionEngine (Leitner V2)
+ *  - Speed-Telemetry (Ø Response Time & Reflex-Tiebreaker) + 3 Bot Difficulty Profiles
+ *  - Full Keyboard Controls (1-4 / A-D & Space/Enter) + Safe Timer Auto-Stop on View Switch
  */
 
 (function () {
@@ -14,7 +16,31 @@
     const TOTAL_ROUNDS = 5;
     const QUESTIONS_PER_ROUND = 3;
     const QUESTION_TIME_LIMIT_SEC = 20;
-    const BOT_EMAIL = 'dr.house@klinik-bot.ch';
+
+    const BOT_PROFILES = {
+        'pj@klinik-bot.ch': {
+            email: 'pj@klinik-bot.ch',
+            name: '👶 PJ-Student (Training)',
+            accuracy: 0.60,
+            minTime: 6.5,
+            maxTime: 14.0
+        },
+        'dr.house@klinik-bot.ch': {
+            email: 'dr.house@klinik-bot.ch',
+            name: '🩺 Dr. House (Oberarzt)',
+            accuracy: 0.78,
+            minTime: 3.5,
+            maxTime: 8.5
+        },
+        'chefarzt@klinik-bot.ch': {
+            email: 'chefarzt@klinik-bot.ch',
+            name: '🧠 IMPP-Endgegner (Chefarzt)',
+            accuracy: 0.92,
+            minTime: 2.2,
+            maxTime: 5.2
+        }
+    };
+    const DEFAULT_BOT_EMAIL = 'dr.house@klinik-bot.ch';
 
     const BUILTIN_DUEL_QUESTIONS = [
         {
@@ -242,6 +268,8 @@
         matches: [],
         activeMatch: null,
         viewMode: 'lobby', // 'lobby' | 'match_overview' | 'category_select' | 'playing_round'
+        selectedBotEmail: DEFAULT_BOT_EMAIL,
+        inspectedRoundNum: null, // Geöffnete Runde im Runden-Inspektor
         searchQueryEmail: '',
         statusMessage: null,
         activeRoundNum: 1,
@@ -253,15 +281,21 @@
         questionStartTime: 0,
         remainingMs: QUESTION_TIME_LIMIT_SEC * 1000,
         realtimeChannel: null,
-        pollIntervalId: null
+        pollIntervalId: null,
+        keyboardBound: false
     };
 
     // ========================================================================
-    // 1. INITIALISIERUNG, AUTH-SYNCHRONISATION & POLLING
+    // 1. INITIALISIERUNG, AUTH, KEYBOARD-SHORTCUTS & POLLING
     // ========================================================================
 
     function getSupabase() {
         return window.supabaseClient || window.supabase || window.sb || (window.Auth && window.Auth.supabase) || null;
+    }
+
+    function isBotEmail(email) {
+        const clean = String(email || '').toLowerCase().trim();
+        return Boolean(BOT_PROFILES[clean]);
     }
 
     async function resolveCurrentUserEmail() {
@@ -312,15 +346,46 @@
         return viewSection;
     }
 
+    function setupKeyboardShortcuts() {
+        if (state.keyboardBound) return;
+        state.keyboardBound = true;
+
+        window.addEventListener('keydown', (e) => {
+            if (!isDuelViewVisible()) return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+            if (state.viewMode === 'playing_round') {
+                if (!state.questionLocked) {
+                    const keyMap = {
+                        'Digit1': 0, 'Numpad1': 0, 'KeyA': 0,
+                        'Digit2': 1, 'Numpad2': 1, 'KeyB': 1,
+                        'Digit3': 2, 'Numpad3': 2, 'KeyC': 2,
+                        'Digit4': 3, 'Numpad4': 3, 'KeyD': 3
+                    };
+                    if (keyMap[e.code] !== undefined) {
+                        e.preventDefault();
+                        handleAnswerSubmission(keyMap[e.code], false);
+                    }
+                } else if (e.code === 'Space' || e.code === 'Enter') {
+                    const nextBtn = document.getElementById('duel-next-q-btn');
+                    if (nextBtn && !nextBtn.disabled) {
+                        e.preventDefault();
+                        advanceToNextQuestionOrFinishRound();
+                    }
+                }
+            }
+        });
+    }
+
     async function init() {
         ensureDomStructure();
+        setupKeyboardShortcuts();
         await resolveCurrentUserEmail();
         await loadMatches();
         subscribeRealtimeUpdates();
         startBackgroundPolling();
         updateSidebarBadge();
 
-        // Auth-Wechsel (Login/Logout) live abfangen!
         const sb = getSupabase();
         if (sb && sb.auth) {
             sb.auth.onAuthStateChange(async () => {
@@ -339,12 +404,12 @@
         await resolveCurrentUserEmail();
         await loadMatches();
         state.viewMode = 'lobby';
+        state.inspectedRoundNum = null;
         render();
     }
 
     function startBackgroundPolling() {
         if (state.pollIntervalId) clearInterval(state.pollIntervalId);
-        // Pollt alle 5 Sekunden im Hintergrund, wenn man in der Lobby oder Match-Übersicht ist
         state.pollIntervalId = setInterval(async () => {
             if (!isDuelViewVisible() || state.viewMode === 'playing_round' || state.viewMode === 'category_select') {
                 return;
@@ -361,8 +426,20 @@
     }
 
     // ========================================================================
-    // 2. FRAGEN-POOL AGGREGATOR
+    // 2. ERWEITERTER FRAGEN-POOL (BUILT-IN + FÄLLE + PHARMAKOLOGIE-KOMPASS)
     // ========================================================================
+
+    /**
+     * Entfernt den technischen "Zeichenvergleich:"-Block aus Masterprompt-Erklärungen,
+     * damit im Duell sofort die medizinische Begründung lesbar ist.
+     */
+    function cleanMedicalExplanation(rawExplanation) {
+        if (!rawExplanation) return 'Klinische Kernfakten aus dem MedCheck-Fragenpool.';
+        return String(rawExplanation)
+            .replace(/\\n/g, '\n')
+            .replace(/^Zeichenvergleich:\s*[\s\S]*?\(Maximale Varianz:[^)]+\)\s*/i, '')
+            .trim();
+    }
 
     function buildQuestionBankByCategory() {
         const bank = {};
@@ -377,7 +454,7 @@
             let corrIdx = Number(qObj.correct_index) || 0;
             if (opts.length > 4) {
                 const correctText = opts[corrIdx];
-                const distractors = opts.filter((_, idx) => idx !== corrIdx).slice(0, 3);
+                const distractors = shuffleArray(opts.filter((_, idx) => idx !== corrIdx)).slice(0, 3);
                 opts = shuffleArray([correctText, ...distractors]);
                 corrIdx = opts.indexOf(correctText);
             }
@@ -387,18 +464,53 @@
                 question: qObj.question,
                 options: opts,
                 correct_index: corrIdx,
-                explanation: qObj.explanation || 'Klinische Kernfakten aus dem MedCheck-Fragenpool.'
+                explanation: cleanMedicalExplanation(qObj.explanation),
+                target_disease: qObj.target_disease || cat
             });
         };
 
+        // 1. Integrierte Klinik-Duell-Fragen
         BUILTIN_DUEL_QUESTIONS.forEach(q => addQ(q.category, q));
 
-        const registeredCases = typeof window.getRegisteredCases === 'function' ? window.getRegisteredCases() : [];
+        // 2. Master-Quiz Fragen aus allen registrierten klinischen Fällen
+        const registeredCases = typeof window.getRegisteredCases === 'function'
+            ? window.getRegisteredCases({ ignoreSpecialtyFilter: true })
+            : [];
         registeredCases.forEach(c => {
             const rawCat = c.folder_name || c.metadata?.medical_field || 'Allgemeinmedizin';
             const quizzes = c.extra_tasks?.master_quiz || [];
-            quizzes.forEach(q => addQ(rawCat, q));
+            quizzes.forEach(q => addQ(rawCat, {
+                ...q,
+                target_disease: q.target_disease || c.metadata?.primary_disease || rawCat
+            }));
         });
+
+        // 3. Pharmakologie-Kompass-Szenarien automatisch als 4-Optionen-Fragen einbinden
+        try {
+            const pharmaSets = JSON.parse(localStorage.getItem('medcheck_pharma_sets') || '[]');
+            if (Array.isArray(pharmaSets)) {
+                pharmaSets.forEach(set => {
+                    if (set.game_type === 'drag_matrix' || !Array.isArray(set.questions)) return;
+                    const cat = set.folder_name || set.medical_field || 'Klinische Pharmakologie';
+                    set.questions.forEach(pq => {
+                        if (!pq.directions) return;
+                        const dirList = ['up', 'right', 'down', 'left']
+                            .map(k => pq.directions[k])
+                            .filter(Boolean);
+                        if (dirList.length < 4) return;
+                        const corrIdx = dirList.findIndex(d => d.is_correct);
+                        if (corrIdx === -1) return;
+
+                        addQ(cat, {
+                            question: `${pq.patient_context ? pq.patient_context + ' — ' : ''}${pq.prompt || 'Welcher Wirkstoff ist hier indiziert?'}`,
+                            options: dirList.map(d => `${d.drug}${d.class ? ' (' + d.class + ')' : ''}`),
+                            correct_index: corrIdx,
+                            explanation: `${dirList[corrIdx].feedback || ''} ${pq.pearl ? '💡 Pearl: ' + pq.pearl : ''}`.trim()
+                        });
+                    });
+                });
+            }
+        } catch (_e) {}
 
         return bank;
     }
@@ -433,6 +545,7 @@
             const shuffledOptions = shuffleArray([...q.options]);
             return {
                 category: categoryName,
+                target_disease: q.target_disease || categoryName,
                 question: q.question,
                 options: shuffledOptions,
                 correct_index: shuffledOptions.indexOf(correctOptionText),
@@ -442,7 +555,7 @@
     }
 
     // ========================================================================
-    // 3. ROBUSTE CLOUD-PERSISTENZ (GETRENNTES INSERT & UPDATE + ATOMIC MERGE)
+    // 3. ROBUSTE CLOUD-PERSISTENZ & DETERMINISTISCHER STATE-RECONCILER
     // ========================================================================
 
     function getLocalMatches() {
@@ -459,13 +572,30 @@
         } catch (_e) {}
     }
 
+    function getHiddenMatchIds() {
+        try {
+            return new Set(JSON.parse(localStorage.getItem('medcheck_duel_hidden_ids_v1') || '[]'));
+        } catch (_e) {
+            return new Set();
+        }
+    }
+
+    function markMatchHiddenLocally(matchId) {
+        const set = getHiddenMatchIds();
+        set.add(matchId);
+        try {
+            localStorage.setItem('medcheck_duel_hidden_ids_v1', JSON.stringify(Array.from(set)));
+        } catch (_e) {}
+    }
+
     async function loadMatches() {
         await resolveCurrentUserEmail();
         const localList = getLocalMatches();
+        const hiddenIds = getHiddenMatchIds();
         const mapById = new Map();
 
-        // Nur Bot-Spiele oder Spiele, an denen meine aktuelle E-Mail beteiligt ist, aus dem LocalStorage nehmen
         localList.forEach(m => {
+            if (!m || hiddenIds.has(m.id)) return;
             const p1 = (m.player1_email || '').toLowerCase();
             const p2 = (m.player2_email || '').toLowerCase();
             if (p1 === state.myEmail || p2 === state.myEmail) {
@@ -485,11 +615,10 @@
 
                 if (!error && Array.isArray(data)) {
                     data.forEach(row => {
+                        if (hiddenIds.has(row.id)) return;
                         const cloudMatch = normalizeMatchRow(row);
-                        // Cloud-Stand hat für Online-Matches immer Vorrang vor veraltetem LocalStorage!
                         mapById.set(cloudMatch.id, cloudMatch);
                     });
-                    // Aktualisierte Cloud-Daten auch lokal spiegeln
                     saveLocalMatches(Array.from(mapById.values()));
                 } else if (error) {
                     console.warn('[Duel] Fehler beim Abrufen aus Supabase:', error.message);
@@ -513,18 +642,19 @@
 
     function normalizeMatchRow(row) {
         const ms = typeof row.match_state === 'string' ? JSON.parse(row.match_state) : (row.match_state || {});
+        const p2Mail = (row.player2_email || '').toLowerCase().trim();
         return {
             id: row.id,
             player1_id: row.player1_id || null,
             player1_email: (row.player1_email || '').toLowerCase().trim(),
-            player2_email: (row.player2_email || '').toLowerCase().trim(),
+            player2_email: p2Mail,
             status: row.status || 'active',
             current_round: Number(row.current_round) || 1,
             turn_email: (row.turn_email || '').toLowerCase().trim(),
             p1_score: Number(row.p1_score) || 0,
             p2_score: Number(row.p2_score) || 0,
             winner_email: row.winner_email || null,
-            is_local_only: (row.player2_email || '').toLowerCase().trim() === BOT_EMAIL,
+            is_local_only: isBotEmail(p2Mail),
             match_state: ms,
             created_at: row.created_at || new Date().toISOString(),
             updated_at: row.updated_at || new Date().toISOString()
@@ -532,8 +662,62 @@
     }
 
     /**
-     * Erstellt ein neues Match per explizitem INSERT (für Spieler 1)
+     * Deterministischer Reconciler: Berechnet Scores, Reaktionszeiten, aktuelle Runde,
+     * wer am Zug ist (`turn_email`) und den Match-Status direkt aus den Runden-Daten.
+     * Dadurch können sich Spieler 1 und Spieler 2 bei einem Cloud-Merge niemals gegenseitig
+     * den Rundenfortschritt überschreiben!
      */
+    function reconcileMatchProgress(match) {
+        recalculateTotalScores(match);
+
+        for (let r = 1; r <= TOTAL_ROUNDS; r++) {
+            const rData = match.match_state.rounds[r];
+            if (!rData) continue;
+
+            const p1Done = Array.isArray(rData.p1_answers) && rData.p1_answers.length >= QUESTIONS_PER_ROUND;
+            const p2Done = Array.isArray(rData.p2_answers) && rData.p2_answers.length >= QUESTIONS_PER_ROUND;
+
+            if (!p1Done || !p2Done) {
+                match.status = 'active';
+                match.current_round = r;
+                match.winner_email = null;
+
+                const chooserRole = getCategoryChooserRole(r);
+                if (!rData.chosen_category) {
+                    // Der Kategoriewähler dieser Runde ist am Zug
+                    match.turn_email = chooserRole === 'p1' ? match.player1_email : match.player2_email;
+                    if (!Array.isArray(rData.category_options) || rData.category_options.length === 0) {
+                        const usedCats = Object.values(match.match_state.rounds)
+                            .map(x => x.chosen_category)
+                            .filter(Boolean);
+                        rData.category_options = getRandomCategoryChoices(usedCats);
+                    }
+                } else if (!p1Done && !p2Done) {
+                    // Kategorie gewählt, aber der Wähler hat die 3 Fragen noch nicht abgeschlossen
+                    match.turn_email = chooserRole === 'p1' ? match.player1_email : match.player2_email;
+                } else if (!p1Done) {
+                    match.turn_email = match.player1_email;
+                } else {
+                    match.turn_email = match.player2_email;
+                }
+                return;
+            }
+        }
+
+        // Alle 5 Runden sind von beiden Spielern vollständig beantwortet!
+        match.status = 'finished';
+        match.current_round = TOTAL_ROUNDS;
+        match.turn_email = '';
+
+        if (match.p1_score > match.p2_score) {
+            match.winner_email = match.player1_email;
+        } else if (match.p2_score > match.p1_score) {
+            match.winner_email = match.player2_email;
+        } else {
+            match.winner_email = 'draw';
+        }
+    }
+
     async function insertNewMatchToDb(matchObj) {
         const local = getLocalMatches().filter(m => m.id !== matchObj.id);
         local.unshift(matchObj);
@@ -578,20 +762,9 @@
         await loadMatches();
     }
 
-    /**
-     * Speichert einen Spielzug per explizitem UPDATE (funktioniert für Spieler 1 UND Spieler 2!)
-     * Vor dem Update wird der neueste Stand aus Supabase geladen und gemerged,
-     * damit niemals Antworten des Gegners überschrieben werden.
-     */
     async function updateExistingMatchInDb(matchObj) {
         matchObj.updated_at = new Date().toISOString();
 
-        // 1. Lokal sichern
-        const local = getLocalMatches().filter(m => m.id !== matchObj.id);
-        local.unshift(matchObj);
-        saveLocalMatches(local);
-
-        // 2. Cloud-Update für Online-Duelle
         const sb = getSupabase();
         if (sb && !matchObj.is_local_only) {
             if (!state.isAuthenticated) {
@@ -612,7 +785,6 @@
                         ? JSON.parse(latestRows.match_state)
                         : latestRows.match_state;
 
-                    // Merge alle Runden: Behalte bereits vorhandene Antworten beider Spieler!
                     for (let r = 1; r <= TOTAL_ROUNDS; r++) {
                         const localRound = matchObj.match_state.rounds[r] || {};
                         const cloudRound = cloudState.rounds?.[r] || {};
@@ -628,10 +800,12 @@
                             p2_answers: localRound.p2_answers || cloudRound.p2_answers || null
                         };
                     }
-                    recalculateTotalScores(matchObj);
                 }
 
-                // B) Explizites UPDATE (umgeht die INSERT-RLS-Sperre für Spieler 2!)
+                // WICHTIG: Nach dem Merge den Spielstatus deterministisch neu berechnen!
+                reconcileMatchProgress(matchObj);
+
+                // B) Explizites UPDATE
                 const { data: updatedRows, error: updateErr } = await sb
                     .from('duel_matches')
                     .update({
@@ -650,20 +824,52 @@
                 if (updateErr) {
                     console.error('[Duel] Supabase UPDATE Fehler:', updateErr);
                     setStatusMessage('error', `Spielstand konnte nicht übertragen werden: ${updateErr.message}`);
-                } else if (!updatedRows || updatedRows.length === 0) {
-                    console.warn('[Duel] Update lieferte 0 Zeilen zurück – RLS-Policy blockiert eventuell Spieler 2.');
-                    setStatusMessage('error', 'Übertragung blockiert (0 Zeilen aktualisiert). Bitte führe das neue SQL-Policy-Skript im Supabase SQL-Editor aus!');
-                } else {
-                    // Erfolgreich in der Cloud gespeichert!
-                    const synced = normalizeMatchRow(updatedRows[0]);
-                    state.activeMatch = synced;
+                } else if (updatedRows && updatedRows[0]) {
+                    state.activeMatch = normalizeMatchRow(updatedRows[0]);
                 }
             } catch (err) {
                 console.error('[Duel] Fehler beim Cloud-Update:', err);
             }
+        } else {
+            reconcileMatchProgress(matchObj);
+        }
+
+        const local = getLocalMatches().filter(m => m.id !== matchObj.id);
+        local.unshift(matchObj);
+        saveLocalMatches(local);
+
+        await loadMatches();
+    }
+
+    async function deleteMatchById(matchId) {
+        if (!matchId) return;
+        const target = state.matches.find(m => m.id === matchId);
+        const oppName = target
+            ? formatPlayerName(getMyRole(target) === 'p1' ? target.player2_email : target.player1_email)
+            : matchId;
+
+        if (!window.confirm(`Möchtest du das Duell gegen „${oppName}“ wirklich aus deiner Liste entfernen?`)) {
+            return;
+        }
+
+        markMatchHiddenLocally(matchId);
+        const filtered = getLocalMatches().filter(m => m.id !== matchId);
+        saveLocalMatches(filtered);
+
+        const sb = getSupabase();
+        if (sb && state.isAuthenticated && target && !target.is_local_only) {
+            try {
+                await sb.from('duel_matches').delete().eq('id', matchId);
+            } catch (_e) {}
+        }
+
+        if (state.activeMatch && state.activeMatch.id === matchId) {
+            state.activeMatch = null;
+            state.viewMode = 'lobby';
         }
 
         await loadMatches();
+        render();
     }
 
     function subscribeRealtimeUpdates() {
@@ -704,7 +910,7 @@
     }
 
     // ========================================================================
-    // 4. SPIELFLUSS-LOGIK (5 RUNDEN, KATEGORIEWAHL, ZUGWECHSEL & BOT-KI)
+    // 4. SPIELFLUSS-LOGIK (5 RUNDEN, KATEGORIEWAHL, ZUGWECHSEL & 3 BOT-STUFEN)
     // ========================================================================
 
     function getCategoryChooserRole(roundNum) {
@@ -724,13 +930,13 @@
             return;
         }
 
-        if (opponentEmail !== BOT_EMAIL && !state.isAuthenticated) {
+        if (!isBotEmail(opponentEmail) && !state.isAuthenticated) {
             setStatusMessage('error', 'Für ein Online-Duell mit Freunden musst du unter „Einstellungen“ mit deiner E-Mail angemeldet sein!');
             return;
         }
 
         if (opponentEmail === state.myEmail.toLowerCase()) {
-            setStatusMessage('error', 'Du kannst dich nicht selbst herausfordern. Nutze eine andere E-Mail oder spiele gegen Dr. House!');
+            setStatusMessage('error', 'Du kannst dich nicht selbst herausfordern. Nutze eine andere E-Mail oder spiele gegen einen Klinik-Bot!');
             return;
         }
 
@@ -762,9 +968,11 @@
             p1_score: 0,
             p2_score: 0,
             winner_email: null,
-            is_local_only: opponentEmail === BOT_EMAIL,
+            is_local_only: isBotEmail(opponentEmail),
             match_state: {
-                rounds: roundsObj
+                rounds: roundsObj,
+                p1_total_time_sec: 0,
+                p2_total_time_sec: 0
             },
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -774,12 +982,12 @@
         state.activeMatch = newMatch;
         state.searchQueryEmail = '';
         state.statusMessage = null;
+        state.inspectedRoundNum = null;
         state.viewMode = 'match_overview';
         render();
     }
 
     async function startTurnAction() {
-        // Vor Rundenstart immer den frischesten Stand aus Supabase laden!
         await loadMatches();
         const match = state.activeMatch;
         if (!match || match.status !== 'active') return;
@@ -813,7 +1021,6 @@
         roundData.chosen_category = chosenCat;
         roundData.questions = pickThreeQuestionsForCategory(chosenCat);
 
-        // Sofort in Supabase speichern, damit die 3 Fragen für beide Spieler feststehen!
         await updateExistingMatchInDb(match);
         beginThreeQuestionSequence(roundData.questions);
     }
@@ -829,7 +1036,7 @@
     }
 
     // ========================================================================
-    // 5. DER 20-SEKUNDEN TOP-CENTER COUNTDOWN-BANNER (60 FPS)
+    // 5. DER 20-SEKUNDEN TOP-CENTER COUNTDOWN-BANNER (MIT VIEW-GUARD)
     // ========================================================================
 
     function startQuestionTimer() {
@@ -838,6 +1045,12 @@
         state.remainingMs = QUESTION_TIME_LIMIT_SEC * 1000;
 
         function tick(now) {
+            // Sicherheits-Guard: Falls der Spieler in einen anderen Tab gewechselt hat, Timer sofort stoppen!
+            if (!isDuelViewVisible() || state.viewMode !== 'playing_round') {
+                stopQuestionTimer();
+                return;
+            }
+
             const elapsed = now - state.questionStartTime;
             const remaining = Math.max(0, QUESTION_TIME_LIMIT_SEC * 1000 - elapsed);
             state.remainingMs = remaining;
@@ -906,6 +1119,16 @@
             timeSec: timeSpentSec
         });
 
+        // Leitner Spaced Repetition Telemetrie anbinden
+        const conceptName = currentQ.target_disease || currentQ.category || 'Klinik-Duell';
+        if (window.SpacedRepetitionEngine) {
+            if (isCorrect && timeSpentSec <= 12 && typeof window.SpacedRepetitionEngine.logConceptSuccess === 'function') {
+                window.SpacedRepetitionEngine.logConceptSuccess(null, conceptName);
+            } else if (!isCorrect && typeof window.SpacedRepetitionEngine.logConceptStruggle === 'function') {
+                window.SpacedRepetitionEngine.logConceptStruggle(null, conceptName, isTimeout ? 'duel_timeout' : 'duel_miss');
+            }
+        }
+
         const optionBtns = document.querySelectorAll('.duel-opt-btn');
         optionBtns.forEach((btn, idx) => {
             btn.disabled = true;
@@ -926,19 +1149,47 @@
 
             const isLastInRound = state.activeQuestionIdx >= QUESTIONS_PER_ROUND - 1;
             const nextBtnLabel = isLastInRound
-                ? '🏁 Runde speichern & übertragen ➔'
-                : 'Nächste Frage (' + (state.activeQuestionIdx + 2) + '/3) ➔';
+                ? '🏁 Runde speichern & übertragen (Leertaste) ➔'
+                : 'Nächste Frage (' + (state.activeQuestionIdx + 2) + '/3) (Leertaste) ➔';
 
             fbBox.style.display = 'block';
             fbBox.innerHTML = `
-                ${statusHeader}
-                <div class="duel-fb-expl">${escapeHtml(currentQ.explanation || '')}</div>
-                <button type="button" class="duel-next-q-btn" id="duel-next-q-btn">${nextBtnLabel}</button>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+                    ${statusHeader}
+                    <button type="button" class="ghost-tool-btn" id="duel-save-depot-live-btn" style="font-size:0.73rem; padding:4px 10px;">
+                        📌 Ins Lern-Depot speichern
+                    </button>
+                </div>
+                <div class="duel-fb-expl" style="line-height:1.55;">${escapeHtml(cleanMedicalExplanation(currentQ.explanation))}</div>
+                <button type="button" class="duel-next-q-btn" id="duel-next-q-btn" style="margin-top:12px;">${nextBtnLabel}</button>
             `;
+
+            document.getElementById('duel-save-depot-live-btn')?.addEventListener('click', (e) => {
+                saveQuestionToDepot(currentQ, e.currentTarget);
+            });
 
             document.getElementById('duel-next-q-btn')?.addEventListener('click', () => {
                 advanceToNextQuestionOrFinishRound();
             });
+        }
+    }
+
+    async function saveQuestionToDepot(qObj, btnEl) {
+        if (!qObj || typeof window.createDepotEntry !== 'function') return;
+        const correctOpt = qObj.options?.[qObj.correct_index] || '';
+        const cleanExpl = cleanMedicalExplanation(qObj.explanation).slice(0, 340);
+
+        await window.createDepotEntry({
+            case_id: 'duel_arena',
+            case_title: `Klinik-Duell: ${qObj.category || 'Allgemein'}`,
+            category: qObj.category || 'Klinik-Duell',
+            cue_context: qObj.target_disease || 'Prüfungsfrage',
+            highlighted_text: `Frage: ${qObj.question} — ✓ ${correctOpt} (${cleanExpl})`
+        });
+
+        if (btnEl) {
+            btnEl.textContent = '✓ Im Lern-Depot gespeichert!';
+            btnEl.disabled = true;
         }
     }
 
@@ -951,7 +1202,6 @@
             return;
         }
 
-        // Button sperren während des Cloud-Syncs
         const nextBtn = document.getElementById('duel-next-q-btn');
         if (nextBtn) {
             nextBtn.disabled = true;
@@ -962,6 +1212,7 @@
         const myRole = getMyRole(match);
         const rNum = state.activeRoundNum;
         const roundData = match.match_state.rounds[rNum];
+        const prevStatus = match.status;
 
         if (myRole === 'p1') {
             roundData.p1_answers = state.roundAnswers;
@@ -969,133 +1220,95 @@
             roundData.p2_answers = state.roundAnswers;
         }
 
-        recalculateTotalScores(match);
+        reconcileMatchProgress(match);
 
-        const bothFinishedThisRound = Array.isArray(roundData.p1_answers) && Array.isArray(roundData.p2_answers);
+        // Bot-Simulation, falls Gegner ein Bot ist
+        if (isBotEmail(match.player2_email) && match.status === 'active' && match.turn_email === match.player2_email) {
+            simulateBotTurn(match);
+            reconcileMatchProgress(match);
+        }
 
-        if (!bothFinishedThisRound) {
-            // Der andere Spieler muss diese Runde noch spielen
-            match.turn_email = (myRole === 'p1') ? match.player2_email : match.player1_email;
-        } else {
-            // Beide Spieler haben diese Runde beendet!
-            if (rNum >= TOTAL_ROUNDS) {
-                match.status = 'finished';
-                match.turn_email = '';
-                if (match.p1_score > match.p2_score) {
-                    match.winner_email = match.player1_email;
-                } else if (match.p2_score > match.p1_score) {
-                    match.winner_email = match.player2_email;
-                } else {
-                    match.winner_email = 'draw';
-                }
+        await updateExistingMatchInDb(match);
 
-                if (typeof window.applyXpDelta === 'function') {
-                    const myScore = myRole === 'p1' ? match.p1_score : match.p2_score;
-                    const won = match.winner_email === state.myEmail;
-                    window.applyXpDelta(won ? 300 : 120, won ? 'Duell-Sieg 🏆' : `Duell beendet (${myScore}/15)`);
-                }
-            } else {
-                // Nächste Runde vorbereiten:
-                // Der Spieler, der in Runde R als Zweiter gespielt hat, wählt jetzt direkt für Runde R+1 die Kategorie!
-                const nextRoundNum = rNum + 1;
-                match.current_round = nextRoundNum;
-                const nextChooserRole = getCategoryChooserRole(nextRoundNum);
-                match.turn_email = (nextChooserRole === 'p1') ? match.player1_email : match.player2_email;
-
-                const usedCats = Object.values(match.match_state.rounds)
-                    .map(r => r.chosen_category)
-                    .filter(Boolean);
-                match.match_state.rounds[nextRoundNum].category_options = getRandomCategoryChoices(usedCats);
+        // XP gutschreiben, falls das Match durch diesen Zug beendet wurde
+        if (prevStatus !== 'finished' && state.activeMatch?.status === 'finished') {
+            if (typeof window.applyXpDelta === 'function') {
+                const myScore = myRole === 'p1' ? state.activeMatch.p1_score : state.activeMatch.p2_score;
+                const won = state.activeMatch.winner_email === state.myEmail;
+                window.applyXpDelta(won ? 300 : 120, won ? 'Duell-Sieg 🏆' : `Duell beendet (${myScore}/15)`);
             }
         }
 
-        // Bot-Simulation, falls Gegner Dr. House ist
-        if (match.player2_email === BOT_EMAIL && match.status === 'active' && match.turn_email === BOT_EMAIL) {
-            simulateBotTurn(match);
-        }
-
-        // Speichert den Spielstand per explizitem UPDATE in Supabase!
-        await updateExistingMatchInDb(match);
+        state.inspectedRoundNum = rNum; // Direkt die gespielte Runde zur Nachbesprechung aufklappen
         state.viewMode = 'match_overview';
         render();
     }
 
     function simulateBotTurn(match) {
+        const botProfile = BOT_PROFILES[match.player2_email] || BOT_PROFILES[DEFAULT_BOT_EMAIL];
         let rNum = match.current_round;
         let roundData = match.match_state.rounds[rNum];
 
+        const generateBotAnswers = (questions) => questions.map(q => {
+            const botHits = Math.random() < botProfile.accuracy;
+            const wrongIndices = [0, 1, 2, 3].filter(idx => idx !== Number(q.correct_index) && idx < q.options.length);
+            const selectedIdx = botHits
+                ? Number(q.correct_index)
+                : wrongIndices[Math.floor(Math.random() * wrongIndices.length)] ?? 0;
+            const timeSec = Number((botProfile.minTime + Math.random() * (botProfile.maxTime - botProfile.minTime)).toFixed(1));
+            return {
+                selectedIdx,
+                isCorrect: botHits,
+                isTimeout: false,
+                timeSec
+            };
+        });
+
+        // 1. Falls eine Kategorie in der aktuellen Runde schon gewählt ist, beantwortet der Bot die 3 Fragen
         if (roundData && roundData.chosen_category && !roundData.p2_answers) {
-            roundData.p2_answers = roundData.questions.map(q => {
-                const botHits = Math.random() < 0.75;
-                const selectedIdx = botHits
-                    ? Number(q.correct_index)
-                    : (Number(q.correct_index) + 1) % q.options.length;
-                return {
-                    selectedIdx,
-                    isCorrect: botHits,
-                    isTimeout: false,
-                    timeSec: Number((3.5 + Math.random() * 6.5).toFixed(1))
-                };
-            });
-            recalculateTotalScores(match);
-
-            if (rNum >= TOTAL_ROUNDS) {
-                match.status = 'finished';
-                match.turn_email = '';
-                match.winner_email = match.p1_score > match.p2_score
-                    ? match.player1_email
-                    : (match.p2_score > match.p1_score ? match.player2_email : 'draw');
-                return;
-            }
-
-            rNum += 1;
-            match.current_round = rNum;
-            roundData = match.match_state.rounds[rNum];
+            roundData.p2_answers = generateBotAnswers(roundData.questions);
+            reconcileMatchProgress(match);
         }
 
-        if (match.status === 'active' && getCategoryChooserRole(rNum) === 'p2' && !roundData.chosen_category) {
+        // 2. Falls der Bot danach in der nächsten Runde als Kategoriewähler dran ist, wählt und spielt er sofort
+        rNum = match.current_round;
+        roundData = match.match_state.rounds[rNum];
+        if (match.status === 'active' && match.turn_email === match.player2_email && roundData && !roundData.chosen_category) {
             const usedCats = Object.values(match.match_state.rounds).map(r => r.chosen_category).filter(Boolean);
             const options = getRandomCategoryChoices(usedCats);
             roundData.category_options = options;
-            const botChosenCat = options[0];
+            const botChosenCat = options[Math.floor(Math.random() * options.length)] || options[0];
             roundData.chosen_category = botChosenCat;
             roundData.questions = pickThreeQuestionsForCategory(botChosenCat);
-
-            roundData.p2_answers = roundData.questions.map(q => {
-                const botHits = Math.random() < 0.75;
-                const selectedIdx = botHits
-                    ? Number(q.correct_index)
-                    : (Number(q.correct_index) + 1) % q.options.length;
-                return {
-                    selectedIdx,
-                    isCorrect: botHits,
-                    isTimeout: false,
-                    timeSec: Number((3.8 + Math.random() * 6.0).toFixed(1))
-                };
-            });
-
-            recalculateTotalScores(match);
-            match.turn_email = match.player1_email;
+            roundData.p2_answers = generateBotAnswers(roundData.questions);
         }
     }
 
     function recalculateTotalScores(match) {
         let s1 = 0;
         let s2 = 0;
+        let t1 = 0;
+        let t2 = 0;
+
         Object.values(match.match_state.rounds || {}).forEach(r => {
             if (Array.isArray(r.p1_answers)) {
                 s1 += r.p1_answers.filter(a => a && a.isCorrect).length;
+                t1 += r.p1_answers.reduce((acc, a) => acc + (Number(a?.timeSec) || 0), 0);
             }
             if (Array.isArray(r.p2_answers)) {
                 s2 += r.p2_answers.filter(a => a && a.isCorrect).length;
+                t2 += r.p2_answers.reduce((acc, a) => acc + (Number(a?.timeSec) || 0), 0);
             }
         });
+
         match.p1_score = s1;
         match.p2_score = s2;
+        match.match_state.p1_total_time_sec = Number(t1.toFixed(1));
+        match.match_state.p2_total_time_sec = Number(t2.toFixed(1));
     }
 
     // ========================================================================
-    // 6. UI-RENDERING
+    // 6. UI-RENDERING (INKL. RUNDEN-INSPEKTOR & BEKANNTE GEGNER)
     // ========================================================================
 
     function setStatusMessage(type, text) {
@@ -1122,8 +1335,20 @@
 
     function formatPlayerName(email) {
         if (!email) return 'Unbekannt';
-        if (email === BOT_EMAIL) return '🤖 Dr. House (Klinik-Bot)';
+        const clean = email.toLowerCase().trim();
+        if (BOT_PROFILES[clean]) return BOT_PROFILES[clean].name;
         return email;
+    }
+
+    function getRecentHumanOpponents() {
+        const set = new Set();
+        state.matches.forEach(m => {
+            const opp = getMyRole(m) === 'p1' ? m.player2_email : m.player1_email;
+            if (opp && !isBotEmail(opp) && opp !== state.myEmail) {
+                set.add(opp);
+            }
+        });
+        return Array.from(set).slice(0, 5);
     }
 
     function render() {
@@ -1146,6 +1371,7 @@
     function renderLobbyHTML() {
         const activeMatches = state.matches.filter(m => m.status === 'active');
         const finishedMatches = state.matches.filter(m => m.status === 'finished');
+        const recentOpponents = getRecentHumanOpponents();
 
         return `
             <div class="duel-wrapper">
@@ -1158,7 +1384,7 @@
                             <span class="duel-mode-pill">5 Runden • Max. 15 Punkte • 20s Timer</span>
                         </div>
                         <p class="duel-subtitle">
-                            Fordere Kommilitonen per E-Mail-Adresse heraus. Pro Runde wählt abwechselnd ein Spieler 1 aus 4 Fachkategorien und beantwortet 3 klinische Fragen auf Zeit!
+                            Fordere Kommilitonen per E-Mail-Adresse heraus oder trainiere gegen unsere Klinik-Bots. Pro Runde wählt abwechselnd ein Spieler 1 aus 4 Fachkategorien (aus deinen Fällen & Pharma-Sets).
                         </p>
                     </div>
                     <div class="duel-user-identity">
@@ -1173,26 +1399,46 @@
                     </div>
                 ` : ''}
 
-                <!-- FREUNDE SUCHEN & HERAUSFORDERN -->
+                <!-- FREUNDE SUCHEN & BOT-TRAINING -->
                 <div class="duel-search-card">
-                    <div class="duel-section-label">🔍 Mit Freunden spielen – Gegner per E-Mail-Adresse suchen & herausfordern</div>
-                    <div class="duel-search-bar-row">
-                        <div class="duel-email-input-wrap">
+                    <div class="duel-section-label">🔍 Mit Freunden spielen oder Klinik-Bot herausfordern</div>
+                    <div class="duel-search-bar-row" style="flex-wrap:wrap; gap:8px;">
+                        <div class="duel-email-input-wrap" style="flex:1; min-width:240px;">
                             <span class="duel-input-icon">✉️</span>
                             <input type="email"
                                    id="duel-friend-email-input"
                                    class="duel-email-input"
-                                   placeholder="E-Mail-Adresse deines Freundes eingeben (genau wie sein Login)..."
+                                   placeholder="E-Mail-Adresse deines Freundes eingeben..."
                                    value="${escapeHtml(state.searchQueryEmail)}"
                                    autocomplete="email">
                         </div>
                         <button type="button" id="duel-start-friend-btn" class="duel-btn duel-btn-primary">
-                            ⚔️ Duell starten
+                            ⚔️ Freund herausfordern
                         </button>
-                        <button type="button" id="duel-start-bot-btn" class="duel-btn duel-btn-secondary" title="Sofortiges Trainings-Match gegen unseren Oberarzt-Bot">
-                            🤖 Gegen Dr. House (Bot)
-                        </button>
+
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <select id="duel-bot-select" class="mc-dialog-select" style="padding:9px 10px; border-radius:10px; font-size:0.8rem;">
+                                ${Object.values(BOT_PROFILES).map(b => `
+                                    <option value="${escapeHtml(b.email)}" ${state.selectedBotEmail === b.email ? 'selected' : ''}>${escapeHtml(b.name)}</option>
+                                `).join('')}
+                            </select>
+                            <button type="button" id="duel-start-bot-btn" class="duel-btn duel-btn-secondary">
+                                🤖 Bot-Duell starten
+                            </button>
+                        </div>
                     </div>
+
+                    ${recentOpponents.length > 0 ? `
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px; font-size:0.75rem;">
+                            <span style="color:var(--text-muted); font-weight:600;">⚡ Letzte Duell-Partner:</span>
+                            ${recentOpponents.map(mail => `
+                                <button type="button" class="ghost-tool-btn duel-quick-opp-chip" data-opp-email="${escapeHtml(mail)}" style="padding:3px 9px; font-size:0.73rem;">
+                                    ⚔️ ${escapeHtml(mail)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+
                     ${state.statusMessage ? `
                         <div class="duel-alert ${state.statusMessage.type}">
                             ${escapeHtml(state.statusMessage.text)}
@@ -1208,7 +1454,7 @@
                     </div>
                     ${activeMatches.length === 0 ? `
                         <div class="duel-empty-box">
-                            Noch kein aktives Duell. Gib oben die E-Mail-Adresse eines Freundes ein oder starte eine Runde gegen Dr. House!
+                            Noch kein aktives Duell. Gib oben die E-Mail-Adresse eines Freundes ein oder starte eine Runde gegen einen Klinik-Bot!
                         </div>
                     ` : `
                         <div class="duel-matches-grid">
@@ -1255,13 +1501,19 @@
         }
 
         return `
-            <div class="duel-match-card ${isMyTurn ? 'my-turn-card' : ''}" data-match-id="${escapeHtml(match.id)}">
+            <div class="duel-match-card ${isMyTurn ? 'my-turn-card' : ''}" data-match-id="${escapeHtml(match.id)}" style="position:relative;">
                 <div class="duel-card-top">
                     <div class="duel-opponent-info">
                         <span class="duel-vs-tag">VS</span>
                         <strong>${escapeHtml(formatPlayerName(oppEmail))}</strong>
                     </div>
-                    ${statusBadge}
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        ${statusBadge}
+                        <button type="button"
+                                class="folder-action-btn delete-folder-btn duel-delete-match-btn"
+                                data-delete-match-id="${escapeHtml(match.id)}"
+                                title="Duell entfernen">🗑️</button>
+                    </div>
                 </div>
                 <div class="duel-card-score-row">
                     <div class="duel-score-box">
@@ -1289,20 +1541,30 @@
         const oppEmail = myRole === 'p1' ? m.player2_email : m.player1_email;
         const isMyTurn = m.status === 'active' && m.turn_email.toLowerCase().trim() === state.myEmail.toLowerCase().trim();
 
+        const myTotalTime = myRole === 'p1' ? (m.match_state.p1_total_time_sec || 0) : (m.match_state.p2_total_time_sec || 0);
+        const oppTotalTime = myRole === 'p1' ? (m.match_state.p2_total_time_sec || 0) : (m.match_state.p1_total_time_sec || 0);
+
         let rowsHtml = '';
         for (let r = 1; r <= TOTAL_ROUNDS; r++) {
             const rData = m.match_state.rounds[r] || {};
             const myAns = myRole === 'p1' ? rData.p1_answers : rData.p2_answers;
             const oppAns = myRole === 'p1' ? rData.p2_answers : rData.p1_answers;
             const bothPlayed = Array.isArray(myAns) && Array.isArray(oppAns);
+            const iPlayedThisRound = Array.isArray(myAns) && myAns.length > 0;
+            const isInspected = state.inspectedRoundNum === r;
 
             rowsHtml += `
-                <div class="duel-round-row ${r === m.current_round && m.status === 'active' ? 'active-round-row' : ''}">
+                <div class="duel-round-row ${r === m.current_round && m.status === 'active' ? 'active-round-row' : ''}"
+                     data-inspect-round="${iPlayedThisRound ? r : ''}"
+                     style="${iPlayedThisRound ? 'cursor:pointer;' : ''}"
+                     title="${iPlayedThisRound ? 'Klicken, um die 3 Fragen & Erklärungen dieser Runde einzusehen' : ''}">
                     <div class="duel-dots-col">
                         ${renderThreeAnswerDots(myAns, false)}
                     </div>
                     <div class="duel-round-center-info">
-                        <span class="duel-round-badge">Runde ${r} / 5</span>
+                        <span class="duel-round-badge">
+                            Runde ${r} / 5 ${iPlayedThisRound ? (isInspected ? '▲ Details' : '▼ Details') : ''}
+                        </span>
                         <strong class="duel-round-cat-title">
                             ${rData.chosen_category ? escapeHtml(rData.chosen_category) : 'Kategorie noch offen'}
                         </strong>
@@ -1310,6 +1572,18 @@
                     <div class="duel-dots-col">
                         ${renderThreeAnswerDots(oppAns, !bothPlayed && Array.isArray(oppAns))}
                     </div>
+                </div>
+                ${isInspected && iPlayedThisRound ? renderRoundInspectorHTML(r, rData, myAns, oppAns, bothPlayed) : ''}
+            `;
+        }
+
+        // Bei Punktgleichstand am Ende den Reflex-Sieger (schnellere Gesamtzeit) anzeigen
+        let drawTiebreakerHint = '';
+        if (m.status === 'finished' && m.winner_email === 'draw' && myTotalTime > 0 && oppTotalTime > 0) {
+            const fasterMe = myTotalTime < oppTotalTime;
+            drawTiebreakerHint = `
+                <div style="font-size:0.8rem; color:var(--accent-cyan, #38bdf8); margin-top:4px;">
+                    ⚡ <strong>Klinischer Reflex-Tiebreaker:</strong> ${fasterMe ? 'Du warst' : 'Dein Gegner war'} insgesamt schneller (${myTotalTime.toFixed(1)}s vs. ${oppTotalTime.toFixed(1)}s)!
                 </div>
             `;
         }
@@ -1333,6 +1607,7 @@
                         <div class="duel-avatar-circle me">🩺</div>
                         <div class="duel-player-name">Du</div>
                         <div class="duel-player-email">${escapeHtml(state.myEmail)}</div>
+                        ${myTotalTime > 0 ? `<div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">⏱️ Gesamt: ${myTotalTime.toFixed(1)}s</div>` : ''}
                     </div>
 
                     <div class="duel-center-score">
@@ -1342,12 +1617,14 @@
                             <span>${oppScore}</span>
                         </div>
                         <div class="duel-score-sub">Maximal 15 Punkte (5 Runden)</div>
+                        ${drawTiebreakerHint}
                     </div>
 
                     <div class="duel-player-col">
                         <div class="duel-avatar-circle opp">⚔️</div>
                         <div class="duel-player-name">Gegner</div>
                         <div class="duel-player-email">${escapeHtml(formatPlayerName(oppEmail))}</div>
+                        ${oppTotalTime > 0 && m.status === 'finished' ? `<div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">⏱️ Gesamt: ${oppTotalTime.toFixed(1)}s</div>` : ''}
                     </div>
                 </div>
 
@@ -1371,15 +1648,67 @@
                     ` : `
                         <div class="duel-waiting-notice">
                             ⏳ <strong>${escapeHtml(formatPlayerName(oppEmail))}</strong> ist gerade am Zug (Runde ${m.current_round}).<br>
-                            <small style="color:#94a3b8;">Der Spielstand aktualisiert sich automatisch alle 5 Sekunden.</small>
+                            <small style="color:#94a3b8;">Klicke unten auf bereits gespielte Runden, um die Fragen & Erklärungen zu wiederholen.</small>
                         </div>
                     `)}
                 </div>
 
-                <!-- 5 RUNDEN ÜBERSICHT -->
+                <!-- 5 RUNDEN ÜBERSICHT (KLICKBAR FÜR FRAGEN-REVIEW) -->
                 <div class="duel-rounds-list">
                     ${rowsHtml}
                 </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Rendert die aufklappbare Nachbesprechung für eine abgeschlossene Runde
+     */
+    function renderRoundInspectorHTML(roundNum, rData, myAns, oppAns, bothPlayed) {
+        const questions = rData.questions || [];
+        if (questions.length === 0) return '';
+
+        return `
+            <div class="duel-round-inspector" style="padding:14px 16px; margin:-4px 0 8px 0; border-radius:12px; background:var(--surface-secondary, rgba(15,23,42,0.55)); border:1px solid var(--card-border); display:flex; flex-direction:column; gap:12px;">
+                <div style="font-size:0.76rem; font-weight:800; color:var(--accent-cyan, #38bdf8); text-transform:uppercase; letter-spacing:0.05em;">
+                    🔍 Runden-Nachbesprechung · Runde ${roundNum}: ${escapeHtml(rData.chosen_category || '')}
+                </div>
+                ${questions.map((q, qIdx) => {
+                    const myA = myAns?.[qIdx];
+                    const oppA = oppAns?.[qIdx];
+                    const correctText = q.options?.[q.correct_index] || '';
+                    const myChoiceText = (myA && myA.selectedIdx >= 0) ? q.options?.[myA.selectedIdx] : '⏰ Zeit abgelaufen';
+                    const oppChoiceText = bothPlayed
+                        ? ((oppA && oppA.selectedIdx >= 0) ? q.options?.[oppA.selectedIdx] : '⏰ Zeit abgelaufen')
+                        : '⏳ Noch geheim (Gegner spielt noch)';
+
+                    return `
+                        <div style="padding:12px; border-radius:10px; background:var(--surface-primary, rgba(6,9,19,0.65)); border:1px solid var(--card-border);">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                                <strong style="font-size:0.85rem; color:var(--text-main); line-height:1.45;">
+                                    ${qIdx + 1}. ${escapeHtml(q.question)}
+                                </strong>
+                                <button type="button"
+                                        class="ghost-tool-btn duel-inspector-depot-btn"
+                                        data-r="${roundNum}"
+                                        data-q="${qIdx}"
+                                        style="font-size:0.7rem; padding:3px 8px; flex-shrink:0;">
+                                    📌 Depot
+                                </button>
+                            </div>
+                            <div style="font-size:0.78rem; color:#4ade80; font-weight:700; margin-bottom:4px;">
+                                ✓ Richtige Antwort: ${escapeHtml(correctText)}
+                            </div>
+                            <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
+                                <span>🩺 <strong>Du (${myA?.timeSec ?? 20}s):</strong> <span style="color:${myA?.isCorrect ? '#4ade80' : '#f87171'};">${escapeHtml(myChoiceText)}</span></span>
+                                <span>⚔️ <strong>Gegner ${bothPlayed && oppA ? '(' + oppA.timeSec + 's)' : ''}:</strong> <span style="color:${!bothPlayed ? 'var(--text-dim)' : (oppA?.isCorrect ? '#4ade80' : '#f87171')};">${escapeHtml(oppChoiceText)}</span></span>
+                            </div>
+                            <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.5; border-top:1px dashed var(--card-border); padding-top:6px;">
+                                💡 ${escapeHtml(cleanMedicalExplanation(q.explanation))}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
     }
@@ -1455,7 +1784,7 @@
 
                     <div class="duel-options-grid">
                         ${q.options.map((optText, idx) => `
-                            <button type="button" class="duel-opt-btn" data-opt-idx="${idx}">
+                            <button type="button" class="duel-opt-btn" data-opt-idx="${idx}" title="Tastatur: ${idx + 1} oder ${String.fromCharCode(65 + idx)}">
                                 <span class="duel-opt-letter">${String.fromCharCode(65 + idx)}</span>
                                 <span class="duel-opt-text">${escapeHtml(optText)}</span>
                             </button>
@@ -1489,13 +1818,34 @@
             createNewDuel(emailInput?.value || state.searchQueryEmail);
         });
 
+        const botSelect = document.getElementById('duel-bot-select');
+        botSelect?.addEventListener('change', (e) => {
+            state.selectedBotEmail = e.target.value;
+        });
+
         document.getElementById('duel-start-bot-btn')?.addEventListener('click', () => {
-            createNewDuel(BOT_EMAIL);
+            const chosenBot = botSelect?.value || state.selectedBotEmail || DEFAULT_BOT_EMAIL;
+            createNewDuel(chosenBot);
+        });
+
+        document.querySelectorAll('.duel-quick-opp-chip[data-opp-email]').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const mail = chip.getAttribute('data-opp-email');
+                if (mail) createNewDuel(mail);
+            });
         });
 
         document.getElementById('duel-refresh-btn')?.addEventListener('click', async () => {
             await loadMatches();
             render();
+        });
+
+        document.querySelectorAll('.duel-delete-match-btn[data-delete-match-id]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mId = btn.getAttribute('data-delete-match-id');
+                deleteMatchById(mId);
+            });
         });
 
         document.querySelectorAll('.duel-match-card[data-match-id]').forEach(card => {
@@ -1505,6 +1855,7 @@
                 if (found) {
                     state.activeMatch = found;
                     state.statusMessage = null;
+                    state.inspectedRoundNum = null;
                     state.viewMode = 'match_overview';
                     render();
                 }
@@ -1515,6 +1866,7 @@
     function bindMatchOverviewEvents() {
         document.getElementById('duel-back-lobby-btn')?.addEventListener('click', async () => {
             state.statusMessage = null;
+            state.inspectedRoundNum = null;
             await loadMatches();
             state.viewMode = 'lobby';
             render();
@@ -1534,6 +1886,29 @@
             const myRole = getMyRole(state.activeMatch);
             const oppEmail = myRole === 'p1' ? state.activeMatch.player2_email : state.activeMatch.player1_email;
             createNewDuel(oppEmail);
+        });
+
+        // Klick auf gespielte Runden öffnet/schließt den Runden-Inspektor
+        document.querySelectorAll('.duel-round-row[data-inspect-round]').forEach(row => {
+            const rVal = row.getAttribute('data-inspect-round');
+            if (!rVal) return;
+            row.addEventListener('click', () => {
+                const rNum = Number(rVal);
+                state.inspectedRoundNum = (state.inspectedRoundNum === rNum) ? null : rNum;
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+                render();
+            });
+        });
+
+        // Depot-Speicher-Buttons innerhalb des Runden-Inspektors
+        document.querySelectorAll('.duel-inspector-depot-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const rNum = Number(btn.getAttribute('data-r'));
+                const qIdx = Number(btn.getAttribute('data-q'));
+                const qObj = state.activeMatch?.match_state?.rounds?.[rNum]?.questions?.[qIdx];
+                if (qObj) saveQuestionToDepot(qObj, btn);
+            });
         });
     }
 
