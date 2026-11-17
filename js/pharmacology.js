@@ -1,20 +1,34 @@
 /**
- * Pharmacology Module - Modular Game & Learning Hub (V3.0)
+ * Pharmacology Module - Modular Game & Learning Hub (V4.0)
  * Unterstützt:
- * 1. Pharma-Compass (Pfeiltasten / WASD)
- * 2. Indikations-Matrix (Drag & Drop + Touch/Click Zuordnung)
- * 3. Separate Pharma-Prompt-Bibliothek zum einfachen Kopieren
- * 4. Vollautomatische bidirektionale Supabase-Cloud-Synchronisation
- * 5. Löschen & Status-Badges (Cloud / Lokal) für Custom-Sets
+ * 1. 1:1 Ordner- & Überordner-Synchronisation mit dem MedCheck-Dashboard
+ * 2. Drag & Drop von Sets & Ordnern + Touch-Move-Modal (MedUI)
+ * 3. Pharma-Compass (Pfeiltasten / WASD) & Indikations-Matrix (Drag & Drop)
+ * 4. Kontext-sensitive KI-Prompt-Generierung pro Dashboard-Ordner
+ * 5. Deep-Search (Wirkstoffe, Klassen, Pearls) & lokales Highscore-Tracking
+ * 6. Vollautomatische bidirektionale Supabase-Cloud-Synchronisation
  */
 
 const PharmacologyModule = (() => {
-    const STORAGE_KEY = 'medcheck_pharma_sets';
+    const STORAGE_KEY          = 'medcheck_pharma_sets';
+    const FOLDER_OVERRIDES_KEY = 'medcheck_pharma_folder_overrides_v1';
+    const HIGHSCORES_KEY       = 'medcheck_pharma_highscores_v1';
+
+    // Eigene SVG-Icons (unabhängig vom lokalen Scope in app.js)
+    const PharmaIcons = {
+        edit: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+        trash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+        move: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+        plus: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
+    };
 
     let state = {
         activeSubView: 'hub', // 'hub' | 'arrow_compass' | 'drag_matrix' | 'prompts' | 'import'
         modeFilter: 'all',    // 'all' | 'arrow_compass' | 'drag_matrix'
+        showEmptyDashboardFolders: true, // Zeigt standardmäßig alle Dashboard-Ordner
+        searchQuery: '',
         importType: 'arrow_compass',
+        importTargetFolder: '',
         currentSet: null,
         currentQuestionIndex: 0,
         score: 0,
@@ -25,7 +39,10 @@ const PharmacologyModule = (() => {
         matrixEvaluated: false,
         selectedDrugForClickMove: null,
         customSets: [],
-        cloudSetIds: new Set()
+        cloudSetIds: new Set(),
+        openSuperFolders: {},
+        openSubFolders: {},
+        draggedPharmaState: null
     };
 
     // =========================================================================
@@ -253,7 +270,7 @@ const PharmacologyModule = (() => {
     ];
 
     // =========================================================================
-    // HILFSFUNKTIONEN
+    // HILFSFUNKTIONEN & PERSISTENZ
     // =========================================================================
     function escapeHtml(str) {
         if (!str) return '';
@@ -264,6 +281,67 @@ const PharmacologyModule = (() => {
 
     function getSupabase() {
         return window.supabaseClient || window.supabase || window.sb || null;
+    }
+
+    function getFolderOverrides() {
+        try {
+            return JSON.parse(localStorage.getItem(FOLDER_OVERRIDES_KEY) || '{}');
+        } catch (_e) {
+            return {};
+        }
+    }
+
+    function saveFolderOverrides(map) {
+        try {
+            localStorage.setItem(FOLDER_OVERRIDES_KEY, JSON.stringify(map));
+        } catch (_e) {}
+    }
+
+    function getDeletedDashboardFolders() {
+        try {
+            return new Set(JSON.parse(localStorage.getItem('medcheck_deleted_folders_v1') || '[]'));
+        } catch (_e) {
+            return new Set();
+        }
+    }
+
+    function getHighscores() {
+        try {
+            return JSON.parse(localStorage.getItem(HIGHSCORES_KEY) || '{}');
+        } catch (_e) {
+            return {};
+        }
+    }
+
+    function recordHighscore(setId, achieved, total) {
+        if (!setId || !total) return;
+        const scores = getHighscores();
+        const pct = Math.round((achieved / total) * 100);
+        const prev = scores[setId];
+        if (!prev || pct >= prev.pct) {
+            scores[setId] = { achieved, total, pct, updatedAt: Date.now() };
+            try {
+                localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(scores));
+            } catch (_e) {}
+        }
+    }
+
+    function resolveSetFolder(setObj) {
+        if (!setObj) return 'Allgemein';
+        const overrides = getFolderOverrides();
+        const deleted = getDeletedDashboardFolders();
+
+        let folder = (
+            overrides[setObj.set_id] ||
+            setObj.folder_name ||
+            setObj.medical_field ||
+            'Allgemein'
+        ).trim();
+
+        if (deleted.has(folder)) {
+            folder = 'Allgemein';
+        }
+        return folder || 'Allgemein';
     }
 
     function loadSavedSets() {
@@ -289,7 +367,219 @@ const PharmacologyModule = (() => {
     function getAllSets() {
         const defaultIds = new Set(defaultSets.map(s => s.set_id));
         const filteredCustom = state.customSets.filter(s => s && !defaultIds.has(s.set_id));
-        return [...defaultSets, ...filteredCustom];
+        const combined = [...defaultSets, ...filteredCustom];
+
+        return combined.map(s => {
+            const resolvedFolder = resolveSetFolder(s);
+            return {
+                ...s,
+                folder_name: resolvedFolder,
+                medical_field: resolvedFolder
+            };
+        });
+    }
+
+    // =========================================================================
+    // DASHBOARD-ORDNER-SYNCHRONISATION (1:1 IDENTISCHE STRUKTUR)
+    // =========================================================================
+    function getDashboardSuperFolders() {
+        if (typeof window.getSuperFolderOrder === 'function') {
+            return window.getSuperFolderOrder();
+        }
+        try {
+            const saved = JSON.parse(localStorage.getItem('medcheck_super_folder_order_v1') || 'null');
+            if (Array.isArray(saved) && saved.length > 0) return saved;
+        } catch (_e) {}
+        return [
+            'Nervensystem und Sinnesorgane',
+            'Psyche / Ethik / Recht',
+            'Reproduktion',
+            'Allgemein'
+        ];
+    }
+
+    function getSuperFolderForSubfolder(subFolderName) {
+        if (typeof window.getSuperFolderForCategory === 'function') {
+            return window.getSuperFolderForCategory(subFolderName);
+        }
+        return 'Allgemein';
+    }
+
+    function getAllUnifiedSubfolders(allPharmaSets = []) {
+        const deleted = getDeletedDashboardFolders();
+        const subFolderSet = new Set();
+
+        // 1. Gespeicherte Unterordner-Reihenfolge vom Dashboard
+        try {
+            const savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+            savedOrder.forEach(f => {
+                if (f && f.trim() && !deleted.has(f.trim())) subFolderSet.add(f.trim());
+            });
+        } catch (_e) {}
+
+        // 2. Alle aktiven Ordner der klinischen Fälle auf dem Dashboard
+        if (typeof window.getRegisteredCases === 'function') {
+            try {
+                const cases = window.getRegisteredCases({ ignoreSpecialtyFilter: true }) || [];
+                cases.forEach(c => {
+                    const f = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+                    if (f && !deleted.has(f)) subFolderSet.add(f);
+                });
+            } catch (_e) {}
+        }
+
+        // 3. Alle Ordner der Pharmakologie-Sets
+        allPharmaSets.forEach(s => {
+            const f = resolveSetFolder(s);
+            if (f && !deleted.has(f)) subFolderSet.add(f);
+        });
+
+        if (subFolderSet.size === 0) subFolderSet.add('Allgemein');
+        return Array.from(subFolderSet);
+    }
+
+    // Verschiebt ein Pharma-Set (Standard oder Custom) in einen Dashboard-Ordner
+    async function moveSetToFolder(setId, targetFolderName) {
+        if (!setId || !targetFolderName) return;
+        const cleanFolder = targetFolderName.trim();
+
+        // 1. Override speichern (damit auch Built-in Sets verschoben bleiben)
+        const overrides = getFolderOverrides();
+        overrides[setId] = cleanFolder;
+        saveFolderOverrides(overrides);
+
+        // 2. Falls neuer Ordner, auch in die globale Dashboard-Ordnerliste eintragen
+        try {
+            let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+            if (!order.includes(cleanFolder) && cleanFolder.toLowerCase() !== 'allgemein') {
+                order.push(cleanFolder);
+                localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
+            }
+        } catch (_e) {}
+
+        // 3. Falls Custom-Set, direkt aktualisieren und in Supabase pushen
+        const customIdx = state.customSets.findIndex(s => s && s.set_id === setId);
+        if (customIdx !== -1) {
+            state.customSets[customIdx].folder_name = cleanFolder;
+            state.customSets[customIdx].medical_field = cleanFolder;
+            saveLocalSets();
+            await uploadSetToSupabase(state.customSets[customIdx]);
+        }
+
+        // Ziel-Überordner und Ziel-Unterordner automatisch öffnen
+        const parentSuper = getSuperFolderForSubfolder(cleanFolder);
+        state.openSuperFolders[parentSuper] = true;
+        state.openSubFolders[cleanFolder] = true;
+
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
+        render();
+        if (typeof window.renderDashboardCases === 'function') {
+            window.renderDashboardCases();
+        }
+    }
+
+    async function promptMoveSetModal(setId) {
+        const allSets = getAllSets();
+        const targetSet = allSets.find(s => s.set_id === setId);
+        if (!targetSet) return;
+
+        const currentFolder = resolveSetFolder(targetSet);
+        const allSubfolders = getAllUnifiedSubfolders(allSets);
+
+        if (window.MedUI && typeof window.MedUI.openDialog === 'function') {
+            const options = allSubfolders.map(f => {
+                const sName = getSuperFolderForSubfolder(f);
+                return {
+                    value: f,
+                    label: `${sName} ➔ ${f}${f === currentFolder ? ' (aktuell)' : ''}`
+                };
+            });
+
+            const res = await window.MedUI.openDialog({
+                kicker: 'Pharmakologie-Architektur',
+                title: `„${targetSet.title}“ verschieben`,
+                fields: [
+                    {
+                        id: 'targetFolder',
+                        type: 'select',
+                        label: 'Ziel-Ordner (synchron mit Dashboard)',
+                        defaultValue: currentFolder,
+                        options
+                    },
+                    {
+                        id: 'newFolder',
+                        label: 'Oder neuen Ordner anlegen (optional)',
+                        placeholder: 'Leer lassen für Auswahl oben...'
+                    }
+                ],
+                confirmText: 'Verschieben'
+            });
+
+            if (!res) return;
+            const chosen = (res.newFolder || res.targetFolder || '').trim();
+            if (chosen) {
+                if (res.newFolder && typeof window.createNewFolder === 'function') {
+                    window.createNewFolder(chosen);
+                }
+                await moveSetToFolder(setId, chosen);
+            }
+        } else {
+            const nextFolder = window.prompt(`In welchen Ordner soll „${targetSet.title}“ verschoben werden?`, currentFolder);
+            if (nextFolder && nextFolder.trim()) {
+                await moveSetToFolder(setId, nextFolder.trim());
+            }
+        }
+    }
+
+    // =========================================================================
+    // SUCHE & FILTER-LOGIK
+    // =========================================================================
+    function matchesPharmaSearch(setObj, queryLower) {
+        if (!queryLower) return { matches: true, reason: null };
+
+        const title = (setObj.title || '').toLowerCase();
+        const folder = resolveSetFolder(setObj).toLowerCase();
+        const desc = (setObj.description || '').toLowerCase();
+
+        if (title.includes(queryLower)) return { matches: true, reason: 'Set-Titel' };
+        if (folder.includes(queryLower)) return { matches: true, reason: 'Ordner' };
+        if (desc.includes(queryLower)) return { matches: true, reason: 'Beschreibung' };
+
+        // Suche in Kompass-Fragen (Wirkstoffe, Klassen, Vignetten, Pearls)
+        if (Array.isArray(setObj.questions)) {
+            for (const q of setObj.questions) {
+                const dirs = q.directions ? Object.values(q.directions) : [];
+                for (const d of dirs) {
+                    if ((d.drug || '').toLowerCase().includes(queryLower)) {
+                        return { matches: true, reason: `Wirkstoff: ${d.drug}` };
+                    }
+                    if ((d.class || '').toLowerCase().includes(queryLower)) {
+                        return { matches: true, reason: `Klasse: ${d.class}` };
+                    }
+                }
+                if ((q.pearl || '').toLowerCase().includes(queryLower)) {
+                    return { matches: true, reason: 'Klinische Pearl' };
+                }
+                if ((q.patient_context || '').toLowerCase().includes(queryLower)) {
+                    return { matches: true, reason: 'Patienten-Szenario' };
+                }
+            }
+        }
+
+        // Suche in Drag-Matrix (Medikamente & Indikationen)
+        if (Array.isArray(setObj.drugs)) {
+            const hitDrug = setObj.drugs.find(d =>
+                (d.name || '').toLowerCase().includes(queryLower) ||
+                (d.subtitle || '').toLowerCase().includes(queryLower)
+            );
+            if (hitDrug) return { matches: true, reason: `Wirkstoff: ${hitDrug.name}` };
+        }
+        if (Array.isArray(setObj.categories)) {
+            const hitCat = setObj.categories.find(c => (c.name || '').toLowerCase().includes(queryLower));
+            if (hitCat) return { matches: true, reason: `Indikation: ${hitCat.name}` };
+        }
+
+        return { matches: false, reason: null };
     }
 
     // =========================================================================
@@ -304,7 +594,6 @@ const PharmacologyModule = (() => {
             const user = sessionData?.session?.user;
             if (!user) return;
 
-            // 1. Alle Sets des Benutzers aus Supabase abrufen
             const { data, error } = await sb
                 .from('pharma_sets')
                 .select('set_id, content')
@@ -319,12 +608,10 @@ const PharmacologyModule = (() => {
             const setMap = new Map();
             state.cloudSetIds.clear();
 
-            // Lokale Sets vorhalten
             state.customSets.forEach(s => {
                 if (s && s.set_id) setMap.set(s.set_id, s);
             });
 
-            // Cloud-Sets integrieren
             if (Array.isArray(data)) {
                 data.forEach(row => {
                     if (row?.content?.set_id) {
@@ -337,7 +624,6 @@ const PharmacologyModule = (() => {
             state.customSets = Array.from(setMap.values());
             saveLocalSets();
 
-            // 2. Upstream-Sync: Lokale Sets, die noch nicht in der Cloud sind, hochladen
             const unuploadedSets = state.customSets.filter(s => !state.cloudSetIds.has(s.set_id));
             if (unuploadedSets.length > 0) {
                 for (const s of unuploadedSets) {
@@ -345,7 +631,6 @@ const PharmacologyModule = (() => {
                 }
             }
 
-            // UI aktualisieren, falls der Hub gerade sichtbar ist
             const container = document.getElementById('pharmacology-container');
             if (container && state.activeSubView === 'hub') {
                 render('pharmacology-container');
@@ -355,7 +640,7 @@ const PharmacologyModule = (() => {
         }
     }
 
-   async function uploadSetToSupabase(setObj, userId = null) {
+    async function uploadSetToSupabase(setObj, userId = null) {
         const sb = getSupabase();
         if (!sb || !sb.auth || !setObj || !setObj.set_id) return false;
 
@@ -367,18 +652,20 @@ const PharmacologyModule = (() => {
             }
             if (!uid) return false;
 
-            // Payload vorbereiten
+            const resolvedFolder = resolveSetFolder(setObj);
+            setObj.folder_name = resolvedFolder;
+            setObj.medical_field = resolvedFolder;
+
             const payload = {
                 set_id: setObj.set_id,
                 user_id: uid,
                 title: setObj.title || 'Pharmakologie-Set',
-                medical_field: setObj.medical_field || 'Pharmakologie',
+                medical_field: resolvedFolder,
                 game_type: setObj.game_type || 'arrow_compass',
                 content: setObj,
                 updated_at: new Date().toISOString()
             };
 
-            // onConflict zwingend OHNE Leerzeichen nach dem Komma angeben!
             const { error } = await sb
                 .from('pharma_sets')
                 .upsert(payload, { onConflict: 'user_id,set_id' });
@@ -403,12 +690,10 @@ const PharmacologyModule = (() => {
 
         if (!window.confirm(`Möchtest du das Set "${title}" wirklich löschen?`)) return;
 
-        // 1. Lokal löschen
         state.customSets = state.customSets.filter(s => s.set_id !== setId);
         state.cloudSetIds.delete(setId);
         saveLocalSets();
 
-        // 2. In der Cloud löschen (falls eingeloggt)
         const sb = getSupabase();
         if (sb && sb.auth) {
             try {
@@ -430,13 +715,70 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // INITIALISIERUNG & TASTEN-STEUERUNG
+    // INITIALISIERUNG, HOOKS & TASTEN-STEUERUNG
     // =========================================================================
     function init(containerId = 'pharmacology-container') {
         loadSavedSets();
         setupKeyboardListener();
+        bindDashboardFolderSyncHook();
+
+        // Beim ersten Start die Überordner öffnen, die bereits Pharma-Sets enthalten
+        if (Object.keys(state.openSuperFolders).length === 0) {
+            const allSets = getAllSets();
+            allSets.forEach(s => {
+                const folder = resolveSetFolder(s);
+                const superTitle = getSuperFolderForSubfolder(folder);
+                state.openSuperFolders[superTitle] = true;
+                state.openSubFolders[folder] = true;
+            });
+        }
+
         syncFromCloud();
         render(containerId);
+    }
+
+    function bindDashboardFolderSyncHook() {
+        if (window._pharmaDashboardSyncHooked) return;
+        window._pharmaDashboardSyncHooked = true;
+
+        // Wenn über MedUI ein Ordner auf dem Dashboard oder im Pharma-Hub geändert wird,
+        // aktualisiert sich der Pharma-Hub sofort automatisch mit!
+        const origRenderDash = window.renderDashboardCases;
+        if (typeof origRenderDash === 'function') {
+            window.renderDashboardCases = function() {
+                origRenderDash.apply(this, arguments);
+                const pharmaView = document.getElementById('pharmacology-view');
+                if (pharmaView && pharmaView.style.display !== 'none' && state.activeSubView === 'hub') {
+                    render('pharmacology-container');
+                }
+            };
+        }
+
+        // Falls ein Ordner umbenannt wird, auch die Pharma-Folder-Overrides mitziehen
+        const origRenameFolder = window.renameFolder;
+        if (typeof origRenameFolder === 'function') {
+            window.renameFolder = async function(oldName, newName) {
+                const overrides = getFolderOverrides();
+                let changed = false;
+                Object.keys(overrides).forEach(setId => {
+                    if (overrides[setId] === oldName) {
+                        overrides[setId] = newName;
+                        changed = true;
+                    }
+                });
+                if (changed) saveFolderOverrides(overrides);
+
+                state.customSets.forEach(s => {
+                    if (s && (s.folder_name === oldName || s.medical_field === oldName)) {
+                        s.folder_name = newName;
+                        s.medical_field = newName;
+                    }
+                });
+                saveLocalSets();
+
+                return await origRenameFolder.apply(this, arguments);
+            };
+        }
     }
 
     function setupKeyboardListener() {
@@ -490,28 +832,275 @@ const PharmacologyModule = (() => {
     }
 
     // =========================================================================
-    // 1. HUB ANSICHT (MIT CLOUD-BADGES & LÖSCH-BUTTON)
+    // 1. HUB ANSICHT (MIT DASHBOARD-ORDNERBAUM, DRAG & DROP & SUCHE)
     // =========================================================================
     function renderHub() {
         const allSets = getAllSets();
         const defaultIds = new Set(defaultSets.map(s => s.set_id));
+        const highscores = getHighscores();
+        const queryLower = (state.searchQuery || '').trim().toLowerCase();
+        const isSearching = queryLower.length > 0;
+
+        // 1. Spielmodus- und Suchfilter anwenden
+        const matchReasons = {};
         const filteredSets = allSets.filter(s => {
             const type = s.game_type || 'arrow_compass';
-            return state.modeFilter === 'all' || type === state.modeFilter;
+            if (state.modeFilter !== 'all' && type !== state.modeFilter) return false;
+            const searchRes = matchesPharmaSearch(s, queryLower);
+            if (!searchRes.matches) return false;
+            if (searchRes.reason) matchReasons[s.set_id] = searchRes.reason;
+            return true;
         });
 
         const compassCount = allSets.filter(s => (s.game_type || 'arrow_compass') === 'arrow_compass').length;
         const matrixCount = allSets.filter(s => s.game_type === 'drag_matrix').length;
 
+        // 2. Einheitlichen Ordnerbaum (Dashboard + Pharma) aufbauen
+        const superOrder = getDashboardSuperFolders();
+        const allSubfolders = getAllUnifiedSubfolders(allSets);
+        let savedSubOrder = [];
+        try {
+            savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
+        } catch (_e) {}
+
+        const groupedBySubfolder = {};
+        allSubfolders.forEach(sub => { groupedBySubfolder[sub] = []; });
+
+        filteredSets.forEach(s => {
+            const folder = resolveSetFolder(s);
+            if (!groupedBySubfolder[folder]) groupedBySubfolder[folder] = [];
+            groupedBySubfolder[folder].push(s);
+        });
+
+        const superFoldersMap = {};
+        superOrder.forEach(sup => { superFoldersMap[sup] = []; });
+
+        Object.keys(groupedBySubfolder).forEach(sub => {
+            const hasSets = groupedBySubfolder[sub].length > 0;
+            const subMatchesSearch = isSearching && sub.toLowerCase().includes(queryLower);
+
+            if (isSearching && !hasSets && !subMatchesSearch) return;
+            if (!state.showEmptyDashboardFolders && !hasSets && !isSearching) return;
+
+            const targetSuper = getSuperFolderForSubfolder(sub);
+            if (!superFoldersMap[targetSuper]) superFoldersMap[targetSuper] = [];
+            superFoldersMap[targetSuper].push(sub);
+        });
+
+        // 3. Überordner & Unterordner HTML generieren
+        let superFoldersHtml = '';
+        let renderedSuperCount = 0;
+
+        Object.entries(superFoldersMap).forEach(([superTitle, categories]) => {
+            let totalSetsInSuper = 0;
+            let compassInSuper = 0;
+            let matrixInSuper = 0;
+
+            categories.forEach(cName => {
+                const list = groupedBySubfolder[cName] || [];
+                totalSetsInSuper += list.length;
+                compassInSuper += list.filter(s => (s.game_type || 'arrow_compass') === 'arrow_compass').length;
+                matrixInSuper += list.filter(s => s.game_type === 'drag_matrix').length;
+            });
+
+            if ((isSearching || !state.showEmptyDashboardFolders) && categories.length === 0) {
+                return;
+            }
+            renderedSuperCount++;
+
+            const isSuperOpen = isSearching ? true : !!state.openSuperFolders[superTitle];
+            const arrowSymbol = isSuperOpen ? '▼' : '▶';
+            const isProtectedDefault = (superTitle === 'Allgemein');
+            const escapedSuperJs = escapeHtml(superTitle).replace(/'/g, "\\'");
+
+            // Unterordner exakt wie auf dem Dashboard sortieren
+            categories.sort((a, b) => {
+                const idxA = savedSubOrder.indexOf(a);
+                const idxB = savedSubOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            let categoriesHtml = '';
+            if (categories.length === 0) {
+                categoriesHtml = `
+                    <div class="empty-superfolder-hint">
+                        <span>Noch keine Unterordner in „${escapeHtml(superTitle)}“</span>
+                        <button type="button" class="ghost-tool-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder && window.createSubfolderInSuperFolder('${escapedSuperJs}')">+ Unterordner</button>
+                    </div>
+                `;
+            } else {
+                categoriesHtml = categories.map(category => {
+                    const setsInCat = groupedBySubfolder[category] || [];
+                    const isSubOpen = isSearching ? true : !!state.openSubFolders[category];
+                    const escapedCatJs = escapeHtml(category).replace(/'/g, "\\'");
+                    const parsedLabel = typeof formatClinicalFolderLabel === 'function'
+                        ? formatClinicalFolderLabel(category)
+                        : { code: null, title: category };
+
+                    const setsCardsHtml = setsInCat.length === 0
+                        ? `
+                            <div class="empty-subfolder-hint" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <span>Noch kein Pharma-Set in diesem Dashboard-Ordner (Set hierher ziehen oder neu erstellen).</span>
+                                <button type="button" class="ghost-tool-btn" data-action="open-import-for-folder" data-folder="${escapeHtml(category)}" style="font-size:0.74rem; padding:4px 10px;">
+                                    + Set für „${escapeHtml(parsedLabel.title.slice(0, 26))}“ erstellen
+                                </button>
+                            </div>
+                        `
+                        : setsInCat.map(set => {
+                            const isMatrix = set.game_type === 'drag_matrix';
+                            const isCustom = !defaultIds.has(set.set_id);
+                            const isCloud = state.cloudSetIds.has(set.set_id);
+                            const hs = highscores[set.set_id];
+                            const matchReason = matchReasons[set.set_id];
+
+                            const countLabel = isMatrix
+                                ? `🧩 ${set.drugs?.length || 0} Wirkstoffe → ${set.categories?.length || 0} Indikationen`
+                                : `⌨️ ${set.questions?.length || 0} Szenarien`;
+
+                            const syncBadge = isCustom
+                                ? `<span class="cloud-badge ${isCloud ? 'is-cloud' : 'is-local'}" style="font-size:0.68rem; padding:2px 8px; border-radius:6px; font-weight:700;">
+                                      ${isCloud ? '☁️ Cloud' : '💾 Lokal'}
+                                   </span>`
+                                : `<span style="font-size:0.68rem; padding:2px 8px; border-radius:6px; background:rgba(255,255,255,0.06); color:var(--text-dim); font-weight:600;">Standard</span>`;
+
+                            const highscoreBadge = hs
+                                ? `<span style="font-size:0.68rem; padding:2px 8px; border-radius:6px; background:${hs.pct === 100 ? 'rgba(16,185,129,0.16)' : 'rgba(56,189,248,0.14)'}; color:${hs.pct === 100 ? '#6ee7b7' : '#38bdf8'}; font-weight:700;">
+                                      🏆 ${hs.achieved}/${hs.total} (${hs.pct}%)
+                                   </span>`
+                                : '';
+
+                            return `
+                                <div class="pharma-set-card" draggable="true" data-pharma-set-id="${escapeHtml(set.set_id)}" style="cursor:grab;">
+                                    <div style="flex:1; min-width:0;">
+                                        <div class="pharma-set-meta" style="margin-bottom: 6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                            <span class="category-drag-handle" title="Ziehen, um das Set in einen anderen Ordner zu legen" style="cursor:grab; margin-right:2px;">⠿</span>
+                                            <span class="pharma-type-pill">${countLabel}</span>
+                                            ${syncBadge}
+                                            ${highscoreBadge}
+                                            ${matchReason ? `<span class="case-search-match-pill" style="margin:0;">🎯 ${escapeHtml(matchReason)}</span>` : ''}
+                                        </div>
+                                        <h3 style="margin: 0 0 4px 0; font-size:1.02rem;">${escapeHtml(set.title)}</h3>
+                                        ${set.description ? `<p style="font-size:0.78rem; color:var(--text-muted); margin:0;">${escapeHtml(set.description)}</p>` : ''}
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                                        <button type="button" class="folder-action-btn move-btn" data-action="move-set-modal" data-set-id="${escapeHtml(set.set_id)}" title="In anderen Dashboard-Ordner verschieben" style="padding:7px 9px; border-radius:8px;">
+                                            ${PharmaIcons.move}
+                                        </button>
+                                        ${isCustom ? `
+                                            <button type="button" class="folder-action-btn delete-folder-btn" data-action="delete-set" data-set-id="${escapeHtml(set.set_id)}" title="Set löschen" style="padding:7px 9px; border-radius:8px;">
+                                                ${PharmaIcons.trash}
+                                            </button>
+                                        ` : ''}
+                                        <button class="pharma-btn pharma-btn-primary" data-action="start-set" data-set-id="${escapeHtml(set.set_id)}">
+                                            ${isMatrix ? '🧩 Starten →' : '⌨️ Starten →'}
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                    return `
+                        <div class="category-folder pharma-category-folder"
+                             draggable="true"
+                             data-pharma-subfolder="${encodeURIComponent(category)}"
+                             data-pharma-super="${encodeURIComponent(superTitle)}">
+                            <div class="category-header" data-action="toggle-subfolder" data-folder="${escapeHtml(category)}">
+                                <div class="category-title-wrap">
+                                    <span class="category-drag-handle" title="Ziehen zum Verschieben">⠿</span>
+                                    <span class="category-arrow ${isSubOpen ? 'expanded' : ''}">▶</span>
+                                    ${parsedLabel.code ? `<span style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--accent-cyan); background:rgba(56,189,248,0.12); padding:2px 6px; border-radius:5px; margin-right:4px;">${escapeHtml(parsedLabel.code)}</span>` : ''}
+                                    <span class="category-name-text">${escapeHtml(parsedLabel.title)}</span>
+                                </div>
+                                <div class="category-header-right" onclick="event.stopPropagation();">
+                                    <div class="folder-hover-tools">
+                                        <button type="button" class="folder-action-btn" data-action="open-import-for-folder" data-folder="${escapeHtml(category)}" title="Neues Pharma-Set direkt in diesem Ordner erstellen">${PharmaIcons.plus}</button>
+                                        <button type="button" class="folder-action-btn move-btn" onclick="window.promptMoveFolderToSuperFolder && window.promptMoveFolderToSuperFolder('${escapedCatJs}')" title="Ordner in anderen Überordner verschieben">${PharmaIcons.move}</button>
+                                        <button type="button" class="folder-action-btn edit-btn" onclick="window.promptRenameSubfolder && window.promptRenameSubfolder('${escapedCatJs}')" title="Ordner umbenennen">${PharmaIcons.edit}</button>
+                                        <button type="button" class="folder-action-btn delete-folder-btn" onclick="window.deleteFolder && window.deleteFolder('${escapedCatJs}', 0)" title="Ordner löschen">${PharmaIcons.trash}</button>
+                                    </div>
+                                    <span class="category-badge" style="${setsInCat.length > 0 ? 'background:rgba(56,189,248,0.16); color:var(--accent-cyan); border-color:rgba(56,189,248,0.35);' : ''}">
+                                        ${setsInCat.length} ${setsInCat.length === 1 ? 'Set' : 'Sets'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="category-cases-body" style="display:${isSubOpen ? 'flex' : 'none'}; flex-direction:column; gap:10px; padding-top:10px;">
+                                ${setsCardsHtml}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const superEditControls = !isProtectedDefault
+                ? `
+                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder && window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuer Unterordner">+</button>
+                    <button type="button" class="folder-action-btn edit-btn" onclick="event.stopPropagation(); window.renameSuperFolder && window.renameSuperFolder('${escapedSuperJs}')" title="Überordner umbenennen">✏️</button>
+                    <button type="button" class="folder-action-btn delete-folder-btn" onclick="event.stopPropagation(); window.removeCustomSuperFolder && window.removeCustomSuperFolder('${escapedSuperJs}')" title="Überordner löschen">🗑️</button>
+                  `
+                : `
+                    <button type="button" class="folder-action-btn" onclick="event.stopPropagation(); window.createSubfolderInSuperFolder && window.createSubfolderInSuperFolder('${escapedSuperJs}')" title="Neuer Unterordner">+</button>
+                  `;
+
+            superFoldersHtml += `
+                <div class="super-folder pharma-super-folder" data-pharma-super-title="${encodeURIComponent(superTitle)}">
+                    <div class="super-folder-header" data-action="toggle-superfolder" data-super="${escapeHtml(superTitle)}">
+                        <div class="super-folder-title">
+                            <span class="super-drag-handle" title="Überordner vom Dashboard">⠿</span>
+                            <svg class="super-folder-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            <span>${escapeHtml(superTitle)}</span>
+                        </div>
+                        <div class="super-folder-right">
+                            <div class="folder-hover-tools" onclick="event.stopPropagation();">
+                                ${superEditControls}
+                            </div>
+                            ${compassInSuper > 0 ? `<span style="font-size:0.7rem; color:var(--text-muted); margin-right:4px;">⌨️ ${compassInSuper}</span>` : ''}
+                            ${matrixInSuper > 0 ? `<span style="font-size:0.7rem; color:var(--text-muted); margin-right:4px;">🧩 ${matrixInSuper}</span>` : ''}
+                            <span class="super-count-pill" style="${totalSetsInSuper > 0 ? 'background:rgba(56,189,248,0.16); color:var(--accent-cyan); border-color:rgba(56,189,248,0.35);' : ''}">
+                                💊 ${totalSetsInSuper} ${totalSetsInSuper === 1 ? 'Set' : 'Sets'}
+                            </span>
+                            <span class="super-chevron">${arrowSymbol}</span>
+                        </div>
+                    </div>
+                    <div class="super-folder-body" style="display:${isSuperOpen ? 'flex' : 'none'}; flex-direction:column; gap:10px;">
+                        ${categoriesHtml}
+                    </div>
+                </div>
+            `;
+        });
+
+        if (renderedSuperCount === 0) {
+            superFoldersHtml = `
+                <div class="dashboard-search-empty-state" style="padding:28px; text-align:center;">
+                    <div style="font-size:1.5rem; margin-bottom:6px;">💊</div>
+                    <div style="font-weight:700; color:var(--text-main); margin-bottom:4px;">Keine passenden Pharmakologie-Sets gefunden</div>
+                    <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+                        Passe deinen Filter an oder blende alle Dashboard-Ordner ein.
+                    </div>
+                    <button type="button" class="pharma-btn pharma-btn-secondary" data-action="reset-hub-filters">
+                        Filter zurücksetzen & alle Ordner zeigen
+                    </button>
+                </div>
+            `;
+        }
+
         return `
             <div class="pharma-wrapper">
                 <div class="pharma-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
                     <div>
-                        <span class="pharma-badge">INTERAKTIVES TRAINING</span>
+                        <span class="pharma-badge">INTERAKTIVES TRAINING · SYNCHRON MIT DASHBOARD</span>
                         <h1 class="pharma-title">💊 Klinische Pharmakologie</h1>
-                        <p class="pharma-subtitle">Wähle deinen Spielmodus oder erstelle eigene Sets per KI-Import.</p>
+                        <p class="pharma-subtitle">Deine Themenordner sind 1:1 mit dem Dashboard synchronisiert. Ziehe Sets einfach per Drag & Drop in den passenden Ordner.</p>
                     </div>
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="ghost-tool-btn" onclick="window.createNewSuperFolderModal && window.createNewSuperFolderModal()" title="Neuen Überordner anlegen">
+                            + Überordner
+                        </button>
+                        <button type="button" class="ghost-tool-btn" onclick="window.promptCreateNewFolderWithSuper && window.promptCreateNewFolderWithSuper()" title="Neuen Unterordner anlegen">
+                            + Ordner
+                        </button>
                         <button class="pharma-btn pharma-btn-primary" data-action="open-prompts" style="background:var(--accent-cyan); color:#0f172a; font-weight:700;">
                             ✨ Pharma-Prompts
                         </button>
@@ -541,53 +1130,34 @@ const PharmacologyModule = (() => {
                     </div>
                 </div>
 
+                <!-- Toolbar: Suche, Ordner-Filter & Spielmodus-Filter -->
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 1rem;">
-                    <h2 class="pharma-section-title" style="margin:0;">Verfügbare Trainings-Sets</h2>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1; min-width:260px;">
+                        <div style="position:relative; flex:1; max-width:340px;">
+                            <input type="text"
+                                   id="pharma-hub-search-input"
+                                   value="${escapeHtml(state.searchQuery)}"
+                                   placeholder="🔍 Wirkstoff, Klasse, Syndrom oder Ordner suchen..."
+                                   style="width:100%; padding:8px 12px; border-radius:10px; border:1px solid var(--card-border); background:var(--surface-secondary, rgba(15,23,42,0.6)); color:var(--text-main); font-size:0.82rem;">
+                        </div>
+                        <button type="button" class="ghost-tool-btn" data-action="toggle-empty-folders" title="Leere Dashboard-Ordner ein- oder ausblenden">
+                            ${state.showEmptyDashboardFolders ? '📂 Alle Dashboard-Ordner' : '💊 Nur befüllte Ordner'}
+                        </button>
+                        <button type="button" class="ghost-tool-btn" data-action="expand-collapse-all" title="Alle Ordner auf- oder zuklappen">
+                            ↕ Alle auf/zu
+                        </button>
+                    </div>
+
                     <div class="segmented-control" style="margin:0;">
                         <button type="button" class="segmented-btn ${state.modeFilter === 'all' ? 'active' : ''}" data-action="filter-mode" data-mode="all">Alle (${allSets.length})</button>
-                        <button type="button" class="segmented-btn ${state.modeFilter === 'arrow_compass' ? 'active' : ''}" data-action="filter-mode" data-mode="arrow_compass">⌨️ Pfeiltasten (${compassCount})</button>
-                        <button type="button" class="segmented-btn ${state.modeFilter === 'drag_matrix' ? 'active' : ''}" data-action="filter-mode" data-mode="drag_matrix">🧩 Drag & Drop (${matrixCount})</button>
+                        <button type="button" class="segmented-btn ${state.modeFilter === 'arrow_compass' ? 'active' : ''}" data-action="filter-mode" data-mode="arrow_compass">⌨️ Kompass (${compassCount})</button>
+                        <button type="button" class="segmented-btn ${state.modeFilter === 'drag_matrix' ? 'active' : ''}" data-action="filter-mode" data-mode="drag_matrix">🧩 Matrix (${matrixCount})</button>
                     </div>
                 </div>
 
-                <div class="pharma-sets-list">
-                    ${filteredSets.map(set => {
-                        const isMatrix = set.game_type === 'drag_matrix';
-                        const isCustom = !defaultIds.has(set.set_id);
-                        const isCloud = state.cloudSetIds.has(set.set_id);
-
-                        const countLabel = isMatrix
-                            ? `🧩 ${set.drugs?.length || 0} Medikamente → ${set.categories?.length || 0} Indikationen`
-                            : `⌨️ ${set.questions?.length || 0} Szenarien`;
-
-                        const syncBadge = isCustom
-                            ? `<span class="cloud-badge ${isCloud ? 'is-cloud' : 'is-local'}" style="font-size:0.7rem; padding:2px 8px; border-radius:6px; font-weight:700;">
-                                  ${isCloud ? '☁️ Cloud' : '💾 Lokal'}
-                               </span>`
-                            : `<span style="font-size:0.7rem; padding:2px 8px; border-radius:6px; background:rgba(255,255,255,0.06); color:var(--text-dim); font-weight:600;">Standard</span>`;
-
-                        return `
-                            <div class="pharma-set-card">
-                                <div style="flex:1; min-width:0;">
-                                    <div class="pharma-set-meta" style="margin-bottom: 8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                        <span class="pharma-field-pill">${escapeHtml(set.medical_field || 'Pharmakologie')}</span>
-                                        <span class="pharma-type-pill">${countLabel}</span>
-                                        ${syncBadge}
-                                    </div>
-                                    <h3 style="margin: 0 0 6px 0; font-size:1.05rem;">${escapeHtml(set.title)}</h3>
-                                    ${set.description ? `<p style="font-size:0.8rem; color:var(--text-muted); margin:0;">${escapeHtml(set.description)}</p>` : ''}
-                                </div>
-                                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                                    ${isCustom ? `
-                                        <button type="button" class="folder-action-btn delete-folder-btn" data-action="delete-set" data-set-id="${escapeHtml(set.set_id)}" title="Set löschen" style="padding:7px 10px; border-radius:8px;">🗑️</button>
-                                    ` : ''}
-                                    <button class="pharma-btn pharma-btn-primary" data-action="start-set" data-set-id="${escapeHtml(set.set_id)}">
-                                        ${isMatrix ? '🧩 Starten →' : '⌨️ Starten →'}
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                <!-- 1:1 Dashboard Super-Folders & Sub-Folders -->
+                <div id="pharma-super-folders-wrapper" style="display:flex; flex-direction:column; gap:12px;">
+                    ${superFoldersHtml}
                 </div>
             </div>
         `;
@@ -596,13 +1166,20 @@ const PharmacologyModule = (() => {
     // =========================================================================
     // 2. SEPARATER PROMPT-BEREICH
     // =========================================================================
-    function renderPromptsHub() {
-        const compassPromptTemp = `Erstelle ein valides JSON-Objekt für mein Pharmakologie-Spiel "Pharma-Compass" zu folgendem Thema: [HIER THEMA EINFÜGEN].
+    function buildPromptTemplates(targetFolder = '') {
+        const cleanFolder = (targetFolder || '').trim() || 'Pharmakologie';
+        const parsedLabel = typeof formatClinicalFolderLabel === 'function'
+            ? formatClinicalFolderLabel(cleanFolder)
+            : { code: null, title: cleanFolder };
+        const topicPlaceholder = targetFolder ? parsedLabel.title : '[HIER THEMA EINFÜGEN]';
+
+        const compassPromptTemp = `Erstelle ein valides JSON-Objekt für mein Pharmakologie-Spiel "Pharma-Compass" zu folgendem Thema: ${topicPlaceholder}.
 Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
 {
   "set_id": "pharma_custom_${Date.now()}",
-  "title": "Titel des Sets",
-  "medical_field": "Fachbereich",
+  "title": "Titel des Sets (${topicPlaceholder})",
+  "medical_field": "${cleanFolder}",
+  "folder_name": "${cleanFolder}",
   "game_type": "arrow_compass",
   "questions": [
     {
@@ -621,12 +1198,13 @@ Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
 }
 Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left. Erstelle 5-10 anspruchsvolle Fragen.`;
 
-        const matrixPromptTemp = `Erstelle ein valides JSON-Objekt für mein Drag-and-Drop Pharmakologie-Spiel "Pharma-Matrix" zu folgendem Thema: [HIER THEMA EINFÜGEN].
+        const matrixPromptTemp = `Erstelle ein valides JSON-Objekt für mein Drag-and-Drop Pharmakologie-Spiel "Pharma-Matrix" zu folgendem Thema: ${topicPlaceholder}.
 Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
 {
   "set_id": "pharma_matrix_${Date.now()}",
-  "title": "Titel des Drag & Drop Sets",
-  "medical_field": "Fachbereich",
+  "title": "Indikations-Matrix: ${topicPlaceholder}",
+  "medical_field": "${cleanFolder}",
+  "folder_name": "${cleanFolder}",
   "game_type": "drag_matrix",
   "description": "Ordne die Medikamente den passenden Krankheitsbildern / Indikationen zu.",
   "categories": [
@@ -641,6 +1219,12 @@ Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
   ]
 }
 Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 passende Medikamente (drugs).`;
+
+        return { compassPromptTemp, matrixPromptTemp };
+    }
+
+    function renderPromptsHub() {
+        const { compassPromptTemp, matrixPromptTemp } = buildPromptTemplates(state.importTargetFolder);
 
         return `
             <div class="pharma-wrapper">
@@ -701,6 +1285,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
                 <div class="compass-topbar">
                     <button class="pharma-btn pharma-btn-ghost" data-action="back-to-hub">← Zurück zum Pharma-Hub</button>
                     <div class="compass-stats">
+                        <span class="stat-pill">📁 <strong>${escapeHtml(resolveSetFolder(set))}</strong></span>
                         <span class="stat-pill">Frage <strong>${state.currentQuestionIndex + 1} / ${total}</strong></span>
                         <span class="stat-pill">Streak 🔥 <strong>${state.streak}</strong></span>
                         <span class="stat-pill">Score ⭐ <strong>${state.score}</strong></span>
@@ -747,6 +1332,8 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
     function renderCompassSummary() {
         const total = state.currentSet.questions.length;
         const percent = Math.round((state.score / total) * 100);
+        recordHighscore(state.currentSet.set_id, state.score, total);
+
         return `
             <div class="pharma-wrapper">
                 <div class="pharma-import-box" style="text-align:center; padding: 2.5rem; max-width: 520px; margin: 2rem auto;">
@@ -757,7 +1344,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
                     </div>
                     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                         <button class="pharma-btn pharma-btn-primary" data-action="restart-set">↻ Nochmal spielen</button>
-                        <button class="pharma-btn pharma-btn-secondary" data-action="back-to-hub">← Zurück zur Übersicht</button>
+                        <button class="pharma-btn pharma-btn-secondary" data-action="back-to-hub">← Zurück zur Ordner-Übersicht</button>
                     </div>
                 </div>
             </div>
@@ -817,6 +1404,7 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
                 <div class="compass-topbar">
                     <button class="pharma-btn pharma-btn-ghost" data-action="back-to-hub">← Zurück zum Pharma-Hub</button>
                     <div class="compass-stats">
+                        <span class="stat-pill">📁 <strong>${escapeHtml(resolveSetFolder(set))}</strong></span>
                         <span class="stat-pill">Zugeordnet: <strong>${placedCount} / ${drugs.length}</strong></span>
                         <button class="pharma-btn pharma-btn-secondary" data-action="reset-matrix" style="padding: 0.35rem 0.8rem; font-size:0.8rem;">↺ Zurücksetzen</button>
                     </div>
@@ -869,55 +1457,18 @@ Wichtig: Erstelle 4 klinisch trennscharfe Krankheitsbilder (categories) und 8 pa
     }
 
     // =========================================================================
-    // 5. IMPORTER MIT CLOUD-FEEDBACK
+    // 5. IMPORTER MIT ZIEL-ORDNER-AUSWAHL AUS DEM DASHBOARD
     // =========================================================================
     function renderImporter() {
         const isMatrix = state.importType === 'drag_matrix';
+        const allSubfolders = getAllUnifiedSubfolders(getAllSets());
+        const currentTarget = state.importTargetFolder || allSubfolders[0] || 'Allgemein';
+        const { compassPromptTemp, matrixPromptTemp } = buildPromptTemplates(currentTarget);
 
-        const compassTemplate = `Erstelle ein valides JSON-Objekt für mein Pharmakologie-Spiel "Pharma-Compass" zu folgendem Thema: [THEMA EINFÜGEN].
-Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
-{
-  "set_id": "pharma_custom_${Date.now()}",
-  "title": "Titel des Sets",
-  "medical_field": "Fachbereich",
-  "game_type": "arrow_compass",
-  "questions": [
-    {
-      "id": "q1",
-      "patient_context": "Prägnante klinische Vignette inkl. Vitalparameter, Labor oder Komedikation.",
-      "prompt": "Präzise Frage nach dem Mittel der 1. Wahl oder einer spezifischen Kontraindikation.",
-      "directions": {
-        "up": { "drug": "Wirkstoff A", "class": "Wirkstoffklasse", "is_correct": false, "feedback": "Warum falsch?" },
-        "right": { "drug": "Wirkstoff B", "class": "Wirkstoffklasse", "is_correct": true, "feedback": "Warum exakt richtig?" },
-        "down": { "drug": "Wirkstoff C", "class": "Wirkstoffklasse", "is_correct": false, "feedback": "Warum falsch?" },
-        "left": { "drug": "Wirkstoff D", "class": "Wirkstoffklasse", "is_correct": false, "feedback": "Warum falsch?" }
-      },
-      "pearl": "Hochrelevanter klinischer Merksatz auf Staatsexamens-Niveau."
-    }
-  ]
-}
-Wichtig: Variiere die Position von "is_correct": true zufällig zwischen up, right, down und left.`;
-
-        const matrixTemplate = `Erstelle ein valides JSON-Objekt für mein Drag-and-Drop Pharmakologie-Spiel "Pharma-Matrix" zu folgendem Thema: [THEMA EINFÜGEN].
-Nutze exakt diese Struktur (ohne Markdown-Erklärungen):
-{
-  "set_id": "pharma_matrix_${Date.now()}",
-  "title": "Titel des Drag & Drop Sets",
-  "medical_field": "Fachbereich",
-  "game_type": "drag_matrix",
-  "description": "Ordne die Medikamente den passenden Krankheitsbildern / Indikationen zu.",
-  "categories": [
-    { "id": "cat_1", "name": "Krankheitsbild / Indikation 1" },
-    { "id": "cat_2", "name": "Krankheitsbild / Indikation 2" },
-    { "id": "cat_3", "name": "Krankheitsbild / Indikation 3" },
-    { "id": "cat_4", "name": "Krankheitsbild / Indikation 4" }
-  ],
-  "drugs": [
-    { "id": "d1", "name": "Wirkstoff 1", "subtitle": "Wirkstoffklasse", "correct_cat": "cat_1" },
-    { "id": "d2", "name": "Wirkstoff 2", "subtitle": "Wirkstoffklasse", "correct_cat": "cat_2" }
-  ]
-}
-Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Medikamente (drugs).`;
+        const folderOptionsHtml = allSubfolders.map(f => {
+            const sup = getSuperFolderForSubfolder(f);
+            return `<option value="${escapeHtml(f)}" ${f === currentTarget ? 'selected' : ''}>${escapeHtml(sup)} ➔ ${escapeHtml(f)}</option>`;
+        }).join('');
 
         return `
             <div class="pharma-wrapper">
@@ -926,27 +1477,34 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
                     <h2>Eigenes Pharmakologie-Set importieren</h2>
                 </div>
 
-                <div style="margin-bottom: 1.25rem;">
-                    <div class="segmented-control">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 1.25rem;">
+                    <div class="segmented-control" style="margin:0;">
                         <button type="button" class="segmented-btn ${!isMatrix ? 'active' : ''}" data-action="switch-import-type" data-type="arrow_compass">⌨️ Prompt für Pfeiltasten-Spiel</button>
                         <button type="button" class="segmented-btn ${isMatrix ? 'active' : ''}" data-action="switch-import-type" data-type="drag_matrix">🧩 Prompt für Drag & Drop Matrix</button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px; flex:1; max-width:440px;">
+                        <label for="pharma-import-folder-select" style="font-size:0.78rem; font-weight:700; color:var(--text-muted); white-space:nowrap;">📁 Ziel-Ordner:</label>
+                        <select id="pharma-import-folder-select" class="mc-dialog-select" style="flex:1; padding:7px 10px; border-radius:8px;">
+                            ${folderOptionsHtml}
+                        </select>
                     </div>
                 </div>
 
                 <div class="pharma-import-grid">
                     <div class="pharma-import-box">
-                        <h3>1. KI-Prompt kopieren</h3>
+                        <h3>1. KI-Prompt kopieren (inkl. Ordner „${escapeHtml(currentTarget)}“)</h3>
                         <p>Kopiere diese Vorlage für ${isMatrix ? 'ein neues Drag-&-Drop-Zuordnungsspiel' : 'ein neues Pfeiltasten-Kompass-Spiel'}:</p>
-                        <textarea id="pharma-prompt-Area" readonly class="pharma-textarea">${isMatrix ? matrixTemplate : compassTemplate}</textarea>
+                        <textarea id="pharma-prompt-Area" readonly class="pharma-textarea">${isMatrix ? matrixPromptTemp : compassPromptTemp}</textarea>
                         <button class="pharma-btn pharma-btn-secondary" data-action="copy-prompt">📋 Prompt in Zwischenablage kopieren</button>
                     </div>
 
                     <div class="pharma-import-box">
                         <h3>2. JSON-Code hier einfügen</h3>
-                        <p>Wird automatisch lokal und auf deinem Account synchronisiert:</p>
+                        <p>Wird direkt im ausgewählten Dashboard-Ordner gespeichert und mit der Cloud synchronisiert:</p>
                         <textarea id="pharma-json-input" placeholder='{"set_id": "...", "title": "...", ...}' class="pharma-textarea"></textarea>
                         <div id="pharma-import-status" style="margin-top:10px; font-size:0.85rem;"></div>
-                        <button class="pharma-btn pharma-btn-primary" data-action="save-json" style="margin-top:10px;">💾 Set validieren & speichern</button>
+                        <button class="pharma-btn pharma-btn-primary" data-action="save-json" style="margin-top:10px;">💾 Set validieren & in Ordner speichern</button>
                     </div>
                 </div>
             </div>
@@ -954,7 +1512,7 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
     }
 
     // =========================================================================
-    // EVENT-DISPATCHER & AKTIONEN
+    // EVENT-DISPATCHER & DRAG-AND-DROP AKTIONEN
     // =========================================================================
     function selectDirection(dir) {
         if (state.isAnswered) return;
@@ -998,6 +1556,30 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
     }
 
     function attachEvents(container) {
+        // Suchfeld im Hub (mit Fokus-Erhalt beim Tippen)
+        const searchInput = container.querySelector('#pharma-hub-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const cursorPos = e.target.selectionStart;
+                state.searchQuery = e.target.value;
+                render();
+                const newSearchInput = document.getElementById('pharma-hub-search-input');
+                if (newSearchInput) {
+                    newSearchInput.focus();
+                    try { newSearchInput.setSelectionRange(cursorPos, cursorPos); } catch (_e) {}
+                }
+            });
+        }
+
+        // Ordner-Dropdown im Importer aktualisiert live den KI-Prompt
+        const importFolderSelect = container.querySelector('#pharma-import-folder-select');
+        if (importFolderSelect) {
+            importFolderSelect.addEventListener('change', (e) => {
+                state.importTargetFolder = e.target.value;
+                render();
+            });
+        }
+
         container.querySelectorAll('[data-action]').forEach(el => {
             el.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -1006,9 +1588,47 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
                 if (action === 'filter-mode') {
                     state.modeFilter = el.getAttribute('data-mode') || 'all';
                     render();
+                } else if (action === 'toggle-empty-folders') {
+                    state.showEmptyDashboardFolders = !state.showEmptyDashboardFolders;
+                    render();
+                } else if (action === 'expand-collapse-all') {
+                    const superOrder = getDashboardSuperFolders();
+                    const allSubs = getAllUnifiedSubfolders(getAllSets());
+                    const anyOpen = superOrder.some(s => state.openSuperFolders[s]);
+                    const nextState = !anyOpen;
+                    superOrder.forEach(s => { state.openSuperFolders[s] = nextState; });
+                    allSubs.forEach(sub => { state.openSubFolders[sub] = nextState; });
+                    render();
+                } else if (action === 'reset-hub-filters') {
+                    state.modeFilter = 'all';
+                    state.searchQuery = '';
+                    state.showEmptyDashboardFolders = true;
+                    render();
+                } else if (action === 'toggle-superfolder') {
+                    const sup = el.getAttribute('data-super');
+                    if (sup) {
+                        state.openSuperFolders[sup] = !state.openSuperFolders[sup];
+                        render();
+                    }
+                } else if (action === 'toggle-subfolder') {
+                    const folder = el.getAttribute('data-folder');
+                    if (folder) {
+                        state.openSubFolders[folder] = !state.openSubFolders[folder];
+                        render();
+                    }
                 } else if (action === 'open-prompts') {
                     state.activeSubView = 'prompts';
                     render();
+                } else if (action === 'open-import') {
+                    state.activeSubView = 'import';
+                    render();
+                } else if (action === 'open-import-for-folder') {
+                    state.importTargetFolder = el.getAttribute('data-folder') || '';
+                    state.activeSubView = 'import';
+                    render();
+                } else if (action === 'move-set-modal') {
+                    const setId = el.getAttribute('data-set-id');
+                    await promptMoveSetModal(setId);
                 } else if (action === 'start-set') {
                     const setId = el.getAttribute('data-set-id');
                     const found = getAllSets().find(s => s.set_id === setId);
@@ -1056,7 +1676,11 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
                 } else if (action === 'check-matrix') {
                     state.matrixEvaluated = true;
                     const drugs = state.currentSet?.drugs || [];
-                    const allCorrect = drugs.length > 0 && drugs.every(d => state.matrixPlacements[d.id] === d.correct_cat);
+                    const correctCount = drugs.filter(d => state.matrixPlacements[d.id] === d.correct_cat).length;
+                    const allCorrect = drugs.length > 0 && correctCount === drugs.length;
+
+                    recordHighscore(state.currentSet.set_id, correctCount, drugs.length);
+
                     if (allCorrect && typeof applyXpDelta === 'function') {
                         applyXpDelta(150, 'Pharma-Matrix gelöst');
                     }
@@ -1065,9 +1689,6 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
                 } else if (action === 'click-drug') {
                     const drugId = el.getAttribute('data-drug-id');
                     state.selectedDrugForClickMove = (state.selectedDrugForClickMove === drugId) ? null : drugId;
-                    render();
-                } else if (action === 'open-import') {
-                    state.activeSubView = 'import';
                     render();
                 } else if (action === 'switch-import-type') {
                     state.importType = el.getAttribute('data-type') || 'arrow_compass';
@@ -1094,6 +1715,7 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
                     });
                 } else if (action === 'save-json') {
                     const input = document.getElementById('pharma-json-input').value.trim();
+                    const selectedFolder = document.getElementById('pharma-import-folder-select')?.value || state.importTargetFolder || '';
                     const statusBox = document.getElementById('pharma-import-status');
                     try {
                         const cleanInput = input.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -1101,6 +1723,10 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
 
                         if (!parsed.set_id) parsed.set_id = 'pharma_custom_' + Date.now();
                         if (!parsed.title) throw new Error("Feld 'title' fehlt.");
+
+                        const targetFolder = (selectedFolder || parsed.folder_name || parsed.medical_field || 'Allgemein').trim();
+                        parsed.folder_name = targetFolder;
+                        parsed.medical_field = targetFolder;
 
                         const isMatrixSet = parsed.game_type === 'drag_matrix' || (Array.isArray(parsed.categories) && Array.isArray(parsed.drugs));
                         if (isMatrixSet) {
@@ -1115,28 +1741,35 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
                             }
                         }
 
-                        // Lokal speichern
+                        // Ordner-Zuweisung sichern & Ordner öffnen
+                        const overrides = getFolderOverrides();
+                        overrides[parsed.set_id] = targetFolder;
+                        saveFolderOverrides(overrides);
+
+                        const parentSuper = getSuperFolderForSubfolder(targetFolder);
+                        state.openSuperFolders[parentSuper] = true;
+                        state.openSubFolders[targetFolder] = true;
+
                         state.customSets = state.customSets.filter(s => s.set_id !== parsed.set_id);
                         state.customSets.push(parsed);
                         saveLocalSets();
 
                         statusBox.style.color = '#38bdf8';
-                        statusBox.innerHTML = '💾 Lokal gespeichert. Synchronisiere mit Cloud...';
+                        statusBox.innerHTML = `💾 In Ordner „${escapeHtml(targetFolder)}“ gespeichert. Synchronisiere mit Cloud...`;
 
-                        // In Supabase Cloud speichern
                         const uploaded = await uploadSetToSupabase(parsed);
                         if (uploaded) {
                             statusBox.style.color = '#10b981';
-                            statusBox.innerHTML = '✓ Erfolgreich auf deinem Account gesichert!';
+                            statusBox.innerHTML = `✓ Erfolgreich in „${escapeHtml(targetFolder)}“ und auf deinem Account gesichert!`;
                         } else {
                             statusBox.style.color = '#f59e0b';
-                            statusBox.innerHTML = '💾 Lokal gespeichert (Melde dich an, um es online zu sichern).';
+                            statusBox.innerHTML = `💾 Lokal in „${escapeHtml(targetFolder)}“ gespeichert (Melde dich an, um es online zu sichern).`;
                         }
 
                         setTimeout(() => {
                             state.activeSubView = 'hub';
                             render();
-                        }, 1200);
+                        }, 1000);
 
                     } catch (err) {
                         statusBox.style.color = '#ef4444';
@@ -1146,7 +1779,129 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
             });
         });
 
-        // HTML5 Drag & Drop Events
+        // =====================================================================
+        // DRAG & DROP IM PHARMA-HUB (SETS & ORDNER VERSCHIEBEN)
+        // =====================================================================
+        if (state.activeSubView === 'hub') {
+            // 1. Pharma-Set-Karten ziehbar machen
+            container.querySelectorAll('.pharma-set-card[data-pharma-set-id]').forEach(card => {
+                const setId = card.getAttribute('data-pharma-set-id');
+                card.addEventListener('dragstart', (e) => {
+                    e.stopPropagation();
+                    state.draggedPharmaState = { type: 'pharma-set', id: setId };
+                    card.classList.add('case-card-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', setId);
+                    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+                });
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('case-card-dragging');
+                    state.draggedPharmaState = null;
+                    container.querySelectorAll('.drag-over-folder, .super-folder-drag-over').forEach(el => {
+                        el.classList.remove('drag-over-folder', 'super-folder-drag-over');
+                    });
+                });
+            });
+
+            // 2. Unterordner als Drop-Ziele (und selbst ziehbar in andere Überordner)
+            container.querySelectorAll('.pharma-category-folder').forEach(folderEl => {
+                const subName = decodeURIComponent(folderEl.getAttribute('data-pharma-subfolder') || '');
+
+                folderEl.addEventListener('dragstart', (e) => {
+                    if (e.target.closest('.pharma-set-card')) return;
+                    e.stopPropagation();
+                    state.draggedPharmaState = { type: 'subfolder', name: subName };
+                    folderEl.classList.add('folder-dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', subName);
+                });
+
+                folderEl.addEventListener('dragend', () => {
+                    folderEl.classList.remove('folder-dragging');
+                    state.draggedPharmaState = null;
+                });
+
+                folderEl.addEventListener('dragover', (e) => {
+                    if (!state.draggedPharmaState) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'move';
+                    folderEl.classList.add('drag-over-folder');
+                });
+
+                folderEl.addEventListener('dragleave', (e) => {
+                    if (!folderEl.contains(e.relatedTarget)) {
+                        folderEl.classList.remove('drag-over-folder');
+                    }
+                });
+
+                folderEl.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    folderEl.classList.remove('drag-over-folder');
+
+                    const payload = state.draggedPharmaState;
+                    state.draggedPharmaState = null;
+                    if (!payload) return;
+
+                    if (payload.type === 'pharma-set') {
+                        await moveSetToFolder(payload.id, subName);
+                    } else if (payload.type === 'subfolder' && payload.name !== subName) {
+                        const targetSuper = getSuperFolderForSubfolder(subName);
+                        if (typeof window.moveFolderToSuperFolder === 'function') {
+                            window.moveFolderToSuperFolder(payload.name, targetSuper);
+                        }
+                    }
+                });
+            });
+
+            // 3. Überordner als Drop-Ziele für Unterordner & Pharma-Sets
+            container.querySelectorAll('.pharma-super-folder').forEach(superEl => {
+                const superTitle = decodeURIComponent(superEl.getAttribute('data-pharma-super-title') || '');
+
+                superEl.addEventListener('dragover', (e) => {
+                    if (!state.draggedPharmaState || e.target.closest('.pharma-category-folder')) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    superEl.classList.add('super-folder-drag-over');
+                });
+
+                superEl.addEventListener('dragleave', (e) => {
+                    if (!superEl.contains(e.relatedTarget)) {
+                        superEl.classList.remove('super-folder-drag-over');
+                    }
+                });
+
+                superEl.addEventListener('drop', async (e) => {
+                    if (e.target.closest('.pharma-category-folder')) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    superEl.classList.remove('super-folder-drag-over');
+
+                    const payload = state.draggedPharmaState;
+                    state.draggedPharmaState = null;
+                    if (!payload) return;
+
+                    if (payload.type === 'subfolder') {
+                        if (typeof window.moveFolderToSuperFolder === 'function') {
+                            window.moveFolderToSuperFolder(payload.name, superTitle);
+                        }
+                        state.openSuperFolders[superTitle] = true;
+                        render();
+                    } else if (payload.type === 'pharma-set') {
+                        // Wenn direkt auf einen Überordner gezogen wird: in dessen ersten Unterordner oder gleichnamigen Ordner legen
+                        if (typeof window.moveFolderToSuperFolder === 'function') {
+                            window.moveFolderToSuperFolder(superTitle, superTitle);
+                        }
+                        await moveSetToFolder(payload.id, superTitle);
+                    }
+                });
+            });
+        }
+
+        // =====================================================================
+        // DRAG & DROP IM MATRIX-SPIEL
+        // =====================================================================
         if (state.activeSubView === 'drag_matrix') {
             container.querySelectorAll('.pharma-matrix-card[draggable="true"]').forEach(card => {
                 card.addEventListener('dragstart', (e) => {
@@ -1193,7 +1948,8 @@ Wichtig: Erstelle 4 trennscharfe Krankheitsbilder (categories) und 8 passende Me
         init,
         render,
         syncFromCloud,
-        deleteSet
+        deleteSet,
+        moveSetToFolder
     };
 })();
 
