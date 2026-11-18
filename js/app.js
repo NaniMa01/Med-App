@@ -1442,6 +1442,29 @@ const MedIcons = {
 const HIDDEN_CLOUD_CASES_KEY = 'medcheck_hidden_cloud_cases';
 const DELETED_FOLDERS_KEY = 'medcheck_deleted_folders';
 
+// --- SICHERE FALLBACKS FÜR GLOBALE HELFER (Verhindert Totalabstürze) ---
+if (typeof window.escapeHtml !== 'function') {
+    window.escapeHtml = function(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+}
+
+if (typeof window.getCustomCases !== 'function') {
+    window.getCustomCases = function() {
+        try {
+            return JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        } catch (e) {
+            return [];
+        }
+    };
+}
+
 const MedUI = {
     openDialog({ kicker = 'System', title = '', message = '', fields = [], confirmText = 'Bestätigen', cancelText = 'Abbrechen', danger = false }) {
         return new Promise((resolve) => {
@@ -1585,7 +1608,7 @@ function createCustomSuperFolder(folderName) {
     const cleanName = folderName.trim();
     unmarkFolderAsDeleted(cleanName);
 
-    const order = getSuperFolderOrder();
+    const order = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : ['Allgemein'];
     if (order.some(s => s.toLowerCase() === cleanName.toLowerCase())) {
         alert(`Der Überordner "${cleanName}" existiert bereits.`);
         return;
@@ -1597,16 +1620,16 @@ function createCustomSuperFolder(folderName) {
     } else {
         order.push(cleanName);
     }
-    saveSuperFolderOrder(order);
+    if (typeof saveSuperFolderOrder === 'function') saveSuperFolderOrder(order);
 
-    superFolderStates[cleanName] = true;
-    bookshelfSuperFolderState[cleanName] = true;
+    if (typeof superFolderStates !== 'undefined') superFolderStates[cleanName] = true;
+    if (typeof bookshelfSuperFolderState !== 'undefined') bookshelfSuperFolderState[cleanName] = true;
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 }
 window.createCustomSuperFolder = createCustomSuperFolder;
 
@@ -1640,7 +1663,7 @@ window.renameSuperFolder = function(oldTitle) {
     if (!newTitleRaw || !newTitleRaw.trim() || newTitleRaw.trim() === oldTitle) return;
     const newTitle = newTitleRaw.trim();
 
-    const order = getSuperFolderOrder();
+    const order = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : ['Allgemein'];
     if (order.some(s => s.toLowerCase() === newTitle.toLowerCase() && s !== oldTitle)) {
         alert(`Ein Überordner mit dem Namen "${newTitle}" existiert bereits.`);
         return;
@@ -1652,38 +1675,30 @@ window.renameSuperFolder = function(oldTitle) {
     } else {
         order.push(newTitle);
     }
-    saveSuperFolderOrder(order);
+    if (typeof saveSuperFolderOrder === 'function') saveSuperFolderOrder(order);
 
-    superFolderStates[newTitle] = superFolderStates[oldTitle] !== undefined ? superFolderStates[oldTitle] : true;
-    bookshelfSuperFolderState[newTitle] = bookshelfSuperFolderState[oldTitle] !== undefined ? bookshelfSuperFolderState[oldTitle] : true;
-    delete superFolderStates[oldTitle];
-    delete bookshelfSuperFolderState[oldTitle];
+    if (typeof superFolderStates !== 'undefined') {
+        superFolderStates[newTitle] = superFolderStates[oldTitle] !== undefined ? superFolderStates[oldTitle] : true;
+        delete superFolderStates[oldTitle];
+    }
+    if (typeof bookshelfSuperFolderState !== 'undefined') {
+        bookshelfSuperFolderState[newTitle] = bookshelfSuperFolderState[oldTitle] !== undefined ? bookshelfSuperFolderState[oldTitle] : true;
+        delete bookshelfSuperFolderState[oldTitle];
+    }
 
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     Object.keys(mapping).forEach(subFolder => {
         if (mapping[subFolder] === oldTitle) {
             mapping[subFolder] = newTitle;
         }
     });
 
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-    const savedSubOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
-    const allSubFolders = new Set(savedSubOrder);
-    allCases.forEach(c => {
-        allSubFolders.add((c.folder_name || c.metadata?.medical_field || 'Allgemein').trim());
-    });
-    allSubFolders.forEach(sub => {
-        if (!mapping[sub] && getSuperFolderForCategoryHeuristic(sub) === oldTitle) {
-            mapping[sub] = newTitle;
-        }
-    });
-
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 
 function removeCustomSuperFolder(superTitle) {
@@ -1697,52 +1712,52 @@ function removeCustomSuperFolder(superTitle) {
         return;
     }
 
-    const order = getSuperFolderOrder().filter(s => s !== superTitle);
-    saveSuperFolderOrder(order);
+    const order = (typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : []).filter(s => s !== superTitle);
+    if (typeof saveSuperFolderOrder === 'function') saveSuperFolderOrder(order);
 
-    delete superFolderStates[superTitle];
-    delete bookshelfSuperFolderState[superTitle];
+    if (typeof superFolderStates !== 'undefined') delete superFolderStates[superTitle];
+    if (typeof bookshelfSuperFolderState !== 'undefined') delete bookshelfSuperFolderState[superTitle];
 
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     Object.keys(mapping).forEach(subFolder => {
         if (mapping[subFolder] === superTitle) {
             mapping[subFolder] = 'Allgemein';
         }
     });
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
-    superFolderStates['Allgemein'] = true;
-    bookshelfSuperFolderState['Allgemein'] = true;
+    if (typeof superFolderStates !== 'undefined') superFolderStates['Allgemein'] = true;
+    if (typeof bookshelfSuperFolderState !== 'undefined') bookshelfSuperFolderState['Allgemein'] = true;
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 }
 window.removeCustomSuperFolder = removeCustomSuperFolder;
 window.deleteSuperFolder = removeCustomSuperFolder;
 
 function reorderSuperFolders(draggedTitle, targetTitle) {
     if (!draggedTitle || !targetTitle || draggedTitle === targetTitle) return;
-    const order = getSuperFolderOrder();
+    const order = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : [];
     const fromIdx = order.indexOf(draggedTitle);
     const toIdx = order.indexOf(targetTitle);
     if (fromIdx === -1 || toIdx === -1) return;
 
     order.splice(fromIdx, 1);
     order.splice(toIdx, 0, draggedTitle);
-    saveSuperFolderOrder(order);
+    if (typeof saveSuperFolderOrder === 'function') saveSuperFolderOrder(order);
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 }
 window.reorderSuperFolders = reorderSuperFolders;
 
 window.stepSuperFolderOrder = function(superTitle, directionDelta) {
-    const order = getSuperFolderOrder();
+    const order = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : [];
     const idx = order.indexOf(superTitle);
     if (idx === -1) return;
     const newIdx = idx + directionDelta;
@@ -1765,24 +1780,26 @@ window.createSubfolderInSuperFolder = function(superTitle) {
         localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
     }
 
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     mapping[cleanSub] = targetSuper;
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
-    superFolderStates[targetSuper] = true;
-    bookshelfSuperFolderState[targetSuper] = true;
-    bookshelfFolderState[cleanSub] = true;
-    openFolders[cleanSub] = true;
+    if (typeof superFolderStates !== 'undefined') superFolderStates[targetSuper] = true;
+    if (typeof bookshelfSuperFolderState !== 'undefined') bookshelfSuperFolderState[targetSuper] = true;
+    if (typeof bookshelfFolderState !== 'undefined') bookshelfFolderState[cleanSub] = true;
+    if (typeof openFolders !== 'undefined') openFolders[cleanSub] = true;
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 
 function toggleBookshelfSuperGroup(superTitle) {
-    bookshelfSuperFolderState[superTitle] = bookshelfSuperFolderState[superTitle] === false ? true : false;
-    renderDashboardCases();
+    if (typeof bookshelfSuperFolderState !== 'undefined') {
+        bookshelfSuperFolderState[superTitle] = bookshelfSuperFolderState[superTitle] === false ? true : false;
+    }
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
 }
 window.toggleBookshelfSuperGroup = toggleBookshelfSuperGroup;
 
@@ -1808,7 +1825,7 @@ function ensureBookshelfHeaderButtons() {
         titleEl.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            window.openBookshelfFullscreenModal();
+            if (typeof window.openBookshelfFullscreenModal === 'function') window.openBookshelfFullscreenModal();
         });
     }
 
@@ -1838,13 +1855,15 @@ function ensureBookshelfHeaderButtons() {
         syncBtn.title = 'Ordnerstruktur jetzt über alle Geräte (Laptop, iPad, Handy) synchronisieren';
         syncBtn.style.cssText = 'border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7;';
         syncBtn.innerHTML = '☁️ Ordner synchron';
-        syncBtn.onclick = () => window.forceSyncFoldersAcrossDevices();
+        syncBtn.onclick = () => {
+            if (typeof window.forceSyncFoldersAcrossDevices === 'function') window.forceSyncFoldersAcrossDevices();
+        };
         quickBtns.prepend(syncBtn);
     }
 }
 
 window.promptCreateNewFolderWithSuper = async function() {
-    const availableSupers = getSuperFolderOrder();
+    const availableSupers = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : ['Allgemein'];
     const res = await MedUI.openDialog({
         kicker: 'Ordner-Architektur',
         title: 'Neuen Unterordner erstellen',
@@ -1861,7 +1880,10 @@ window.promptCreateNewFolderWithSuper = async function() {
         confirmText: 'Ordner anlegen'
     });
     if (!res || !res.name) return;
-    createNewFolder(res.name, res.superFolder || getSuperFolderForCategoryHeuristic(res.name));
+    const fallbackSuper = typeof getSuperFolderForCategoryHeuristic === 'function' 
+        ? getSuperFolderForCategoryHeuristic(res.name) 
+        : 'Allgemein';
+    createNewFolder(res.name, res.superFolder || fallbackSuper);
 };
 
 function createNewFolder(folderName, targetSuperFolder = null) {
@@ -1875,19 +1897,19 @@ function createNewFolder(folderName, targetSuperFolder = null) {
         localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
     }
 
-    const chosenSuper = targetSuperFolder || getSuperFolderForCategory(cleanName);
-    const mapping = getFolderSuperMapping();
+    const chosenSuper = targetSuperFolder || (typeof getSuperFolderForCategory === 'function' ? getSuperFolderForCategory(cleanName) : 'Allgemein');
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     mapping[cleanName] = chosenSuper;
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
-    superFolderStates[chosenSuper] = true;
-    bookshelfSuperFolderState[chosenSuper] = true;
-    bookshelfFolderState[cleanName] = true;
-    openFolders[cleanName] = true;
+    if (typeof superFolderStates !== 'undefined') superFolderStates[chosenSuper] = true;
+    if (typeof bookshelfSuperFolderState !== 'undefined') bookshelfSuperFolderState[chosenSuper] = true;
+    if (typeof bookshelfFolderState !== 'undefined') bookshelfFolderState[cleanName] = true;
+    if (typeof openFolders !== 'undefined') openFolders[cleanName] = true;
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 }
 window.createNewFolder = createNewFolder;
 
@@ -1898,15 +1920,15 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
 
     unmarkFolderAsDeleted(cleanFolder);
 
-    const order = getSuperFolderOrder();
+    const order = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : [];
     if (!order.includes(cleanSuper)) {
         order.push(cleanSuper);
-        saveSuperFolderOrder(order);
+        if (typeof saveSuperFolderOrder === 'function') saveSuperFolderOrder(order);
     }
 
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     mapping[cleanFolder] = cleanSuper;
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
     let subOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     if (!subOrder.includes(cleanFolder)) {
@@ -1914,20 +1936,20 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
         localStorage.setItem('medcheck_folder_order', JSON.stringify(subOrder));
     }
 
-    superFolderStates[cleanSuper] = true;
-    bookshelfSuperFolderState[cleanSuper] = true;
+    if (typeof superFolderStates !== 'undefined') superFolderStates[cleanSuper] = true;
+    if (typeof bookshelfSuperFolderState !== 'undefined') bookshelfSuperFolderState[cleanSuper] = true;
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 window.assignFolderToSuperFolder = window.moveFolderToSuperFolder;
 
 window.promptMoveFolderToSuperFolder = async function(folderName) {
     if (!folderName) return;
-    const currentSuper = getSuperFolderForCategory(folderName);
-    const availableSupers = getSuperFolderOrder();
+    const currentSuper = typeof getSuperFolderForCategory === 'function' ? getSuperFolderForCategory(folderName) : 'Allgemein';
+    const availableSupers = typeof getSuperFolderOrder === 'function' ? getSuperFolderOrder() : ['Allgemein'];
 
     const res = await MedUI.openDialog({
         kicker: 'Struktur anpassen',
@@ -1991,30 +2013,32 @@ window.renameFolder = async function(oldName, newName) {
     order = Array.from(new Set(order));
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     if (mapping[cleanOld]) {
         mapping[cleanNew] = mapping[cleanOld];
         delete mapping[cleanOld];
-        saveFolderSuperMapping(mapping);
+        if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
     } else {
-        mapping[cleanNew] = getSuperFolderForCategory(cleanOld);
-        saveFolderSuperMapping(mapping);
+        mapping[cleanNew] = typeof getSuperFolderForCategory === 'function' ? getSuperFolderForCategory(cleanOld) : 'Allgemein';
+        if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
     }
 
-    const overrides = getCaseFolderOverrides();
+    const overrides = typeof getCaseFolderOverrides === 'function' ? getCaseFolderOverrides() : {};
     Object.keys(overrides).forEach(cId => {
         if (overrides[cId] === cleanOld) overrides[cId] = cleanNew;
     });
 
-    const demoFolder = (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
-    if (demoFolder === cleanOld || overrides[BUILTIN_DEMO_CASE.case_id] === cleanOld) {
-        overrides[BUILTIN_DEMO_CASE.case_id] = cleanNew;
+    if (typeof BUILTIN_DEMO_CASE !== 'undefined') {
+        const demoFolder = (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+        if (demoFolder === cleanOld || overrides[BUILTIN_DEMO_CASE.case_id] === cleanOld) {
+            overrides[BUILTIN_DEMO_CASE.case_id] = cleanNew;
+        }
     }
 
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let customCases = getCustomCases();
     let modifiedCases = [];
     customCases.forEach(c => {
-        applyFolderOverridesToCase(c);
+        if (typeof applyFolderOverridesToCase === 'function') applyFolderOverridesToCase(c);
         const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
         if (cFolder === cleanOld) {
             c.folder_name = cleanNew;
@@ -2024,24 +2048,28 @@ window.renameFolder = async function(oldName, newName) {
         }
     });
 
-    saveCaseFolderOverrides(overrides);
+    if (typeof saveCaseFolderOverrides === 'function') saveCaseFolderOverrides(overrides);
     localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-    if (openFolders[cleanOld] !== undefined) {
-        openFolders[cleanNew] = openFolders[cleanOld];
-        delete openFolders[cleanOld];
+    if (typeof openFolders !== 'undefined') {
+        if (openFolders[cleanOld] !== undefined) {
+            openFolders[cleanNew] = openFolders[cleanOld];
+            delete openFolders[cleanOld];
+        }
     }
-    if (bookshelfFolderState[cleanOld] !== undefined) {
-        bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
-        delete bookshelfFolderState[cleanOld];
+    if (typeof bookshelfFolderState !== 'undefined') {
+        if (bookshelfFolderState[cleanOld] !== undefined) {
+            bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
+            delete bookshelfFolderState[cleanOld];
+        }
     }
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
 
-    await syncModifiedCasesToSupabase(modifiedCases);
-    pushFolderConfigToSupabase();
+    if (typeof syncModifiedCasesToSupabase === 'function') await syncModifiedCasesToSupabase(modifiedCases);
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 
 window.deleteFolder = async function(folderName, caseCount = 0) {
@@ -2078,31 +2106,28 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     if (!res) return;
     const deleteMode = (typeof res === 'object' && res.deleteMode) ? res.deleteMode : 'delete_all';
 
-    // 1. Ordner dauerhaft in der lokalen Sperrliste als gelöscht markieren
     markFolderAsDeleted(clean);
 
-    // 2. Aus lokaler Ordner-Reihenfolge entfernen
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     order = order.filter(f => f !== clean);
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
 
-    let dashOrder = getDashboardFolderOrder().filter(f => f !== clean);
-    saveDashboardFolderOrder(dashOrder);
+    let dashOrder = typeof getDashboardFolderOrder === 'function' ? getDashboardFolderOrder().filter(f => f !== clean) : [];
+    if (typeof saveDashboardFolderOrder === 'function') saveDashboardFolderOrder(dashOrder);
 
-    // 3. Aus Super-Mapping entfernen
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     delete mapping[clean];
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
-    const overrides = getCaseFolderOverrides();
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    const overrides = typeof getCaseFolderOverrides === 'function' ? getCaseFolderOverrides() : {};
+    let customCases = getCustomCases();
     let modifiedCases = [];
 
-    const demoCurrentFolder = overrides[BUILTIN_DEMO_CASE.case_id]
-        || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+    const demoCurrentFolder = typeof BUILTIN_DEMO_CASE !== 'undefined' ? (overrides[BUILTIN_DEMO_CASE.case_id]
+        || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim()) : '';
 
     if (deleteMode === 'delete_all') {
-        if (demoCurrentFolder === clean) {
+        if (typeof BUILTIN_DEMO_CASE !== 'undefined' && demoCurrentFolder === clean) {
             addHiddenCloudCaseId(BUILTIN_DEMO_CASE.case_id);
             delete overrides[BUILTIN_DEMO_CASE.case_id];
         }
@@ -2127,7 +2152,7 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
             if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
         });
 
-        if (demoCurrentFolder === clean) {
+        if (typeof BUILTIN_DEMO_CASE !== 'undefined' && demoCurrentFolder === clean) {
             overrides[BUILTIN_DEMO_CASE.case_id] = 'Allgemein';
         }
 
@@ -2142,38 +2167,35 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
                 modifiedCases.push(c);
             }
         });
-        openFolders['Allgemein'] = true;
+        if (typeof openFolders !== 'undefined') openFolders['Allgemein'] = true;
     }
 
-    saveCaseFolderOverrides(overrides);
+    if (typeof saveCaseFolderOverrides === 'function') saveCaseFolderOverrides(overrides);
     localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-    delete openFolders[clean];
-    delete bookshelfFolderState[clean];
+    if (typeof openFolders !== 'undefined') delete openFolders[clean];
+    if (typeof bookshelfFolderState !== 'undefined') delete bookshelfFolderState[clean];
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(12);
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
     if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
 
-    await syncModifiedCasesToSupabase(modifiedCases);
-    
-    // WICHTIG: Sofort die aktualisierte Ordnerkonfiguration in die Supabase-Cloud pushen,
-    // damit der gelöschte Ordner nicht beim nächsten Cloud-Sync wiederhergestellt wird!
-    pushFolderConfigToSupabase();
+    if (typeof syncModifiedCasesToSupabase === 'function') await syncModifiedCasesToSupabase(modifiedCases);
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 
 window.moveCaseToFolder = async function(caseId, targetFolder) {
-    if (!caseId || !targetFolder || caseId === FOLDER_CONFIG_CLOUD_ID) return;
+    if (!caseId || !targetFolder || caseId === (typeof FOLDER_CONFIG_CLOUD_ID !== 'undefined' ? FOLDER_CONFIG_CLOUD_ID : '')) return;
     const cleanFolder = targetFolder.trim();
 
     unmarkFolderAsDeleted(cleanFolder);
-    setCaseFolderOverride(caseId, cleanFolder);
+    if (typeof setCaseFolderOverride === 'function') setCaseFolderOverride(caseId, cleanFolder);
 
-    let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+    let customCases = getCustomCases();
     let targetCase = customCases.find(c => (c.case_id || c.id) === caseId);
 
-    if (!targetCase && caseId === BUILTIN_DEMO_CASE.case_id) {
+    if (!targetCase && typeof BUILTIN_DEMO_CASE !== 'undefined' && caseId === BUILTIN_DEMO_CASE.case_id) {
         targetCase = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE));
     }
 
@@ -2195,25 +2217,28 @@ window.moveCaseToFolder = async function(caseId, targetFolder) {
         targetCase.metadata.medical_field = cleanFolder;
     }
 
-    if (caseId !== BUILTIN_DEMO_CASE.case_id) {
+    if (typeof BUILTIN_DEMO_CASE === 'undefined' || caseId !== BUILTIN_DEMO_CASE.case_id) {
         customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
         customCases.push(targetCase);
         localStorage.setItem('custom_cases', JSON.stringify(customCases));
     }
 
-    registerDynamicFolder(cleanFolder);
-    openFolders[cleanFolder] = true;
+    if (typeof registerDynamicFolder === 'function') registerDynamicFolder(cleanFolder);
+    if (typeof openFolders !== 'undefined') openFolders[cleanFolder] = true;
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
 
-    await syncModifiedCasesToSupabase([targetCase]);
+    if (typeof syncModifiedCasesToSupabase === 'function') await syncModifiedCasesToSupabase([targetCase]);
 };
 
 async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
     if (!caseId || !targetSuperTitle) return;
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [
+        (typeof BUILTIN_DEMO_CASE !== 'undefined' ? BUILTIN_DEMO_CASE : null), 
+        ...getCustomCases()
+    ].filter(Boolean);
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
     if (!targetCase) return;
 
@@ -2226,14 +2251,14 @@ async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
 
     unmarkFolderAsDeleted(destinationSubfolder);
 
-    const mapping = getFolderSuperMapping();
+    const mapping = typeof getFolderSuperMapping === 'function' ? getFolderSuperMapping() : {};
     mapping[destinationSubfolder] = targetSuperTitle;
-    saveFolderSuperMapping(mapping);
+    if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
-    superFolderStates[targetSuperTitle] = true;
-    bookshelfSuperFolderState[targetSuperTitle] = true;
-    openFolders[destinationSubfolder] = true;
-    bookshelfFolderState[destinationSubfolder] = true;
+    if (typeof superFolderStates !== 'undefined') superFolderStates[targetSuperTitle] = true;
+    if (typeof bookshelfSuperFolderState !== 'undefined') bookshelfSuperFolderState[targetSuperTitle] = true;
+    if (typeof openFolders !== 'undefined') openFolders[destinationSubfolder] = true;
+    if (typeof bookshelfFolderState !== 'undefined') bookshelfFolderState[destinationSubfolder] = true;
 
     await window.moveCaseToFolder(caseId, destinationSubfolder);
 }
@@ -2241,16 +2266,20 @@ async function moveCaseToSuperFolder(caseId, targetSuperTitle) {
 window.deleteCaseById = async function(caseId) {
     if (!caseId) return;
 
-    if (caseId === BUILTIN_DEMO_CASE.case_id) {
+    if (typeof BUILTIN_DEMO_CASE !== 'undefined' && caseId === BUILTIN_DEMO_CASE.case_id) {
         alert('Der integrierte System-Demofall kann nicht gelöscht werden.');
         return;
     }
 
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [
+        (typeof BUILTIN_DEMO_CASE !== 'undefined' ? BUILTIN_DEMO_CASE : null), 
+        ...getCustomCases()
+    ].filter(Boolean);
+    
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
     const title = targetCase?.metadata?.title || targetCase?.title || caseId;
     const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(caseId));
-    const isCurrentUserCreator = window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+    const isCurrentUserCreator = typeof CREATOR_EMAIL !== 'undefined' && window.currentSessionUser?.email?.toLowerCase() === CREATOR_EMAIL.toLowerCase();
 
     const confirmMsg = isCloudCase
         ? `Möchtest du den Fall „${title}“ entfernen?`
@@ -2263,12 +2292,12 @@ window.deleteCaseById = async function(caseId) {
             `Creator-Option: Dieser Fall ist in der Supabase-Cloud veröffentlicht.\n\nSoll „${title}“ AUCH komplett aus der Cloud für alle Geräte gelöscht werden?\n(Klicke „Abbrechen“, um ihn nur lokal auszublenden.)`
         );
         if (alsoUnpublish) {
-            const sb = getActiveSupabaseClient();
+            const sb = typeof getActiveSupabaseClient === 'function' ? getActiveSupabaseClient() : null;
             if (sb) {
                 try {
                     const { error } = await sb.from('cases').delete().eq('case_id', caseId);
                     if (error) throw error;
-                    window.cloudCaseIds.delete(caseId);
+                    if (window.cloudCaseIds instanceof Set) window.cloudCaseIds.delete(caseId);
                 } catch (err) {
                     console.error('Fehler beim Löschen aus der Cloud:', err);
                     alert(`Cloud-Löschung fehlgeschlagen: ${err.message}`);
@@ -2285,28 +2314,28 @@ window.deleteCaseById = async function(caseId) {
     customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
     localStorage.setItem('custom_cases', JSON.stringify(customCases));
 
-    if (ProgressManager && typeof ProgressManager.resetEntireCase === 'function') {
-        ProgressManager.resetEntireCase(caseId);
+    if (typeof ProgressManager !== 'undefined' && ProgressManager && typeof ProgressManager.resetEntireCase === 'function') {
+        ProgressManager.resetIntrinsicCase ? ProgressManager.resetIntrinsicCase(caseId) : ProgressManager.resetEntireCase(caseId);
     }
 
-    if (activeCaseData && (activeCaseData.case_id === caseId || activeCaseData.id === caseId)) {
+    if (typeof activeCaseData !== 'undefined' && activeCaseData && (activeCaseData.case_id === caseId || activeCaseData.id === caseId)) {
         activeCaseData = null;
         const playerView = document.getElementById('player-view');
         if (playerView && playerView.style.display !== 'none') {
-            window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+            if (typeof window.switchTab === 'function') window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
         }
     }
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
 
-    renderDashboardCases();
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
     if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
-    if (window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.renderDashboardWidget === 'function') {
+    if (typeof window.SpacedRepetitionEngine !== 'undefined' && window.SpacedRepetitionEngine && typeof window.SpacedRepetitionEngine.renderDashboardWidget === 'function') {
         const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
         window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
     }
-    pushFolderConfigToSupabase();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 // ==========================================================================
 // 08. ALLGEMEINE UI-UTILS, NAVIGATION & SIDEBAR-RESIZER
