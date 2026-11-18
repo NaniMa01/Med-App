@@ -5511,10 +5511,14 @@ async function initCreatorHubAndCloudCases() {
         window.currentSessionUser = session?.user || null;
         setupCreatorHub(window.currentSessionUser);
 
-        sb.auth.onAuthStateChange(async (_event, session) => {
+        sb.auth.onAuthStateChange(async (event, session) => {
             window.currentSessionUser = session?.user || null;
             setupCreatorHub(window.currentSessionUser);
-            loadCasesFromDatabase();
+
+            // Verhindert doppelten DB-Abruf beim initialen Seitenstart
+            if (event === 'INITIAL_SESSION') return;
+
+            await loadCasesFromDatabase();
             if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud();
         });
     } catch (e) {
@@ -5526,7 +5530,12 @@ function setupCreatorHub(currentUser) {
     const uploadSection = document.getElementById('creatorUploadSection');
     if (!uploadSection) return;
 
-    if (currentUser && currentUser.email && currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase()) {
+    const isCreator = currentUser &&
+        currentUser.email &&
+        typeof CREATOR_EMAIL !== 'undefined' &&
+        currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+
+    if (isCreator) {
         uploadSection.style.display = 'block';
         initDropZone();
     } else {
@@ -5539,7 +5548,7 @@ function initDropZone() {
     const fileInput = document.getElementById('caseFileInput');
     if (!dropZone || !fileInput) return;
 
-    // Verhindert Mehrfach-Registrierung der Drop-Events bei Auth-State-Changes!
+    // Verhindert Mehrfach-Registrierung der Drop-Events bei Auth-State-Changes
     if (dropZone.dataset.initialized === 'true') return;
     dropZone.dataset.initialized = 'true';
 
@@ -5577,14 +5586,17 @@ function initDropZone() {
         const dt = e.dataTransfer;
         if (!dt) return;
 
-        const internalCaseId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
-        if (internalCaseId && (!dt.files || dt.files.length === 0)) {
+        const rawId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
+        const internalCaseId = rawId ? rawId.trim() : '';
+
+        // Prüfen, ob eine valide interne Case-ID (ohne Zeilenumbrüche/Leerzeichen) gedroppt wurde
+        if (internalCaseId && !/\s/.test(internalCaseId) && (!dt.files || dt.files.length === 0)) {
             await handleInternalCaseUpload(internalCaseId);
             return;
         }
 
         if (dt.files && dt.files.length > 0) {
-            handleCaseFiles(dt.files);
+            await handleCaseFiles(dt.files);
         }
     }, false);
 }
@@ -5604,7 +5616,9 @@ async function handleInternalCaseUpload(caseId) {
         return;
     }
 
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+    const allCases = typeof window.getRegisteredCases === 'function'
+        ? window.getRegisteredCases()
+        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
 
     if (!targetCase) {
@@ -5618,6 +5632,9 @@ async function handleInternalCaseUpload(caseId) {
     renderStatus(title, 'loading', 'Wird mit Supabase Cloud synchronisiert...');
 
     try {
+        // Falls der Fall zuvor lokal versteckt/gelöscht war, von der Hidden-Liste nehmen
+        unhideCloudCaseLocally(caseId);
+
         const { error } = await sb
             .from('cases')
             .upsert({
@@ -5657,6 +5674,8 @@ async function handleCaseFiles(files) {
         return;
     }
 
+    let uploadedCount = 0;
+
     for (const file of Array.from(files)) {
         if (!file.name.toLowerCase().endsWith('.json')) {
             renderStatus(file.name, 'error', 'Keine gültige .json-Datei');
@@ -5679,6 +5698,9 @@ async function handleCaseFiles(files) {
             const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
             const title = caseData.metadata?.title || caseData.title || caseId;
 
+            // Falls der Fall zuvor lokal gelöscht war, wieder freigeben
+            unhideCloudCaseLocally(caseId);
+
             const { error } = await sb
                 .from('cases')
                 .upsert({
@@ -5693,17 +5715,44 @@ async function handleCaseFiles(files) {
 
             if (error) throw error;
 
+            uploadedCount++;
             renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
-            await loadCasesFromDatabase();
         } catch (err) {
             console.error("Upload Error:", err);
             renderStatus(file.name, 'error', `Fehler: ${err.message}`);
         }
     }
+
+    // Einmaliger Re-Sync nach Abschluss aller Datei-Uploads
+    if (uploadedCount > 0) {
+        await loadCasesFromDatabase();
+    }
 }
 
+/**
+ * Hilfsfunktion: Entfernt eine caseId von der lokalen "hidden_cloud_cases"-Sperrliste,
+ * falls der Fall erneut hochgeladen oder importiert wird.
+ */
+function unhideCloudCaseLocally(caseId) {
+    try {
+        const hidden = typeof getHiddenCloudCaseIds === 'function'
+            ? getHiddenCloudCaseIds()
+            : JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
+        if (hidden.includes(caseId)) {
+            const updated = hidden.filter(id => id !== caseId);
+            localStorage.setItem('hidden_cloud_cases', JSON.stringify(updated));
+        }
+    } catch (e) {
+        console.warn("Konnte hidden_cloud_cases nicht aktualisieren:", e);
+    }
+}
+
+/**
+ * Entfernt einen Fall NUR aus der Supabase-Cloud (Unpublish).
+ * Der Fall bleibt lokal auf dem eigenen Gerät im Dashboard erhalten.
+ */
 async function unpublishCaseFromCloud(caseId) {
-    if (!window.confirm(`Möchtest du den Fall "${caseId}" wirklich aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
+    if (!window.confirm(`Möchtest du den Fall "${caseId}" nur aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
         return;
     }
 
@@ -5718,6 +5767,10 @@ async function unpublishCaseFromCloud(caseId) {
 
         if (error) throw error;
 
+        if (window.cloudCaseIds instanceof Set) {
+            window.cloudCaseIds.delete(caseId);
+        }
+
         renderStatus(caseId, 'success', 'Aus der Cloud entfernt (nur noch lokal verfügbar)');
         await loadCasesFromDatabase();
     } catch (err) {
@@ -5725,11 +5778,105 @@ async function unpublishCaseFromCloud(caseId) {
     }
 }
 
+/**
+ * NEU: Löscht einen Fall KOMPLETT aus dem Dashboard (Lokal + optional aus der Cloud).
+ * Verhindert außerdem über 'hidden_cloud_cases', dass Cloud-Fälle beim nächsten Sync
+ * wieder automatisch ins Dashboard zurückkehren.
+ *
+ * @param {string} caseId - Die ID des zu löschenden Falls
+ * @param {object} [options] - { skipConfirm: boolean, alsoDeleteFromCloud: boolean }
+ */
+async function deleteCaseCompletely(caseId, options = {}) {
+    if (!caseId) return;
+
+    const isCloudCase = window.cloudCaseIds instanceof Set && window.cloudCaseIds.has(caseId);
+    const currentUser = window.currentSessionUser;
+    const isCreator = currentUser &&
+        currentUser.email &&
+        typeof CREATOR_EMAIL !== 'undefined' &&
+        currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+
+    if (!options.skipConfirm) {
+        const msg = (isCloudCase && isCreator)
+            ? `Möchtest du den Fall "${caseId}" KOMPLETT löschen (aus deinem Dashboard UND aus der Supabase-Cloud)?`
+            : `Möchtest du den Fall "${caseId}" komplett aus deinem Dashboard entfernen?`;
+
+        if (!window.confirm(msg)) return;
+    }
+
+    // 1. Falls der Fall in der Cloud liegt und der Creator löscht -> auch in Supabase löschen
+    const shouldDeleteCloud = options.alsoDeleteFromCloud !== undefined
+        ? options.alsoDeleteFromCloud
+        : (isCloudCase && isCreator);
+
+    if (shouldDeleteCloud) {
+        const sb = getActiveSupabaseClient();
+        if (sb) {
+            try {
+                const { error } = await sb
+                    .from('cases')
+                    .delete()
+                    .eq('case_id', caseId);
+
+                if (error) console.warn("Cloud-Löschung fehlgeschlagen:", error.message);
+                if (window.cloudCaseIds instanceof Set) window.cloudCaseIds.delete(caseId);
+            } catch (err) {
+                console.warn("Fehler beim Löschen aus Supabase:", err);
+            }
+        }
+    }
+
+    // 2. Fall auf die lokale Blacklist setzen, damit ein Cloud-Sync ihn nicht wiederherstellt
+    try {
+        const hiddenIds = typeof getHiddenCloudCaseIds === 'function'
+            ? getHiddenCloudCaseIds()
+            : JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
+
+        if (!hiddenIds.includes(caseId)) {
+            hiddenIds.push(caseId);
+            localStorage.setItem('hidden_cloud_cases', JSON.stringify(hiddenIds));
+        }
+    } catch (e) {
+        console.warn("Konnte hidden_cloud_cases nicht speichern:", e);
+    }
+
+    // 3. Aus 'custom_cases' im localStorage entfernen
+    try {
+        const customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        const filteredCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
+        localStorage.setItem('custom_cases', JSON.stringify(filteredCases));
+    } catch (e) {
+        console.error("Fehler beim Entfernen aus custom_cases:", e);
+    }
+
+    // 4. Ordner-Override für diesen Fall bereinigen
+    try {
+        if (typeof getCaseFolderOverrides === 'function' && typeof saveCaseFolderOverrides === 'function') {
+            const overrides = getCaseFolderOverrides();
+            if (overrides && overrides[caseId]) {
+                delete overrides[caseId];
+                saveCaseFolderOverrides(overrides);
+            }
+        }
+    } catch (e) {
+        console.warn("Konnte Ordner-Override nicht bereinigen:", e);
+    }
+
+    // 5. UI sofort aktualisieren
+    renderStatus(caseId, 'success', 'Fall komplett aus dem Dashboard entfernt');
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+}
+
+// Global verfügbar machen (für Lösch-Buttons an den Dashboard-Kacheln)
+window.deleteCaseCompletely = deleteCaseCompletely;
+window.unpublishCaseFromCloud = unpublishCaseFromCloud;
+
 function renderStatus(fileName, state, message) {
     const statusContainer = document.getElementById('uploadStatusList');
     if (!statusContainer) return;
 
-    const safeId = 'status-' + fileName.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeId = 'status-' + String(fileName).replace(/[^a-zA-Z0-9]/g, '_');
     let item = document.getElementById(safeId);
     if (!item) {
         item = document.createElement('div');
@@ -5738,7 +5885,7 @@ function renderStatus(fileName, state, message) {
     }
 
     item.className = `upload-status-item ${state}`;
-    item.innerHTML = `<span><strong>${escapeHtml(fileName)}</strong>: ${escapeHtml(message)}</span>`;
+    item.innerHTML = `<span><strong>${escapeHtml(String(fileName))}</strong>: ${escapeHtml(String(message))}</span>`;
 }
 
 async function loadCasesFromDatabase() {
@@ -5760,7 +5907,7 @@ async function loadCasesFromDatabase() {
             return;
         }
 
-        // 1. NUR DIE EIGENE ORDNER-KONFIGURATION DES AKTUELLEN USERS LADEN!
+        // 1. NUR DIE EIGENE ORDNER-KONFIGURATION DES AKTUELLEN USERS LADEN
         if (currentUser) {
             const myConfigId = getUserFolderConfigCloudId(currentUser.id);
             const myConfigRow = (data || []).find(d => d.case_id === myConfigId);
@@ -5773,11 +5920,30 @@ async function loadCasesFromDatabase() {
             }
         }
 
-        // 2. NUR GETEILTE FÄLLE VON MARCO (is_public === true) ODER EIGENE FÄLLE LADEN
-       realCaseRows.forEach(dbCase => {
+        // 2. NUR GETEILTE FÄLLE (is_public === true) ODER EIGENE FÄLLE FILTERN
+        const realCaseRows = (data || []).filter(dbRow => {
+            const cId = dbRow.case_id;
+            if (!cId || isSystemOrSolitaireCloudRow(cId)) return false;
+            const isOwnCase = currentUser && (dbRow.user_id === currentUser.id || dbRow.created_by === currentUser.id);
+            return dbRow.is_public === true || isOwnCase;
+        });
+
+        window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
+
+        if (realCaseRows.length > 0) {
+            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]')
+                .filter(c => !isSystemOrSolitaireCloudRow(c));
+            const hiddenCloudIds = typeof getHiddenCloudCaseIds === 'function'
+                ? getHiddenCloudCaseIds()
+                : JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
+            const deletedFolders = getDeletedFoldersSet();
+            const overrides = getCaseFolderOverrides();
+
+            realCaseRows.forEach(dbCase => {
                 const cloudCase = dbCase.content;
                 if (!cloudCase) return;
-                const cId = cloudCase.case_id || cloudCase.id;
+
+                const cId = cloudCase.case_id || cloudCase.id || dbCase.case_id;
                 if (!cId || isSystemOrSolitaireCloudRow(cId) || hiddenCloudIds.includes(cId)) return;
 
                 // Originales Fachgebiet aus dem Fall-JSON oder der DB-Spalte ermitteln
@@ -5788,8 +5954,8 @@ async function loadCasesFromDatabase() {
                     'Allgemein'
                 ).trim();
 
-                // WICHTIG: Wenn der User diesen Online-Ordner für sich gelöscht hat (und den Fall nicht manuell woandershin verschoben hat),
-                // wird der Fall komplett übersprungen und landet NICHT in "Allgemein"!
+                // Wenn der User diesen Online-Ordner für sich gelöscht hat (und den Fall nicht manuell
+                // woandershin verschoben hat), wird der Fall komplett übersprungen
                 const userOverrideFolder = overrides[cId];
                 if (deletedFolders.has(originalFolder) && (!userOverrideFolder || deletedFolders.has(userOverrideFolder))) {
                     return;
@@ -5812,50 +5978,10 @@ async function loadCasesFromDatabase() {
                 } else {
                     customCases.push(cloudCase);
                 }
-                window.registerCaseDDs(cloudCase);
-            });
 
-        window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
-
-        if (realCaseRows.length > 0) {
-            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]')
-                .filter(c => !isSystemOrSolitaireCloudRow(c));
-            const hiddenCloudIds = getHiddenCloudCaseIds();
-            const deletedFolders = getDeletedFoldersSet();
-            const overrides = getCaseFolderOverrides();
-
-            realCaseRows.forEach(dbCase => {
-                const cloudCase = dbCase.content;
-                if (!cloudCase) return;
-                const cId = cloudCase.case_id || cloudCase.id;
-                if (!cId || isSystemOrSolitaireCloudRow(cId) || hiddenCloudIds.includes(cId)) return;
-
-                // Originales Fachgebiet aus dem Fall-JSON oder der DB-Spalte wiederherstellen
-                const originalFolder = (
-                    (dbCase.medical_field && dbCase.medical_field !== 'Allgemein' ? dbCase.medical_field : '') ||
-                    cloudCase.metadata?.medical_field ||
-                    cloudCase.folder_name ||
-                    'Allgemein'
-                ).trim();
-
-                if (originalFolder && !deletedFolders.has(originalFolder)) {
-                    cloudCase.folder_name = originalFolder;
-                    if (cloudCase.metadata) cloudCase.metadata.medical_field = originalFolder;
-                    if (!overrides[cId] || overrides[cId] === 'Allgemein') {
-                        overrides[cId] = originalFolder;
-                    }
+                if (typeof window.registerCaseDDs === 'function') {
+                    window.registerCaseDDs(cloudCase);
                 }
-
-                applyFolderOverridesToCase(cloudCase);
-                registerDynamicFolder(cloudCase.folder_name);
-
-                const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
-                if (idx !== -1) {
-                    customCases[idx] = cloudCase;
-                } else {
-                    customCases.push(cloudCase);
-                }
-                window.registerCaseDDs(cloudCase);
             });
 
             saveCaseFolderOverrides(overrides);
