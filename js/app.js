@@ -3995,10 +3995,14 @@ window.loadCaseById = function(caseId, opts = {}) {
 };
 
 window.renderOverview = function() {
+    // 1. Primär: Ausgelagertes Synchronized Cornell Notes Modul nutzen (js/cornell.js)
     if (window.CornellNotesModule && typeof window.CornellNotesModule.render === 'function') {
         return window.CornellNotesModule.render();
     }
-};
+
+    // 2. Fallback: Falls js/cornell.js noch nicht geladen wurde, sicher im Container rendern
+    const container = document.getElementById('overview-container');
+    if (!container) return;
 
     const data = activeCaseData?.case_overview;
     if (!data) {
@@ -4006,35 +4010,41 @@ window.renderOverview = function() {
         return;
     }
 
-    let notesHtml = '';
-    if (data.cornell_notes && Array.isArray(data.cornell_notes)) {
-        data.cornell_notes.forEach((note, index) => {
-            const cuesArray = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
-            const targetId = `cornell-note-target-${index}`;
-            const rowId = `cornell-row-${index}`;
-
-            notesHtml += `
-                <div class="cornell-grid" id="${rowId}">
-                    <div class="cornell-cues">
-                        ${cuesArray.map((cueText) => `
-                            <div class="cornell-cue-item" 
-                                 data-target="${targetId}" 
-                                 data-row="${rowId}"
-                                 tabindex="0"
-                                 role="button">
-                                <span class="cornell-cue-bullet"></span>
-                                <span class="cornell-cue-label">${cueText}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="cornell-notes" id="${targetId}" data-row="${rowId}">
-                        ${note.notes || ''}
-                    </div>
+    const notesHtml = (Array.isArray(data.cornell_notes) ? data.cornell_notes : []).map((note, index) => {
+        const cuesArray = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
+        const rowId = `cornell-row-${index}`;
+        const targetId = `cornell-note-target-${index}`;
+        return `
+            <div class="cornell-grid" id="${rowId}">
+                <div class="cornell-cues">
+                    ${cuesArray.map(cueText => `
+                        <div class="cornell-cue-item" data-target="${targetId}" data-row="${rowId}" tabindex="0" role="button">
+                            <span class="cornell-cue-bullet"></span>
+                            <span class="cornell-cue-label">${escapeHtml(cueText)}</span>
+                        </div>
+                    `).join('')}
                 </div>
-            `;
-        });
-    }
+                <div class="cornell-notes" id="${targetId}" data-row="${rowId}">
+                    ${note.notes || ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 
+    container.innerHTML = `
+        <div class="cornell-wrapper">
+            <div class="cornell-header">
+                <h2>${escapeHtml(data.topic || 'Thematische Übersicht')}</h2>
+                <div class="cornell-header-subtitle">Systematische Übersicht & Evidenzbasierte Leitlinien</div>
+            </div>
+            <div class="cornell-body">${notesHtml}</div>
+            <div class="cornell-summary">
+                <div class="cornell-summary-badge">Take-Home Message</div>
+                <p>${escapeHtml(data.summary || 'Keine Zusammenfassung hinterlegt.')}</p>
+            </div>
+        </div>
+    `;
+};
     const topicTitle = window.isSpecialtyBlindMode 
         ? "Klinisches Krankheitsbild (Blind-Training)" 
         : (data.topic || 'Thematische Übersicht');
