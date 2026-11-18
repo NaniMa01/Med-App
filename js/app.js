@@ -3995,8 +3995,10 @@ window.loadCaseById = function(caseId, opts = {}) {
 };
 
 window.renderOverview = function() {
-    const container = document.getElementById('overview-container');
-    if (!container) return;
+    if (window.CornellNotesModule && typeof window.CornellNotesModule.render === 'function') {
+        return window.CornellNotesModule.render();
+    }
+};
 
     const data = activeCaseData?.case_overview;
     if (!data) {
