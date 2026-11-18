@@ -1439,14 +1439,6 @@ const MedIcons = {
     folder: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
 };
 
-// --- SICHERE SCHLÜSSEL-DEFINITIONEN (Verhindert Redeclaration-Errors) ---
-if (typeof HIDDEN_CLOUD_CASES_KEY === 'undefined') {
-    var HIDDEN_CLOUD_CASES_KEY = 'medcheck_hidden_cloud_cases';
-}
-if (typeof DELETED_FOLDERS_KEY === 'undefined') {
-    var DELETED_FOLDERS_KEY = 'medcheck_deleted_folders';
-}
-
 // --- SICHERE FALLBACKS FÜR GLOBALE HELFER (Verhindert Totalabstürze) ---
 if (typeof window.escapeHtml !== 'function') {
     window.escapeHtml = function(str) {
@@ -1556,10 +1548,10 @@ window.MedUI = MedUI;
 // --- ROBUSTE HILFSFUNKTIONEN FÜR GELÖSCHTE ORDNER & FÄLLE ---
 function markFolderAsDeleted(folderName) {
     try {
-        const deleted = JSON.parse(localStorage.getItem(DELETED_FOLDERS_KEY) || '[]');
+        const deleted = JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]');
         if (!deleted.includes(folderName)) {
             deleted.push(folderName);
-            localStorage.setItem(DELETED_FOLDERS_KEY, JSON.stringify(deleted));
+            localStorage.setItem('medcheck_deleted_folders', JSON.stringify(deleted));
         }
     } catch (e) {
         console.warn("Konnte Ordner nicht als gelöscht markieren:", e);
@@ -1568,9 +1560,9 @@ function markFolderAsDeleted(folderName) {
 
 function unmarkFolderAsDeleted(folderName) {
     try {
-        const deleted = JSON.parse(localStorage.getItem(DELETED_FOLDERS_KEY) || '[]');
+        const deleted = JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]');
         const updated = deleted.filter(f => f !== folderName);
-        localStorage.setItem(DELETED_FOLDERS_KEY, JSON.stringify(updated));
+        localStorage.setItem('medcheck_deleted_folders', JSON.stringify(updated));
     } catch (e) {
         console.warn("Konnte gelöschten Status nicht aufheben:", e);
     }
@@ -1578,7 +1570,7 @@ function unmarkFolderAsDeleted(folderName) {
 
 function getDeletedFoldersSet() {
     try {
-        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_KEY) || '[]'));
+        return new Set(JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]'));
     } catch (e) {
         return new Set();
     }
@@ -1587,7 +1579,7 @@ window.getDeletedFoldersSet = getDeletedFoldersSet;
 
 function getHiddenCloudCaseIds() {
     try {
-        return JSON.parse(localStorage.getItem(HIDDEN_CLOUD_CASES_KEY) || '[]');
+        return JSON.parse(localStorage.getItem('medcheck_hidden_cloud_cases') || '[]');
     } catch (_e) {
         return [];
     }
@@ -1600,7 +1592,7 @@ function addHiddenCloudCaseId(caseId) {
         const list = getHiddenCloudCaseIds();
         if (!list.includes(caseId)) {
             list.push(caseId);
-            localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(list));
+            localStorage.setItem('medcheck_hidden_cloud_cases', JSON.stringify(list));
         }
     } catch (e) {
         console.warn("Konnte versteckte Fall-ID nicht speichern:", e);
