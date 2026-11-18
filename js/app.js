@@ -4610,78 +4610,136 @@ window.generateCaseWithGemini = async function() {
 
 const MEDCHECK_MASTER_PROMPT = `# ROLLE & ZIELGRUPPE
 
+# ROLLE & ZIELGRUPPE
+
 Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Generiere aus dem Fachtext/Skript genau EINEN maximal vollständigen Fall als syntaktisch valides JSON.
 
-  - Zielgruppe: Medizinstudierende vor dem Staatsexamen (2. Masterjahr).
-  - Fokus: Differenzialdiagnosen, Pathophysiologie-Kausalketten, Goldstandards, Leitlinien, Fallstricke (Cognitive Biases, Behandlungsfehler).
-  - Sprache: Höchste Fachterminologie, anatomische Leitstrukturen, exakte Laborparameter (mit Einheiten/Grenzwerten), Bildgebung, Medikamente inkl. Wirkmechanismen.
+- Zielgruppe: Medizinstudierende vor dem Staatsexamen (2. Masterjahr).
+- Fokus: 100 % verlustfreie Nutzung ALLER Informationen der Quelle, Differenzialdiagnosen, Pathophysiologie-Kausalketten, Goldstandards, Leitlinien und Fallstricke (Cognitive Biases, Behandlungsfehler).
+- Sprache: Höchste Fachterminologie, anatomische Leitstrukturen, exakte Laborparameter (mit Einheiten/Grenzwerten), Bildgebung, Medikamente inkl. Wirkmechanismen.
+
+# 0. DIDAKTISCHE ARCHITEKTUR: VOLLSTÄNDIGKEIT, SUBTILITÄT & ZERO-LOSS-SWEEP
+
+Erstelle vor der JSON-Generierung intern ein lückenloses Inventar aller in der Quelle enthaltenen Diagnosen, Subtypen, Pathomechanismen, Labor-Cut-offs, Scores, Medikamente, Dosierungen, Kontraindikationen und klinischen Randnotizen ([Diagnose_1 ... Diagnose_M] sowie [Fakt_1 ... Fakt_N]) und verteile sie nach diesen vier Prinzipien:
+
+1. MAXIMALE DIAGNOSEN- & THEMENBREITE (VOLLSTÄNDIGKEITS-PRIORITÄT):
+   - Der primäre Fokus liegt darauf, möglichst ALLE Diagnosen, Subtypen und Kernthemen der Quelle abzuarbeiten, sodass nichts auf der Strecke bleibt.
+   - Verteile die verschiedenen Krankheitsbilder der Quelle breit und komplementär auf Audit, Doctordle, Synapsen-Matrix, Taxonomie und Master-Quiz.
+
+2. KONTROLLIERTE WIEDERHOLUNG NUR BEI KNAPPER QUELLE & IN KASKADEN (OHNE SPOILER):
+   - Enthält die Quelle weniger eigenständige Diagnosen als Challenge-Slots vorhanden sind, dürfen Diagnosen modulübergreifend wiederholt werden – jedoch strikt ohne dass ein Modul die Lösung eines anderen verrät (keine Diagnosenamen in Audit-Phasen, keine Früh-Spoiler im Doctordle).
+   - In Clinical Cascades ('extra_tasks.clinical_cascades') wird gezielt die tiefe Pathophysiologie geprüft: Dort dürfen und sollen zentrale Diagnosen aus der Quelle (auch wenn sie in anderen Challenges bereits vorkamen) als vollständige 8-stufige Kausalkette abgefragt werden.
+
+3. SUBTILITÄTS-TRICHTER & ANTI-SPOILER-PROTOKOLL:
+   - Audit-Phasen: Schreibe in 'timeline[].phase' NIEMALS den Diagnosenamen (z. B. "Patient 1: Akutvorstellung & Erst-Triage" statt "Patient 1: Lewy-Body-Demenz").
+   - Doctordle-Früh-Spoiler-Verbot: Die ersten beiden Hinweise (Index 0 und Index 1) dürfen NIEMALS den Diagnosenamen, Synonyme, pathognomonische Buzzwords, Eponyme, spezifische Autoantikörper oder beweisende Bildgebungszeichen enthalten! Sie müssen auf mindestens 5–10 Differenzialdiagnosen passen und den Fall erst schrittweise über Clue 3 bis Clue 6 engführen.
+
+4. 100-%-VOLLSTÄNDIGKEITS-SWEEP IN MASTER-QUIZ & FLASHCARDS (ZERO-LOSS):
+   - Master-Quiz (dynamisch 6–12+ Fragen je nach Quellenumfang): Prüft die Hauptdiagnosen (Bloom 3–5) UND deckt systematisch sämtliche Nebenentitäten, Komplikationen und Differenzialdiagnosen der Quelle ab.
+   - Flashcards (dynamisch 12–25+ Karten je nach Quellenumfang): Verpflichtender Reste-Sweep! Jeder einzelne Grenzwert, Score, Rezeptor, Wirkstoff, jede Dosierung, Kontraindikation und jede Randnotiz aus deinem internen Quellen-Inventar, die in den anderen Modulen noch nicht abgefragt wurden, MUSS als atomare Karte erstellt werden, bis 100 % der Quelle abgefragt sind!
 
 # 1. KRITISCHE TECHNISCHE REGELN (ZERO-TOLERANCE)
 
 1. ZWINGENDE CASE_ID ZUERST: "case_id": "STRING_IDENTIFIER" MUSS die allererste Eigenschaft im JSON sein. Darf niemals fehlen oder leer sein.
-​2. REINES ROHTEXT-JSON (TRUNCATION-SCHUTZ): Antworte AUSSCHLIESSLICH mit dem JSON-Objekt (Erstes Zeichen {, letztes Zeichen }). KEIN einleitender/erklärender Text, KEINE Markdown-Codeblöcke, KEINE Kommentare. Muss direkt durch JSON.parse() lesbar und vollständig geschlossen sein.
-3. STRIKTES ZITATIONSVERBOT & VERBOT VON SPAN- UND ZITAT-TAGS: Absolut verboten sind Zitationsmarker, Quellenverweise, Span-Markierungen oder Tags jeder Art wie,, [1], (Quelle: ...), [span_...], (start_span), (end_span) oder <span>...</span>. Der Text muss ausnahmslos sauberer, reiner Fließtext ohne jegliche Zitations- oder Span-Fragmente sein!
-4. STRING-ESCAPING: Unescapte doppelte Anführungszeichen in Strings sind VERBOTEN (nutze '...' oder \\"). Zeilenumbrüche in Strings zwingend als \\n\\n escapen (keine echten Returns). Keine unmaskierten LaTeX-Backslashes (nutze Unicode wie ≥, ≤, ±, →).
-5. HTML-GÜLTIGKEITSBEREICH: HTML-Tags (<p>, <b>, <ul>, <li>) sind AUSSCHLIESSLICH in case_overview.cornell_notes[].notes erlaubt. Alle anderen Felder (cues, summary, content, hotspots, hints, cascades, explanation, flashcards etc.) sind ausnahmslos reiner Plain-Text! Im Feld cues sind absolut KEINE HTML-Tags gestattet; cues sind reiner Plain-Text (z. B. "Epidemiologie", NIEMALS "<b>Epidemiologie</b>").
-6. SYSTEMANKER (metadata.primary_disease): Exakte Zielerkrankung des Falls als primärer Filter-Anker.
+2. REINES ROHTEXT-JSON & VALIDE TYPEN (TRUNCATION- & PARSE-SCHUTZ): Antworte AUSSCHLIESSLICH mit dem JSON-Objekt (Erstes Zeichen {, letztes Zeichen }). KEIN einleitender/erklärender Text, KEINE Markdown-Codeblöcke, KEINE Kommentare. Numerische Felder ('difficulty', 'xp_reward', 'step_id', 'puzzle_id', 'level', 'correct_index') müssen reine Ganzzahlen ohne Pluszeichen oder führende Nullen sein (z. B. 5, niemals +5 oder 05).
+3. STRIKTES ZITATIONSVERBOT & VERBOT VON SPAN- UND ZITAT-TAGS: Absolut verboten sind Zitationsmarker, Quellenverweise, Span-Markierungen oder Tags jeder Art wie [1], (Quelle: ...), [span_...], (start_span), (end_span) oder generische <span>...</span>-Tags (einzige erlaubte Ausnahme in 'cornell_notes[].notes': <span class='med-term-highlight' ...>). Der Text muss ausnahmslos sauberer Fließtext ohne jegliche Zitations-Fragmente sein!
+4. STRIKTES STRING-ESCAPING (JSON-CRASH-PRÄVENTION): Unescapte doppelte Anführungszeichen innerhalb von JSON-Strings sind ABSOLUT VERBOTEN. Nutze für HTML-Attribute ausschließlich einfache Anführungszeichen (z. B. <div class='sm-deep-dive-card'>). Zeilenumbrüche in Strings zwingend als \n\n escapen (keine echten Returns). Keine unmaskierten LaTeX-Backslashes (nutze Unicode wie ≥, ≤, ±, →).
+5. HTML-GÜLTIGKEITSBEREICH: HTML-Tags (<p>, <b>, <ul>, <li>, <span class='med-term-highlight'>, <div class='sm-deep-dive-card'>) sind AUSSCHLIESSLICH in 'case_overview.cornell_notes[].notes' erlaubt. Alle anderen Felder ('cues', 'summary', 'content', 'hotspots', 'hints', 'cascades', 'explanation', 'flashcards' etc.) sind ausnahmslos reiner Plain-Text! Im Feld 'cues' sind absolut KEINE HTML-Tags gestattet (z. B. "Epidemiologie", NIEMALS "<b>Epidemiologie</b>").
+6. SYSTEMANKER ('metadata.primary_disease'): Exakte Zielerkrankung des Falls als primärer Filter-Anker.
 
-# 2. SEKTIONSSPEZIFISISCHE ANFORDERUNGEN
+# 2. SEKTIONSSPEZIFISCHE ANFORDERUNGEN
 
 ## A. CASE_OVERVIEW
-  - cornell_notes:
-      - Lückenlose Abdeckung: MUSS ALLE Themenblöcke, Entitäten, Anatomie-Details, Physiologie, Leitsymptome, Diagnostik- und Therapieschemata des Quelltextes komplett abdecken.
-      - 1:1 Höhen-Synchronisation & Reiner Plain-Text in cues: cues (Array von reinen Plain-Text-Strings OHNE HTML-Tags wie <b>) müssen vertikal exakt 1:1 mit den Absätzen/Bullets in notes korrespondieren (Cue 1 = Absatz/Bullet 1, Cue 2 = Absatz/Bullet 2).
-      - ZWINGENDE INTENSIVE FETTMARKIERUNG IN notes: In notes MÜSSEN alle klinischen Schlüsselbegriffe, Grenzwerte, Leitstrukturen, Goldstandards, Erreger, Medikamente, Dosierungen, Warnzeichen ('Cave') und Leitsymptome konsequent, lückenlos und extrem dicht mit <b>...</b> hervorgehoben werden! Unformatierte Fließtextpassagen ohne <b>...</b> sind in notes streng verboten. Nutze <p>, <b> und <ul><li>.
-  - summary (Take-Home-Message):
-      - Reiner Plain-Text (2–4 prägnante Sätze, eigene Worte, keine Zitate).
-      - Implizites 3-Schritte-Schema (ohne Labels wie "Das Was"): 1. Kern/Definition, 2. Pathophysiologischer Mechanismus/Warum, 3. Klinische Konsequenz/Nutzen.
 
-## B. AUDIT & TIMELINE (timeline – 9 Schritte)
-- STRUKTUR: 9 Schritte in 3 Patientenszenarien (patient_1, patient_2, patient_3 à 3 Schritte, je 70-160 Wörter).
-- LINGUISTIK-REGEL (KEINE ABSOLUTISMEN): Verwende NIEMALS absolute Signalwörter wie "immer", "nie", "ausschließlich", "stets" oder "beweist". Klinische Fallbeschreibungen müssen nuanciert und realistisch bleiben, um "Test-Wiseness" (das einfache Erraten von Fehlern) zu verhindern.
-- HOTSPOTS ("phrase"): Muss ein exakter Substring aus "content" sein (ca. 4-15 Wörter). ZWINGEND: Wähle ausschließlich logische, klinische Sinneinheiten, die zusammengehören (z. B. "sofortige Gabe von 500 mg Ceftriaxon i.v." oder "Verzicht auf die nativradiologische Bildgebung" – niemals nur isolierte Wörter wie "Ceftriaxon").
-- FEHLER-DESIGN ("is_error": true): In 6-7 Schritten existiert genau EIN subtiler klinischer Fehler im Text, der exakt vom Hotspot abgedeckt wird. Dieser Fehler muss knifflig sein, tiefes pathophysiologisches oder pharmakologisches Wissen erfordern (z. B. übersehene relative Kontraindikationen, falsche Dosierung bei Niereninsuffizienz, subtile Leitlinien-Abweichung). Keine offensichtlichen Anfängerfehler!
-- DISTRAKTOREN ("is_error": false): In den restlichen 2-3 Schritten ist der im Hotspot markierte Text klinisch KORREKT, fungiert aber als starker Distraktor. Er muss wie ein typischer Behandlungsfehler oder eine Falle wirken (z. B. eine paradoxe, aber bei genauem Nachdenken leitliniengerechte Maßnahme), um das Selbstvertrauen und die klinische Synthesefähigkeit auf höchstem Niveau zu testen.
-- FEEDBACK & TRAPS: 
-  -> Bei "is_error": true: Generiere einen "socratic_trap" (einen sokratischen Impuls, der den Studierenden durch gezielte Fragen selbst auf den Denkfehler bringt, statt nur die Lösung zu verraten) sowie die "correct_pathophysiology". 
-  -> Bei "is_error": false: Generiere ein präzises "feedback" mit pathophysiologischer Begründung, warum diese auf den ersten Blick fragwürdige Maßnahme korrekt ist.
-  
-## C. FLASHCARDS (extra_tasks.flashcards – 8 bis 12 Karten)
-  - Konzept: Reines deklaratives Faktenwissen (Bloom-Stufe 1: Grenzwerte, Triaden, Goldstandards, Erstlinienmedikamente, Genetik/Antikörper). Minimum Information Principle: Exakt EIN atomarer Fakt pro Karte (keine Fallgeschichten!).
-  - Felder: "id" ("fc_01"...), "category", "difficulty" ("basic", "intermediate", "advanced"), "front" (eindeutige Kurzfrage), "back" (max. 1–2 Sätze oder 3–5 Bullets, < 2 Sek. Lesezeit), "mnemonic_or_context" (Merksatz/Pearl, max. 140 Zeichen).
+- 'cornell_notes':
+  - Kein ausschweifender Fließtext & Striktes Satzlimit: Pro thematischem Abschnitt mit Übertitel (bzw. Cue-Korrespondenz) dürfen maximal 2 bis 3 prägnante Sätze stehen. Kein unnötiger Fließtext.
+  - Lückenlose Abdeckung: Trotz der Begrenzung auf maximal 2–3 Sätze pro Abschnitt müssen ALLE essenziellen Themenblöcke, Entitäten, Anatomie-Details, Physiologie, Leitsymptome, Diagnostik- und Therapieschemata des Quelltextes hochkonzentriert und vollständig abgedeckt werden.
+  - 1:1 Höhen-Synchronisation & Reiner Plain-Text in 'cues': 'cues' (Array von reinen Plain-Text-Strings OHNE HTML-Tags wie <b>, z. B. Übertitel/Kategorie) müssen vertikal exakt 1:1 mit den Absätzen/Bullets in 'notes' korrespondieren (Cue 1 = Absatz/Bullet 1, Cue 2 = Absatz/Bullet 2).
+  - ZWINGENDE INTENSIVE FETTMARKIERUNG IN 'notes': In 'notes' MÜSSEN alle klinischen Schlüsselbegriffe, Grenzwerte, Leitstrukturen, Goldstandards, Erreger, Medikamente, Dosierungen, Warnzeichen ('Cave') und Leitsymptome konsequent, lückenlos und extrem dicht mit <b>...</b> hervorgehoben werden! Unformatierte Fließtextpassagen ohne <b>...</b> sind in 'notes' streng verboten. Nutze <p>, <b> und <ul><li>.
+- 'summary' (Take-Home-Message):
+  - Reiner Plain-Text (2–4 prägnante Sätze, eigene Worte, keine Zitate).
+  - Implizites 3-Schritte-Schema (ohne Labels wie "Das Was"): 1. Kern/Definition, 2. Pathophysiologischer Mechanismus/Warum, 3. Klinische Konsequenz/Nutzen.
 
-## D. DOCTORDLE & LIBRARY (extra_tasks.doctordle & library_entries)
-  - doctordle: Genau 3 Objekte (puzzle_id: 1, 2, 3). "title" lautet exakt "Fall 1", "Fall 2", "Fall 3" (keine Zusätze).
-  - Felder: puzzle_id, title, target_diagnosis, synonyms (3–6 Strings), learning_pearl (1–2 Sätze), hints (genau 6 progressive Strings ohne Früh-Spoiler: 1: Demografie/Leitsymptom, 2: Untersuchungsbefund, 3: Basislabor/Vitalwerte, 4: Weichenstellung/Funktionstest, 5: Spezifische Bildgebung/Morphologie, 6: Pathognomonischer Goldstandard).
-  - library_entries: Array aus 15–20 Strings (alle 3 target_diagnoses + synonyms + 8–12 Differenzialdiagnosen).
+### Formatierungs-Vorgaben für redaktionelle Inhalte (SpringerMedizin-Stil):
 
-## E. TAXONOMIE (extra_tasks.categorization)
-  - Konzept: Zuordnung von 8–12 anspruchsvollen Befunden/Manövern (items: { "term": "...", "category": "..." }) zu 3–4 spezifischen Krankheitsentitäten/Syndromen (categories).
-  - Verbot generischer Bins: Kategorien wie "Diagnostik", "Symptom", "Therapie" sind VERBOTEN. Hinweisfeld heißt rein "hint".
-  - SHUFFLE-PFLICHT: items MUSS komplett willkürlich durchmischt sein (keine A-A-B-B-Blöcke, keine A-B-C-D-Zyklen).
+Bette in 'case_overview.cornell_notes[].notes' (und bei Merksätzen als reinen Text-Prefix in 'timeline[].content') strukturierte Elemente ein, wann immer es klinisch sinnvoll ist. NUTZE DABEI ZWINGEND EINFACHE ANFÜHRUNGSZEICHEN (SINGLE QUOTES) FÜR HTML-ATTRIBUTE UM JSON-FEHLER ZU VERMEIDEN:
 
-## F. CLINICAL CASCADES (extra_tasks.clinical_cascades)
-  - Genau 3 Erkrankungen à 8 Stufen (01_Auslöser bis 08_Outcome). Hinweisfeld heißt rein "hint".
-  - Pflicht: Index 0 MUSS exakt metadata.primary_disease behandeln ("disease" identisch mit primary_disease). Index 1 & 2 behandeln Differenzialdiagnosen.
+1. Wichtige Merksätze & Caven (Plain-Text-Prefix am Absatzanfang):
+   - "Merke: [Text]" -> Wird automatisch in eine blaue Info-Box umgewandelt.
+   - "Cave: [Text]" -> Wird automatisch in eine rote Warn-Box (Red Flag) umgewandelt.
+   - "Klinik-Perle: [Text]" -> Wird automatisch in eine grüne Praxis-Box umgewandelt.
 
-## G. SYNAPSES MATRIX (extra_tasks.synapses_matrix – 4x4 Board)
-  - Konzept: 4 Krankheiten (diseases, Index 0 = primary_disease) × 4 feste Dimensionen ("Risikofaktor/Pathophysiologie", "Diagnostik", "Therapie", "Symptom") = 16 Kacheln. Jede Krankheit steuert exakt 1 Begriff pro Dimension bei.
-  - Kachel-Ergonomie: Jeder Begriff (term / items) max. 1–4 Wörter (ideal < 28 Zeichen, keine Sätze). Hohe Trennschärfe mit Red Herrings, aber eindeutiger 4x4-Lösung.
-  - Felder: "description", "hint", "diseases" (4 Strings), "groups" (4 Objekte mit "title", "level" 0–3, "items" [4 Strings], "explanation" [1–2 Sätze]), "variables" (16 Objekte { "term": "...", "type": "...", "disease": "..." }).
-  - SHUFFLE-PFLICHT: variables MUSS komplett pseudozufällig durchmischt sein (keine Gruppenblöcke oder zyklischen Muster).
+2. Interaktive Fachbegriffe & Laborwerte (nur in 'cornell_notes[].notes'):
+   <span class='med-term-highlight' tabindex='0' data-med-info='[Kurze Definition oder Referenzbereich hier einfügen]'>Fachbegriff</span>
 
-## H. MASTER QUIZ (extra_tasks.master_quiz – Mind. 5 MC-Fragen, Typ A)
-1. Tagging: Mind. Frage 1 & 2 (Index 0, 1) behandeln primary_disease ("is_primary": true, "target_disease" = primary_disease). Restliche Fragen behandeln Differenzialdiagnosen ("is_primary": false).
-​2. Anspruch (Bloom 3–5): Fallvignetten mit zweistufigem Denkschritt (Befundsynthese -> Diagnose -> Therapie/Mechanismus) und klinischen Zielkonflikten. Kein First-Order Recall! Distraktoren auf Facharztniveau (Cognitive Biases, Kontraindikationen).
+3. Aufklappbare Pathophysiologie-Exkurse (nur in 'cornell_notes[].notes'):
+   <div class='sm-deep-dive-card'><button type='button' class='sm-deep-dive-trigger' onclick='toggleDeepDive(this)'><span>[Titel des Exkurses, z.B. Pathophysiologischer Hintergrund]</span><span class='sm-deep-dive-chevron'>▼</span></button><div class='sm-deep-dive-grid-wrapper'><div class='sm-deep-dive-inner'><div class='sm-deep-dive-content'>[Detaillierter Text des Exkurses...]</div></div></div></div>
+
+## B. AUDIT & TIMELINE ('timeline' – 9 Schritte)
+
+- STRUKTUR: 9 Schritte in 3 Patientenszenarien ('patient_1', 'patient_2', 'patient_3' à 3 Schritte, je 70–160 Wörter). Nutze die 3 Patienten, um möglichst 3 unterschiedliche Krankheitsbilder aus der Quelle abzudecken.
+- SPOILER-SCHUTZ IN 'phase': Keine Diagnosenamen in 'phase' verwenden (z. B. "Patient 1: Initiale Triage & Notaufnahme").
+- LINGUISTIK-REGEL (KEINE ABSOLUTISMEN): Verwende NIEMALS absolute Signalwörter wie "immer", "nie", "ausschließlich", "stets" oder "beweist". Klinische Fallbeschreibungen müssen nuanciert und realistisch bleiben, um "Test-Wiseness" zu verhindern.
+- HOTSPOTS ('phrase'): Muss ein exakter Substring aus 'content' sein (ca. 4–15 Wörter). ZWINGEND: Wähle ausschließlich logische, klinische Sinneinheiten, die zusammengehören (z. B. "sofortige Gabe von 500 mg Ceftriaxon i.v." oder "Verzicht auf die nativradiologische Bildgebung" – niemals nur isolierte Wörter wie "Ceftriaxon").
+- FEHLER-DESIGN ('is_error': true): In 6–7 Schritten existiert genau EIN subtiler klinischer Fehler im Text, der exakt vom Hotspot abgedeckt wird. Dieser Fehler muss knifflig sein, tiefes pathophysiologisches oder pharmakologisches Wissen erfordern (z. B. übersehene relative Kontraindikationen, falsche Dosierung bei Niereninsuffizienz, subtile Leitlinien-Abweichung). Keine offensichtlichen Anfängerfehler!
+- DISTRAKTOREN ('is_error': false): In den restlichen 2–3 Schritten ist der im Hotspot markierte Text klinisch KORREKT, fungiert aber als starker Distraktor. Er muss wie ein typischer Behandlungsfehler oder eine Falle wirken (z. B. eine paradoxe, aber bei genauem Nachdenken leitliniengerechte Maßnahme).
+- FEEDBACK & TRAPS:
+  -> Bei 'is_error': true: Generiere einen 'socratic_trap' (sokratischer Impuls, der durch gezielte Fragen selbst auf den Denkfehler bringt, statt die Lösung zu verraten) sowie 'correct_pathophysiology'.
+  -> Bei 'is_error': false: Generiere ein präzises 'feedback' mit pathophysiologischer Begründung, warum diese auf den ersten Blick fragwürdige Maßnahme korrekt ist.
+
+## C. FLASHCARDS ('extra_tasks.flashcards' – dynamisch 12 bis 25+ Karten)
+
+- Konzept: Reines deklaratives Faktenwissen (Bloom-Stufe 1: Grenzwerte, Triaden, Goldstandards, Erstlinienmedikamente, Dosierungen, Kontraindikationen, Genetik/Antikörper). Minimum Information Principle: Exakt EIN atomarer Fakt pro Karte (keine Fallgeschichten!).
+- Vollständigkeits-Sweep: Deckt zwingend ALLE Zahlenwerte, Scores, Medikamente und Randnotizen der Quelle ab, die in den anderen Challenges noch nicht abgefragt wurden.
+- Felder: 'id' ("fc_01"...), 'category', 'difficulty' ("basic", "intermediate", "advanced"), 'front' (eindeutige Kurzfrage), 'back' (max. 1–2 Sätze oder 3–5 Bullets, < 2 Sek. Lesezeit), 'mnemonic_or_context' (Merksatz/Pearl, max. 140 Zeichen).
+
+## D. DOCTORDLE & LIBRARY ('extra_tasks.doctordle' & 'library_entries')
+
+- 'doctordle': 3 bis 5 Objekte ('puzzle_id': 1..N, je nach Quellenumfang). 'title' lautet exakt "Fall 1", "Fall 2", "Fall 3" usw. (keine Zusätze). Bevorzuge Diagnosen der Quelle, die im Audit noch nicht im Mittelpunkt standen, sofern genügend Entitäten vorhanden sind.
+- ECHTES DOCTORDLE-SCHEMA (6 PROGRESSIVE CLUES OHNE PREFIX & OHNE FRÜH-SPOILER):
+  - Die Strings im Array 'hints' dürfen KEINE Präfixe wie "Hinweis 1:" oder "Clue 1:" enthalten. Sie formulieren reine, flüssige klinische Fallbausteine.
+  - Die 6 Stufen müssen die klinische Deduktion des echten Doctordle exakt nachbilden:
+    - Index 0 (Clue 1 – Demografie & unspezifisches Leitsymptom): Alter, Geschlecht und breites, mehrdeutiges Hauptsymptom (muss auf 5–10 Differenzialdiagnosen passen; KEINE Buzzwords, Eponyme oder Diagnoseteile!).
+    - Index 1 (Clue 2 – Symptomcharakterisierung & Verlauf): Zeitliche Dynamik, Schmerzqualität, Trigger oder begleitende Beschwerden (weiterhin subtil ohne Eponyme/Buzzwords).
+    - Index 2 (Clue 3 – Anamnestischer Kontext & Exposition): Spezifische Risikofaktoren, Vorerkrankungen, Noxen/Reiseanamnese oder Familienanamnese.
+    - Index 3 (Clue 4 – Körperlicher Untersuchungsbefund): Objektiver klinischer Status inklusive richtungsweisender Negativbefunde.
+    - Index 4 (Clue 5 – Fokussierte Diagnostik): Spezifischer Befund aus Basislabor, EKG, Lungenfunktion, Liquor oder Bildgebung.
+    - Index 5 (Clue 6 – Pathognomonischer Schlüsselbefund / Goldstandard): Nahezu beweisender Befund, histopathologisches Korrelat oder Goldstandard, der die Zielerkrankung auflöst (ohne den Diagnosenamen selbst auszuschreiben).
+- Felder: 'puzzle_id', 'title', 'target_diagnosis', 'synonyms' (3–6 Strings), 'learning_pearl' (1–2 Sätze Kausalität/klinische Perle), 'hints' (genau 6 progressive Strings nach obigem Schema).
+- 'library_entries': Array aus 20–30 Strings (alle 'target_diagnoses' + 'synonyms' + ALLE übrigen Krankheitsbilder und Differenzialdiagnosen aus der Quelle, damit die Autovervollständigung nichts verrät).
+
+## E. TAXONOMIE ('extra_tasks.categorization')
+
+- Konzept: Zuordnung von 10–14 anspruchsvollen Befunden/Subtypen/Manövern ('items': { "term": "...", "category": "..." }) zu 3–4 spezifischen Krankheitsentitäten/Syndromen/Subtypen ('categories') aus der Quelle.
+- Verbot generischer Bins: Kategorien wie "Diagnostik", "Symptom", "Therapie" sind VERBOTEN. Hinweisfeld heißt rein 'hint'.
+- SHUFFLE-PFLICHT: 'items' MUSS komplett willkürlich durchmischt sein (keine A-A-B-B-Blöcke, keine A-B-C-D-Zyklen).
+
+## F. CLINICAL CASCADES ('extra_tasks.clinical_cascades')
+
+- 3 bis 5 Erkrankungen (je nach Quellenumfang) à 8 Stufen ('01_Auslöser' bis '08_Outcome'). Hinweisfeld heißt rein 'hint'.
+- Pflicht: Index 0 behandelt 'metadata.primary_disease' ('disease' identisch mit 'primary_disease'). Index 1 bis N decken weitere Hauptdiagnosen und Pathomechanismen aus der Quelle ab (Wiederholung zentraler Quell-Diagnosen aus Audit/Doctordle/Synapsen ist hier erwünscht, um die gesamte Pathophysiologie-Kausalkette zu festigen).
+
+## G. SYNAPSES MATRIX ('extra_tasks.synapses_matrix' – 4x4 Board)
+
+- Konzept: 4 distinkte Krankheiten der Quelle ('diseases', Index 0 = 'primary_disease' + 3 weitere Entitäten der Quelle) x 4 feste Dimensionen ("Risikofaktor/Pathophysiologie", "Diagnostik", "Therapie", "Symptom") = 16 Kacheln. Jede Krankheit steuert exakt 1 Begriff pro Dimension bei.
+- Kachel-Ergonomie: Jeder Begriff ('term' / 'items') max. 1–4 Wörter (ideal < 28 Zeichen, keine Sätze). Hohe Trennschärfe mit Red Herrings, aber eindeutiger 4x4-Lösung.
+- Felder: 'description', 'hint', 'diseases' (4 Strings), 'groups' (4 Objekte mit 'title', 'level' 0–3, 'items' [4 Strings], 'explanation' [1–2 Sätze]), 'variables' (16 Objekte { "term": "...", "type": "...", "disease": "..." }).
+- SHUFFLE-PFLICHT: 'variables' MUSS komplett pseudozufällig durchmischt sein (keine Gruppenblöcke oder zyklischen Muster).
+
+## H. MASTER QUIZ ('extra_tasks.master_quiz' – dynamisch 6 bis 12+ MC-Fragen, Typ A)
+
+1. Tagging & Vollständigkeit: Mind. Frage 1 & 2 (Index 0, 1) behandeln 'primary_disease' ('is_primary': true, 'target_disease' = 'primary_disease'). Alle weiteren Fragen (Index 2..N) decken systematisch sämtliche Nebenentitäten, Komplikationen und Differenzialdiagnosen der Quelle ab ('is_primary': false).
+2. Anspruch (Bloom 3–5): Fallvignetten mit zweistufigem Denkschritt (Befundsynthese -> Diagnose -> Therapie/Mechanismus) und klinischen Zielkonflikten. Kein First-Order Recall! Distraktoren auf Facharztniveau (Cognitive Biases, Kontraindikationen).
 3. Anti-Bias-Protokoll (STRIKT):
-      - Längenparität: Alle 5 Optionen (options) innerhalb 10–15 % Zeichenvarianz.
-      - Homogenität: Gleicher grammatikalischer Typus, keine Begründungssätze ("weil...", "um zu..."), keine absoluten Signalwörter ("immer", "nie"), keine Meta-Optionen ("Alle genannten"). Option-Reihenfolge willkürlich permutieren.
-      - Schlüsselverteilung (correct_index 0–4): Bei 5 Fragen MUSS jeder Index (0, 1, 2, 3, 4) genau einmal vorkommen (z. B. 2, 4, 0, 3, 1). KEIN Bias zu 0/1 (A/B)! Aufeinanderfolgende Fragen dürfen NIEMALS denselben correct_index haben.
-4. Feedback (explanation & hint):
-      - "hint": Sokratischer Impuls ohne Spoiler (Feld heißt rein "hint").
-      - "explanation": 1. Expliziter Zeichenvergleich aller 5 Optionen inkl. Varianz-Prozentangabe, 2. Mechanistische Begründung der richtigen Option (Rezeptoren, Ionenkanäle, Enzymwege), 3. Dezidierte klinische Entkräftung JEDES einzelnen Distraktors.
+   - Längenparität: Alle 5 Optionen ('options') innerhalb 10–15 % Zeichenvarianz. (Wende dies intern bei der Generierung an, aber erwähne die Längenvarianz NICHT in der Erklärung!)
+   - Homogenität: Gleicher grammatikalischer Typus, keine Begründungssätze ("weil...", "um zu..."), keine absoluten Signalwörter ("immer", "nie"), keine Meta-Optionen ("Alle genannten"). Option-Reihenfolge willkürlich permutieren.
+   - Schlüsselverteilung ('correct_index' 0–4): Gleichmäßige Verteilung über alle 5 Indizes (0, 1, 2, 3, 4) ohne Bias zu 0/1 (A/B). Aufeinanderfolgende Fragen dürfen NIEMALS denselben 'correct_index' haben.
+4. Feedback ('explanation' & 'hint'):
+   - 'hint': Sokratischer Impuls ohne Spoiler (Feld heißt rein 'hint').
+   - 'explanation': 1. Mechanistische Begründung der richtigen Option (Rezeptoren, Ionenkanäle, Enzymwege), 2. Dezidierte klinische Entkräftung JEDES einzelnen Distraktors. (KEIN expliziter Zeichenvergleich im Text!)
 
 # 3. JSON-SCHEMA (TEMPLATE)
+
 {
   "case_id": "STRING_IDENTIFIER",
   "metadata": {
@@ -4690,24 +4748,24 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
     "medical_field": "STRING",
     "bloom_level": "Evaluation & Synthese",
     "difficulty": 5,
-    "xp_reward": 1200
+    "xp_reward": 1400
   },
   "case_overview": {
     "topic": "STRING",
     "cornell_notes": [
       {
-        "cues": ["Fachbegriff 1 (Plain-Text)", "Fachbegriff 2 (Plain-Text)"],
-        "notes": "<p>Erklärung mit <b>zwingend intensiver Fettmarkierung</b> aller <b>Schlüsselbegriffe</b> und <b>Grenzwerte</b>.</p><ul><li><b>Aspekt 1:</b> Details mit <b>fett markierten Fakten</b> (synchron zu Cue 1).</li><li><b>Aspekt 2:</b> Details mit <b>fett markierten Medikamenten</b> (synchron zu Cue 2).</li></ul>"
+        "cues": ["Übertitel 1 (Plain-Text)", "Übertitel 2 (Plain-Text)"],
+        "notes": "<p><b>Übertitel 1:</b> Maximal 2–3 prägnante Sätze mit <span class='med-term-highlight' tabindex='0' data-med-info='Kurze Definition/Referenzwert'><b>Schlüsselbegriffen</b></span> und <b>Grenzwerten</b>.</p><ul><li><b>Übertitel 2:</b> Maximal 2–3 Sätze, deckt alle <b>essenziellen Fakten</b> hochkonzentriert ab (synchron zu Cue 2).</li></ul><div class='sm-deep-dive-card'><button type='button' class='sm-deep-dive-trigger' onclick='toggleDeepDive(this)'><span>Pathophysiologischer Hintergrund</span><span class='sm-deep-dive-chevron'>▼</span></button><div class='sm-deep-dive-grid-wrapper'><div class='sm-deep-dive-inner'><div class='sm-deep-dive-content'>Kompakter molekularer oder leitlinienspezifischer Exkurs.</div></div></div></div>"
       }
     ],
-    "summary": "Plain-Text Synthese (2-4 Sätze: Kern, Mechanismus, Konsequenz)."
+    "summary": "Plain-Text Synthese (2–4 Sätze: Kern, Mechanismus, Konsequenz)."
   },
   "timeline": [
     {
       "step_id": 1,
       "patient_id": "patient_1",
-      "phase": "Patient 1: Phase",
-      "content": "Patient 1\\\\n\\\\nRealistischer Plain-Text Bericht ohne HTML (70-160 Wörter)...",
+      "phase": "Patient 1: Akutvorstellung & Erst-Triage",
+      "content": "Patient 1\\n\\nRealistischer Plain-Text Bericht ohne HTML (70–160 Wörter)...",
       "hotspots": [
         {
           "phrase": "exakter Substring drei bis acht Wörter",
@@ -4740,8 +4798,15 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
         "title": "Fall 1",
         "target_diagnosis": "Erkrankung A",
         "synonyms": ["Synonym 1", "Synonym 2", "Synonym 3"],
-        "hints": ["Hinweis 1: ...", "Hinweis 2: ...", "Hinweis 3: ...", "Hinweis 4: ...", "Hinweis 5: ...", "Hinweis 6: ..."],
-        "learning_pearl": "Kernaussage."
+        "hints": [
+          "Ein 54-jähriger Patient stellt sich mit seit zwei Wochen progredienter Belastungsdyspnoe vor.",
+          "Die Atembeschwerden treten insbesondere in flacher Rückenlage auf und zwingen zum Schlafen mit erhöhtem Oberkörper.",
+          "Anamnestisch besteht ein langjährig unzureichend eingestellter arterieller Hypertonus sowie ein Z.n. Myokardinfarkt vor vier Jahren.",
+          "Bei der Auskultation zeigen sich feinblasige Rasselgeräusche basal beidseits sowie ein prätibiales Ödem beidseits ohne lokale Überwärmung.",
+          "Im Labor zeigt sich ein deutlich erhöhtes NT-proBNP von 2850 pg/ml bei erhaltener glomerulärer Filtrationsrate.",
+          "Die Echokardiographie demonstriert eine hochgradig reduzierte linksventrikuläre Ejektionsfraktion von 28 % mit diffusem Hypokinesiemuster."
+        ],
+        "learning_pearl": "Kernaussage zur Pathophysiologie und Differenzierung der Zielerkrankung."
       }
     ],
     "library_entries": ["Erkrankung A", "Synonym 1", "Differenzialdiagnose 1"],
@@ -4794,13 +4859,12 @@ Facharzt, IMPP/NBME-Prüfungsbeauftragter & Software-Architect für MedCheck. Ge
         "question": "Fallvignette mit zweistufiger Leitfrage...",
         "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
         "correct_index": 2,
-        "explanation": "Zeichenvergleich:\\\\n- Option A: 48 Z.\\\\n- Option B: 49 Z.\\\\n- Option C: 47 Z.\\\\n- Option D: 46 Z.\\\\n- Option E: 48 Z.\\\\n(Maximale Varianz: 6.2 %)\\\\n\\\\nFundierte Rationale für Option C: [...Reference...Mechanismus...]\\\\n\\\\nKlinische Analyse der Distraktoren:\\\\n- Option A: [...]\\\\n- Option B: [...]\\\\n- Option D: [...]\\\\n- Option E: [...]",
-        "hint": "Hinweis ohne Spoiler."
+        "explanation": "Fundierte Rationale für Option C: [Mechanismus und Leitlinienbezug]\\n\\nKlinische Analyse der Distraktoren:\\n- Option A: [...]\\n- Option B: [...]\\n- Option D: [...]\\n- Option E: [...]",
+        "hint": "Sokratischer Hinweis ohne Spoiler."
       }
     ]
   }
-}`;
-
+}
 window.copyMasterPromptToClipboard = async function(btnElement) {
     if (typeof window.triggerHaptic === 'function') {
         window.triggerHaptic(12);
@@ -9633,3 +9697,837 @@ const RadiopaediaLinkEngine = (() => {
 
 window.RadiopaediaLinkEngine = RadiopaediaLinkEngine;
 RadiopaediaLinkEngine.init();
+
+// ==========================================================================
+// 25. INTERAKTIVER FACHBEGRIFF-TOOLTIP-POPOVER (MedTermTooltipEngine)
+// ==========================================================================
+const MedTermTooltipEngine = (() => {
+    let popoverEl = null;
+    let activeTargetEl = null;
+    let hoverOpenTimer = null;
+    let hoverCloseTimer = null;
+    let isPinnedByClick = false;
+
+    function escapeSafe(str) {
+        return String(str || '').replace(/[&<>'"]/g, tag => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[tag] || tag));
+    }
+
+    function injectStyles() {
+        if (document.getElementById('mc-med-term-popover-css')) return;
+        const style = document.createElement('style');
+        style.id = 'mc-med-term-popover-css';
+        style.textContent = `
+            .med-term-highlight {
+                color: var(--accent-cyan, #38bdf8);
+                font-weight: 700;
+                border-bottom: 1.5px dashed rgba(56, 189, 248, 0.65);
+                background: rgba(56, 189, 248, 0.08);
+                padding: 0 4px;
+                border-radius: 4px;
+                cursor: help;
+                transition: background 0.15s ease, border-color 0.15s ease;
+            }
+            .med-term-highlight:hover,
+            .med-term-highlight:focus,
+            .med-term-highlight.is-popover-open {
+                background: rgba(56, 189, 248, 0.2);
+                border-bottom-style: solid;
+                border-bottom-color: var(--accent-cyan, #38bdf8);
+                outline: none;
+            }
+            html[data-theme="daylight"] .med-term-highlight,
+            html[data-theme="tropical"] .med-term-highlight {
+                color: #0369a1;
+                background: rgba(2, 132, 199, 0.09);
+                border-bottom-color: rgba(2, 132, 199, 0.6);
+            }
+            .mc-med-popover {
+                position: fixed;
+                z-index: 10050;
+                width: min(360px, calc(100vw - 24px));
+                padding: 13px 15px;
+                border-radius: 13px;
+                background: var(--surface-elevated, #0f172a);
+                border: 1px solid rgba(56, 189, 248, 0.45);
+                box-shadow: 0 16px 38px rgba(2, 6, 23, 0.55);
+                color: var(--text-main, #f8fafc);
+                font-size: 0.82rem;
+                line-height: 1.5;
+                opacity: 0;
+                transform: translateY(4px) scale(0.98);
+                pointer-events: none;
+                transition: opacity 0.16s ease, transform 0.16s ease;
+            }
+            .mc-med-popover.is-visible {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                pointer-events: auto;
+            }
+            html[data-theme="daylight"] .mc-med-popover,
+            html[data-theme="tropical"] .mc-med-popover {
+                background: #ffffff;
+                border-color: #0284c7;
+                color: #0f172a;
+                box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+            }
+            .mc-med-popover-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                margin-bottom: 6px;
+                padding-bottom: 6px;
+                border-bottom: 1px solid var(--card-border, rgba(148, 163, 184, 0.2));
+            }
+            .mc-med-popover-kicker {
+                font-size: 0.65rem;
+                font-weight: 800;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--accent-cyan, #38bdf8);
+            }
+            html[data-theme="daylight"] .mc-med-popover-kicker,
+            html[data-theme="tropical"] .mc-med-popover-kicker {
+                color: #0369a1;
+            }
+            .mc-med-popover-term {
+                font-weight: 800;
+                font-size: 0.9rem;
+                color: var(--text-main, #f8fafc);
+                margin-bottom: 4px;
+            }
+            .mc-med-popover-body {
+                color: var(--text-muted, #cbd5e1);
+                font-size: 0.81rem;
+            }
+            html[data-theme="daylight"] .mc-med-popover-body,
+            html[data-theme="tropical"] .mc-med-popover-body {
+                color: #334155;
+            }
+            .mc-med-popover-footer {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 10px;
+                padding-top: 8px;
+                border-top: 1px dashed var(--card-border, rgba(148, 163, 184, 0.2));
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensurePopoverElement() {
+        if (popoverEl) return popoverEl;
+        injectStyles();
+
+        popoverEl = document.createElement('div');
+        popoverEl.id = 'mc-med-term-popover';
+        popoverEl.className = 'mc-med-popover';
+        popoverEl.setAttribute('role', 'tooltip');
+        document.body.appendChild(popoverEl);
+
+        popoverEl.addEventListener('mouseenter', () => {
+            clearTimeout(hoverCloseTimer);
+        });
+
+        popoverEl.addEventListener('mouseleave', () => {
+            if (!isPinnedByClick) {
+                scheduleHide();
+            }
+        });
+
+        return popoverEl;
+    }
+
+    function positionPopover(targetEl) {
+        if (!popoverEl || !targetEl) return;
+        const rect = targetEl.getBoundingClientRect();
+        const popRect = popoverEl.getBoundingClientRect();
+        const popW = popRect.width || 340;
+        const popH = popRect.height || 130;
+        const margin = 12;
+
+        // Horizontal mittig über dem Begriff ausrichten, aber innerhalb des Viewports halten
+        let left = rect.left + (rect.width / 2) - (popW / 2);
+        left = Math.max(margin, Math.min(window.innerWidth - popW - margin, left));
+
+        // Vertikal bevorzugt oberhalb anzeigen; falls oben zu wenig Platz, nach unten klappen
+        let top = rect.top - popH - 10;
+        if (top < margin) {
+            top = rect.bottom + 10;
+        }
+        if (top + popH > window.innerHeight - margin) {
+            top = Math.max(margin, window.innerHeight - popH - margin);
+        }
+
+        popoverEl.style.left = `${Math.round(left)}px`;
+        popoverEl.style.top = `${Math.round(top)}px`;
+    }
+
+    function showForElement(targetEl, pin = false) {
+        if (!targetEl) return;
+        const infoText = (targetEl.getAttribute('data-med-info') || targetEl.getAttribute('title') || '').trim();
+        if (!infoText) return;
+
+        clearTimeout(hoverCloseTimer);
+        const pop = ensurePopoverElement();
+
+        if (activeTargetEl && activeTargetEl !== targetEl) {
+            activeTargetEl.classList.remove('is-popover-open');
+        }
+        activeTargetEl = targetEl;
+        activeTargetEl.classList.add('is-popover-open');
+        if (pin) isPinnedByClick = true;
+
+        const termLabel = targetEl.textContent.trim();
+
+        pop.innerHTML = `
+            <div class="mc-med-popover-header">
+                <span class="mc-med-popover-kicker">📖 Klinische Definition & Referenz</span>
+                <button type="button" class="ghost-tool-btn" id="mc-med-popover-close" style="padding:1px 7px; font-size:0.72rem;" title="Schließen (ESC)">✕</button>
+            </div>
+            <div class="mc-med-popover-term">${escapeSafe(termLabel)}</div>
+            <div class="mc-med-popover-body">${escapeSafe(infoText)}</div>
+            <div class="mc-med-popover-footer">
+                <button type="button" class="ghost-tool-btn" id="mc-med-popover-depot-btn" style="font-size:0.72rem; padding:4px 9px;">
+                    📌 Ins Lern-Depot speichern
+                </button>
+            </div>
+        `;
+
+        pop.querySelector('#mc-med-popover-close')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hide(true);
+        });
+
+        pop.querySelector('#mc-med-popover-depot-btn')?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            if (typeof createDepotEntry === 'function') {
+                await createDepotEntry({
+                    case_id: activeCaseData?.case_id || 'med_term_ref',
+                    case_title: activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Klinischer Fachbegriff',
+                    category: activeCaseData?.folder_name || activeCaseData?.metadata?.medical_field || 'Fachbegriffe',
+                    cue_context: termLabel,
+                    highlighted_text: `${termLabel}: ${infoText}`
+                });
+                btn.textContent = '✓ Gespeichert!';
+                btn.disabled = true;
+            }
+        });
+
+        pop.classList.add('is-visible');
+        requestAnimationFrame(() => positionPopover(targetEl));
+    }
+
+    function scheduleHide() {
+        clearTimeout(hoverOpenTimer);
+        clearTimeout(hoverCloseTimer);
+        hoverCloseTimer = setTimeout(() => {
+            if (!isPinnedByClick) hide(false);
+        }, 180);
+    }
+
+    function hide(force = false) {
+        clearTimeout(hoverOpenTimer);
+        clearTimeout(hoverCloseTimer);
+        if (!force && isPinnedByClick) return;
+
+        isPinnedByClick = false;
+        if (activeTargetEl) {
+            activeTargetEl.classList.remove('is-popover-open');
+            activeTargetEl = null;
+        }
+        if (popoverEl) {
+            popoverEl.classList.remove('is-visible');
+        }
+    }
+
+    function init() {
+        injectStyles();
+
+        // Hover auf Desktop
+        document.addEventListener('mouseover', (e) => {
+            const termEl = e.target.closest?.('.med-term-highlight[data-med-info], [data-med-info]');
+            if (!termEl) return;
+            clearTimeout(hoverCloseTimer);
+            if (isPinnedByClick && activeTargetEl === termEl) return;
+
+            clearTimeout(hoverOpenTimer);
+            hoverOpenTimer = setTimeout(() => {
+                isPinnedByClick = false;
+                showForElement(termEl, false);
+            }, 140);
+        });
+
+        document.addEventListener('mouseout', (e) => {
+            const termEl = e.target.closest?.('.med-term-highlight[data-med-info], [data-med-info]');
+            if (!termEl) return;
+            if (e.relatedTarget && (termEl.contains(e.relatedTarget) || popoverEl?.contains(e.relatedTarget))) {
+                return;
+            }
+            scheduleHide();
+        });
+
+        // Klick / Tap (iPad, Mobile & Desktop-Fixieren)
+        document.addEventListener('click', (e) => {
+            if (popoverEl && popoverEl.contains(e.target)) return;
+
+            const termEl = e.target.closest?.('.med-term-highlight[data-med-info], [data-med-info]');
+            if (termEl) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (activeTargetEl === termEl && isPinnedByClick) {
+                    hide(true);
+                } else {
+                    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
+                    showForElement(termEl, true);
+                }
+                return;
+            }
+
+            if (activeTargetEl) {
+                hide(true);
+            }
+        });
+
+        // Tastatur-Fokus (Barrierefreiheit)
+        document.addEventListener('focusin', (e) => {
+            const termEl = e.target.closest?.('.med-term-highlight[data-med-info], [data-med-info]');
+            if (termEl) {
+                showForElement(termEl, false);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && activeTargetEl) {
+                hide(true);
+            }
+        });
+
+        // Bei Scrollen neu positionieren oder ausblenden
+        window.addEventListener('scroll', () => {
+            if (activeTargetEl) hide(true);
+        }, { capture: true, passive: true });
+    }
+
+    return { init, showForElement, hide };
+})();
+
+window.MedTermTooltipEngine = MedTermTooltipEngine;
+MedTermTooltipEngine.init();
+
+
+// ==========================================================================
+// 26. SOURCE COMPLETENESS AUDITOR & KI-LÜCKEN-NACHGENERATOR (app.js)
+// ==========================================================================
+const SourceCompletenessAuditor = (() => {
+    const GENERIC_STOPWORDS = new Set([
+        'syndrom', 'krankheit', 'erkrankung', 'störung', 'demenz', 'infarkt',
+        'insuffizienz', 'karzinom', 'lymphom', 'tumor', 'akut', 'chronisch',
+        'primär', 'sekundär', 'typ', 'form', 'stadium', 'grad', 'maligne', 'benigne',
+        'klinik', 'therapie', 'diagnostik', 'ätiologie', 'pathophysiologie', 'prognose',
+        'epidemiologie', 'definition', 'übersicht', 'merke', 'cave', 'allgemein'
+    ]);
+
+    function escapeSafe(str) {
+        return typeof escapeHtml === 'function'
+            ? escapeHtml(str)
+            : String(str || '').replace(/[&<>'"]/g, t => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[t] || t));
+    }
+
+    function normalizeText(str) {
+        return String(str || '')
+            .replace(/<[^>]*>/g, ' ')
+            .toLowerCase()
+            .replace(/[^a-zäöüß0-9\s-]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * Extrahiert alle Cues UND alle fett markierten Schlüsselbegriffe (<b>...</b>)
+     * aus case_overview.cornell_notes und prüft, ob sie in den Challenges abgefragt werden.
+     */
+    function analyzeSourceCoverage(caseData) {
+        if (!caseData) {
+            return {
+                coveragePercent: 100,
+                totalConcepts: 0,
+                coveredConcepts: [],
+                missingCues: [],
+                missingBoldTerms: [],
+                missingContextBlocks: [],
+                stats: {}
+            };
+        }
+
+        const tasks = caseData.extra_tasks || {};
+        const cornellNotes = Array.isArray(caseData.case_overview?.cornell_notes)
+            ? caseData.case_overview.cornell_notes
+            : [];
+
+        // Gesamten Text aller interaktiven Challenges zu einem Suchkorpus zusammenbauen
+        const challengeCorpus = normalizeText([
+            ...(caseData.timeline || []).map(s => `${s.content || ''} ${(s.hotspots || []).map(h => `${h.phrase || ''} ${h.feedback || ''} ${h.correct_pathophysiology || ''}`).join(' ')}`),
+            ...(tasks.flashcards || []).map(f => `${f.category || ''} ${f.front || ''} ${f.back || ''} ${f.mnemonic_or_context || ''}`),
+            ...(tasks.master_quiz || []).map(q => `${q.target_disease || ''} ${q.question || ''} ${(q.options || []).join(' ')} ${q.explanation || ''}`),
+            ...(tasks.clinical_cascades || []).map(c => `${c.disease || ''} ${(c.cascade || []).map(st => st.content || '').join(' ')}`),
+            ...(tasks.synapses_matrix?.diseases || []),
+            ...(tasks.synapses_matrix?.variables || []).map(v => `${v.term || ''} ${v.disease || ''}`),
+            ...(tasks.categorization?.categories || []),
+            ...(tasks.categorization?.items || []).map(i => `${i.term || ''} ${i.category || ''}`),
+            ...(Array.isArray(tasks.doctordle) ? tasks.doctordle : []).map(d => `${d.target_diagnosis || ''} ${(d.synonyms || []).join(' ')} ${(d.hints || []).join(' ')} ${d.learning_pearl || ''}`)
+        ].join(' '));
+
+        const checkTermCovered = (rawLabel) => {
+            const stripped = normalizeText(
+                String(rawLabel || '').replace(/^(wann|wer|was|wie|warum|cave|merke|therapie|diagnostik|klinik|ätiologie|pathophysiologie)\s*[:?!]\s*/i, '')
+            );
+            const tokens = stripped.split(' ').filter(w => w.length >= 4 && !GENERIC_STOPWORDS.has(w));
+            if (tokens.length === 0) return true;
+            return tokens.some(tok => challengeCorpus.includes(tok));
+        };
+
+        const seenConcepts = new Set();
+        const coveredConcepts = [];
+        const missingCues = [];
+        const missingBoldTerms = [];
+        const missingContextBlocks = [];
+
+        cornellNotes.forEach(row => {
+            const rowMissingItems = [];
+
+            // 1. Cues prüfen
+            (row.cues || []).forEach(cue => {
+                const cleanCue = String(cue || '').replace(/<[^>]*>/g, '').trim();
+                const normKey = cleanCue.toLowerCase();
+                if (cleanCue.length < 3 || seenConcepts.has(normKey)) return;
+                seenConcepts.add(normKey);
+
+                if (checkTermCovered(cleanCue)) {
+                    coveredConcepts.push(cleanCue);
+                } else {
+                    missingCues.push(cleanCue);
+                    rowMissingItems.push(cleanCue);
+                }
+            });
+
+            // 2. Fett markierte Begriffe (<b>...</b>) in notes prüfen (für Grenzwerte, Medikamente, Scores!)
+            const notesHtml = String(row.notes || '');
+            const boldMatches = notesHtml.match(/<b>([^<]{3,65})<\/b>/gi) || [];
+            boldMatches.forEach(tag => {
+                const cleanBold = tag.replace(/<\/?b>/gi, '').replace(/[:?!]+$/, '').trim();
+                const normKey = cleanBold.toLowerCase();
+                if (cleanBold.length < 4 || seenConcepts.has(normKey) || GENERIC_STOPWORDS.has(normKey)) return;
+                seenConcepts.add(normKey);
+
+                if (checkTermCovered(cleanBold)) {
+                    coveredConcepts.push(cleanBold);
+                } else {
+                    missingBoldTerms.push(cleanBold);
+                    rowMissingItems.push(cleanBold);
+                }
+            });
+
+            if (rowMissingItems.length > 0) {
+                const plainNoteSnippet = notesHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                missingContextBlocks.push({
+                    missingTerms: rowMissingItems,
+                    sourceContext: plainNoteSnippet
+                });
+            }
+        });
+
+        const totalConcepts = coveredConcepts.length + missingCues.length + missingBoldTerms.length;
+        const coveragePercent = totalConcepts > 0
+            ? Math.round((coveredConcepts.length / totalConcepts) * 100)
+            : 100;
+
+        return {
+            coveragePercent,
+            totalConcepts,
+            coveredConcepts,
+            missingCues,
+            missingBoldTerms,
+            missingContextBlocks,
+            stats: {
+                quizCount: (tasks.master_quiz || []).length,
+                flashcardCount: (tasks.flashcards || []).length,
+                cascadeCount: (tasks.clinical_cascades || []).length,
+                doctordleCount: Array.isArray(tasks.doctordle) ? tasks.doctordle.length : (tasks.doctordle ? 1 : 0)
+            }
+        };
+    }
+
+    /**
+     * Laufzeit-Schutz für Doctordle & Audit:
+     * - Maskiert versehentliche Diagnosenamen in Hinweis 1 & 2 von Doctordle
+     * - Entfernt Diagnosenamen aus Audit-Phasenüberschriften
+     * - Erweitert library_entries mit allen Entitäten des Falls (gegen Autocomplete-Spoiler)
+     */
+    function applySubtleDeductionGuards(caseData) {
+        if (!caseData) return caseData;
+
+        // A) Audit-Phasen neutralisieren
+        if (Array.isArray(caseData.timeline)) {
+            caseData.timeline.forEach((step, idx) => {
+                if (!step || !step.phase) return;
+                const patientMatch = String(step.phase).match(/^(Patient\s*\d+)/i);
+                const prefix = patientMatch ? patientMatch[1] : `Abschnitt ${idx + 1}`;
+                step.phase = `${prefix} · Klinische Evaluation (${idx + 1}/${caseData.timeline.length})`;
+            });
+        }
+
+        const tasks = caseData.extra_tasks;
+        if (!tasks) return caseData;
+
+        // B) Doctordle-Früh-Spoiler in Hinweis 1 & 2 entschärfen
+        const puzzles = Array.isArray(tasks.doctordle)
+            ? tasks.doctordle
+            : (tasks.doctordle ? [tasks.doctordle] : []);
+
+        puzzles.forEach(puzzle => {
+            if (!puzzle || !Array.isArray(puzzle.hints)) return;
+
+            const forbiddenTerms = [puzzle.target_diagnosis, ...(puzzle.synonyms || [])]
+                .filter(Boolean)
+                .map(t => String(t).trim())
+                .filter(t => t.length >= 4 && !GENERIC_STOPWORDS.has(t.toLowerCase()));
+
+            for (let i = 0; i < Math.min(2, puzzle.hints.length); i++) {
+                let hintText = String(puzzle.hints[i] || '');
+                forbiddenTerms.forEach(term => {
+                    const escapedRegex = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const rx = new RegExp(escapedRegex, 'gi');
+                    if (rx.test(hintText)) {
+                        hintText = hintText.replace(rx, '[gesuchte Entität]');
+                    }
+                });
+                puzzle.hints[i] = hintText;
+            }
+        });
+
+        // C) Autocomplete-Pool mit allen Entitäten des Falls anreichern
+        const allFallEntities = [
+            ...(tasks.library_entries || []),
+            ...puzzles.flatMap(p => [p.target_diagnosis, ...(p.synonyms || [])]),
+            ...(tasks.clinical_cascades || []).map(c => c.disease),
+            ...(tasks.synapses_matrix?.diseases || []),
+            ...(tasks.categorization?.categories || []),
+            ...(tasks.master_quiz || []).map(q => q.target_disease)
+        ].filter(Boolean);
+
+        const mergedLib = Array.from(new Set(allFallEntities.map(s => String(s).trim())));
+        tasks.library_entries = mergedLib;
+        mergedLib.forEach(term => {
+            if (typeof addToDDLibrary === 'function') addToDDLibrary(term);
+        });
+
+        return caseData;
+    }
+
+    /**
+     * KI-LÜCKEN-NACHGENERATOR:
+     * Generiert fehlende Fakten/Cues über /api/gemini als zusätzliche Flashcards & Quiz-Fragen
+     * und fügt sie nahtlos in den gespeicherten Fall ein.
+     */
+    async function fillMissingGapsForCase(caseId, btnEl = null) {
+        const inputEl = document.getElementById('forge-input');
+        let targetCase = null;
+
+        // 1. Fall aus custom_cases oder direkt aus #forge-input laden
+        let customCases = [];
+        try {
+            customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        } catch (_e) {}
+
+        if (caseId) {
+            targetCase = customCases.find(c => c.case_id === caseId);
+        }
+        if (!targetCase && inputEl && inputEl.value.trim()) {
+            try {
+                const rawSan = typeof sanitizeForgeJsonInput === 'function'
+                    ? sanitizeForgeJsonInput(inputEl.value.trim())
+                    : inputEl.value.trim();
+                targetCase = JSON.parse(rawSan);
+            } catch (_e) {}
+        }
+
+        if (!targetCase) {
+            alert('Kein gültiger Fall zum Nachgenerieren gefunden.');
+            return;
+        }
+
+        const report = analyzeSourceCoverage(targetCase);
+        const allMissing = [...report.missingCues, ...report.missingBoldTerms];
+
+        if (allMissing.length === 0) {
+            if (typeof showScorePopup === 'function') {
+                showScorePopup('✓ Bereits 100 % aller Fakten abgedeckt!', 'positive');
+            }
+            return;
+        }
+
+        const origBtnHtml = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = `⏳ Generiere Flashcards & Prüfungsfragen für ${allMissing.length} fehlende Fakten...`;
+        }
+
+        const contextSummary = report.missingContextBlocks
+            .slice(0, 12)
+            .map((b, i) => `Abschnitt ${i + 1} [Fehlende Begriffe: ${b.missingTerms.join(', ')}]: ${b.sourceContext}`)
+            .join('\n\n');
+
+        const existingCardCount = (targetCase.extra_tasks?.flashcards || []).length;
+        const primaryDisease = targetCase.metadata?.primary_disease || targetCase.case_overview?.topic || 'Klinischer Fall';
+
+        const gapPrompt = `Du bist ein medizinischer Prüfungs-Architect für MedCheck (Staatsexamen / 2. Masterjahr).
+In einem bestehenden Lernfall zum Thema "${primaryDisease}" wurden folgende wichtige Fakten/Begriffe aus den Vorlesungsnotizen noch NICHT in den interaktiven Challenges abgefragt:
+
+FEHLENDE BEGRIFFE: ${allMissing.slice(0, 22).join(', ')}
+
+QUELL-KONTEXT AUS DEN CORNELL NOTES:
+${contextSummary}
+
+AUFGABE:
+Generiere ausschließlich für diese fehlenden Fakten ein reines, syntaktisch valides JSON-Objekt (KEIN Markdown, KEINE Erklärungen, erstes Zeichen {, letztes Zeichen }) mit exakt dieser Struktur:
+{
+  "additional_flashcards": [
+    {
+      "id": "fc_${String(existingCardCount + 1).padStart(2, '0')}",
+      "category": "Fakten-Sweep",
+      "difficulty": "intermediate",
+      "front": "Präzise atomare Faktenfrage zu einem der fehlenden Begriffe?",
+      "back": "Knappe, exakte Antwort mit Grenzwert/Mechanismus.",
+      "mnemonic_or_context": "Kurzer klinischer Merksatz (max. 130 Zeichen)."
+    }
+  ],
+  "additional_quiz_questions": [
+    {
+      "target_disease": "${primaryDisease}",
+      "is_primary": false,
+      "question": "Anspruchsvolle klinische Fallvignette (Bloom Stufe 3–5), die die wichtigsten fehlenden Konzepte abprüft...",
+      "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
+      "correct_index": 2,
+      "explanation": "Fundierte Rationale für die richtige Option.\\n\\nKlinische Analyse der Distraktoren:\\n- Option A: ...\\n- Option B: ...\\n- Option D: ...\\n- Option E: ...",
+      "hint": "Sokratischer Impuls ohne Lösungsspoiler."
+    }
+  ]
+}
+
+REGELN:
+1. Erstelle für JEDEN der fehlenden Begriffe eine atomare Flashcard (insgesamt ${Math.min(18, Math.max(4, allMissing.length))} Karten).
+2. Erstelle 2 bis 4 zusätzliche Typ-A MC-Fragen (je 5 Optionen mit ähnlicher Zeichenlänge, korrekter Index zwischen 0 und 4 variiert).
+3. Reiner Plain-Text ohne HTML-Tags und ohne Zitationsmarker.`;
+
+        try {
+            const res = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: gapPrompt })
+            });
+
+            const rawText = await res.text();
+            let apiPayload = null;
+            try { apiPayload = JSON.parse(rawText); } catch (_e) {}
+
+            if (!res.ok || !apiPayload) {
+                throw new Error(apiPayload?.error || `Serverfehler HTTP ${res.status}`);
+            }
+
+            let generatedRaw = typeof apiPayload.generatedText === 'string'
+                ? apiPayload.generatedText
+                : JSON.stringify(apiPayload.result || apiPayload);
+
+            // Bereinigen & äußeres JSON-Objekt extrahieren
+            generatedRaw = typeof sanitizeForgeJsonInput === 'function'
+                ? sanitizeForgeJsonInput(generatedRaw)
+                : generatedRaw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+            const firstBrace = generatedRaw.indexOf('{');
+            const lastBrace = generatedRaw.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                generatedRaw = generatedRaw.slice(firstBrace, lastBrace + 1);
+            }
+
+            const gapData = JSON.parse(generatedRaw);
+            const newCards = Array.isArray(gapData.additional_flashcards) ? gapData.additional_flashcards : [];
+            const newQuiz = Array.isArray(gapData.additional_quiz_questions) ? gapData.additional_quiz_questions : [];
+
+            if (newCards.length === 0 && newQuiz.length === 0) {
+                throw new Error('KI hat keine neuen Karten oder Fragen zurückgegeben.');
+            }
+
+            // In targetCase integrieren
+            if (!targetCase.extra_tasks) targetCase.extra_tasks = {};
+            if (!Array.isArray(targetCase.extra_tasks.flashcards)) targetCase.extra_tasks.flashcards = [];
+            if (!Array.isArray(targetCase.extra_tasks.master_quiz)) targetCase.extra_tasks.master_quiz = [];
+
+            let addedCardsCount = 0;
+            newCards.forEach((card, idx) => {
+                if (!card || !card.front || !card.back) return;
+                const isDup = targetCase.extra_tasks.flashcards.some(
+                    existing => existing.front.trim().toLowerCase() === card.front.trim().toLowerCase()
+                );
+                if (!isDup) {
+                    card.id = `fc_gap_${Date.now().toString(36)}_${idx + 1}`;
+                    targetCase.extra_tasks.flashcards.push(card);
+                    addedCardsCount++;
+                }
+            });
+
+            let addedQuizCount = 0;
+            newQuiz.forEach(q => {
+                if (!q || !q.question || !Array.isArray(q.options) || q.options.length < 4) return;
+                const isDup = targetCase.extra_tasks.master_quiz.some(
+                    existing => existing.question.trim().toLowerCase() === q.question.trim().toLowerCase()
+                );
+                if (!isDup) {
+                    targetCase.extra_tasks.master_quiz.push(q);
+                    addedQuizCount++;
+                }
+            });
+
+            // Im Forge-Textarea aktualisieren
+            if (inputEl) {
+                inputEl.value = JSON.stringify(targetCase, null, 2);
+            }
+
+            // Lokal in custom_cases speichern
+            const updatedList = customCases.filter(c => c.case_id !== targetCase.case_id);
+            updatedList.push(targetCase);
+            localStorage.setItem('custom_cases', JSON.stringify(updatedList));
+
+            // Falls dieser Fall gerade im Player geöffnet ist, live aktualisieren
+            if (activeCaseData && activeCaseData.case_id === targetCase.case_id) {
+                activeCaseData = JSON.parse(JSON.stringify(targetCase));
+            }
+
+            // Cloud-Sync anstoßen
+            if (window.Cloud && typeof window.Cloud.isLoggedIn === 'function' && window.Cloud.isLoggedIn()) {
+                await window.Cloud.saveCloudCase(targetCase).catch(() => {});
+            } else if (typeof syncModifiedCasesToSupabase === 'function') {
+                await syncModifiedCasesToSupabase([targetCase]).catch(() => {});
+            }
+
+            if (typeof renderDashboardCases === 'function') {
+                renderDashboardCases();
+            }
+
+            const newReport = analyzeSourceCoverage(targetCase);
+            renderCoverageReportInForge(targetCase, newReport, addedCardsCount, addedQuizCount);
+
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
+        } catch (err) {
+            console.error('[GapFiller] Fehler beim Nachgenerieren:', err);
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = origBtnHtml;
+            }
+            alert(`Fehler beim Nachgenerieren der Lücken: ${err.message}`);
+        }
+    }
+
+    function renderCoverageReportInForge(caseObj, report, justAddedCards = 0, justAddedQuiz = 0) {
+        const fb = document.getElementById('forge-fb');
+        if (!fb) return;
+
+        const allMissing = [...report.missingCues, ...report.missingBoldTerms];
+        const color = report.coveragePercent >= 90 ? '#6ee7b7' : (report.coveragePercent >= 70 ? '#38bdf8' : '#fbbf24');
+        const safeCaseId = escapeSafe(caseObj.case_id).replace(/'/g, "\\'");
+
+        const addedNoticeHtml = (justAddedCards > 0 || justAddedQuiz > 0)
+            ? `<div style="margin-bottom:6px; color:#6ee7b7; font-weight:700;">✨ +${justAddedCards} Flashcards und +${justAddedQuiz} Prüfungsfragen automatisch ergänzt & gespeichert!</div>`
+            : '';
+
+        const missingSectionHtml = allMissing.length > 0
+            ? `
+                <div style="margin-top:6px; color:#fbbf24;">
+                    ⚠️ <strong>Noch offene Schlüsselbegriffe/Cues (${allMissing.length}):</strong>
+                    ${escapeSafe(allMissing.slice(0, 10).join(', '))}${allMissing.length > 10 ? ' …' : ''}
+                </div>
+                <div style="margin-top:10px;">
+                    <button type="button"
+                            class="action-btn btn-sm"
+                            style="background: linear-gradient(135deg, #0284c7, #0ea5e9); color: #fff; border: none;"
+                            onclick="window.SourceCompletenessAuditor.fillGaps('${safeCaseId}', this)">
+                        🪄 Fehlende Themen (${allMissing.length}) automatisch nachgenerieren
+                    </button>
+                </div>
+              `
+            : `<div style="margin-top:6px; color:#6ee7b7;">✓ <strong>100 % Quellen-Sweep erreicht:</strong> Alle Cues und Schlüsselbegriffe werden in den Challenges abgefragt!</div>`;
+
+        // Bestehenden Report ersetzen oder neu anhängen
+        let reportBox = document.getElementById('forge-coverage-audit-box');
+        if (!reportBox) {
+            reportBox = document.createElement('div');
+            reportBox.id = 'forge-coverage-audit-box';
+            reportBox.style.cssText = 'margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.22); font-size:0.82rem; line-height:1.5;';
+            fb.appendChild(reportBox);
+        }
+
+        reportBox.innerHTML = `
+            ${addedNoticeHtml}
+            <div>
+                📊 <strong>Quellen-Abdeckung:</strong> <span style="color:${color}; font-weight:800;">${report.coveragePercent}%</span>
+                (${report.coveredConcepts.length}/${report.totalConcepts} Fakten · ${report.stats.quizCount} Quiz-Fragen, ${report.stats.flashcardCount} Flashcards, ${report.stats.cascadeCount} Kaskaden)
+            </div>
+            ${missingSectionHtml}
+        `;
+    }
+
+    function init() {
+        // Hook 1: Vor jedem Fall-Start Subtilitäts- & Anti-Spoiler-Guard anwenden
+        const origLoadCase = window.loadCaseById;
+        if (typeof origLoadCase === 'function') {
+            window.loadCaseById = async function(caseId, opts = {}) {
+                const res = await origLoadCase.apply(this, arguments);
+                if (activeCaseData) {
+                    applySubtleDeductionGuards(activeCaseData);
+                    if (currentActiveChallenge === 'audit' && typeof window.renderTimeline === 'function') {
+                        window.renderTimeline();
+                    }
+                }
+                return res;
+            };
+        }
+
+        // Hook 2: Nach dem Speichern in der Forge Vollständigkeits-Audit & Lücken-Button anzeigen
+        const origValidateSave = window.validateAndSaveCustomCase;
+        if (typeof origValidateSave === 'function') {
+            window.validateAndSaveCustomCase = function() {
+                origValidateSave.apply(this, arguments);
+
+                const inputEl = document.getElementById('forge-input');
+                const fb = document.getElementById('forge-fb');
+                if (!inputEl || !fb || !fb.classList.contains('feedback-success')) return;
+
+                try {
+                    const rawSanitized = typeof sanitizeForgeJsonInput === 'function'
+                        ? sanitizeForgeJsonInput(inputEl.value.trim())
+                        : inputEl.value.trim();
+                    const parsed = JSON.parse(rawSanitized);
+                    parsed.case_id = parsed.case_id.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                    const report = analyzeSourceCoverage(parsed);
+                    renderCoverageReportInForge(parsed, report);
+                } catch (_e) {}
+            };
+        }
+    }
+
+    return {
+        init,
+        analyzeSourceCoverage,
+        applySubtleDeductionGuards,
+        fillGaps: fillMissingGapsForCase
+    };
+})();
+
+window.SourceCompletenessAuditor = SourceCompletenessAuditor;
+SourceCompletenessAuditor.init();
