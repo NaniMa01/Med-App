@@ -4000,7 +4000,7 @@ window.renderOverview = function() {
         return window.CornellNotesModule.render();
     }
 
-    // 2. Fallback: Falls js/cornell.js noch nicht geladen wurde, sicher im Container rendern
+    // 2. Sicherer Fallback, falls js/cornell.js noch nicht geladen wurde
     const container = document.getElementById('overview-container');
     if (!container) return;
 
@@ -4012,13 +4012,18 @@ window.renderOverview = function() {
 
     const notesHtml = (Array.isArray(data.cornell_notes) ? data.cornell_notes : []).map((note, index) => {
         const cuesArray = Array.isArray(note.cues) ? note.cues : (note.cues ? [note.cues] : []);
-        const rowId = `cornell-row-${index}`;
         const targetId = `cornell-note-target-${index}`;
+        const rowId = `cornell-row-${index}`;
+
         return `
             <div class="cornell-grid" id="${rowId}">
                 <div class="cornell-cues">
-                    ${cuesArray.map(cueText => `
-                        <div class="cornell-cue-item" data-target="${targetId}" data-row="${rowId}" tabindex="0" role="button">
+                    ${cuesArray.map((cueText) => `
+                        <div class="cornell-cue-item"
+                             data-target="${targetId}"
+                             data-row="${rowId}"
+                             tabindex="0"
+                             role="button">
                             <span class="cornell-cue-bullet"></span>
                             <span class="cornell-cue-label">${escapeHtml(cueText)}</span>
                         </div>
@@ -4031,10 +4036,14 @@ window.renderOverview = function() {
         `;
     }).join('');
 
+    const topicTitle = window.isSpecialtyBlindMode
+        ? 'Klinisches Krankheitsbild (Blind-Training)'
+        : escapeHtml(data.topic || 'Thematische Übersicht');
+
     container.innerHTML = `
         <div class="cornell-wrapper">
             <div class="cornell-header">
-                <h2>${escapeHtml(data.topic || 'Thematische Übersicht')}</h2>
+                <h2>${topicTitle}</h2>
                 <div class="cornell-header-subtitle">Systematische Übersicht & Evidenzbasierte Leitlinien</div>
             </div>
             <div class="cornell-body">${notesHtml}</div>
@@ -4044,83 +4053,6 @@ window.renderOverview = function() {
             </div>
         </div>
     `;
-};
-    const topicTitle = window.isSpecialtyBlindMode 
-        ? "Klinisches Krankheitsbild (Blind-Training)" 
-        : (data.topic || 'Thematische Übersicht');
-
-    const html = `
-        <div class="cornell-wrapper">
-            <div class="cornell-header">
-                <h2>${topicTitle}</h2>
-                <div class="cornell-header-subtitle">Systematische Übersicht & Evidenzbasierte Leitlinien</div>
-            </div>
-            <div class="cornell-body">
-                ${notesHtml}
-            </div>
-            <div class="cornell-summary">
-                <div class="cornell-summary-badge">Take-Home Message</div>
-                <p>${data.summary || 'Keine Zusammenfassung hinterlegt.'}</p>
-            </div>
-        </div>
-    `;
-    container.innerHTML = html;
-
-    const cueElements = container.querySelectorAll('.cornell-cue-item');
-    const noteBlocks = container.querySelectorAll('.cornell-notes');
-
-    cueElements.forEach(cueEl => {
-        const targetId = cueEl.getAttribute('data-target');
-        const targetFragment = document.getElementById(targetId);
-        const rowId = cueEl.getAttribute('data-row');
-        const rowEl = document.getElementById(rowId);
-
-        cueEl.addEventListener('mouseenter', () => {
-            cueEl.classList.add('cue-active-highlight');
-            if (targetFragment) targetFragment.classList.add('highlight-target');
-            if (rowEl) rowEl.classList.add('row-highlight');
-            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(4);
-        });
-
-        cueEl.addEventListener('mouseleave', () => {
-            cueEl.classList.remove('cue-active-highlight');
-            if (targetFragment) targetFragment.classList.remove('highlight-target');
-            if (rowEl) rowEl.classList.remove('row-highlight');
-        });
-
-        cueEl.addEventListener('click', () => {
-            const isAlreadyActive = targetFragment?.classList.contains('highlight-target');
-            
-            container.querySelectorAll('.highlight-target').forEach(el => el.classList.remove('highlight-target'));
-            container.querySelectorAll('.cue-active-highlight').forEach(el => el.classList.remove('cue-active-highlight'));
-            container.querySelectorAll('.row-highlight').forEach(el => el.classList.remove('row-highlight'));
-
-            if (!isAlreadyActive && targetFragment) {
-                cueEl.classList.add('cue-active-highlight');
-                targetFragment.classList.add('highlight-target');
-                if (rowEl) rowEl.classList.add('row-highlight');
-                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-            }
-        });
-    });
-
-    noteBlocks.forEach(noteEl => {
-        const rowId = noteEl.getAttribute('data-row');
-        const rowEl = document.getElementById(rowId);
-        const cuesInRow = rowEl ? rowEl.querySelectorAll('.cornell-cue-item') : [];
-
-        noteEl.addEventListener('mouseenter', () => {
-            noteEl.classList.add('highlight-target');
-            cuesInRow.forEach(c => c.classList.add('cue-active-highlight'));
-            if (rowEl) rowEl.classList.add('row-highlight');
-        });
-
-        noteEl.addEventListener('mouseleave', () => {
-            noteEl.classList.remove('highlight-target');
-            cuesInRow.forEach(c => c.classList.remove('cue-active-highlight'));
-            if (rowEl) rowEl.classList.remove('row-highlight');
-        });
-    });
 };
 
 // Auto-Konverter V2.0: Aktiver Fall -> Logische Kausal-Mindmap
