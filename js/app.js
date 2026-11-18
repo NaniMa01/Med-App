@@ -1522,9 +1522,42 @@ const MedUI = {
 };
 window.MedUI = MedUI;
 
+// --- ROBUSTE HILFSFUNKTIONEN FÜR GELÖSCHTE ORDNER ---
+function markFolderAsDeleted(folderName) {
+    try {
+        const deleted = JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]');
+        if (!deleted.includes(folderName)) {
+            deleted.push(folderName);
+            localStorage.setItem('medcheck_deleted_folders', JSON.stringify(deleted));
+        }
+    } catch (e) {
+        console.warn("Konnte Ordner nicht als gelöscht markieren:", e);
+    }
+}
+
+function unmarkFolderAsDeleted(folderName) {
+    try {
+        const deleted = JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]');
+        const updated = deleted.filter(f => f !== folderName);
+        localStorage.setItem('medcheck_deleted_folders', JSON.stringify(updated));
+    } catch (e) {
+        console.warn("Konnte gelöschten Status nicht aufheben:", e);
+    }
+}
+
+function getDeletedFoldersSet() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]'));
+    } catch (e) {
+        return new Set();
+    }
+}
+window.getDeletedFoldersSet = getDeletedFoldersSet;
+
 function createCustomSuperFolder(folderName) {
     if (!folderName || !folderName.trim()) return;
     const cleanName = folderName.trim();
+    unmarkFolderAsDeleted(cleanName);
 
     const order = getSuperFolderOrder();
     if (order.some(s => s.toLowerCase() === cleanName.toLowerCase())) {
@@ -1682,7 +1715,6 @@ function reorderSuperFolders(draggedTitle, targetTitle) {
 }
 window.reorderSuperFolders = reorderSuperFolders;
 
-// NEU: Touch-freundliches Umsortieren per Button (für iPad & Handy)
 window.stepSuperFolderOrder = function(superTitle, directionDelta) {
     const order = getSuperFolderOrder();
     const idx = order.indexOf(superTitle);
@@ -1741,7 +1773,6 @@ window.renderBookshelfHeader = function() {
 };
 
 function ensureBookshelfHeaderButtons() {
-    // 1. Titel "BOOKSHELF" klickbar machen -> Öffnet den Vollbild-Manager
     const titleEl = document.querySelector('.bookshelf-title');
     if (titleEl && titleEl.dataset.fullscreenBound !== 'true') {
         titleEl.dataset.fullscreenBound = 'true';
@@ -1755,7 +1786,6 @@ function ensureBookshelfHeaderButtons() {
         });
     }
 
-    // 2. "+ Über" Button in der Sidebar ergänzen
     const addFolderBtn = document.getElementById('add-bookshelf-folder-btn');
     if (addFolderBtn && !document.getElementById('add-bookshelf-super-btn')) {
         const superBtn = document.createElement('button');
@@ -1773,7 +1803,6 @@ function ensureBookshelfHeaderButtons() {
         addFolderBtn.parentNode.insertBefore(superBtn, addFolderBtn);
     }
 
-    // 3. Cloud-Sync-Button in der Dashboard-Subbar ergänzen
     const quickBtns = document.querySelector('.dashboard-quick-folder-btns');
     if (quickBtns && !document.getElementById('folder-cloud-sync-btn')) {
         const syncBtn = document.createElement('button');
@@ -1787,7 +1816,6 @@ function ensureBookshelfHeaderButtons() {
         quickBtns.prepend(syncBtn);
     }
 }
-
 
 window.promptCreateNewFolderWithSuper = async function() {
     const availableSupers = getSuperFolderOrder();
@@ -1841,6 +1869,8 @@ window.moveFolderToSuperFolder = function(folderName, targetSuperFolder) {
     if (!folderName || !targetSuperFolder) return;
     const cleanFolder = folderName.trim();
     const cleanSuper = targetSuperFolder.trim();
+
+    unmarkFolderAsDeleted(cleanFolder);
 
     const order = getSuperFolderOrder();
     if (!order.includes(cleanSuper)) {
@@ -1941,7 +1971,6 @@ window.renameFolder = async function(oldName, newName) {
         delete mapping[cleanOld];
         saveFolderSuperMapping(mapping);
     } else {
-        // Wichtig: Bisher impliziten Überordner beim Umbenennen explizit mappen!
         mapping[cleanNew] = getSuperFolderForCategory(cleanOld);
         saveFolderSuperMapping(mapping);
     }
@@ -1986,6 +2015,7 @@ window.renameFolder = async function(oldName, newName) {
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
 
     await syncModifiedCasesToSupabase(modifiedCases);
+    pushFolderConfigToSupabase();
 };
 
 window.deleteFolder = async function(folderName, caseCount = 0) {
@@ -2022,8 +2052,10 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     if (!res) return;
     const deleteMode = (typeof res === 'object' && res.deleteMode) ? res.deleteMode : 'delete_all';
 
+    // 1. Ordner dauerhaft in der lokalen Sperrliste als gelöscht markieren
     markFolderAsDeleted(clean);
 
+    // 2. Aus lokaler Ordner-Reihenfolge entfernen
     let order = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
     order = order.filter(f => f !== clean);
     localStorage.setItem('medcheck_folder_order', JSON.stringify(order));
@@ -2031,6 +2063,7 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     let dashOrder = getDashboardFolderOrder().filter(f => f !== clean);
     saveDashboardFolderOrder(dashOrder);
 
+    // 3. Aus Super-Mapping entfernen
     const mapping = getFolderSuperMapping();
     delete mapping[clean];
     saveFolderSuperMapping(mapping);
@@ -2043,7 +2076,6 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
         || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
 
     if (deleteMode === 'delete_all') {
-        // Fälle für diesen User komplett ausblenden statt "Allgemein" zu überfluten
         if (demoCurrentFolder === clean) {
             addHiddenCloudCaseId(BUILTIN_DEMO_CASE.case_id);
             delete overrides[BUILTIN_DEMO_CASE.case_id];
@@ -2065,7 +2097,6 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
         });
         customCases = keptCustomCases;
     } else {
-        // Nur Ordner auflösen -> Fälle nach "Allgemein" verschieben
         Object.keys(overrides).forEach(cId => {
             if (overrides[cId] === clean) overrides[cId] = 'Allgemein';
         });
@@ -2100,7 +2131,12 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
 
     await syncModifiedCasesToSupabase(modifiedCases);
+    
+    // WICHTIG: Sofort die aktualisierte Ordnerkonfiguration in die Supabase-Cloud pushen,
+    // damit der gelöschte Ordner nicht beim nächsten Cloud-Sync wiederhergestellt wird!
+    pushFolderConfigToSupabase();
 };
+
 window.moveCaseToFolder = async function(caseId, targetFolder) {
     if (!caseId || !targetFolder || caseId === FOLDER_CONFIG_CLOUD_ID) return;
     const cleanFolder = targetFolder.trim();
