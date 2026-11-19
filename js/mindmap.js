@@ -46,6 +46,28 @@
     const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
     const BUILTIN_SCHEMA_VERSION = 7;
 
+    const FOLDER_OVERRIDES_KEY = 'medcheck_mindmap_folder_overrides_v1';
+
+    /**
+     * Fallback-Ordnerliste, falls das Dashboard seine Ordner noch nicht über
+     * window.MEDCHECK_DASHBOARD_FOLDERS exponiert.
+     * Passe id, label, icon, color & keywords bei Bedarf exakt an js/specialty.js an.
+     */
+    const DASHBOARD_FOLDER_FALLBACKS = [
+        { id: 'kardiologie', label: 'Kardiologie', icon: '🫀', color: '#ef4444', keywords: ['kardio', 'herz', 'stemi', 'acs', 'ekg', 'gefäss', 'angiologie'] },
+        { id: 'neurologie', label: 'Neurologie & Neurochirurgie', icon: '🧠', color: '#8b5cf6', keywords: ['neuro', 'hirn', 'hydrocephalus', 'liquor', 'demenz', 'stroke', 'epilepsie', 'cjk', 'ftd', 'lbd'] },
+        { id: 'pneumologie', label: 'Pneumologie', icon: '🫁', color: '#06b6d4', keywords: ['pneumo', 'lunge', 'lae', 'embolie', 'asthma', 'copd', 'thorax'] },
+        { id: 'haematologie', label: 'Hämatologie & Onkologie', icon: '🩸', color: '#ec4899', keywords: ['hämato', 'haemato', 'onko', 'lymph', 'leukämie', 'anämie', 'gerinnung'] },
+        { id: 'gastroenterologie', label: 'Gastroenterologie', icon: '🩺', color: '#f59e0b', keywords: ['gastro', 'leber', 'hepato', 'darm', 'pankreas', 'magen', 'viszeral'] },
+        { id: 'nephrologie', label: 'Nephrologie & Urologie', icon: '💧', color: '#3b82f6', keywords: ['nephro', 'niere', 'uro', 'elektrolyt', 'säure-basen'] },
+        { id: 'endokrinologie', label: 'Endokrinologie & Stoffwechsel', icon: '⚗️', color: '#10b981', keywords: ['endokrin', 'diabetes', 'schilddrüse', 'hormon', 'stoffwechsel'] },
+        { id: 'infektiologie', label: 'Infektiologie & Immunologie', icon: '🦠', color: '#22c55e', keywords: ['infekt', 'immun', 'sepsis', 'mikrobio', 'rheuma', 'autoimmun'] },
+        { id: 'chirurgie', label: 'Chirurgie & Orthopädie', icon: '🦴', color: '#f97316', keywords: ['chirurg', 'ortho', 'trauma', 'fraktur', 'unfall'] },
+        { id: 'notfall', label: 'Notfall- & Intensivmedizin', icon: '🚑', color: '#dc2626', keywords: ['notfall', 'intensiv', 'anästhesie', 'schock', 'reanimation'] },
+        { id: 'rechtsmedizin', label: 'Rechtsmedizin & Forensik', icon: '⚖️', color: '#64748b', keywords: ['rechtsmedizin', 'forens', 'toxikologie', 'leichenschau', 'dna'] },
+        { id: 'pharmakologie', label: 'Pharmakologie', icon: '💊', color: '#14b8a6', keywords: ['pharma', 'medikament', 'wirkstoff', 'antibiotika'] },
+        { id: 'sonstige', label: 'Allgemein & Weitere Fächer', icon: '📁', color: '#94a3b8', keywords: [] }
+    ];
     const BUILTIN_MINDMAPS = [
         // ====================================================================
         // BUILT-IN 1: STEMI (19 Knoten über 3 Ebenen, 3 Cross-Links, 4 Fallen)
@@ -1001,6 +1023,10 @@
         initialized: false,
         mindmaps: [],
         currentMap: null,
+        viewMode: 'folders',                 // 'folders' (Ordner-Bibliothek) | 'canvas' (Aktive Mindmap)
+        activeFolderId: null,                // null = Ordner-Übersicht, sonst ID des geöffneten Fachordners
+        librarySearchQuery: '',              // Suche in der Ordner-/Mindmap-Bibliothek
+        libraryFilterMode: 'all',            // 'all' | 'open' | 'weak'
         solvedNodeIds: new Set(),
         eliminatedDistractorIds: new Set(),  // Quarantänisierte / enttarnte Distraktoren
         uncertainNodeIds: new Set(),         // Metakognitiv als "Geraten/Unsicher" markierte Knoten
@@ -1501,6 +1527,190 @@
                 font-weight: 700;
                 cursor: pointer;
             }
+
+            /* === V7.1 FACHGEBIETS-ORDNERSYSTEM === */
+            .mm-library-shell {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            .mm-library-toolbar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 12px 16px;
+                border-radius: 14px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.72));
+                border: 1px solid var(--card-border, rgba(56, 189, 248, 0.22));
+            }
+            .mm-lib-search-input {
+                flex: 1;
+                min-width: 220px;
+                max-width: 380px;
+                padding: 8px 12px;
+                border-radius: 9px;
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.14));
+                background: var(--surface-primary, rgba(6, 9, 19, 0.8));
+                color: var(--text-main, #f8fafc);
+                font-size: 0.84rem;
+                outline: none;
+            }
+            .mm-lib-search-input:focus {
+                border-color: var(--accent-cyan, #38bdf8);
+            }
+            .mm-resume-banner {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 12px;
+                padding: 12px 16px;
+                border-radius: 12px;
+                background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(16, 185, 129, 0.1));
+                border: 1px solid rgba(56, 189, 248, 0.35);
+            }
+            .mm-folder-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+                gap: 14px;
+            }
+            .mm-folder-card {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding: 16px 18px;
+                border-radius: 15px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.82));
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
+                border-top: 3px solid var(--folder-accent, #38bdf8);
+                cursor: pointer;
+                transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+            }
+            .mm-folder-card:hover {
+                transform: translateY(-3px);
+                border-color: var(--folder-accent, #38bdf8);
+                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+            }
+            .mm-folder-card.is-empty {
+                opacity: 0.62;
+            }
+            .mm-folder-card-top {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 10px;
+            }
+            .mm-folder-icon {
+                font-size: 1.65rem;
+                line-height: 1;
+            }
+            .mm-folder-count-pill {
+                padding: 3px 9px;
+                border-radius: 999px;
+                font-size: 0.72rem;
+                font-weight: 800;
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.9));
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
+                color: var(--text-main, #e2e8f0);
+            }
+            .mm-folder-title {
+                font-size: 0.98rem;
+                font-weight: 800;
+                color: var(--text-main, #f8fafc);
+                margin: 2px 0 0;
+            }
+            .mm-folder-meta {
+                font-size: 0.77rem;
+                color: var(--text-muted, #94a3b8);
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+            }
+            .mm-folder-progress-track {
+                width: 100%;
+                height: 6px;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.18);
+                overflow: hidden;
+            }
+            .mm-folder-progress-fill {
+                height: 100%;
+                border-radius: 999px;
+                background: var(--folder-accent, #38bdf8);
+                transition: width 0.25s ease;
+            }
+            .mm-map-card-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+                gap: 14px;
+            }
+            .mm-map-card {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 16px 18px;
+                border-radius: 14px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.85));
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
+                border-left: 4px solid var(--folder-accent, #38bdf8);
+                transition: transform 0.15s ease, border-color 0.15s ease;
+            }
+            .mm-map-card:hover {
+                transform: translateY(-2px);
+                border-color: var(--accent-cyan, #38bdf8);
+            }
+            .mm-map-card-badges {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                font-size: 0.72rem;
+            }
+            .mm-map-mini-badge {
+                padding: 2px 8px;
+                border-radius: 6px;
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.9));
+                color: var(--text-muted, #cbd5e1);
+                font-weight: 700;
+            }
+            .mm-map-mini-badge.is-done {
+                background: rgba(16, 185, 129, 0.16);
+                color: #34d399;
+            }
+            .mm-map-mini-badge.is-weak {
+                background: rgba(245, 158, 11, 0.18);
+                color: #fbbf24;
+            }
+            .mm-map-card-actions {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                flex-wrap: wrap;
+                padding-top: 10px;
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            .mm-move-folder-select {
+                padding: 5px 8px;
+                border-radius: 7px;
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.14));
+                background: var(--surface-primary, rgba(6, 9, 19, 0.85));
+                color: var(--text-main, #e2e8f0);
+                font-size: 0.74rem;
+                max-width: 175px;
+                cursor: pointer;
+            }
+            .mm-breadcrumb-bar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+                font-size: 0.9rem;
+                font-weight: 700;
+            }
             @keyframes mmFadeIn {
                 from { opacity: 0; transform: scale(0.96); }
                 to { opacity: 1; transform: scale(1); }
@@ -1531,12 +1741,11 @@
         }
         return viewSection;
     }
-
-    async function init() {
+async function init() {
         ensureDomStructure();
         await loadMindmapsAndProgress();
         if (!state.currentMap && state.mindmaps.length > 0) {
-            selectMindmap(state.mindmaps[0].id);
+            selectMindmap(state.mindmaps[0].id, { keepFolderView: true });
         } else {
             renderModule();
         }
@@ -1544,7 +1753,7 @@
         if (!state.initialized) {
             state.initialized = true;
             window.addEventListener('resize', () => {
-                if (isViewVisible()) {
+                if (isViewVisible() && state.viewMode === 'canvas') {
                     fitStageToViewport();
                     drawSvgConnections();
                 }
@@ -1556,8 +1765,7 @@
         const el = document.getElementById('mindmap-view');
         return el && !el.classList.contains('hidden') && el.style.display !== 'none';
     }
-
-    function openView() {
+function openView() {
         const viewSection = ensureDomStructure();
         viewSection.classList.remove('hidden');
         viewSection.style.display = 'block';
@@ -1566,10 +1774,12 @@
             init();
         } else {
             renderModule();
-            requestAnimationFrame(() => {
-                fitStageToViewport();
-                drawSvgConnections();
-            });
+            if (state.viewMode === 'canvas') {
+                requestAnimationFrame(() => {
+                    fitStageToViewport();
+                    drawSvgConnections();
+                });
+            }
         }
     }
 
@@ -1726,9 +1936,10 @@
                     dbMaps.forEach(row => {
                         if (deletedBuiltins.includes(row.id)) return;
                         const parsed = typeof row.data_json === 'string' ? JSON.parse(row.data_json) : row.data_json;
-                        const dbObj = {
+                      const dbObj = {
                             id: row.id,
                             schema_version: parsed?.schema_version || 6,
+                            folder_id: parsed?.folder_id || null,
                             title: row.title,
                             specialty: row.specialty,
                             central_concept: row.central_concept,
@@ -1785,8 +1996,9 @@
                     title: mindmapObj.title,
                     specialty: mindmapObj.specialty || 'Vorlesung',
                     central_concept: mindmapObj.central_concept,
-                    data_json: {
+                   data_json: {
                         schema_version: mindmapObj.schema_version || BUILTIN_SCHEMA_VERSION,
+                        folder_id: mindmapObj.folder_id || resolveFolderForMindmap(mindmapObj).id,
                         nodes: mindmapObj.nodes,
                         cross_links: mindmapObj.cross_links || [],
                         distractors: mindmapObj.distractors || []
@@ -1898,6 +2110,227 @@
                 console.warn('[Mindmap V7.0] Fortschritt lokal gespeichert:', err);
             }
         }
+    }
+    // ========================================================================
+    // 2B. FACHGEBIETS-ORDNERSYSTEM (SYNC MIT DASHBOARD + AUTO-SORTIERUNG)
+    // ========================================================================
+
+    function normalizeFolderKey(str) {
+        return String(str || '')
+            .toLowerCase()
+            .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+    }
+
+    function getFolderOverrides() {
+        try {
+            return JSON.parse(localStorage.getItem(FOLDER_OVERRIDES_KEY) || '{}');
+        } catch (_e) {
+            return {};
+        }
+    }
+
+    function setFolderOverride(mindmapId, folderId) {
+        const map = getFolderOverrides();
+        if (folderId) {
+            map[mindmapId] = folderId;
+        } else {
+            delete map[mindmapId];
+        }
+        try {
+            localStorage.setItem(FOLDER_OVERRIDES_KEY, JSON.stringify(map));
+        } catch (_e) {}
+    }
+
+    /**
+     * Liest die Fachgebiets-Ordner automatisch aus dem Dashboard (Single Source of Truth),
+     * falls diese global exportiert wurden, und ergänzt dynamisch alle ungemappten Fachgebiete.
+     */
+    function getDashboardFolders() {
+        const rawExternal =
+            (Array.isArray(window.MEDCHECK_DASHBOARD_FOLDERS) && window.MEDCHECK_DASHBOARD_FOLDERS) ||
+            (typeof window.SpecialtyModule?.getFolders === 'function' && window.SpecialtyModule.getFolders()) ||
+            (Array.isArray(window.SPECIALTY_FOLDERS) && window.SPECIALTY_FOLDERS) ||
+            (Array.isArray(window.DASHBOARD_FOLDERS) && window.DASHBOARD_FOLDERS) ||
+            null;
+
+        const baseList = (rawExternal && rawExternal.length > 0 ? rawExternal : DASHBOARD_FOLDER_FALLBACKS).map(f => {
+            const label = f.label || f.name || f.title || f.id || 'Allgemein';
+            const id = f.id ? String(f.id) : normalizeFolderKey(label);
+            const fallbackMatch = DASHBOARD_FOLDER_FALLBACKS.find(fb => fb.id === id || normalizeFolderKey(fb.label) === normalizeFolderKey(label));
+            return {
+                id,
+                label,
+                icon: f.icon || fallbackMatch?.icon || '📁',
+                color: f.color || fallbackMatch?.color || '#38bdf8',
+                keywords: Array.isArray(f.keywords) && f.keywords.length > 0
+                    ? f.keywords
+                    : [label.toLowerCase(), id.toLowerCase(), ...(fallbackMatch?.keywords || [])]
+            };
+        });
+
+        // Sicherstellen, dass immer ein Auffang-Ordner existiert
+        if (!baseList.some(f => f.id === 'sonstige')) {
+            baseList.push({ id: 'sonstige', label: 'Allgemein & Weitere Fächer', icon: '📁', color: '#94a3b8', keywords: [] });
+        }
+
+        return baseList;
+    }
+
+    function resolveFolderForMindmap(mindmap, foldersCache = null) {
+        const folders = foldersCache || getDashboardFolders();
+        const fallbackFolder = folders.find(f => f.id === 'sonstige') || folders[folders.length - 1];
+        if (!mindmap) return fallbackFolder;
+
+        const overrides = getFolderOverrides();
+        const explicitId = overrides[mindmap.id] || mindmap.folder_id;
+        if (explicitId) {
+            const exact = folders.find(f => f.id === explicitId);
+            if (exact) return exact;
+        }
+
+        const specRaw = String(mindmap.specialty || '').trim().toLowerCase();
+        const specNorm = normalizeFolderKey(specRaw);
+        const searchHaystack = `${specRaw} ${String(mindmap.title || '').toLowerCase()}`;
+
+        // 1. Exakter ID- oder Label-Treffer auf specialty
+        const directMatch = folders.find(f =>
+            f.id !== 'sonstige' && (
+                f.id === specNorm ||
+                normalizeFolderKey(f.label) === specNorm ||
+                specRaw.includes(f.label.toLowerCase()) ||
+                f.label.toLowerCase().includes(specRaw && specRaw.length >= 4 ? specRaw : '__none__')
+            )
+        );
+        if (directMatch) return directMatch;
+
+        // 2. Keyword-Matching (primär auf specialty, sekundär auf Titel)
+        for (const f of folders) {
+            if (f.id === 'sonstige') continue;
+            if ((f.keywords || []).some(kw => kw && specRaw.includes(kw.toLowerCase()))) {
+                return f;
+            }
+        }
+        for (const f of folders) {
+            if (f.id === 'sonstige') continue;
+            if ((f.keywords || []).some(kw => kw && kw.length >= 4 && searchHaystack.includes(kw.toLowerCase()))) {
+                return f;
+            }
+        }
+
+        return fallbackFolder;
+    }
+
+    function getFoldersWithStats() {
+        const folders = getDashboardFolders();
+        const buckets = new Map();
+        folders.forEach(f => {
+            buckets.set(f.id, {
+                ...f,
+                maps: [],
+                completedCount: 0,
+                weakMapCount: 0,
+                avgAccuracy: null
+            });
+        });
+
+        state.mindmaps.forEach(m => {
+            const targetFolder = resolveFolderForMindmap(m, folders);
+            const bucket = buckets.get(targetFolder.id);
+            if (!bucket) return;
+            bucket.maps.push(m);
+            const prog = state.progressCache[m.id];
+            if (prog?.completed) bucket.completedCount += 1;
+            if (Array.isArray(prog?.weak_nodes) && prog.weak_nodes.length > 0) bucket.weakMapCount += 1;
+        });
+
+        const result = Array.from(buckets.values()).map(b => {
+            const accs = b.maps
+                .map(m => state.progressCache[m.id]?.accuracy)
+                .filter(v => typeof v === 'number' && !Number.isNaN(v));
+            b.avgAccuracy = accs.length > 0 ? Math.round(accs.reduce((s, v) => s + v, 0) / accs.length) : null;
+            return b;
+        });
+
+        // Ordner mit Inhalt zuerst, danach alphabetisch (Sonstige ganz am Ende)
+        return result.sort((a, b) => {
+            if (a.id === 'sonstige') return 1;
+            if (b.id === 'sonstige') return -1;
+            if (a.maps.length > 0 && b.maps.length === 0) return -1;
+            if (a.maps.length === 0 && b.maps.length > 0) return 1;
+            return a.label.localeCompare(b.label, 'de');
+        });
+    }
+
+    async function moveMindmapToFolder(mindmapId, newFolderId) {
+        const targetMap = state.mindmaps.find(m => m.id === mindmapId);
+        const folders = getDashboardFolders();
+        const folderObj = folders.find(f => f.id === newFolderId);
+        if (!targetMap || !folderObj) return;
+
+        targetMap.folder_id = folderObj.id;
+        targetMap.specialty = folderObj.label;
+        setFolderOverride(targetMap.id, folderObj.id);
+        await saveCustomMindmapToDb(targetMap);
+
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+        renderModule();
+        if (state.viewMode === 'canvas') {
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+            });
+        }
+    }
+
+    function openFolderLibrary(folderId = null) {
+        state.viewMode = 'folders';
+        state.activeFolderId = folderId;
+        state.librarySearchQuery = '';
+        renderModule();
+    }
+
+    function openFolder(folderId) {
+        const viewSection = ensureDomStructure();
+        viewSection.classList.remove('hidden');
+        viewSection.style.display = 'block';
+        state.viewMode = 'folders';
+        state.activeFolderId = folderId;
+        renderModule();
+    }
+
+    function getMapTreeDepthPreview(mindmap) {
+        const nodes = mindmap?.nodes || [];
+        const byId = new Map(nodes.map(n => [n.id, n]));
+        let maxD = 1;
+        nodes.forEach(n => {
+            let d = 1;
+            let cur = n.parent_id;
+            const seen = new Set([n.id]);
+            while (cur && cur !== 'root' && byId.has(cur) && !seen.has(cur)) {
+                seen.add(cur);
+                d += 1;
+                cur = byId.get(cur).parent_id;
+            }
+            if (d > maxD) maxD = d;
+        });
+        return maxD;
+    }
+
+    function renderGroupedMapOptions(selectedMapId) {
+        const folders = getFoldersWithStats().filter(f => f.maps.length > 0);
+        return folders.map(folder => `
+            <optgroup label="${escapeHtml(`${folder.icon} ${folder.label} (${folder.maps.length})`)}">
+                ${folder.maps.map(m => {
+                    const prog = state.progressCache[m.id];
+                    const badge = prog?.completed ? `✅ (${prog.accuracy}%)` : '⭕';
+                    return `<option value="${escapeHtml(m.id)}" ${m.id === selectedMapId ? 'selected' : ''}>
+                        ${badge} ${escapeHtml(m.title)} (${(m.nodes || []).length} Kn.)
+                    </option>`;
+                }).join('')}
+            </optgroup>
+        `).join('');
     }
 
   // ========================================================================
@@ -2526,7 +2959,7 @@
     // 7. RENDERING, TIER-FORTSCHRITT & ANTI-SPOILER KAUSAL-LOGIK
     // ========================================================================
 
-    function selectMindmap(mindmapId) {
+    function selectMindmap(mindmapId, options = {}) {
         const found = state.mindmaps.find(m => m.id === mindmapId) || state.mindmaps[0];
         if (!found) {
             state.currentMap = null;
@@ -2535,6 +2968,10 @@
         }
 
         state.currentMap = found;
+        state.activeFolderId = resolveFolderForMindmap(found).id;
+        if (!options.keepFolderView) {
+            state.viewMode = 'canvas';
+        }
         state.solvedNodeIds = new Set();
         state.eliminatedDistractorIds = new Set();
         state.uncertainNodeIds = new Set();
@@ -2552,10 +2989,12 @@
         rebuildPoolOrder();
         computeLayout(found);
         renderModule();
-        requestAnimationFrame(() => {
-            fitStageToViewport();
-            drawSvgConnections();
-        });
+        if (state.viewMode === 'canvas') {
+            requestAnimationFrame(() => {
+                fitStageToViewport();
+                drawSvgConnections();
+            });
+        }
     }
 
     function escapeHtml(str) {
@@ -2749,9 +3188,304 @@
         `;
     }
 
+    function renderFolderLibraryGridHtml() {
+        const folders = getFoldersWithStats();
+        const q = state.librarySearchQuery.trim().toLowerCase();
+        const filterMode = state.libraryFilterMode;
+
+        const matchesFilter = m => {
+            const prog = state.progressCache[m.id];
+            if (filterMode === 'open' && prog?.completed) return false;
+            if (filterMode === 'weak' && !(Array.isArray(prog?.weak_nodes) && prog.weak_nodes.length > 0)) return false;
+            if (!q) return true;
+            return (
+                String(m.title || '').toLowerCase().includes(q) ||
+                String(m.central_concept || '').toLowerCase().includes(q) ||
+                String(m.specialty || '').toLowerCase().includes(q)
+            );
+        };
+
+        // ANSICHT A: Globaler Suchtreffer-Modus ODER geöffneter Fachordner -> Mindmap-Karten
+        if (state.activeFolderId || q || filterMode !== 'all') {
+            const activeFolder = state.activeFolderId ? folders.find(f => f.id === state.activeFolderId) : null;
+            const sourceMaps = activeFolder ? activeFolder.maps : state.mindmaps;
+            const visibleMaps = sourceMaps.filter(matchesFilter);
+
+            if (visibleMaps.length === 0) {
+                return `
+                    <div style="padding:28px; text-align:center; border-radius:14px; background:var(--surface-secondary, rgba(15,23,42,0.7)); border:1px dashed var(--card-border, rgba(255,255,255,0.16));">
+                        <div style="font-size:1.5rem; margin-bottom:6px;">📂</div>
+                        <div style="font-weight:700; margin-bottom:6px;">
+                            ${activeFolder ? `Noch keine passenden Mindmaps im Ordner „${escapeHtml(activeFolder.label)}“` : 'Keine Mindmaps für diesen Filter gefunden'}
+                        </div>
+                        <div style="font-size:0.82rem; color:var(--text-muted, #94a3b8); margin-bottom:14px;">
+                            Importiere ein neues Vorlesungs-JSON direkt in diesen Fachordner oder setze den Filter zurück.
+                        </div>
+                        <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
+                            <button type="button" class="mm-btn mm-btn-primary" data-lib-import-folder="${escapeHtml(activeFolder?.id || '')}">
+                                📥 Mindmap hier importieren
+                            </button>
+                            ${state.activeFolderId ? `<button type="button" class="mm-btn" data-lib-back-root="1">← Alle Fachordner</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="mm-map-card-grid">
+                    ${visibleMaps.map(m => {
+                        const folder = resolveFolderForMindmap(m, folders);
+                        const prog = state.progressCache[m.id];
+                        const nodeCount = (m.nodes || []).length;
+                        const depthCount = getMapTreeDepthPreview(m);
+                        const weakCount = Array.isArray(prog?.weak_nodes) ? prog.weak_nodes.length : 0;
+                        const distCount = (m.distractors || []).length;
+                        const crossCount = (m.cross_links || []).length;
+
+                        return `
+                            <div class="mm-map-card" style="--folder-accent:${escapeHtml(folder.color)};">
+                                <div>
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                                        <span style="font-size:0.74rem; font-weight:800; color:${escapeHtml(folder.color)};">
+                                            ${escapeHtml(folder.icon)} ${escapeHtml(folder.label)}
+                                        </span>
+                                        <button type="button" class="mm-btn" data-lib-delete-map="${escapeHtml(m.id)}" style="padding:3px 7px; font-size:0.72rem; border-color:rgba(239,68,68,0.4); color:#fca5a5 !important;" title="Mindmap löschen">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                    <div style="font-size:0.98rem; font-weight:800; color:var(--text-main, #f8fafc); margin-bottom:4px;">
+                                        ${escapeHtml(m.title)}
+                                    </div>
+                                    <div style="font-size:0.78rem; color:var(--text-muted, #94a3b8); margin-bottom:10px;">
+                                        🎯 ${escapeHtml(m.central_concept)}
+                                    </div>
+                                    <div class="mm-map-card-badges">
+                                        <span class="mm-map-mini-badge">🧩 ${nodeCount} Knoten</span>
+                                        <span class="mm-map-mini-badge">🪜 ${depthCount} Ebenen</span>
+                                        ${distCount > 0 ? `<span class="mm-map-mini-badge">🛡️ ${distCount} Fallen</span>` : ''}
+                                        ${crossCount > 0 ? `<span class="mm-map-mini-badge">⚡ ${crossCount} Brücken</span>` : ''}
+                                        ${prog?.completed
+                                            ? `<span class="mm-map-mini-badge is-done">✅ ${prog.accuracy}% • ${prog.best_time_sec || 0}s</span>`
+                                            : `<span class="mm-map-mini-badge">⭕ Offen</span>`
+                                        }
+                                        ${weakCount > 0 ? `<span class="mm-map-mini-badge is-weak">⚠️ ${weakCount} Wackel</span>` : ''}
+                                    </div>
+                                </div>
+
+                                <div class="mm-map-card-actions">
+                                    <select class="mm-move-folder-select" data-move-map-id="${escapeHtml(m.id)}" title="Mindmap in einen anderen Fachordner verschieben">
+                                        ${folders.map(f => `
+                                            <option value="${escapeHtml(f.id)}" ${f.id === folder.id ? 'selected' : ''}>
+                                                📂 ${escapeHtml(f.icon)} ${escapeHtml(f.label)}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                    <button type="button" class="mm-btn mm-btn-primary" data-lib-open-map="${escapeHtml(m.id)}">
+                                        🚀 Öffnen
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        // ANSICHT B: Fachgebiets-Ordner-Übersicht (Dashboard-Spiegelung)
+        return `
+            <div class="mm-folder-grid">
+                ${folders.map(folder => {
+                    const total = folder.maps.length;
+                    const pct = total > 0 ? Math.round((folder.completedCount / total) * 100) : 0;
+                    return `
+                        <div class="mm-folder-card ${total === 0 ? 'is-empty' : ''}"
+                             style="--folder-accent:${escapeHtml(folder.color)};"
+                             data-open-folder="${escapeHtml(folder.id)}">
+                            <div class="mm-folder-card-top">
+                                <span class="mm-folder-icon">${escapeHtml(folder.icon)}</span>
+                                <span class="mm-folder-count-pill">
+                                    ${total} ${total === 1 ? 'Mindmap' : 'Mindmaps'}
+                                </span>
+                            </div>
+                            <div class="mm-folder-title">${escapeHtml(folder.label)}</div>
+                            <div class="mm-folder-meta">
+                                <span>${total > 0 ? `✅ ${folder.completedCount}/${total} gemeistert` : 'Noch leer – klick zum Import'}</span>
+                                <span>${folder.avgAccuracy !== null ? `Ø ${folder.avgAccuracy}%` : (folder.weakMapCount > 0 ? `⚠️ ${folder.weakMapCount}` : '')}</span>
+                            </div>
+                            <div class="mm-folder-progress-track">
+                                <div class="mm-folder-progress-fill" style="width:${pct}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    function renderFolderLibrary(container, deletedBuiltins) {
+        const folders = getFoldersWithStats();
+        const activeFolder = state.activeFolderId ? folders.find(f => f.id === state.activeFolderId) : null;
+        const totalMaps = state.mindmaps.length;
+        const completedMaps = state.mindmaps.filter(m => state.progressCache[m.id]?.completed).length;
+
+        container.innerHTML = `
+            <div class="mindmap-wrapper mm-library-shell">
+                <div class="mm-header">
+                    <div class="mm-title-group">
+                        <h2>📁 Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">Fachgebiets-Ordner (${completedMaps}/${totalMaps} gemeistert)</span></h2>
+                        <p>Wähle ein Fachgebiet wie im Dashboard, starte deine Deep-Tree-Mindmaps oder sortiere neue Vorlesungen direkt ein.</p>
+                    </div>
+                    <div class="mm-controls">
+                        ${deletedBuiltins.length > 0 ? `
+                            <button id="mm-btn-restore-builtins" class="mm-btn">♻️ Standards wiederherstellen</button>
+                        ` : ''}
+                        <button id="mm-btn-prompt" class="mm-btn">📋 Deep-Tree Prompt</button>
+                        <button id="mm-btn-import" class="mm-btn mm-btn-primary">📥 JSON Import</button>
+                    </div>
+                </div>
+
+                ${state.currentMap ? `
+                    <div class="mm-resume-banner">
+                        <div>
+                            <div style="font-size:0.74rem; font-weight:800; color:#38bdf8; text-transform:uppercase;">⚡ Aktive Sitzung</div>
+                            <div style="font-size:0.92rem; font-weight:800;">
+                                ${escapeHtml(state.currentMap.title)}
+                                <span style="font-weight:500; font-size:0.8rem; color:var(--text-muted, #94a3b8);">
+                                    (${state.solvedNodeIds.size}/${state.currentMap.nodes.length} Knoten gelöst)
+                                </span>
+                            </div>
+                        </div>
+                        <button type="button" id="mm-lib-resume-active" class="mm-btn mm-btn-primary">
+                            ▶ Direkt zur Mindmap zurück
+                        </button>
+                    </div>
+                ` : ''}
+
+                <div class="mm-library-toolbar">
+                    <div class="mm-breadcrumb-bar">
+                        ${activeFolder ? `
+                            <button type="button" id="mm-lib-back-btn" class="mm-btn">← Alle Ordner</button>
+                            <span style="color:${escapeHtml(activeFolder.color)};">
+                                ${escapeHtml(activeFolder.icon)} ${escapeHtml(activeFolder.label)} (${activeFolder.maps.length})
+                            </span>
+                        ` : `
+                            <span>🗂️ Alle Fachgebiete (${folders.filter(f => f.maps.length > 0).length} belegt / ${folders.length} gesamt)</span>
+                        `}
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="mm-lib-search" class="mm-lib-search-input"
+                               value="${escapeHtml(state.librarySearchQuery)}"
+                               placeholder="🔎 Mindmap oder Thema suchen..." />
+                        <button type="button" class="mm-preset-btn ${state.libraryFilterMode === 'all' ? 'active' : ''}" data-lib-filter="all">Alle</button>
+                        <button type="button" class="mm-preset-btn ${state.libraryFilterMode === 'open' ? 'active' : ''}" data-lib-filter="open">⭕ Offen</button>
+                        <button type="button" class="mm-preset-btn ${state.libraryFilterMode === 'weak' ? 'active' : ''}" data-lib-filter="weak">⚠️ Wackelkandidaten</button>
+                    </div>
+                </div>
+
+                <div id="mm-lib-grid-mount">
+                    ${renderFolderLibraryGridHtml()}
+                </div>
+            </div>
+        `;
+
+        bindFolderLibraryEvents();
+    }
+
+    function bindFolderLibraryGridEvents() {
+        const mount = document.getElementById('mm-lib-grid-mount');
+        if (!mount) return;
+
+        mount.querySelectorAll('[data-open-folder]').forEach(card => {
+            card.addEventListener('click', () => {
+                state.activeFolderId = card.getAttribute('data-open-folder');
+                renderModule();
+            });
+        });
+
+        mount.querySelectorAll('[data-lib-open-map]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectMindmap(btn.getAttribute('data-lib-open-map'));
+            });
+        });
+
+        mount.querySelectorAll('[data-move-map-id]').forEach(sel => {
+            sel.addEventListener('change', async e => {
+                const mapId = sel.getAttribute('data-move-map-id');
+                await moveMindmapToFolder(mapId, e.target.value);
+            });
+        });
+
+        mount.querySelectorAll('[data-lib-delete-map]').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                e.stopPropagation();
+                const mapId = btn.getAttribute('data-lib-delete-map');
+                const found = state.mindmaps.find(m => m.id === mapId);
+                if (!found) return;
+                const prevMap = state.currentMap;
+                state.currentMap = found;
+                await deleteCurrentMindmap();
+                if (state.currentMap?.id === mapId) {
+                    state.currentMap = prevMap;
+                }
+            });
+        });
+
+        mount.querySelectorAll('[data-lib-import-folder]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                openImportModal(btn.getAttribute('data-lib-import-folder') || null);
+            });
+        });
+
+        mount.querySelectorAll('[data-lib-back-root]').forEach(btn => {
+            btn.addEventListener('click', () => openFolderLibrary(null));
+        });
+    }
+
+    function bindFolderLibraryEvents() {
+        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
+        document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
+        document.getElementById('mm-btn-import')?.addEventListener('click', () => openImportModal(state.activeFolderId));
+        document.getElementById('mm-lib-back-btn')?.addEventListener('click', () => openFolderLibrary(null));
+
+        document.getElementById('mm-lib-resume-active')?.addEventListener('click', () => {
+            if (!state.currentMap) return;
+            state.viewMode = 'canvas';
+            renderModule();
+            requestAnimationFrame(() => {
+                fitStageToViewport();
+                drawSvgConnections();
+            });
+        });
+
+        document.querySelectorAll('[data-lib-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.libraryFilterMode = btn.getAttribute('data-lib-filter');
+                renderModule();
+            });
+        });
+
+        // Suche aktualisiert nur #mm-lib-grid-mount, damit der Fokus im Suchfeld bleibt!
+        document.getElementById('mm-lib-search')?.addEventListener('input', e => {
+            state.librarySearchQuery = e.target.value;
+            const mount = document.getElementById('mm-lib-grid-mount');
+            if (mount) {
+                mount.innerHTML = renderFolderLibraryGridHtml();
+                bindFolderLibraryGridEvents();
+            }
+        });
+
+        bindFolderLibraryGridEvents();
+    }
+
     function renderModule() {
         const container = ensureDomStructure();
         const deletedBuiltins = getDeletedBuiltinIds();
+
+        if (state.viewMode === 'folders') {
+            renderFolderLibrary(container, deletedBuiltins);
+            return;
+        }
 
         if (!state.currentMap) {
             container.innerHTML = `
@@ -2800,7 +3534,13 @@
                         </p>
                     </div>
                     <div class="mm-controls">
-                        <select id="mm-map-selector" class="mm-select" title="Mindmap auswählen">
+                       <button id="mm-btn-folders" class="mm-btn active" title="Zur Fachgebiets-Ordner-Übersicht wechseln">
+                            📁 Ordner
+                        </button>
+
+                        <select id="mm-map-selector" class="mm-select" title="Mindmap auswählen (nach Fachgebiet sortiert)">
+                            ${renderGroupedMapOptions(map.id)}
+                        </select>
                             ${state.mindmaps.map(m => {
                                 const prog = state.progressCache[m.id];
                                 const badge = prog?.completed ? `✅ (${prog.accuracy}%)` : '⭕';
@@ -3382,6 +4122,9 @@
 
     function bindEvents() {
         document.getElementById('mm-map-selector')?.addEventListener('change', e => selectMindmap(e.target.value));
+        document.getElementById('mm-btn-folders')?.addEventListener('click', () => {
+            openFolderLibrary(resolveFolderForMindmap(state.currentMap).id);
+        });
         document.getElementById('mm-btn-delete')?.addEventListener('click', deleteCurrentMindmap);
         document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
         document.getElementById('mm-strip-weak-drill')?.addEventListener('click', startWeakNodeDrill);
@@ -4838,20 +5581,32 @@ Hier ist der Vorlesungstext:
         });
     }
 
-    function openImportModal() {
+  function openImportModal(preselectedFolderId = null) {
+        const folders = getDashboardFolders();
         const modalBackdrop = document.createElement('div');
         modalBackdrop.className = 'mm-modal-backdrop';
         modalBackdrop.innerHTML = `
             <div class="mm-modal">
                 <h3 style="margin-top:0;">📥 Deep-Tree Vorlesungs-Mindmap (JSON) importieren</h3>
-                <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:0.5rem;">
-                    Unterstützt beliebige Verzweigungstiefen (Ebene 1–4+), <code>mastery_question</code> pro Knoten, <code>cross_links</code> sowie <code>distractors</code> für die DD-Quarantäne. Ältere JSONs werden automatisch kompatibel geladen!
+                <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:0.75rem;">
+                    Wähle optional direkt den Ziel-Fachordner aus (oder lasse das Fachgebiet automatisch anhand von <code>specialty</code> zuordnen).
                 </p>
-                <textarea id="mm-import-textarea" class="mm-textarea" placeholder='{\n  "id": "mm_neuro_stroke_001",\n  "schema_version": 7,\n  "title": "...",\n  "central_concept": "...",\n  "nodes": [ ... ],\n  "cross_links": [ ... ],\n  "distractors": [ ... ]\n}'></textarea>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:0.75rem; flex-wrap:wrap;">
+                    <label for="mm-import-folder" style="font-size:0.8rem; font-weight:700; color:var(--text-main, #e2e8f0);">📁 Ziel-Ordner:</label>
+                    <select id="mm-import-folder" class="mm-select" style="flex:1; min-width:220px;">
+                        <option value="">✨ Automatisch nach Fachgebiet zuordnen</option>
+                        ${folders.map(f => `
+                            <option value="${escapeHtml(f.id)}" ${preselectedFolderId === f.id ? 'selected' : ''}>
+                                ${escapeHtml(f.icon)} ${escapeHtml(f.label)}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+                <textarea id="mm-import-textarea" class="mm-textarea" placeholder='{\n  "id": "mm_neuro_hydrocephalus_001",\n  "schema_version": 7,\n  "title": "...",\n  "central_concept": "...",\n  "nodes": [ ... ],\n  "cross_links": [ ... ],\n  "distractors": [ ... ]\n}'></textarea>
                 <div id="mm-import-error" style="color:#ef4444; font-size:0.82rem; margin-bottom:0.75rem;"></div>
                 <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
                     <button id="mm-modal-cancel" class="mm-btn">Abbrechen</button>
-                    <button id="mm-modal-save" class="mm-btn mm-btn-primary">🚀 Mindmap validieren & laden</button>
+                    <button id="mm-modal-save" class="mm-btn mm-btn-primary">🚀 Mindmap validieren & speichern</button>
                 </div>
             </div>
         `;
@@ -4861,6 +5616,7 @@ Hier ist der Vorlesungstext:
         modalBackdrop.querySelector('#mm-modal-cancel').addEventListener('click', () => modalBackdrop.remove());
         modalBackdrop.querySelector('#mm-modal-save').addEventListener('click', async () => {
             const raw = modalBackdrop.querySelector('#mm-import-textarea').value.trim();
+            const chosenFolderId = modalBackdrop.querySelector('#mm-import-folder')?.value || '';
             const errEl = modalBackdrop.querySelector('#mm-import-error');
             try {
                 const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -4870,7 +5626,6 @@ Hier ist der Vorlesungstext:
                     throw new Error('JSON muss "central_concept" und ein nicht-leeres Array "nodes" enthalten.');
                 }
 
-                // IDs deduplizieren & Grundstruktur normalisieren
                 const seenIds = new Set();
                 parsed.nodes.forEach((n, idx) => {
                     if (!n.id || seenIds.has(n.id)) n.id = `n_auto_${idx + 1}`;
@@ -4886,6 +5641,15 @@ Hier ist der Vorlesungstext:
                 parsed.cross_links = Array.isArray(parsed.cross_links) ? parsed.cross_links : [];
                 parsed.distractors = Array.isArray(parsed.distractors) ? parsed.distractors : [];
 
+                if (chosenFolderId) {
+                    const chosenFolder = folders.find(f => f.id === chosenFolderId);
+                    parsed.folder_id = chosenFolderId;
+                    if (chosenFolder) parsed.specialty = chosenFolder.label;
+                    setFolderOverride(parsed.id, chosenFolderId);
+                } else {
+                    parsed.folder_id = resolveFolderForMindmap(parsed, folders).id;
+                }
+
                 await saveCustomMindmapToDb(parsed);
                 await loadMindmapsAndProgress();
                 selectMindmap(parsed.id);
@@ -4895,10 +5659,13 @@ Hier ist der Vorlesungstext:
             }
         });
     }
-
     window.MindmapModule = {
         init,
         openView,
+        openFolderLibrary,
+        openFolder,
+        moveMindmapToFolder,
+        getFoldersWithStats,
         selectMindmap,
         deleteCurrentMindmap,
         applyDifficultyPreset,
@@ -4907,7 +5674,6 @@ Hier ist der Vorlesungstext:
         startWeakNodeDrill,
         focusNextOpenSlot
     };
-
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
