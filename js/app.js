@@ -10672,3 +10672,273 @@ REGELN:
 
 window.SourceCompletenessAuditor = SourceCompletenessAuditor;
 SourceCompletenessAuditor.init();
+
+// ==========================================================================
+// 27. LEFT SIDEBAR FULL-COLLAPSE ENGINE (DESKTOP EDGE-TOGGLE & ⌘B / CTRL+B)
+// ==========================================================================
+const SidebarCollapseEngine = (() => {
+    const STORAGE_KEY = 'medcheck_left_sidebar_hidden_v1';
+    const HIDDEN_CLASS = 'mc-left-sidebar-hidden';
+
+    function findLeftSidebar() {
+        return (
+            document.querySelector('sidebar') ||
+            document.querySelector('.bento-left-sidebar') ||
+            document.getElementById('sidebar') ||
+            document.querySelector('aside.sidebar') ||
+            document.querySelector('.sidebar')
+        );
+    }
+
+    function injectStyles() {
+        if (document.getElementById('mc-left-sidebar-collapse-css')) return;
+        const style = document.createElement('style');
+        style.id = 'mc-left-sidebar-collapse-css';
+        style.textContent = `
+            @media (min-width: 769px) {
+                sidebar,
+                .bento-left-sidebar,
+                #sidebar {
+                    transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                                min-width 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                                opacity 0.18s ease,
+                                padding 0.24s ease,
+                                border-color 0.2s ease;
+                }
+
+                /* Keine Verzögerung während aktivem Drag-Resizing */
+                body.is-resizing sidebar,
+                body.is-resizing .bento-left-sidebar,
+                body.is-resizing .mc-sidebar-edge-toggle {
+                    transition: none !important;
+                }
+
+                /* Überschreibt --sidebar-width für alle Kinder von body (Grid & Flex) */
+                body.${HIDDEN_CLASS} {
+                    --sidebar-width: 0px !important;
+                }
+
+                body.${HIDDEN_CLASS} sidebar,
+                body.${HIDDEN_CLASS} .bento-left-sidebar,
+                body.${HIDDEN_CLASS} #sidebar {
+                    width: 0 !important;
+                    min-width: 0 !important;
+                    max-width: 0 !important;
+                    flex: 0 0 0px !important;
+                    padding-left: 0 !important;
+                    padding-right: 0 !important;
+                    margin: 0 !important;
+                    border-right-width: 0 !important;
+                    opacity: 0 !important;
+                    overflow: hidden !important;
+                    pointer-events: none !important;
+                    transform: translateX(-100%);
+                }
+
+                body.${HIDDEN_CLASS} #sidebar-resizer {
+                    display: none !important;
+                }
+
+                body.${HIDDEN_CLASS} .main-wrapper {
+                    margin-left: 0 !important;
+                    max-width: 100% !important;
+                }
+
+                .mc-sidebar-edge-toggle {
+                    position: fixed;
+                    top: 50%;
+                    left: var(--sidebar-width, var(--mc-measured-sidebar-w, 260px));
+                    transform: translateY(-50%);
+                    z-index: 1400;
+                    width: 22px;
+                    height: 46px;
+                    padding: 0;
+                    border: 1px solid rgba(148, 163, 184, 0.24);
+                    border-left: none;
+                    border-radius: 0 10px 10px 0;
+                    background: var(--surface-secondary, rgba(15, 23, 42, 0.92));
+                    color: var(--text-muted, #94a3b8);
+                    backdrop-filter: blur(10px);
+                    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.28);
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: left 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                                width 0.16s ease,
+                                background 0.16s ease,
+                                color 0.16s ease,
+                                border-color 0.16s ease;
+                }
+
+                .mc-sidebar-edge-toggle:hover {
+                    width: 28px;
+                    background: rgba(30, 41, 59, 0.98);
+                    border-color: rgba(56, 189, 248, 0.55);
+                    color: #38bdf8;
+                }
+
+                html[data-theme="daylight"] .mc-sidebar-edge-toggle,
+                html[data-theme="tropical"] .mc-sidebar-edge-toggle {
+                    background: var(--surface-primary, #ffffff);
+                    border-color: var(--card-border, #cbd5e1);
+                    color: var(--text-muted, #475569);
+                    box-shadow: 3px 0 12px rgba(15, 23, 42, 0.1);
+                }
+
+                html[data-theme="daylight"] .mc-sidebar-edge-toggle:hover,
+                html[data-theme="tropical"] .mc-sidebar-edge-toggle:hover {
+                    background: var(--surface-secondary, #f8fafc);
+                    border-color: var(--accent-blue, #0284c7);
+                    color: var(--accent-blue, #0284c7);
+                }
+
+                .mc-sidebar-edge-toggle svg {
+                    transition: transform 0.22s ease;
+                }
+
+                body.${HIDDEN_CLASS} .mc-sidebar-edge-toggle {
+                    left: 0 !important;
+                    border-color: rgba(56, 189, 248, 0.4);
+                    color: var(--accent-cyan, #38bdf8);
+                }
+
+                body.${HIDDEN_CLASS} .mc-sidebar-edge-toggle svg {
+                    transform: rotate(180deg);
+                }
+            }
+
+            @media (max-width: 768px) {
+                .mc-sidebar-edge-toggle {
+                    display: none !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function measureOpenSidebarWidth(sidebarEl) {
+        if (!sidebarEl || document.body.classList.contains(HIDDEN_CLASS)) return;
+        const rect = sidebarEl.getBoundingClientRect();
+        if (rect.width > 40) {
+            document.documentElement.style.setProperty('--mc-measured-sidebar-w', `${Math.round(rect.width)}px`);
+        }
+    }
+
+    function applyState(sidebarEl, toggleBtn, isHidden, { persist = true, notifyResize = true } = {}) {
+        if (!sidebarEl) return;
+
+        if (!isHidden) {
+            document.body.classList.remove(HIDDEN_CLASS);
+            if ('inert' in sidebarEl) sidebarEl.inert = false;
+            sidebarEl.setAttribute('aria-hidden', 'false');
+            requestAnimationFrame(() => measureOpenSidebarWidth(sidebarEl));
+        } else {
+            measureOpenSidebarWidth(sidebarEl);
+            document.body.classList.add(HIDDEN_CLASS);
+            if ('inert' in sidebarEl) sidebarEl.inert = true;
+            sidebarEl.setAttribute('aria-hidden', 'true');
+        }
+
+        if (toggleBtn) {
+            toggleBtn.setAttribute('aria-expanded', String(!isHidden));
+            toggleBtn.title = isHidden
+                ? 'Seitenleiste einblenden (⌘B / Ctrl+B)'
+                : 'Seitenleiste ausblenden (⌘B / Ctrl+B)';
+        }
+
+        if (persist) {
+            try {
+                localStorage.setItem(STORAGE_KEY, isHidden ? '1' : '0');
+            } catch (_e) {}
+        }
+
+        if (notifyResize) {
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 260);
+        }
+    }
+
+    function mount() {
+        const sidebarEl = findLeftSidebar();
+        if (!sidebarEl) return;
+
+        injectStyles();
+
+        // Verhindert doppelten ◄-Button, falls im #sidebar-resizer oder in der Sidebar bereits ein alter Toggle sitzt
+        document.querySelectorAll('#sidebar-resizer button, .sidebar-collapse-btn, #sidebar-toggle-btn').forEach(oldBtn => {
+            oldBtn.style.display = 'none';
+        });
+
+        let toggleBtn = document.getElementById('mc-sidebar-edge-toggle');
+        if (!toggleBtn) {
+            toggleBtn = document.createElement('button');
+            toggleBtn.id = 'mc-sidebar-edge-toggle';
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'mc-sidebar-edge-toggle';
+            toggleBtn.setAttribute('aria-label', 'Linke Seitenleiste umschalten');
+            toggleBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m15 18-6-6 6-6"/>
+                </svg>
+            `;
+            document.body.appendChild(toggleBtn);
+        }
+
+        measureOpenSidebarWidth(sidebarEl);
+
+        let savedHidden = false;
+        try {
+            savedHidden = localStorage.getItem(STORAGE_KEY) === '1';
+        } catch (_e) {}
+
+        applyState(sidebarEl, toggleBtn, savedHidden, { persist: false, notifyResize: false });
+
+        const toggle = () => {
+            const nextHidden = !document.body.classList.contains(HIDDEN_CLASS);
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(6);
+            applyState(sidebarEl, toggleBtn, nextHidden);
+        };
+
+        toggleBtn.addEventListener('click', toggle);
+
+        // Tastaturkürzel: ⌘B (Mac) / Ctrl+B (Windows/Linux)
+        document.addEventListener('keydown', e => {
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+                const tag = document.activeElement?.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) {
+                    return;
+                }
+                e.preventDefault();
+                toggle();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (!document.body.classList.contains(HIDDEN_CLASS)) {
+                measureOpenSidebarWidth(sidebarEl);
+            }
+        });
+
+        window.SidebarToggle = {
+            hide: () => applyState(sidebarEl, toggleBtn, true),
+            show: () => applyState(sidebarEl, toggleBtn, false),
+            toggle,
+            isHidden: () => document.body.classList.contains(HIDDEN_CLASS)
+        };
+    }
+
+    function init() {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', mount);
+        } else {
+            mount();
+        }
+    }
+
+    return { init };
+})();
+
+SidebarCollapseEngine.init();
