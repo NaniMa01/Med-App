@@ -1,11 +1,12 @@
 /**
- * MedCheck - Interactive Clinical Mindmap Module V7.0 (js/mindmap.js)
- * "Deep-Tree Multi-Tier Mastery & Synthesis Edition"
+ * MedCheck - Interactive Clinical Mindmap Module V7.1 (js/mindmap.js)
+ * "Deep-Tree Multi-Tier Mastery, Synthesis & Specialty Folder Edition"
  *
- * Upgrades in V7.0:
+ * Upgrades in V7.0 / V7.1:
  *  - True N-Tier Multi-Branch Hierarchy (Tier 1 Macro -> Tier 2 Mechanism/Algorithm -> Tier 3+ Molecular/Cutoff/Guideline Details).
  *  - Zero-Overlap Dual Layout Engine: Bi-Directional Weighted Tidy-Tree (default) + Weighted Angular-Sector Radial View,
  *    with dynamic stage sizing and per-branch Collapse/Expand toggles.
+ *  - Specialty Folder System synced with Dashboard folders (auto-sorting, manual move, progress aggregation).
  *  - Active Clinical Distractor Quarantine Zone: Force active identification & rejection of differential diagnosis traps.
  *  - Metacognitive Confidence Calibration ("Sicher" vs. "Unsicher/Geraten") inside the Deep Clinical Mastery Gate.
  *  - Cross-Domain Synthesis Links (cross_links) rendered as dashed synthesis arcs + final transfer check.
@@ -44,9 +45,8 @@
 
     const DELETED_BUILTINS_KEY = 'medcheck_deleted_builtin_mindmaps_v1';
     const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
-    const BUILTIN_SCHEMA_VERSION = 7;
-
     const FOLDER_OVERRIDES_KEY = 'medcheck_mindmap_folder_overrides_v1';
+    const BUILTIN_SCHEMA_VERSION = 7;
 
     /**
      * Fallback-Ordnerliste, falls das Dashboard seine Ordner noch nicht über
@@ -55,9 +55,9 @@
      */
     const DASHBOARD_FOLDER_FALLBACKS = [
         { id: 'kardiologie', label: 'Kardiologie', icon: '🫀', color: '#ef4444', keywords: ['kardio', 'herz', 'stemi', 'acs', 'ekg', 'gefäss', 'angiologie'] },
-        { id: 'neurologie', label: 'Neurologie & Neurochirurgie', icon: '🧠', color: '#8b5cf6', keywords: ['neuro', 'hirn', 'hydrocephalus', 'liquor', 'demenz', 'stroke', 'epilepsie', 'cjk', 'ftd', 'lbd'] },
+        { id: 'neurologie', label: 'Neurologie & Neurochirurgie', icon: '🧠', color: '#8b5cf6', keywords: ['neuro', 'hirn', 'hydrocephalus', 'hydrozephalus', 'liquor', 'demenz', 'stroke', 'epilepsie', 'cjk', 'ftd', 'lbd'] },
         { id: 'pneumologie', label: 'Pneumologie', icon: '🫁', color: '#06b6d4', keywords: ['pneumo', 'lunge', 'lae', 'embolie', 'asthma', 'copd', 'thorax'] },
-        { id: 'haematologie', label: 'Hämatologie & Onkologie', icon: '🩸', color: '#ec4899', keywords: ['hämato', 'haemato', 'onko', 'lymph', 'leukämie', 'anämie', 'gerinnung'] },
+        { id: 'haematologie', label: 'Hämatologie & Onkologie', icon: '🩸', color: '#ec4899', keywords: ['hämato', 'onko', 'lymph', 'leukämie', 'anämie', 'gerinnung'] },
         { id: 'gastroenterologie', label: 'Gastroenterologie', icon: '🩺', color: '#f59e0b', keywords: ['gastro', 'leber', 'hepato', 'darm', 'pankreas', 'magen', 'viszeral'] },
         { id: 'nephrologie', label: 'Nephrologie & Urologie', icon: '💧', color: '#3b82f6', keywords: ['nephro', 'niere', 'uro', 'elektrolyt', 'säure-basen'] },
         { id: 'endokrinologie', label: 'Endokrinologie & Stoffwechsel', icon: '⚗️', color: '#10b981', keywords: ['endokrin', 'diabetes', 'schilddrüse', 'hormon', 'stoffwechsel'] },
@@ -68,6 +68,7 @@
         { id: 'pharmakologie', label: 'Pharmakologie', icon: '💊', color: '#14b8a6', keywords: ['pharma', 'medikament', 'wirkstoff', 'antibiotika'] },
         { id: 'sonstige', label: 'Allgemein & Weitere Fächer', icon: '📁', color: '#94a3b8', keywords: [] }
     ];
+
     const BUILTIN_MINDMAPS = [
         // ====================================================================
         // BUILT-IN 1: STEMI (19 Knoten über 3 Ebenen, 3 Cross-Links, 4 Fallen)
@@ -435,7 +436,7 @@
                     mastery_question: {
                         question: 'Ein 62-jähriger STEMI-Patient erhielt wegen einer Transferzeit von 160 Minuten vor 75 Minuten eine systemische Fibrinolyse (Tenecteplase). Im Kontroll-EKG sind die ST-Hebungen nur um 20 % rückläufig und der Patient klagt weiter über stärkste Schmerzen. Was ist jetzt zwingend indiziert?',
                         options: [
-                            'Unverzügliche Rescue-PCI im Herzkatheterlabor wegen fehlgeschrittener Reperfusion (< 50 % ST-Strecken-Resolution nach 60–90 Min.)',
+                            'Unverzügliche Rescue-PCI im Herzkatheterlabor wegen fehlgeschlagener Reperfusion (< 50 % ST-Strecken-Resolution nach 60–90 Min.)',
                             'Wiederholte Gabe der vollen Fibrinolyse-Dosis (Re-Lyse) bei Verzicht auf eine invasive Koronarangiographie',
                             'Elektive Koronarangiographie erst nach 48 Stunden, da nach jeder Fibrinolyse ein strenges zweitägiges Katheterverbot besteht',
                             'Umstellung auf eine alleinige orale Vitamin-K-Antagonisten-Therapie ohne begleitende Thrombozytenaggregationshemmung'
@@ -1021,6 +1022,7 @@
 
     const state = {
         initialized: false,
+        initPromise: null,
         mindmaps: [],
         currentMap: null,
         viewMode: 'folders',                 // 'folders' (Ordner-Bibliothek) | 'canvas' (Aktive Mindmap)
@@ -1070,16 +1072,38 @@
     };
 
     // ========================================================================
-    // 1. INITIALISIERUNG, SCOPED CSS (V7.0) & DOM-STRUKTUR
+    // 1. INITIALISIERUNG, SCOPED CSS (V7.1) & DOM-STRUKTUR
     // ========================================================================
 
+    function safeParseJson(raw, fallback = null) {
+        if (raw === null || raw === undefined) return fallback;
+        if (typeof raw !== 'string') return raw;
+        try {
+            return JSON.parse(raw);
+        } catch (_e) {
+            return fallback;
+        }
+    }
+
+    function safeStorageSet(key, value) {
+        try {
+            localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+            return true;
+        } catch (err) {
+            console.warn(`[Mindmap V7.1] localStorage Schreibfehler (${key}):`, err);
+            return false;
+        }
+    }
+
     function ensureMindmapStyles() {
-        if (document.getElementById('medcheck-mindmap-v7-styles')) return;
-        const oldStyles = document.getElementById('medcheck-mindmap-v6-styles');
-        if (oldStyles) oldStyles.remove();
+        if (document.getElementById('medcheck-mindmap-v71-styles')) return;
+        ['medcheck-mindmap-v6-styles', 'medcheck-mindmap-v7-styles'].forEach(oldId => {
+            const oldEl = document.getElementById(oldId);
+            if (oldEl) oldEl.remove();
+        });
 
         const styleEl = document.createElement('style');
-        styleEl.id = 'medcheck-mindmap-v7-styles';
+        styleEl.id = 'medcheck-mindmap-v71-styles';
         styleEl.textContent = `
             .mm-preset-bar {
                 display: flex;
@@ -1741,23 +1765,34 @@
         }
         return viewSection;
     }
-async function init() {
-        ensureDomStructure();
-        await loadMindmapsAndProgress();
-        if (!state.currentMap && state.mindmaps.length > 0) {
-            selectMindmap(state.mindmaps[0].id, { keepFolderView: true });
-        } else {
-            renderModule();
-        }
 
-        if (!state.initialized) {
-            state.initialized = true;
-            window.addEventListener('resize', () => {
-                if (isViewVisible() && state.viewMode === 'canvas') {
-                    fitStageToViewport();
-                    drawSvgConnections();
-                }
-            });
+    async function init() {
+        if (state.initPromise) return state.initPromise;
+
+        state.initPromise = (async () => {
+            ensureDomStructure();
+            await loadMindmapsAndProgress();
+            if (!state.currentMap && state.mindmaps.length > 0) {
+                selectMindmap(state.mindmaps[0].id, { keepFolderView: true });
+            } else {
+                renderModule();
+            }
+
+            if (!state.initialized) {
+                state.initialized = true;
+                window.addEventListener('resize', () => {
+                    if (isViewVisible() && state.viewMode === 'canvas') {
+                        fitStageToViewport();
+                        drawSvgConnections();
+                    }
+                });
+            }
+        })();
+
+        try {
+            await state.initPromise;
+        } finally {
+            state.initPromise = null;
         }
     }
 
@@ -1765,13 +1800,14 @@ async function init() {
         const el = document.getElementById('mindmap-view');
         return el && !el.classList.contains('hidden') && el.style.display !== 'none';
     }
-function openView() {
+
+    async function openView() {
         const viewSection = ensureDomStructure();
         viewSection.classList.remove('hidden');
         viewSection.style.display = 'block';
 
-        if (!state.currentMap) {
-            init();
+        if (!state.initialized) {
+            await init();
         } else {
             renderModule();
             if (state.viewMode === 'canvas') {
@@ -1803,26 +1839,25 @@ function openView() {
     }
 
     function getDeletedBuiltinIds() {
-        try {
-            return JSON.parse(localStorage.getItem(DELETED_BUILTINS_KEY) || '[]');
-        } catch (_e) {
-            return [];
-        }
+        const parsed = safeParseJson(localStorage.getItem(DELETED_BUILTINS_KEY), []);
+        return Array.isArray(parsed) ? parsed : [];
     }
 
     function addDeletedBuiltinId(id) {
         const list = getDeletedBuiltinIds();
         if (!list.includes(id)) {
             list.push(id);
-            localStorage.setItem(DELETED_BUILTINS_KEY, JSON.stringify(list));
+            safeStorageSet(DELETED_BUILTINS_KEY, list);
         }
     }
 
     async function restoreDeletedBuiltinMindmaps() {
-        localStorage.removeItem(DELETED_BUILTINS_KEY);
+        try {
+            localStorage.removeItem(DELETED_BUILTINS_KEY);
+        } catch (_e) {}
         await loadMindmapsAndProgress();
         if (state.mindmaps.length > 0) {
-            selectMindmap(state.mindmaps[0].id);
+            selectMindmap(state.mindmaps[0].id, { keepFolderView: state.viewMode === 'folders' });
         } else {
             renderModule();
         }
@@ -1830,7 +1865,7 @@ function openView() {
 
     /**
      * Migriert veraltete gecachte Built-in-Versionen (z. B. V6.0 mit 7-9 Knoten) sauber auf V7.0 (18-19 Knoten),
-     * behält dabei aber etwaige live per KI neu generierte mastery_questions für identische Knoten-IDs bei.
+     * behält dabei aber etwaige live per KI neu generierte mastery_questions sowie Ordner-Zuweisungen bei.
      */
     function mergeWithBuiltinIfOutdated(candidateMap) {
         const builtinMatch = BUILTIN_MINDMAPS.find(b => b.id === candidateMap.id);
@@ -1841,6 +1876,9 @@ function openView() {
 
         if (candidateVersion < BUILTIN_SCHEMA_VERSION || candidateNodeCount < builtinMatch.nodes.length) {
             const upgraded = JSON.parse(JSON.stringify(builtinMatch));
+            if (candidateMap.folder_id) upgraded.folder_id = candidateMap.folder_id;
+            if (candidateMap.specialty) upgraded.specialty = candidateMap.specialty;
+
             const oldNodeMap = new Map((candidateMap.nodes || []).map(n => [n.id, n]));
             upgraded.nodes.forEach(n => {
                 const oldNode = oldNodeMap.get(n.id);
@@ -1851,7 +1889,6 @@ function openView() {
             return upgraded;
         }
 
-        // Auch bei aktueller Version fehlende V7-Felder nachziehen
         if (!Array.isArray(candidateMap.distractors) && builtinMatch.distractors) {
             candidateMap.distractors = JSON.parse(JSON.stringify(builtinMatch.distractors));
         }
@@ -1881,32 +1918,27 @@ function openView() {
         if (typeof window.createDepotEntry === 'function') {
             await window.createDepotEntry(entryPayload);
         } else {
-            try {
-                const items = JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
-                const exists = items.some(i => i.highlighted_text === entryPayload.highlighted_text);
-                if (!exists) {
-                    items.unshift({
-                        id: 'dep_mm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                        ...entryPayload,
-                        user_note: '',
-                        mastered: false,
-                        created_at: new Date().toISOString()
-                    });
-                    localStorage.setItem(DEPOT_STORAGE_KEY, JSON.stringify(items));
-                }
-            } catch (_e) {}
+            const items = safeParseJson(localStorage.getItem(DEPOT_STORAGE_KEY), []);
+            if (Array.isArray(items) && !items.some(i => i.highlighted_text === entryPayload.highlighted_text)) {
+                items.unshift({
+                    id: 'dep_mm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                    ...entryPayload,
+                    user_note: '',
+                    mastered: false,
+                    created_at: new Date().toISOString()
+                });
+                safeStorageSet(DEPOT_STORAGE_KEY, items);
+            }
         }
 
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
     }
 
     async function loadMindmapsAndProgress() {
-        let localSaved = [];
-        let localProgress = {};
-        try {
-            localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
-            localProgress = JSON.parse(localStorage.getItem('medcheck_mindmap_progress') || '{}');
-        } catch (_e) {}
+        const localSavedRaw = safeParseJson(localStorage.getItem('medcheck_custom_mindmaps'), []);
+        const localSaved = Array.isArray(localSavedRaw) ? localSavedRaw : [];
+        const localProgressRaw = safeParseJson(localStorage.getItem('medcheck_mindmap_progress'), {});
+        const localProgress = (localProgressRaw && typeof localProgressRaw === 'object') ? localProgressRaw : {};
 
         const deletedBuiltins = getDeletedBuiltinIds();
         state.progressCache = localProgress;
@@ -1934,18 +1966,20 @@ function openView() {
 
                 if (!mapErr && Array.isArray(dbMaps)) {
                     dbMaps.forEach(row => {
-                        if (deletedBuiltins.includes(row.id)) return;
-                        const parsed = typeof row.data_json === 'string' ? JSON.parse(row.data_json) : row.data_json;
-                      const dbObj = {
+                        if (!row || !row.id || deletedBuiltins.includes(row.id)) return;
+                        const parsed = safeParseJson(row.data_json, null);
+                        if (!parsed || !Array.isArray(parsed.nodes)) return;
+
+                        const dbObj = {
                             id: row.id,
-                            schema_version: parsed?.schema_version || 6,
-                            folder_id: parsed?.folder_id || null,
-                            title: row.title,
-                            specialty: row.specialty,
-                            central_concept: row.central_concept,
-                            nodes: parsed?.nodes || [],
-                            cross_links: parsed?.cross_links || [],
-                            distractors: parsed?.distractors || []
+                            schema_version: parsed.schema_version || 6,
+                            folder_id: parsed.folder_id || null,
+                            title: row.title || row.central_concept || row.id,
+                            specialty: row.specialty || 'Vorlesung',
+                            central_concept: row.central_concept || row.title || '',
+                            nodes: parsed.nodes,
+                            cross_links: Array.isArray(parsed.cross_links) ? parsed.cross_links : [],
+                            distractors: Array.isArray(parsed.distractors) ? parsed.distractors : []
                         };
                         mapById.set(row.id, mergeWithBuiltinIfOutdated(dbObj));
                     });
@@ -1958,18 +1992,19 @@ function openView() {
 
                 if (!progErr && Array.isArray(dbProg)) {
                     dbProg.forEach(row => {
+                        if (!row || !row.mindmap_id) return;
                         state.progressCache[row.mindmap_id] = {
-                            completed: row.completed,
-                            accuracy: Number(row.accuracy),
-                            mistakes_count: row.mistakes_count,
-                            best_time_sec: row.best_time_sec,
-                            weak_nodes: row.weak_nodes_json || []
+                            completed: Boolean(row.completed),
+                            accuracy: Number(row.accuracy) || 0,
+                            mistakes_count: Number(row.mistakes_count) || 0,
+                            best_time_sec: Number(row.best_time_sec) || 0,
+                            weak_nodes: Array.isArray(row.weak_nodes_json) ? row.weak_nodes_json : []
                         };
                     });
-                    localStorage.setItem('medcheck_mindmap_progress', JSON.stringify(state.progressCache));
+                    safeStorageSet('medcheck_mindmap_progress', state.progressCache);
                 }
             } catch (e) {
-                console.warn('[Mindmap V7.0] Supabase-Sync im Offline-Fallback:', e);
+                console.warn('[Mindmap V7.1] Supabase-Sync im Offline-Fallback:', e);
             }
         }
 
@@ -1977,14 +2012,14 @@ function openView() {
     }
 
     async function saveCustomMindmapToDb(mindmapObj) {
-        let localSaved = [];
-        try {
-            localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
-        } catch (_e) {}
+        if (!mindmapObj || !mindmapObj.id) return;
 
-        const filtered = localSaved.filter(m => m.id !== mindmapObj.id);
+        const localSavedRaw = safeParseJson(localStorage.getItem('medcheck_custom_mindmaps'), []);
+        const localSaved = Array.isArray(localSavedRaw) ? localSavedRaw : [];
+
+        const filtered = localSaved.filter(m => m && m.id !== mindmapObj.id);
         filtered.unshift(mindmapObj);
-        localStorage.setItem('medcheck_custom_mindmaps', JSON.stringify(filtered));
+        safeStorageSet('medcheck_custom_mindmaps', filtered);
 
         const sb = getSupabase();
         const user = await getCurrentUser();
@@ -1996,7 +2031,7 @@ function openView() {
                     title: mindmapObj.title,
                     specialty: mindmapObj.specialty || 'Vorlesung',
                     central_concept: mindmapObj.central_concept,
-                   data_json: {
+                    data_json: {
                         schema_version: mindmapObj.schema_version || BUILTIN_SCHEMA_VERSION,
                         folder_id: mindmapObj.folder_id || resolveFolderForMindmap(mindmapObj).id,
                         nodes: mindmapObj.nodes,
@@ -2006,38 +2041,39 @@ function openView() {
                     updated_at: new Date().toISOString()
                 });
             } catch (err) {
-                console.warn('[Mindmap V7.0] Lokal gesichert:', err);
+                console.warn('[Mindmap V7.1] Lokal gesichert:', err);
             }
         }
     }
 
-    async function deleteCurrentMindmap() {
-        if (!state.currentMap) return;
+    async function deleteCurrentMindmap(explicitMapId = null) {
+        const targetMap = explicitMapId
+            ? state.mindmaps.find(m => m.id === explicitMapId)
+            : state.currentMap;
+        if (!targetMap) return false;
 
-        const targetId = state.currentMap.id;
-        const targetTitle = state.currentMap.title || state.currentMap.central_concept || targetId;
+        const targetId = targetMap.id;
+        const targetTitle = targetMap.title || targetMap.central_concept || targetId;
         const isBuiltin = BUILTIN_MINDMAPS.some(b => b.id === targetId);
 
         const confirmMsg = isBuiltin
             ? `Möchtest du die Standard-Mindmap „${targetTitle}“ aus deiner Liste entfernen?\n\n(Du kannst Standard-Mindmaps später jederzeit wiederherstellen.)`
             : `Möchtest du die Mindmap „${targetTitle}“ inklusive deines Lernfortschritts wirklich unwiderruflich löschen?`;
 
-        if (!window.confirm(confirmMsg)) return;
+        if (!window.confirm(confirmMsg)) return false;
 
         if (isBuiltin) {
             addDeletedBuiltinId(targetId);
         }
 
-        try {
-            const localSaved = JSON.parse(localStorage.getItem('medcheck_custom_mindmaps') || '[]');
-            const updatedLocal = localSaved.filter(m => m.id !== targetId);
-            localStorage.setItem('medcheck_custom_mindmaps', JSON.stringify(updatedLocal));
-        } catch (_e) {}
+        const localSavedRaw = safeParseJson(localStorage.getItem('medcheck_custom_mindmaps'), []);
+        if (Array.isArray(localSavedRaw)) {
+            safeStorageSet('medcheck_custom_mindmaps', localSavedRaw.filter(m => m && m.id !== targetId));
+        }
 
+        setFolderOverride(targetId, null);
         delete state.progressCache[targetId];
-        try {
-            localStorage.setItem('medcheck_mindmap_progress', JSON.stringify(state.progressCache));
-        } catch (_e) {}
+        safeStorageSet('medcheck_mindmap_progress', state.progressCache);
 
         const sb = getSupabase();
         const user = await getCurrentUser();
@@ -2046,20 +2082,28 @@ function openView() {
                 await sb.from('mindmap_progress').delete().eq('mindmap_id', targetId).eq('user_id', user.id);
                 await sb.from('mindmaps').delete().eq('id', targetId);
             } catch (err) {
-                console.warn('[Mindmap V7.0] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
+                console.warn('[Mindmap V7.1] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
             }
         }
 
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
 
+        const wasActiveMap = state.currentMap?.id === targetId;
+        const keepFolders = state.viewMode === 'folders';
+
         await loadMindmapsAndProgress();
-        if (state.mindmaps.length > 0) {
-            selectMindmap(state.mindmaps[0].id);
+        if (wasActiveMap) {
+            if (state.mindmaps.length > 0) {
+                selectMindmap(state.mindmaps[0].id, { keepFolderView: keepFolders });
+            } else {
+                state.currentMap = null;
+                state.solvedNodeIds = new Set();
+                renderModule();
+            }
         } else {
-            state.currentMap = null;
-            state.solvedNodeIds = new Set();
             renderModule();
         }
+        return true;
     }
 
     async function saveProgressToDb() {
@@ -2084,7 +2128,7 @@ function openView() {
         };
 
         state.progressCache[state.currentMap.id] = record;
-        localStorage.setItem('medcheck_mindmap_progress', JSON.stringify(state.progressCache));
+        safeStorageSet('medcheck_mindmap_progress', state.progressCache);
 
         const xpBonus = state.difficultyPreset === 'exam' ? 600 : (state.difficultyPreset === 'clinical' ? 450 : 300);
         if (typeof window.applyXpDelta === 'function') {
@@ -2107,28 +2151,34 @@ function openView() {
                     last_played_at: new Date().toISOString()
                 }, { onConflict: 'user_id,mindmap_id' });
             } catch (err) {
-                console.warn('[Mindmap V7.0] Fortschritt lokal gespeichert:', err);
+                console.warn('[Mindmap V7.1] Fortschritt lokal gespeichert:', err);
             }
         }
     }
+
     // ========================================================================
     // 2B. FACHGEBIETS-ORDNERSYSTEM (SYNC MIT DASHBOARD + AUTO-SORTIERUNG)
     // ========================================================================
 
-    function normalizeFolderKey(str) {
+    function normalizeSearchText(str) {
         return String(str || '')
+            .trim()
             .toLowerCase()
-            .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+            .replace(/ä/g, 'ae')
+            .replace(/ö/g, 'oe')
+            .replace(/ü/g, 'ue')
+            .replace(/ß/g, 'ss');
+    }
+
+    function normalizeFolderKey(str) {
+        return normalizeSearchText(str)
             .replace(/[^a-z0-9]+/g, '_')
             .replace(/^_+|_+$/g, '');
     }
 
     function getFolderOverrides() {
-        try {
-            return JSON.parse(localStorage.getItem(FOLDER_OVERRIDES_KEY) || '{}');
-        } catch (_e) {
-            return {};
-        }
+        const parsed = safeParseJson(localStorage.getItem(FOLDER_OVERRIDES_KEY), {});
+        return (parsed && typeof parsed === 'object') ? parsed : {};
     }
 
     function setFolderOverride(mindmapId, folderId) {
@@ -2138,14 +2188,12 @@ function openView() {
         } else {
             delete map[mindmapId];
         }
-        try {
-            localStorage.setItem(FOLDER_OVERRIDES_KEY, JSON.stringify(map));
-        } catch (_e) {}
+        safeStorageSet(FOLDER_OVERRIDES_KEY, map);
     }
 
     /**
      * Liest die Fachgebiets-Ordner automatisch aus dem Dashboard (Single Source of Truth),
-     * falls diese global exportiert wurden, und ergänzt dynamisch alle ungemappten Fachgebiete.
+     * falls diese global exportiert wurden, und ergänzt bei Bedarf den Auffang-Ordner.
      */
     function getDashboardFolders() {
         const rawExternal =
@@ -2155,10 +2203,17 @@ function openView() {
             (Array.isArray(window.DASHBOARD_FOLDERS) && window.DASHBOARD_FOLDERS) ||
             null;
 
-        const baseList = (rawExternal && rawExternal.length > 0 ? rawExternal : DASHBOARD_FOLDER_FALLBACKS).map(f => {
+        const sourceList = (Array.isArray(rawExternal) && rawExternal.length > 0)
+            ? rawExternal
+            : DASHBOARD_FOLDER_FALLBACKS;
+
+        const baseList = sourceList.map(rawItem => {
+            const f = typeof rawItem === 'string' ? { label: rawItem } : (rawItem || {});
             const label = f.label || f.name || f.title || f.id || 'Allgemein';
             const id = f.id ? String(f.id) : normalizeFolderKey(label);
-            const fallbackMatch = DASHBOARD_FOLDER_FALLBACKS.find(fb => fb.id === id || normalizeFolderKey(fb.label) === normalizeFolderKey(label));
+            const fallbackMatch = DASHBOARD_FOLDER_FALLBACKS.find(
+                fb => fb.id === id || normalizeFolderKey(fb.label) === normalizeFolderKey(label)
+            );
             return {
                 id,
                 label,
@@ -2166,11 +2221,10 @@ function openView() {
                 color: f.color || fallbackMatch?.color || '#38bdf8',
                 keywords: Array.isArray(f.keywords) && f.keywords.length > 0
                     ? f.keywords
-                    : [label.toLowerCase(), id.toLowerCase(), ...(fallbackMatch?.keywords || [])]
+                    : [label, id, ...(fallbackMatch?.keywords || [])]
             };
         });
 
-        // Sicherstellen, dass immer ein Auffang-Ordner existiert
         if (!baseList.some(f => f.id === 'sonstige')) {
             baseList.push({ id: 'sonstige', label: 'Allgemein & Weitere Fächer', icon: '📁', color: '#94a3b8', keywords: [] });
         }
@@ -2190,31 +2244,39 @@ function openView() {
             if (exact) return exact;
         }
 
-        const specRaw = String(mindmap.specialty || '').trim().toLowerCase();
-        const specNorm = normalizeFolderKey(specRaw);
-        const searchHaystack = `${specRaw} ${String(mindmap.title || '').toLowerCase()}`;
+        const specSearch = normalizeSearchText(mindmap.specialty);
+        const specKey = normalizeFolderKey(mindmap.specialty);
+        const searchHaystack = `${specSearch} ${normalizeSearchText(mindmap.title)}`;
 
-        // 1. Exakter ID- oder Label-Treffer auf specialty
-        const directMatch = folders.find(f =>
-            f.id !== 'sonstige' && (
-                f.id === specNorm ||
-                normalizeFolderKey(f.label) === specNorm ||
-                specRaw.includes(f.label.toLowerCase()) ||
-                f.label.toLowerCase().includes(specRaw && specRaw.length >= 4 ? specRaw : '__none__')
-            )
-        );
+        // 1. Exakter ID- oder Label-Treffer auf specialty (umlaut-resistent)
+        const directMatch = folders.find(f => {
+            if (f.id === 'sonstige') return false;
+            const labelSearch = normalizeSearchText(f.label);
+            return (
+                f.id === specKey ||
+                normalizeFolderKey(f.label) === specKey ||
+                (labelSearch.length >= 4 && specSearch.includes(labelSearch)) ||
+                (specSearch.length >= 4 && labelSearch.includes(specSearch))
+            );
+        });
         if (directMatch) return directMatch;
 
         // 2. Keyword-Matching (primär auf specialty, sekundär auf Titel)
         for (const f of folders) {
             if (f.id === 'sonstige') continue;
-            if ((f.keywords || []).some(kw => kw && specRaw.includes(kw.toLowerCase()))) {
+            if ((f.keywords || []).some(kw => {
+                const kwNorm = normalizeSearchText(kw);
+                return kwNorm.length >= 3 && specSearch.includes(kwNorm);
+            })) {
                 return f;
             }
         }
         for (const f of folders) {
             if (f.id === 'sonstige') continue;
-            if ((f.keywords || []).some(kw => kw && kw.length >= 4 && searchHaystack.includes(kw.toLowerCase()))) {
+            if ((f.keywords || []).some(kw => {
+                const kwNorm = normalizeSearchText(kw);
+                return kwNorm.length >= 4 && searchHaystack.includes(kwNorm);
+            })) {
                 return f;
             }
         }
@@ -2291,13 +2353,17 @@ function openView() {
         renderModule();
     }
 
-    function openFolder(folderId) {
+    async function openFolder(folderId) {
         const viewSection = ensureDomStructure();
         viewSection.classList.remove('hidden');
         viewSection.style.display = 'block';
         state.viewMode = 'folders';
         state.activeFolderId = folderId;
-        renderModule();
+        if (!state.initialized) {
+            await init();
+        } else {
+            renderModule();
+        }
     }
 
     function getMapTreeDepthPreview(mindmap) {
@@ -2333,7 +2399,7 @@ function openView() {
         `).join('');
     }
 
-  // ========================================================================
+    // ========================================================================
     // 3. TOPOLOGIE-ENGINE (N-EBENEN, ZYKLUS-SCHUTZ & SUBTREE-COLLAPSE)
     // ========================================================================
 
@@ -2351,7 +2417,6 @@ function openView() {
                 pid = 'root';
                 node.parent_id = 'root';
             }
-            // Zyklusprüfung nach oben
             if (pid !== 'root') {
                 const visited = new Set([node.id]);
                 let cursor = pid;
@@ -2375,6 +2440,21 @@ function openView() {
         const meta = {};
         let maxDepth = 1;
 
+        function traverseHidden(nodeId, depth, branchRootId) {
+            if (depth > maxDepth) maxDepth = depth;
+            const childrenIds = childrenMap.get(nodeId) || [];
+            meta[nodeId] = {
+                depth,
+                childrenIds,
+                visibleChildrenIds: [],
+                subtreeLeaves: 1,
+                branchRootId,
+                hiddenByCollapse: true,
+                side: 'right'
+            };
+            childrenIds.forEach(cid => traverseHidden(cid, depth + 1, branchRootId));
+        }
+
         function traverse(nodeId, depth, branchRootId, parentCollapsed) {
             if (depth > maxDepth) maxDepth = depth;
             const childrenIds = childrenMap.get(nodeId) || [];
@@ -2390,11 +2470,8 @@ function openView() {
                 });
             }
 
-            // Eingeklappte Nachfahren trotzdem mit Meta-Daten erfassen (als hidden markiert)
             if (isCollapsed && childrenIds.length > 0) {
-                childrenIds.forEach(cid => {
-                    traverseHidden(cid, depth + 1, branchRootId);
-                });
+                childrenIds.forEach(cid => traverseHidden(cid, depth + 1, branchRootId));
             }
 
             meta[nodeId] = {
@@ -2408,21 +2485,6 @@ function openView() {
             };
 
             return Math.max(1, visibleLeaves);
-        }
-
-        function traverseHidden(nodeId, depth, branchRootId) {
-            if (depth > maxDepth) maxDepth = depth;
-            const childrenIds = childrenMap.get(nodeId) || [];
-            meta[nodeId] = {
-                depth,
-                childrenIds,
-                visibleChildrenIds: [],
-                subtreeLeaves: 1,
-                branchRootId,
-                hiddenByCollapse: true,
-                side: 'right'
-            };
-            childrenIds.forEach(cid => traverseHidden(cid, depth + 1, branchRootId));
         }
 
         const rootChildren = childrenMap.get('root') || [];
@@ -2458,10 +2520,8 @@ function openView() {
         } else {
             state.collapsedNodeIds.add(nodeId);
         }
-        const savedZoom = state.zoom;
         computeLayout(state.currentMap);
         renderModule();
-        state.zoom = savedZoom;
         requestAnimationFrame(() => {
             fitStageToViewport();
             drawSvgConnections();
@@ -2533,10 +2593,12 @@ function openView() {
 
         rebuildPoolOrder();
         renderModule();
-        requestAnimationFrame(() => {
-            applyStageTransform();
-            drawSvgConnections();
-        });
+        if (state.viewMode === 'canvas') {
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+            });
+        }
     }
 
     function rebuildPoolOrder() {
@@ -2549,9 +2611,19 @@ function openView() {
         state.poolOrderIds = shuffleArray([...realIds, ...distIds]);
     }
 
-    function startWeakNodeDrill() {
+    function startWeakNodeDrill(explicitTargetIds = null) {
         if (!state.currentMap) return;
-        const targets = new Set([...state.weakNodeIds, ...state.uncertainNodeIds]);
+        const savedWeak = Array.isArray(state.progressCache[state.currentMap.id]?.weak_nodes)
+            ? state.progressCache[state.currentMap.id].weak_nodes
+            : [];
+        const sourceList = Array.isArray(explicitTargetIds) && explicitTargetIds.length > 0
+            ? explicitTargetIds
+            : ([...state.weakNodeIds, ...state.uncertainNodeIds].length > 0
+                ? [...state.weakNodeIds, ...state.uncertainNodeIds]
+                : savedWeak);
+
+        const validNodeIds = new Set(state.currentMap.nodes.map(n => n.id));
+        const targets = new Set(sourceList.filter(id => validNodeIds.has(id)));
         if (targets.size === 0) return;
 
         // Alle Nachfahren eines zurückgesetzten Knotens ebenfalls öffnen, damit Kausal-Sperre konsistent bleibt
@@ -2561,10 +2633,8 @@ function openView() {
             getDescendantIds(id).forEach(descId => toReset.add(descId));
         });
 
-        // Alle eingeklappten Äste öffnen, die Zielknoten enthalten
+        state.viewMode = 'canvas';
         state.collapsedNodeIds.clear();
-
-        // Alle Knoten außer toReset als gelöst belassen
         state.solvedNodeIds = new Set(
             state.currentMap.nodes
                 .map(n => n.id)
@@ -2608,19 +2678,17 @@ function openView() {
     /**
      * Bidirektionaler gewichteter Tidy-Tree (Reingold-Tilford-Prinzip):
      * Jede Tiefenebene erhält eine disjunkte X-Spalte, jeder sichtbare Blattknoten eine disjunkte Y-Zeile.
-     * Überlappungen sind mathematisch ausgeschlossen – auch bei 30–40+ Detailknoten.
+     * Überlappungen und SVG-Rand-Clipping sind mathematisch ausgeschlossen – auch bei asymmetrischen 40+-Knoten-Bäumen.
      */
     function computeBidirectionalTreeLayout(mindmap, topology) {
         const { rootChildren, meta } = topology;
         const { COL_SPACING_X, ROOT_GAP_X, ROW_SPACING_Y, BRANCH_EXTRA_GAP_Y, STAGE_PADDING_X, STAGE_PADDING_Y, MIN_STAGE_W, MIN_STAGE_H } = LAYOUT_CONFIG;
 
-        // Hauptäste (Ebene 1) balanciert nach sichtbarem Blatt-Gewicht auf Rechts und Links verteilen
         const rightRoots = [];
         const leftRoots = [];
         let rightWeight = 0;
         let leftWeight = 0;
 
-        // Größere Äste zuerst verteilen für bestmögliche vertikale Balance, Reihenfolge danach stabil halten
         const sortedForBalance = [...rootChildren].sort((a, b) => (meta[b]?.subtreeLeaves || 1) - (meta[a]?.subtreeLeaves || 1));
         const sideAssignment = new Map();
 
@@ -2643,7 +2711,6 @@ function openView() {
             }
         });
 
-        // Maximale Tiefe links und rechts berechnen
         function getMaxDepthForSubtree(nodeId) {
             const m = meta[nodeId];
             if (!m || m.visibleChildrenIds.length === 0) return m?.depth || 1;
@@ -2666,11 +2733,14 @@ function openView() {
         const leftHeight = computeSideHeight(leftRoots);
         const contentHeight = Math.max(rightHeight, leftHeight);
 
-        const stageWidth = Math.max(MIN_STAGE_W, Math.round(leftSpanX + rightSpanX + STAGE_PADDING_X * 2));
+        // Symmetrisches Padding auf beiden Seiten auch bei asymmetrischer Tiefe (verhindert SVG-Clipping rechts)
+        const leftReq = leftSpanX + STAGE_PADDING_X;
+        const rightReq = rightSpanX + STAGE_PADDING_X;
+        const stageWidth = Math.max(MIN_STAGE_W, Math.round(leftReq + rightReq));
         const stageHeight = Math.max(MIN_STAGE_H, Math.round(contentHeight + STAGE_PADDING_Y * 2));
+        const extraW = stageWidth - (leftReq + rightReq);
 
-        // Root so positionieren, dass beide Seiten genug Platz bis zum Stage-Rand haben
-        const rootX = Math.round(Math.max(leftSpanX + STAGE_PADDING_X, stageWidth / 2));
+        const rootX = Math.round(leftReq + extraW / 2);
         const rootY = Math.round(stageHeight / 2);
 
         state.stageWidth = stageWidth;
@@ -2694,7 +2764,6 @@ function openView() {
             if (kids.length === 0) {
                 const y = yTop + ROW_SPACING_Y / 2;
                 positions[nodeId] = { x, y, angle: side === 'right' ? 0 : Math.PI, level: m.depth, side };
-                // Eingeklappte Kinder auf Position des Elternknotens parken (werden nicht gerendert)
                 if (m.childrenIds.length > 0) {
                     getDescendantIds(nodeId).forEach(descId => {
                         positions[descId] = { x, y, angle: 0, level: meta[descId]?.depth || m.depth + 1, side };
@@ -2717,14 +2786,12 @@ function openView() {
             return cursorY;
         }
 
-        // Rechte Seite platzieren (vertikal um rootY zentriert)
         let cursorRightY = rootY - rightHeight / 2;
         rightRoots.forEach((rootId, idx) => {
             cursorRightY = assignSubtreePositions(rootId, 'right', cursorRightY);
             if (idx < rightRoots.length - 1) cursorRightY += BRANCH_EXTRA_GAP_Y;
         });
 
-        // Linke Seite platzieren (vertikal um rootY zentriert)
         let cursorLeftY = rootY - leftHeight / 2;
         leftRoots.forEach((rootId, idx) => {
             cursorLeftY = assignSubtreePositions(rootId, 'left', cursorLeftY);
@@ -2743,7 +2810,6 @@ function openView() {
         const { rootChildren, meta, maxDepth } = topology;
         const totalLeaves = Math.max(1, rootChildren.reduce((sum, id) => sum + (meta[id]?.subtreeLeaves || 1), 0));
 
-        // Dynamische Radien, damit auch der äußerste Ring genügend Umfang pro Knoten hat
         const minArcPerLeaf = 290;
         const requiredOuterRadius = Math.max(520 + (maxDepth - 1) * 430, (totalLeaves * minArcPerLeaf) / (2 * Math.PI));
         const ringStep = Math.max(410, Math.round(requiredOuterRadius / Math.max(1, maxDepth)));
@@ -2780,6 +2846,7 @@ function openView() {
                 if (m.childrenIds.length > 0) {
                     getDescendantIds(nodeId).forEach(descId => {
                         positions[descId] = { x, y, angle: midAngle, level: meta[descId]?.depth || m.depth + 1, side };
+                        if (meta[descId]) meta[descId].side = side;
                     });
                 }
                 return;
@@ -2892,7 +2959,6 @@ function openView() {
 
     function focusNextOpenSlot() {
         if (!state.currentMap) return;
-        // Bevorzugt flachste entsperrte offene Knoten (Grob -> Detail)
         const openUnlocked = state.currentMap.nodes
             .filter(n => !state.solvedNodeIds.has(n.id) && !isSlotCurrentlyLocked(n))
             .sort((a, b) => (state.nodeMeta[a.id]?.depth || 1) - (state.nodeMeta[b.id]?.depth || 1));
@@ -2903,7 +2969,6 @@ function openView() {
         }
         const nextNode = openUnlocked[0];
 
-        // Falls der Elternast eingeklappt war, automatisch aufklappen
         let parentCursor = nextNode.parent_id;
         let reopened = false;
         while (parentCursor && parentCursor !== 'root') {
@@ -2954,8 +3019,7 @@ function openView() {
 
         applyStageTransform();
     }
-
-    // ========================================================================
+   // ========================================================================
     // 7. RENDERING, TIER-FORTSCHRITT & ANTI-SPOILER KAUSAL-LOGIK
     // ========================================================================
 
@@ -3002,7 +3066,8 @@ function openView() {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function shuffleArray(arr) {
@@ -3068,10 +3133,10 @@ function openView() {
         allPoolMap.forEach(val => ordered.push(val));
 
         if (applySearchFilter && state.poolSearchQuery.trim()) {
-            const q = state.poolSearchQuery.trim().toLowerCase();
+            const q = normalizeSearchText(state.poolSearchQuery);
             return ordered.filter(item => {
-                const catLabel = (CATEGORIES[item.category]?.label || '').toLowerCase();
-                return item.label.toLowerCase().includes(q) || (!state.blindMode && catLabel.includes(q));
+                const catLabel = normalizeSearchText(CATEGORIES[item.category]?.label || '');
+                return normalizeSearchText(item.label).includes(q) || (!state.blindMode && catLabel.includes(q));
             });
         }
         return ordered;
@@ -3190,7 +3255,7 @@ function openView() {
 
     function renderFolderLibraryGridHtml() {
         const folders = getFoldersWithStats();
-        const q = state.librarySearchQuery.trim().toLowerCase();
+        const q = normalizeSearchText(state.librarySearchQuery);
         const filterMode = state.libraryFilterMode;
 
         const matchesFilter = m => {
@@ -3199,9 +3264,9 @@ function openView() {
             if (filterMode === 'weak' && !(Array.isArray(prog?.weak_nodes) && prog.weak_nodes.length > 0)) return false;
             if (!q) return true;
             return (
-                String(m.title || '').toLowerCase().includes(q) ||
-                String(m.central_concept || '').toLowerCase().includes(q) ||
-                String(m.specialty || '').toLowerCase().includes(q)
+                normalizeSearchText(m.title).includes(q) ||
+                normalizeSearchText(m.central_concept).includes(q) ||
+                normalizeSearchText(m.specialty).includes(q)
             );
         };
 
@@ -3420,14 +3485,7 @@ function openView() {
             btn.addEventListener('click', async e => {
                 e.stopPropagation();
                 const mapId = btn.getAttribute('data-lib-delete-map');
-                const found = state.mindmaps.find(m => m.id === mapId);
-                if (!found) return;
-                const prevMap = state.currentMap;
-                state.currentMap = found;
-                await deleteCurrentMindmap();
-                if (state.currentMap?.id === mapId) {
-                    state.currentMap = prevMap;
-                }
+                await deleteCurrentMindmap(mapId);
             });
         });
 
@@ -3443,8 +3501,8 @@ function openView() {
     }
 
     function bindFolderLibraryEvents() {
-        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
-        document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
+        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', () => restoreDeletedBuiltinMindmaps());
+        document.getElementById('mm-btn-prompt')?.addEventListener('click', () => copyExtractionPrompt());
         document.getElementById('mm-btn-import')?.addEventListener('click', () => openImportModal(state.activeFolderId));
         document.getElementById('mm-lib-back-btn')?.addEventListener('click', () => openFolderLibrary(null));
 
@@ -3492,10 +3550,11 @@ function openView() {
                 <div class="mindmap-wrapper">
                     <div class="mm-header">
                         <div class="mm-title-group">
-                            <h2>🕸️ Klinisches Mindmap-Labor V7.0</h2>
+                            <h2>🕸️ Klinisches Mindmap-Labor V7.1</h2>
                             <p>Aktuell sind keine Mindmaps in deiner Bibliothek vorhanden.</p>
                         </div>
                         <div class="mm-controls">
+                            <button id="mm-btn-folders" class="mm-btn">📁 Ordner</button>
                             ${deletedBuiltins.length > 0 ? `
                                 <button id="mm-btn-restore-builtins" class="mm-btn">♻️ Standard-Mindmaps wiederherstellen</button>
                             ` : ''}
@@ -3505,9 +3564,10 @@ function openView() {
                     </div>
                 </div>
             `;
-            document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
-            document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
-            document.getElementById('mm-btn-import')?.addEventListener('click', openImportModal);
+            document.getElementById('mm-btn-folders')?.addEventListener('click', () => openFolderLibrary(null));
+            document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', () => restoreDeletedBuiltinMindmaps());
+            document.getElementById('mm-btn-prompt')?.addEventListener('click', () => copyExtractionPrompt());
+            document.getElementById('mm-btn-import')?.addEventListener('click', () => openImportModal(state.activeFolderId));
             return;
         }
 
@@ -3528,26 +3588,18 @@ function openView() {
                 <!-- TOP HEADER -->
                 <div class="mm-header">
                     <div class="mm-title-group">
-                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V7.0 Deep-Tree (${totalNodes} Knoten • ${state.maxTreeDepth} Ebenen)</span></h2>
+                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V7.1 Deep-Tree (${totalNodes} Knoten • ${state.maxTreeDepth} Ebenen)</span></h2>
                         <p>
                             <strong>Grob ➔ Mechanismus ➔ Molekulares Detail:</strong> Arbeite dich über alle Verzweigungsebenen vor, enttarne klinische Fallen aktiv in der Quarantäne und beweise im Tiefen-Verhör echtes Verständnis!
                         </p>
                     </div>
                     <div class="mm-controls">
-                       <button id="mm-btn-folders" class="mm-btn active" title="Zur Fachgebiets-Ordner-Übersicht wechseln">
+                        <button id="mm-btn-folders" class="mm-btn active" title="Zur Fachgebiets-Ordner-Übersicht wechseln">
                             📁 Ordner
                         </button>
 
                         <select id="mm-map-selector" class="mm-select" title="Mindmap auswählen (nach Fachgebiet sortiert)">
                             ${renderGroupedMapOptions(map.id)}
-                        </select>
-                            ${state.mindmaps.map(m => {
-                                const prog = state.progressCache[m.id];
-                                const badge = prog?.completed ? `✅ (${prog.accuracy}%)` : '⭕';
-                                return `<option value="${escapeHtml(m.id)}" ${m.id === map.id ? 'selected' : ''}>
-                                    ${badge} [${escapeHtml(m.specialty)}] ${escapeHtml(m.title)} (${(m.nodes || []).length} Kn.)
-                                </option>`;
-                            }).join('')}
                         </select>
 
                         <button id="mm-btn-delete" class="mm-btn" style="border-color: rgba(239, 68, 68, 0.45); color: #fca5a5 !important;" title="Aktuelle Mindmap löschen">
@@ -3822,11 +3874,6 @@ function openView() {
         const showRelation = isSolved || !state.hideRelationLabels;
         const relationText = showRelation ? (node.relation_label || 'Verbindung') : 'Kausalbeziehung selbst erschließen';
 
-        let originPrefix = `E${depth} • ${depth === 1 ? 'Hauptast' : `Aus „${getParentLabel(node)}“`}`;
-        if (depth > 1 && isLocked) {
-            originPrefix = `🔒 E${depth} • Gesperrte Vertiefung`;
-        }
-
         const collapseBtnHtml = (isSolved && hasChildren) ? `
             <button type="button"
                     class="mm-node-collapse-btn ${meta.side === 'left' ? 'side-left' : ''}"
@@ -3976,7 +4023,6 @@ function openView() {
             let x1, y1, x2, y2, cx1, cy1, cx2, cy2;
 
             if (state.layoutMode === 'tree') {
-                // Saubere horizontale S-Kurven zwischen den Spalten (maximal übersichtlich!)
                 const dir = side === 'left' ? -1 : 1;
                 x1 = fromCenter.x + dir * (fromDim.halfW + 4);
                 y1 = fromCenter.y;
@@ -4020,7 +4066,6 @@ function openView() {
 
             const showBadgeLabel = node.relation_label && (isSolved || !state.hideRelationLabels);
             if (showBadgeLabel) {
-                // Kubischer Bezier-Mittelpunkt bei t = 0.5 für perfekte Positionierung auf der Kurve
                 const midX = 0.125 * x1 + 0.375 * cx1 + 0.375 * cx2 + 0.125 * x2;
                 const midY = 0.125 * y1 + 0.375 * cy1 + 0.375 * cy2 + 0.125 * y2;
                 htmlBadges += `
@@ -4047,7 +4092,6 @@ function openView() {
                 const p1 = getBoxBorderPoint(fromPos.x, fromPos.y, fromDim.halfW, fromDim.halfH, toPos.x, toPos.y, 6);
                 const p2 = getBoxBorderPoint(toPos.x, toPos.y, toDim.halfW, toDim.halfH, fromPos.x, fromPos.y, 12);
 
-                // Kontrollpunkt leicht nach außen gewölbt, um Baum-Kanten zu umgehen
                 const mx = (p1.x + p2.x) / 2;
                 const my = (p1.y + p2.y) / 2;
                 const dx = p2.x - p1.x;
@@ -4103,7 +4147,7 @@ function openView() {
             chip.addEventListener('pointerdown', onChipPointerDown);
         });
 
-        document.getElementById('mm-btn-weak-drill')?.addEventListener('click', startWeakNodeDrill);
+        document.getElementById('mm-btn-weak-drill')?.addEventListener('click', () => startWeakNodeDrill());
         document.getElementById('mm-btn-save-weak-depot')?.addEventListener('click', async e => {
             const btn = e.currentTarget;
             const combined = new Set([...state.weakNodeIds, ...state.uncertainNodeIds]);
@@ -4125,9 +4169,9 @@ function openView() {
         document.getElementById('mm-btn-folders')?.addEventListener('click', () => {
             openFolderLibrary(resolveFolderForMindmap(state.currentMap).id);
         });
-        document.getElementById('mm-btn-delete')?.addEventListener('click', deleteCurrentMindmap);
-        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', restoreDeletedBuiltinMindmaps);
-        document.getElementById('mm-strip-weak-drill')?.addEventListener('click', startWeakNodeDrill);
+        document.getElementById('mm-btn-delete')?.addEventListener('click', () => deleteCurrentMindmap());
+        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', () => restoreDeletedBuiltinMindmaps());
+        document.getElementById('mm-strip-weak-drill')?.addEventListener('click', () => startWeakNodeDrill());
 
         document.querySelectorAll('[data-preset]').forEach(btn => {
             btn.addEventListener('click', () => applyDifficultyPreset(btn.getAttribute('data-preset')));
@@ -4230,8 +4274,10 @@ function openView() {
             if (state.currentMap) selectMindmap(state.currentMap.id);
         });
 
-        document.getElementById('mm-btn-prompt')?.addEventListener('click', copyExtractionPrompt);
-        document.getElementById('mm-btn-import')?.addEventListener('click', openImportModal);
+        document.getElementById('mm-btn-prompt')?.addEventListener('click', () => copyExtractionPrompt());
+        document.getElementById('mm-btn-import')?.addEventListener('click', () => {
+            openImportModal(resolveFolderForMindmap(state.currentMap).id);
+        });
 
         // Pool-Suche ohne Fokusverlust (aktualisiert gezielt nur #mm-chip-pool)
         const searchInput = document.getElementById('mm-pool-search');
@@ -4264,9 +4310,9 @@ function openView() {
         const rootGuessInput = document.getElementById('mm-root-guess-input');
         const verifyRootDeduction = () => {
             if (!rootGuessInput || !state.currentMap) return;
-            const guess = rootGuessInput.value.trim().toLowerCase();
+            const guess = normalizeSearchText(rootGuessInput.value);
             if (guess.length < 3) return;
-            const target = (state.currentMap.central_concept + ' ' + state.currentMap.title).toLowerCase();
+            const target = normalizeSearchText(`${state.currentMap.central_concept} ${state.currentMap.title}`);
             const tokens = guess.split(/[\s,()-]+/).filter(t => t.length >= 3);
             const matched = tokens.some(tok => target.includes(tok));
 
@@ -4527,6 +4573,8 @@ function openView() {
             const streakBadge = document.getElementById('mm-stat-streak');
             if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
 
+            document.querySelectorAll('.mm-chip.selected-chip').forEach(c => c.classList.remove('selected-chip'));
+
             const tutorEl = document.getElementById('mm-tutor-message');
             if (tutorEl && realNode) {
                 const depth = state.nodeMeta[realNode.id]?.depth || 1;
@@ -4541,7 +4589,6 @@ function openView() {
             return;
         }
 
-        // Echter Distraktor erkannt! Im Deep-Modus kurz klinisch begründen lassen
         if (state.deepComprehensionMode) {
             openDistractorVerificationModal(distractorObj);
         } else {
@@ -4554,18 +4601,23 @@ function openView() {
         if (existing) existing.remove();
 
         const map = state.currentMap;
-        const otherReasons = getActiveDistractors(map)
-            .filter(d => d.id !== distractorObj.id && d.distractor_reason)
-            .map(d => d.distractor_reason);
+        const safeRootTitle = getRootDisplayTitle();
+        const correctReason = distractorObj.distractor_reason || 'Klinisch nicht passend für diese Entität oder kontraindiziert.';
+
+        const otherReasons = Array.from(new Set(
+            getActiveDistractors(map)
+                .filter(d => d.id !== distractorObj.id && d.distractor_reason && d.distractor_reason !== correctReason)
+                .map(d => d.distractor_reason)
+        ));
 
         const fallbackPlausibles = [
-            `Dieser Schritt ist zwar leitliniengerecht für „${map.central_concept}“, darf jedoch erst nach vollständiger Ausheilung im ambulanten Langzeitverlauf nach 12 Monaten eingesetzt werden.`,
-            `Der Befund ist bei „${map.central_concept}“ zwar pathognomonisch, wird aber in modernen Leitlinien wegen fehlender Kosteneffizienz nicht mehr gelehrt.`
+            `Dieser Schritt ist zwar leitliniengerecht für „${safeRootTitle}“, darf jedoch erst nach vollständiger Ausheilung im ambulanten Langzeitverlauf nach 12 Monaten eingesetzt werden.`,
+            `Der Befund ist bei „${safeRootTitle}“ zwar pathognomonisch, wird aber in modernen Leitlinien wegen fehlender Kosteneffizienz nicht mehr gelehrt.`
         ];
 
         const wrongOpts = shuffleArray([...otherReasons, ...fallbackPlausibles]).slice(0, 2);
         const options = shuffleArray([
-            { text: distractorObj.distractor_reason, isCorrect: true },
+            { text: correctReason, isCorrect: true },
             ...wrongOpts.map(t => ({ text: t, isCorrect: false }))
         ]);
 
@@ -4582,7 +4634,7 @@ function openView() {
                     </span>
                 </div>
                 <div class="mm-mastery-question-box" style="border-left-color:#ef4444;">
-                    Du willst <strong>„${escapeHtml(distractorObj.label)}“</strong> aussortieren. Warum ist dieser Baustein bei <em>${escapeHtml(getRootDisplayTitle())}</em> eine klinische Falle?
+                    Du willst <strong>„${escapeHtml(distractorObj.label)}“</strong> aussortieren. Warum ist dieser Baustein bei <em>${escapeHtml(safeRootTitle)}</em> eine klinische Falle?
                 </div>
                 <div class="mm-synapse-options">
                     ${options.map((o, idx) => `
@@ -4631,6 +4683,12 @@ function openView() {
                     state.streakCount = 0;
                     btn.classList.add('wrong-choice');
                     btn.disabled = true;
+
+                    const mistakesBadge = document.getElementById('mm-stat-mistakes');
+                    if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
+                    const streakBadge = document.getElementById('mm-stat-streak');
+                    if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
+
                     if (fb) {
                         fb.innerHTML = `<div class="mm-mastery-nudge-box"><strong>🤔 Genau hinsehen:</strong> Welcher pathophysiologische Mechanismus oder welche Leitlinien-Kontraindikation macht genau <em>„${escapeHtml(distractorObj.label)}“</em> falsch?</div>`;
                     }
@@ -4739,11 +4797,15 @@ function openView() {
         const draggedNode = map.nodes.find(n => n.id === draggedNodeId);
         if (!draggedNode) return;
 
-        // 3. Exakte Übereinstimmung ODER Leaf-Safe semantische Äquivalenz (nur wenn beide keine Kinder haben!)
+        // 3. Exakte Übereinstimmung ODER Leaf- & CrossLink-sichere semantische Äquivalenz
         const isExactMatch = draggedNode.id === targetNode.id;
         const bothAreLeaves = (state.nodeMeta[draggedNode.id]?.childrenIds?.length || 0) === 0
             && (state.nodeMeta[targetNode.id]?.childrenIds?.length || 0) === 0;
-        const isSemanticEquivalent = bothAreLeaves && (
+        const hasCrossLinkRef = (map.cross_links || []).some(cl =>
+            cl.from === draggedNode.id || cl.to === draggedNode.id ||
+            cl.from === targetNode.id || cl.to === targetNode.id
+        );
+        const isSemanticEquivalent = bothAreLeaves && !hasCrossLinkRef && (
             (draggedNode.parent_id || 'root') === (targetNode.parent_id || 'root') &&
             draggedNode.category === targetNode.category &&
             (draggedNode.relation_label || '').trim().toLowerCase() === (targetNode.relation_label || '').trim().toLowerCase()
@@ -4835,10 +4897,14 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 const data = await response.json();
                 const item = Array.isArray(data?.result) ? data.result[0] : null;
                 if (item && item.question && Array.isArray(item.options) && item.options.length >= 4) {
+                    const opts = item.options.slice(0, 4);
+                    const safeIdx = (Number.isInteger(item.correct_index) && item.correct_index >= 0 && item.correct_index < opts.length)
+                        ? item.correct_index
+                        : 0;
                     const generatedQuiz = {
                         question: item.question,
-                        options: item.options.slice(0, 4),
-                        correct_index: Number.isInteger(item.correct_index) ? item.correct_index : 0,
+                        options: opts,
+                        correct_index: safeIdx,
                         socratic_nudge: item.socratic_nudge || targetNode.socratic_hint || 'Überdenke den exakten Mechanismus und die Leitlinien-Kriterien dieses Schritts.',
                         rationale: item.rationale || targetNode.explanation || '',
                         _aiGenerated: true
@@ -4849,9 +4915,10 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 }
             }
         } catch (_e) {
-            console.warn('[Mindmap V7.0] Offline-Synthese-Fallback für Mastery-Question aktiv.');
+            console.warn('[Mindmap V7.1] Offline-Synthese-Fallback für Mastery-Question aktiv.');
         }
 
+        const safeRootTitle = getRootDisplayTitle();
         const correctStatement = targetNode.explanation || `Durch „${targetNode.relation_label}“ resultiert aus „${parentLabel}“ unmittelbar das klinische Konzept „${targetNode.label}“.`;
         const otherNodes = map.nodes.filter(n => n.id !== targetNode.id && n.explanation);
         const distractorExplanations = shuffleArray(otherNodes).slice(0, 3).map(n => n.explanation);
@@ -4860,7 +4927,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         }
 
         return {
-            question: `Tiefenverständnis-Prüfung (Ebene ${depth}) zu „${targetNode.label}“: Welche klinisch-pathophysiologische Aussage begründet diesen Baustein im Kontext von „${map.central_concept}“ exakt?`,
+            question: `Tiefenverständnis-Prüfung (Ebene ${depth}) zu „${targetNode.label}“: Welche klinisch-pathophysiologische Aussage begründet diesen Baustein im Kontext von „${safeRootTitle}“ exakt?`,
             options: [correctStatement, ...distractorExplanations],
             correct_index: 0,
             socratic_nudge: targetNode.socratic_hint || 'Fokussiere dich auf den spezifischen Mechanismus dieses Tiefenknotens.',
@@ -4912,9 +4979,16 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const gateBody = backdrop.querySelector('#mm-gate-body');
         if (!gateBody) return;
 
-        const indexedOptions = masteryData.options.map((text, idx) => ({
+        const rawOpts = Array.isArray(masteryData.options) && masteryData.options.length > 0
+            ? masteryData.options
+            : [targetNode.explanation || targetNode.label];
+        const safeCorrectIdx = (Number.isInteger(masteryData.correct_index) && masteryData.correct_index >= 0 && masteryData.correct_index < rawOpts.length)
+            ? masteryData.correct_index
+            : 0;
+
+        const indexedOptions = rawOpts.map((text, idx) => ({
             text,
-            isCorrect: idx === (masteryData.correct_index ?? 0)
+            isCorrect: idx === safeCorrectIdx
         }));
         const shuffledOptions = shuffleArray(indexedOptions);
 
@@ -5182,7 +5256,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             return;
         }
 
-        const opts = shuffleArray(qData.options.map((text, idx) => ({ text, isCorrect: idx === (qData.correct_index ?? 0) })));
+        const rawSynthOpts = qData.options;
+        const safeSynthIdx = (Number.isInteger(qData.correct_index) && qData.correct_index >= 0 && qData.correct_index < rawSynthOpts.length)
+            ? qData.correct_index
+            : 0;
+        const opts = shuffleArray(rawSynthOpts.map((text, idx) => ({ text, isCorrect: idx === safeSynthIdx })));
+
         synthBody.style.textAlign = 'left';
         synthBody.style.padding = '0';
         synthBody.innerHTML = `
@@ -5305,11 +5384,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
         if (state.solvedNodeIds.size === map.nodes.length) {
             await saveProgressToDb();
-            if (updatedTutorEl) {
+            const finalTutorEl = document.getElementById('mm-tutor-message');
+            if (finalTutorEl) {
                 const totalAttempts = map.nodes.length + state.mistakesCount;
                 const accuracy = totalAttempts > 0 ? Math.round((map.nodes.length / totalAttempts) * 100) : 100;
                 const weakCount = new Set([...state.weakNodeIds, ...state.uncertainNodeIds]).size;
-                updatedTutorEl.innerHTML = `
+                finalTutorEl.innerHTML = `
                     <strong style="color:#10b981;">🏆 Gesamter ${state.maxTreeDepth}-Ebenen-Baum gemeistert (${accuracy}% Präzision, Max-Serie: ${state.maxStreak})!</strong><br>
                     Du hast alle ${map.nodes.length} Konzepte von grob bis ins molekulare Detail verifiziert (${state.mistakesCount} Fehler${weakCount > 0 ? `, ${weakCount} Wackelkandidat(en)` : ''}).
                     ${weakCount > 0 ? `<br>Nutze <strong>„🎯 Schwachstellen drillen“</strong>, um deine unsicheren Knoten gezielt auf 100 % zu festigen!` : ''}
@@ -5470,7 +5550,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
     }
 
     // ========================================================================
-    // 11. V7.0 DEEP-TREE EXTRAKTIONS-PROMPT & VALIDIERENDER JSON-IMPORT
+    // 11. V7.1 DEEP-TREE EXTRAKTIONS-PROMPT & VALIDIERENDER JSON-IMPORT
     // ========================================================================
 
     function copyExtractionPrompt() {
@@ -5480,18 +5560,18 @@ Extrahiere aus dem folgenden Vorlesungstext das Thema VOLLSTÄNDIG von grob nach
 
 # 1. INHALTLICHE & STRUKTURELLE REGELN (ZERO-SUPERFICIALITY & FULL DEPTH)
 1. VOLLSTÄNDIGE TIEFENABDECKUNG (16 BIS 24 KNOTEN ÜBER 3–4 EBENEN):
-   - Ebene 1 (5 Hauptäste, "parent_id": "root"): Decken alle 5 Kategorien ab ("etiology", "pathophysiology", "clinical", "diagnostics", "therapy") als Makro-Einstieg.
-   - Ebene 2 (7–10 Knoten, "parent_id": "n1" etc.): Mehrfachverzweigungen pro Hauptast sind ausdrücklich erwünscht! Zerlege jeden Hauptast in seine zentralen Untermechanismen, klinischen Syndrome, Diagnose-Pfade oder Therapiesäulen.
-   - Ebene 3 & 4 (6–10 Knoten, "parent_id": "n1a" etc.): Hochspezifische Tiefendetails — exakte Rezeptoren, Mutationen, Autoantikörper, histologische Zeichen, Scores, Cutoffs mit Einheiten, Zusatzableitungen, Wirkmechanismen, Leitlinien-Zielwerte und absolute Kontraindikationen.
-   - VERBOTEN: Generische Platzhalter wie "Labor", "Bildgebung", "Entzündung" oder "Medikamente".
+  - Ebene 1 (5 Hauptäste, "parent_id": "root"): Decken alle 5 Kategorien ab ("etiology", "pathophysiology", "clinical", "diagnostics", "therapy") als Makro-Einstieg.
+  - Ebene 2 (7–10 Knoten, "parent_id": "n1" etc.): Mehrfachverzweigungen pro Hauptast sind ausdrücklich erwünscht! Zerlege jeden Hauptast in seine zentralen Untermechanismen, klinischen Syndrome, Diagnose-Pfade oder Therapiesäulen.
+  - Ebene 3 & 4 (6–10 Knoten, "parent_id": "n1a" etc.): Hochspezifische Tiefendetails — exakte Rezeptoren, Mutationen, Autoantikörper, histologische Zeichen, Scores, Cutoffs mit Einheiten, Zusatzableitungen, Wirkmechanismen, Leitlinien-Zielwerte und absolute Kontraindikationen.
+  - VERBOTEN: Generische Platzhalter wie "Labor", "Bildgebung", "Entzündung" oder "Medikamente".
 2. TIEFENVERSTÄNDNIS-PRÜFUNGSFRAGE ("mastery_question") FÜR JEDEN KNOTEN:
-   - Jedes Objekt in "nodes" MUSS eine eigene "mastery_question" auf Staatsexamensniveau (Bloom 3–5) besitzen (Warum/Wie/Mechanismus/Cutoff/Kontraindikation/Fallvignette).
-   - "options": genau 4 Antwortoptionen mit strikter Längenparität (10–15 % Varianz, gleicher Fachstil, keine Test-Wiseness!).
-   - "correct_index" (0–3), "socratic_nudge" (ohne Lösungsspoiler!) und präzise "rationale".
+  - Jedes Objekt in "nodes" MUSS eine eigene "mastery_question" auf Staatsexamensniveau (Bloom 3–5) besitzen (Warum/Wie/Mechanismus/Cutoff/Kontraindikation/Fallvignette).
+  - "options": genau 4 Antwortoptionen mit strikter Längenparität (10–15 % Varianz, gleicher Fachstil, keine Test-Wiseness!).
+  - "correct_index" (0–3), "socratic_nudge" (ohne Lösungsspoiler!) und präzise "rationale".
 3. QUERVERBINDUNGEN ("cross_links"):
-   - Erstelle 2 bis 3 fachübergreifende Brücken zwischen gelösten Knoten verschiedener Äste (z. B. Pathophysiologie -> Diagnostik oder Diagnostik -> Therapie-Kontraindikation) inklusive einer "synthesis_question" für den Transfer.
+  - Erstelle 2 bis 3 fachübergreifende Brücken zwischen gelösten Knoten verschiedener Äste (z. B. Pathophysiologie -> Diagnostik oder Diagnostik -> Therapie-Kontraindikation) inklusive einer "synthesis_question" für den Transfer.
 4. KLINISCHE FALLEN FÜR DIE AKTIVE DD-QUARANTÄNE ("distractors"):
-   - Erstelle 3 bis 4 hochplausible Differenzialdiagnose-Fallen oder gefährliche Behandlungsfehler inklusive exakter "distractor_reason".
+  - Erstelle 3 bis 4 hochplausible Differenzialdiagnose-Fallen oder gefährliche Behandlungsfehler inklusive exakter "distractor_reason".
 
 # 2. STRIKTES JSON-SCHEMA (Antworte NUR mit reinem, validem JSON ohne Markdown-Fences)
 {
@@ -5571,18 +5651,46 @@ Extrahiere aus dem folgenden Vorlesungstext das Thema VOLLSTÄNDIG von grob nach
 Hier ist der Vorlesungstext:
 [HIER VORLESUNGSTEXT EINFÜGEN]`;
 
-        navigator.clipboard.writeText(promptTemplate).then(() => {
+        const showCopiedFeedback = () => {
             const btn = document.getElementById('mm-btn-prompt');
             if (btn) {
                 const orig = btn.innerHTML;
-                btn.innerHTML = '✅ V7.0 Deep-Tree Prompt kopiert!';
+                btn.innerHTML = '✅ V7.1 Deep-Tree Prompt kopiert!';
                 setTimeout(() => { btn.innerHTML = orig; }, 2200);
             }
-        });
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(promptTemplate).then(showCopiedFeedback).catch(() => {
+                fallbackCopyText(promptTemplate);
+                showCopiedFeedback();
+            });
+        } else {
+            fallbackCopyText(promptTemplate);
+            showCopiedFeedback();
+        }
     }
 
-  function openImportModal(preselectedFolderId = null) {
+    function fallbackCopyText(text) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+        } catch (_e) {}
+    }
+
+    function openImportModal(preselectedFolderId = null) {
+        const safeFolderId = typeof preselectedFolderId === 'string' ? preselectedFolderId : null;
         const folders = getDashboardFolders();
+
+        const existing = document.querySelector('.mm-modal-backdrop');
+        if (existing) existing.remove();
+
         const modalBackdrop = document.createElement('div');
         modalBackdrop.className = 'mm-modal-backdrop';
         modalBackdrop.innerHTML = `
@@ -5596,7 +5704,7 @@ Hier ist der Vorlesungstext:
                     <select id="mm-import-folder" class="mm-select" style="flex:1; min-width:220px;">
                         <option value="">✨ Automatisch nach Fachgebiet zuordnen</option>
                         ${folders.map(f => `
-                            <option value="${escapeHtml(f.id)}" ${preselectedFolderId === f.id ? 'selected' : ''}>
+                            <option value="${escapeHtml(f.id)}" ${safeFolderId === f.id ? 'selected' : ''}>
                                 ${escapeHtml(f.icon)} ${escapeHtml(f.label)}
                             </option>
                         `).join('')}
@@ -5613,8 +5721,13 @@ Hier ist der Vorlesungstext:
 
         document.body.appendChild(modalBackdrop);
 
-        modalBackdrop.querySelector('#mm-modal-cancel').addEventListener('click', () => modalBackdrop.remove());
-        modalBackdrop.querySelector('#mm-modal-save').addEventListener('click', async () => {
+        const closeModal = () => modalBackdrop.remove();
+        modalBackdrop.addEventListener('click', e => {
+            if (e.target === modalBackdrop) closeModal();
+        });
+        modalBackdrop.querySelector('#mm-modal-cancel')?.addEventListener('click', closeModal);
+
+        modalBackdrop.querySelector('#mm-modal-save')?.addEventListener('click', async () => {
             const raw = modalBackdrop.querySelector('#mm-import-textarea').value.trim();
             const chosenFolderId = modalBackdrop.querySelector('#mm-import-folder')?.value || '';
             const errEl = modalBackdrop.querySelector('#mm-import-error');
@@ -5634,12 +5747,34 @@ Hier ist der Vorlesungstext:
                     if (!CATEGORIES[n.category]) n.category = 'pathophysiology';
                 });
 
+                // Nur valide Querverbindungen behalten (beide Endpunkte müssen existieren)
+                parsed.cross_links = Array.isArray(parsed.cross_links)
+                    ? parsed.cross_links.filter(cl => cl && seenIds.has(cl.from) && seenIds.has(cl.to) && cl.from !== cl.to)
+                    : [];
+
+                // Distraktor-IDs gegen Kollision mit echten Knoten-IDs schützen
+                const seenDistIds = new Set();
+                parsed.distractors = Array.isArray(parsed.distractors)
+                    ? parsed.distractors
+                        .filter(d => d && d.label)
+                        .map((d, idx) => {
+                            let distId = d.id || `d_auto_${idx + 1}`;
+                            if (seenIds.has(distId) || seenDistIds.has(distId)) {
+                                distId = `d_auto_${idx + 1}_${Date.now()}`;
+                            }
+                            seenDistIds.add(distId);
+                            return {
+                                ...d,
+                                id: distId,
+                                category: CATEGORIES[d.category] ? d.category : 'pathophysiology'
+                            };
+                        })
+                    : [];
+
                 parsed.id = parsed.id || `mm_custom_${Date.now()}`;
                 parsed.schema_version = BUILTIN_SCHEMA_VERSION;
                 parsed.title = parsed.title || parsed.central_concept;
                 parsed.specialty = parsed.specialty || 'Vorlesung';
-                parsed.cross_links = Array.isArray(parsed.cross_links) ? parsed.cross_links : [];
-                parsed.distractors = Array.isArray(parsed.distractors) ? parsed.distractors : [];
 
                 if (chosenFolderId) {
                     const chosenFolder = folders.find(f => f.id === chosenFolderId);
@@ -5653,12 +5788,13 @@ Hier ist der Vorlesungstext:
                 await saveCustomMindmapToDb(parsed);
                 await loadMindmapsAndProgress();
                 selectMindmap(parsed.id);
-                modalBackdrop.remove();
+                closeModal();
             } catch (err) {
                 errEl.textContent = `Fehler beim Parsen: ${err.message}`;
             }
         });
     }
+
     window.MindmapModule = {
         init,
         openView,
@@ -5674,6 +5810,7 @@ Hier ist der Vorlesungstext:
         startWeakNodeDrill,
         focusNextOpenSlot
     };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
