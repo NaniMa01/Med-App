@@ -1,17 +1,16 @@
 /**
- * MedCheck - Interactive Clinical Mindmap Module V7.1 (js/mindmap.js)
- * "Deep-Tree Multi-Tier Mastery, Synthesis & Specialty Folder Edition"
+ * MedCheck - Interactive Clinical Mindmap Module V7.2 (js/mindmap.js)
+ * "Deep-Tree Multi-Tier Mastery, Synthesis, Specialty Folders & Free-Recall Promotion Edition"
  *
- * Upgrades in V7.0 / V7.1:
+ * Upgrades in V7.0 – V7.2:
  *  - True N-Tier Multi-Branch Hierarchy (Tier 1 Macro -> Tier 2 Mechanism/Algorithm -> Tier 3+ Molecular/Cutoff/Guideline Details).
  *  - Zero-Overlap Dual Layout Engine: Bi-Directional Weighted Tidy-Tree (default) + Weighted Angular-Sector Radial View,
  *    with dynamic stage sizing and per-branch Collapse/Expand toggles.
- *  - Specialty Folder System synced with Dashboard folders (auto-sorting, manual move, progress aggregation).
- *  - Active Clinical Distractor Quarantine Zone: Force active identification & rejection of differential diagnosis traps.
- *  - Metacognitive Confidence Calibration ("Sicher" vs. "Unsicher/Geraten") inside the Deep Clinical Mastery Gate.
+ *  - Specialty Folder System synced 1:1 with Dashboard super-folders (exact orderIndex, auto-sorting, manual move, progress aggregation).
+ *  - Compact Custom User Terms per Category Branch (Free-Recall Brainstorming + AI Verification + 1-Click Promotion to Official Exam Node).
+ *  - Active Clinical Distractor Quarantine Zone & Metacognitive Confidence Calibration inside the Deep Clinical Mastery Gate.
  *  - Cross-Domain Synthesis Links (cross_links) rendered as dashed synthesis arcs + final transfer check.
  *  - Focused Weak-Node Drill ("Nur Fehler & Wackelkandidaten wiederholen") + Pool Search + Camera Focus on next open slot.
- *  - Automatic V7.0 built-in schema migration & leaf-safe semantic matching.
  */
 
 (function () {
@@ -46,12 +45,12 @@
     const DELETED_BUILTINS_KEY = 'medcheck_deleted_builtin_mindmaps_v1';
     const DEPOT_STORAGE_KEY = 'medcheck_learning_depot_v1';
     const FOLDER_OVERRIDES_KEY = 'medcheck_mindmap_folder_overrides_v1';
+    const USER_TERMS_STORAGE_KEY = 'medcheck_mindmap_user_terms_v1';
     const BUILTIN_SCHEMA_VERSION = 7;
 
     /**
      * Fallback-Ordnerliste, falls das Dashboard seine Ordner noch nicht über
      * window.MEDCHECK_DASHBOARD_FOLDERS exponiert.
-     * Passe id, label, icon, color & keywords bei Bedarf exakt an js/specialty.js an.
      */
     const DASHBOARD_FOLDER_FALLBACKS = [
         { id: 'kardiologie', label: 'Kardiologie', icon: '🫀', color: '#ef4444', keywords: ['kardio', 'herz', 'stemi', 'acs', 'ekg', 'gefäss', 'angiologie'] },
@@ -1020,6 +1019,8 @@
         }
     ];
 
+    const inFlightUserTermIds = new Set();
+
     const state = {
         initialized: false,
         initPromise: null,
@@ -1045,6 +1046,7 @@
         includeDistractors: true,
         hideRelationLabels: false,           // Im Exam-Modus: Relation-Spoiler auf ungelösten Slots ausblenden
         showCrossLinks: true,
+        showUserTerms: true,                 // V7.2: Eigene Zusatzbegriffe im Baum anzeigen
         blindRootMode: false,
         rootRevealed: false,
         showInspector: false,
@@ -1062,7 +1064,7 @@
         rootX: LAYOUT_CONFIG.MIN_STAGE_W / 2,
         rootY: LAYOUT_CONFIG.MIN_STAGE_H / 2,
         nodePositions: {},
-        nodeMeta: {},                        // { [nodeId]: { depth, childrenIds, subtreeLeaves, side, branchRootId } }
+        nodeMeta: {},                        // { [nodeId]: { depth, childrenIds, subtreeLeaves, side, branchRootId, isUserTerm } }
         maxTreeDepth: 1,
         progressCache: {},
         zoom: 0.65,
@@ -1072,7 +1074,7 @@
     };
 
     // ========================================================================
-    // 1. INITIALISIERUNG, SCOPED CSS (V7.1) & DOM-STRUKTUR
+    // 1. INITIALISIERUNG, SCOPED CSS (V7.2) & DOM-STRUKTUR
     // ========================================================================
 
     function safeParseJson(raw, fallback = null) {
@@ -1090,20 +1092,20 @@
             localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
             return true;
         } catch (err) {
-            console.warn(`[Mindmap V7.1] localStorage Schreibfehler (${key}):`, err);
+            console.warn(`[Mindmap V7.2] localStorage Schreibfehler (${key}):`, err);
             return false;
         }
     }
 
     function ensureMindmapStyles() {
-        if (document.getElementById('medcheck-mindmap-v71-styles')) return;
-        ['medcheck-mindmap-v6-styles', 'medcheck-mindmap-v7-styles'].forEach(oldId => {
+        if (document.getElementById('medcheck-mindmap-v72-styles')) return;
+        ['medcheck-mindmap-v6-styles', 'medcheck-mindmap-v7-styles', 'medcheck-mindmap-v71-styles'].forEach(oldId => {
             const oldEl = document.getElementById(oldId);
             if (oldEl) oldEl.remove();
         });
 
         const styleEl = document.createElement('style');
-        styleEl.id = 'medcheck-mindmap-v71-styles';
+        styleEl.id = 'medcheck-mindmap-v72-styles';
         styleEl.textContent = `
             .mm-preset-bar {
                 display: flex;
@@ -1238,7 +1240,7 @@
                 line-height: 1.35;
             }
 
-            /* Node Enhancements (Collapse, Uncertain Indicator, Compact Multi-Tier Sizing) */
+            /* Node Enhancements (Collapse, Uncertain Indicator, Promoted Tag) */
             .mm-node-collapse-btn {
                 position: absolute;
                 right: -11px;
@@ -1278,6 +1280,17 @@
                 border: 1px solid rgba(245, 158, 11, 0.55);
                 color: #fbbf24;
                 font-size: 0.65rem;
+                font-weight: 800;
+            }
+            .mm-node-promoted-badge {
+                display: inline-block;
+                margin-left: 4px;
+                padding: 1px 5px;
+                border-radius: 999px;
+                background: rgba(250, 204, 21, 0.16);
+                border: 1px solid rgba(250, 204, 21, 0.5);
+                color: #fde047;
+                font-size: 0.63rem;
                 font-weight: 800;
             }
             .mm-rel-hidden-pill {
@@ -1735,6 +1748,182 @@
                 font-size: 0.9rem;
                 font-weight: 700;
             }
+
+            /* === V7.2 KOMPAKTE ZUSATZBEGRIFFE & 1-KLICK-BEFÖRDERUNG === */
+            .mm-legend-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .mm-legend-add-btn {
+                width: 18px;
+                height: 18px;
+                border-radius: 999px;
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.2));
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.85));
+                color: var(--text-main, #e2e8f0);
+                font-size: 0.74rem;
+                font-weight: 900;
+                line-height: 1;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+            }
+            .mm-legend-add-btn:hover {
+                transform: scale(1.15);
+                border-color: var(--accent-cyan, #38bdf8);
+                background: rgba(56, 189, 248, 0.24);
+                color: #ffffff;
+            }
+            .mm-node-add-term-btn {
+                position: absolute;
+                top: -9px;
+                right: 8px;
+                z-index: 6;
+                padding: 1px 6px;
+                border-radius: 999px;
+                border: 1px solid rgba(56, 189, 248, 0.52);
+                background: var(--surface-primary, #0f172a);
+                color: #38bdf8;
+                font-size: 0.65rem;
+                font-weight: 800;
+                cursor: pointer;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+                transition: transform 0.14s ease, background 0.14s ease;
+            }
+            .mm-node-add-term-btn:hover {
+                transform: scale(1.08);
+                background: #38bdf8;
+                color: #0f172a;
+            }
+            /* Bewusst kompakt gehalten, damit der Baum schlank bleibt */
+            .mm-node-userterm {
+                width: 214px;
+                min-height: 58px;
+                padding: 7px 9px;
+                border-radius: 11px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.92));
+                border: 1.6px dashed var(--ut-accent, #38bdf8);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.26);
+                cursor: pointer;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .mm-node-userterm:hover {
+                transform: translate(-50%, -50%) scale(1.03);
+                box-shadow: 0 8px 22px rgba(56, 189, 248, 0.24);
+            }
+            .mm-ut-top {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 6px;
+            }
+            .mm-ut-label {
+                font-size: 0.79rem;
+                font-weight: 700;
+                line-height: 1.28;
+                color: var(--text-main, #f8fafc);
+                word-break: break-word;
+            }
+            .mm-ut-note-preview {
+                margin-top: 2px;
+                font-size: 0.68rem;
+                line-height: 1.25;
+                color: var(--text-muted, #94a3b8);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .mm-ut-bottom {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 4px;
+                margin-top: 5px;
+                padding-top: 4px;
+                border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            }
+            .mm-ut-status-pill {
+                padding: 1px 6px;
+                border-radius: 999px;
+                font-size: 0.62rem;
+                font-weight: 800;
+                background: rgba(148, 163, 184, 0.15);
+                color: #cbd5e1;
+                white-space: nowrap;
+            }
+            .mm-ut-status-pill.status-valid {
+                background: rgba(16, 185, 129, 0.18);
+                color: #34d399;
+                border: 1px solid rgba(16, 185, 129, 0.42);
+            }
+            .mm-ut-status-pill.status-partial {
+                background: rgba(245, 158, 11, 0.18);
+                color: #fbbf24;
+                border: 1px solid rgba(245, 158, 11, 0.42);
+            }
+            .mm-ut-status-pill.status-wrong {
+                background: rgba(239, 68, 68, 0.18);
+                color: #f87171;
+                border: 1px solid rgba(239, 68, 68, 0.42);
+            }
+            .mm-ut-mini-actions {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+            }
+            .mm-ut-mini-btn {
+                padding: 1px 5px;
+                border-radius: 5px;
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                background: rgba(30, 41, 59, 0.85);
+                color: var(--text-main, #e2e8f0);
+                font-size: 0.66rem;
+                font-weight: 700;
+                line-height: 1.3;
+                cursor: pointer;
+                transition: background 0.14s ease, border-color 0.14s ease;
+            }
+            .mm-ut-mini-btn:hover:not(:disabled) {
+                border-color: var(--accent-cyan, #38bdf8);
+                background: rgba(56, 189, 248, 0.2);
+            }
+            .mm-ut-mini-btn.is-promote-ready {
+                border-color: rgba(250, 204, 21, 0.65);
+                background: rgba(250, 204, 21, 0.18);
+                color: #fde047;
+            }
+            .mm-ut-mini-btn.is-promote-ready:hover:not(:disabled) {
+                background: rgba(250, 204, 21, 0.32);
+            }
+            .mm-edge-userterm {
+                fill: none;
+                stroke-width: 1.8;
+                stroke-dasharray: 5 5;
+                opacity: 0.78;
+                pointer-events: none;
+            }
+            .mm-ut-modal-list {
+                display: flex;
+                flex-direction: column;
+                gap: 7px;
+                max-height: 220px;
+                overflow-y: auto;
+                margin-top: 8px;
+                padding-right: 4px;
+            }
+            .mm-ut-modal-row {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 8px;
+                padding: 8px 10px;
+                border-radius: 9px;
+                background: var(--surface-secondary, rgba(30, 41, 59, 0.72));
+                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
+            }
             @keyframes mmFadeIn {
                 from { opacity: 0; transform: scale(0.96); }
                 to { opacity: 1; transform: scale(1); }
@@ -1864,8 +2053,9 @@
     }
 
     /**
-     * Migriert veraltete gecachte Built-in-Versionen (z. B. V6.0 mit 7-9 Knoten) sauber auf V7.0 (18-19 Knoten),
-     * behält dabei aber etwaige live per KI neu generierte mastery_questions sowie Ordner-Zuweisungen bei.
+     * Migriert veraltete gecachte Built-in-Versionen sauber auf V7.2,
+     * behält aber KI-Fragen, Ordner-Zuweisungen, eigene Zusatzbegriffe sowie
+     * bereits beförderte Benutzer-Knoten (_userPromoted) vollständig bei.
      */
     function mergeWithBuiltinIfOutdated(candidateMap) {
         const builtinMatch = BUILTIN_MINDMAPS.find(b => b.id === candidateMap.id);
@@ -1878,14 +2068,26 @@
             const upgraded = JSON.parse(JSON.stringify(builtinMatch));
             if (candidateMap.folder_id) upgraded.folder_id = candidateMap.folder_id;
             if (candidateMap.specialty) upgraded.specialty = candidateMap.specialty;
+            if (Array.isArray(candidateMap.user_terms)) upgraded.user_terms = candidateMap.user_terms;
 
             const oldNodeMap = new Map((candidateMap.nodes || []).map(n => [n.id, n]));
+            const upgradedIds = new Set(upgraded.nodes.map(n => n.id));
+
             upgraded.nodes.forEach(n => {
                 const oldNode = oldNodeMap.get(n.id);
                 if (oldNode?.mastery_question?._aiGenerated) {
                     n.mastery_question = oldNode.mastery_question;
                 }
             });
+
+            // Vom Nutzer beförderte Knoten aus älteren Ständen mitnehmen
+            (candidateMap.nodes || []).forEach(oldNode => {
+                if (oldNode?._userPromoted && !upgradedIds.has(oldNode.id)) {
+                    upgraded.nodes.push(oldNode);
+                    upgradedIds.add(oldNode.id);
+                }
+            });
+
             return upgraded;
         }
 
@@ -1894,6 +2096,9 @@
         }
         if (!Array.isArray(candidateMap.cross_links) && builtinMatch.cross_links) {
             candidateMap.cross_links = JSON.parse(JSON.stringify(builtinMatch.cross_links));
+        }
+        if (!Array.isArray(candidateMap.user_terms)) {
+            candidateMap.user_terms = [];
         }
         return candidateMap;
     }
@@ -1979,7 +2184,8 @@
                             central_concept: row.central_concept || row.title || '',
                             nodes: parsed.nodes,
                             cross_links: Array.isArray(parsed.cross_links) ? parsed.cross_links : [],
-                            distractors: Array.isArray(parsed.distractors) ? parsed.distractors : []
+                            distractors: Array.isArray(parsed.distractors) ? parsed.distractors : [],
+                            user_terms: Array.isArray(parsed.user_terms) ? parsed.user_terms : []
                         };
                         mapById.set(row.id, mergeWithBuiltinIfOutdated(dbObj));
                     });
@@ -2004,7 +2210,7 @@
                     safeStorageSet('medcheck_mindmap_progress', state.progressCache);
                 }
             } catch (e) {
-                console.warn('[Mindmap V7.1] Supabase-Sync im Offline-Fallback:', e);
+                console.warn('[Mindmap V7.2] Supabase-Sync im Offline-Fallback:', e);
             }
         }
 
@@ -2013,6 +2219,9 @@
 
     async function saveCustomMindmapToDb(mindmapObj) {
         if (!mindmapObj || !mindmapObj.id) return;
+
+        const mergedTerms = getUserTermsForMap(mindmapObj);
+        mindmapObj.user_terms = mergedTerms;
 
         const localSavedRaw = safeParseJson(localStorage.getItem('medcheck_custom_mindmaps'), []);
         const localSaved = Array.isArray(localSavedRaw) ? localSavedRaw : [];
@@ -2036,12 +2245,13 @@
                         folder_id: mindmapObj.folder_id || resolveFolderForMindmap(mindmapObj).id,
                         nodes: mindmapObj.nodes,
                         cross_links: mindmapObj.cross_links || [],
-                        distractors: mindmapObj.distractors || []
+                        distractors: mindmapObj.distractors || [],
+                        user_terms: mergedTerms
                     },
                     updated_at: new Date().toISOString()
                 });
             } catch (err) {
-                console.warn('[Mindmap V7.1] Lokal gesichert:', err);
+                console.warn('[Mindmap V7.2] Lokal gesichert:', err);
             }
         }
     }
@@ -2072,6 +2282,7 @@
         }
 
         setFolderOverride(targetId, null);
+        saveUserTermsForMapId(targetId, []);
         delete state.progressCache[targetId];
         safeStorageSet('medcheck_mindmap_progress', state.progressCache);
 
@@ -2082,7 +2293,7 @@
                 await sb.from('mindmap_progress').delete().eq('mindmap_id', targetId).eq('user_id', user.id);
                 await sb.from('mindmaps').delete().eq('id', targetId);
             } catch (err) {
-                console.warn('[Mindmap V7.1] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
+                console.warn('[Mindmap V7.2] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
             }
         }
 
@@ -2151,13 +2362,13 @@
                     last_played_at: new Date().toISOString()
                 }, { onConflict: 'user_id,mindmap_id' });
             } catch (err) {
-                console.warn('[Mindmap V7.1] Fortschritt lokal gespeichert:', err);
+                console.warn('[Mindmap V7.2] Fortschritt lokal gespeichert:', err);
             }
         }
     }
 
     // ========================================================================
-    // 2B. FACHGEBIETS-ORDNERSYSTEM (SYNC MIT DASHBOARD + AUTO-SORTIERUNG)
+    // 2B. FACHGEBIETS-ORDNERSYSTEM (SYNC MIT DASHBOARD + EXAKTE REIHENFOLGE)
     // ========================================================================
 
     function normalizeSearchText(str) {
@@ -2192,8 +2403,8 @@
     }
 
     /**
-     * Liest die Fachgebiets-Ordner automatisch aus dem Dashboard (Single Source of Truth),
-     * falls diese global exportiert wurden, und ergänzt bei Bedarf den Auffang-Ordner.
+     * Liest die Fachgebiets-Ordner automatisch aus dem Dashboard (Single Source of Truth)
+     * inklusive orderIndex für identische Reihenfolge.
      */
     function getDashboardFolders() {
         const rawExternal =
@@ -2207,7 +2418,7 @@
             ? rawExternal
             : DASHBOARD_FOLDER_FALLBACKS;
 
-        const baseList = sourceList.map(rawItem => {
+        const baseList = sourceList.map((rawItem, idx) => {
             const f = typeof rawItem === 'string' ? { label: rawItem } : (rawItem || {});
             const label = f.label || f.name || f.title || f.id || 'Allgemein';
             const id = f.id ? String(f.id) : normalizeFolderKey(label);
@@ -2219,6 +2430,7 @@
                 label,
                 icon: f.icon || fallbackMatch?.icon || '📁',
                 color: f.color || fallbackMatch?.color || '#38bdf8',
+                orderIndex: typeof f.orderIndex === 'number' ? f.orderIndex : idx,
                 keywords: Array.isArray(f.keywords) && f.keywords.length > 0
                     ? f.keywords
                     : [label, id, ...(fallbackMatch?.keywords || [])]
@@ -2226,7 +2438,14 @@
         });
 
         if (!baseList.some(f => f.id === 'sonstige')) {
-            baseList.push({ id: 'sonstige', label: 'Allgemein & Weitere Fächer', icon: '📁', color: '#94a3b8', keywords: [] });
+            baseList.push({
+                id: 'sonstige',
+                label: 'Allgemein & Weitere Fächer',
+                icon: '📁',
+                color: '#94a3b8',
+                orderIndex: 9999,
+                keywords: []
+            });
         }
 
         return baseList;
@@ -2248,7 +2467,6 @@
         const specKey = normalizeFolderKey(mindmap.specialty);
         const searchHaystack = `${specSearch} ${normalizeSearchText(mindmap.title)}`;
 
-        // 1. Exakter ID- oder Label-Treffer auf specialty (umlaut-resistent)
         const directMatch = folders.find(f => {
             if (f.id === 'sonstige') return false;
             const labelSearch = normalizeSearchText(f.label);
@@ -2261,7 +2479,6 @@
         });
         if (directMatch) return directMatch;
 
-        // 2. Keyword-Matching (primär auf specialty, sekundär auf Titel)
         for (const f of folders) {
             if (f.id === 'sonstige') continue;
             if ((f.keywords || []).some(kw => {
@@ -2315,12 +2532,13 @@
             return b;
         });
 
-        // Ordner mit Inhalt zuerst, danach alphabetisch (Sonstige ganz am Ende)
+        // Behält exakt die Dashboard-Reihenfolge (orderIndex) bei; Allgemein/Sonstige immer am Ende
         return result.sort((a, b) => {
             if (a.id === 'sonstige') return 1;
             if (b.id === 'sonstige') return -1;
-            if (a.maps.length > 0 && b.maps.length === 0) return -1;
-            if (a.maps.length === 0 && b.maps.length > 0) return 1;
+            if (typeof a.orderIndex === 'number' && typeof b.orderIndex === 'number') {
+                return a.orderIndex - b.orderIndex;
+            }
             return a.label.localeCompare(b.label, 'de');
         });
     }
@@ -2400,7 +2618,692 @@
     }
 
     // ========================================================================
-    // 3. TOPOLOGIE-ENGINE (N-EBENEN, ZYKLUS-SCHUTZ & SUBTREE-COLLAPSE)
+    // 2C. EIGENE ZUSATZBEGRIFFE PRO KATEGORIEAST + 1-KLICK-BEFÖRDERUNG (V7.2)
+    // ========================================================================
+
+    function getAllStoredUserTermsMap() {
+        const parsed = safeParseJson(localStorage.getItem(USER_TERMS_STORAGE_KEY), {});
+        return (parsed && typeof parsed === 'object') ? parsed : {};
+    }
+
+    function saveUserTermsForMapId(mapId, termsArray) {
+        if (!mapId) return;
+        const all = getAllStoredUserTermsMap();
+        if (Array.isArray(termsArray) && termsArray.length > 0) {
+            all[mapId] = termsArray;
+        } else {
+            delete all[mapId];
+        }
+        safeStorageSet(USER_TERMS_STORAGE_KEY, all);
+    }
+
+    function getUserTermsForMap(mindmap) {
+        if (!mindmap || !mindmap.id) return [];
+        const storedList = getAllStoredUserTermsMap()[mindmap.id];
+        const embeddedList = Array.isArray(mindmap.user_terms) ? mindmap.user_terms : [];
+
+        const merged = new Map();
+        embeddedList.forEach(t => {
+            if (t && t.id && t.label) merged.set(t.id, t);
+        });
+        if (Array.isArray(storedList)) {
+            storedList.forEach(t => {
+                if (t && t.id && t.label) merged.set(t.id, t);
+            });
+        }
+        return Array.from(merged.values());
+    }
+
+    function resolveAnchorNodeIdForCategory(mindmap, categoryKey, preferredParentId = null) {
+        if (!mindmap || !Array.isArray(mindmap.nodes)) return 'root';
+        if (preferredParentId && preferredParentId !== 'root') {
+            if (mindmap.nodes.some(n => n.id === preferredParentId)) return preferredParentId;
+        }
+        const tier1Match = mindmap.nodes.find(
+            n => (!n.parent_id || n.parent_id === 'root') && n.category === categoryKey
+        );
+        if (tier1Match) return tier1Match.id;
+
+        const anyCatMatch = mindmap.nodes.find(n => n.category === categoryKey);
+        return anyCatMatch ? anyCatMatch.id : 'root';
+    }
+
+    function getRenderableUserTerms(mindmap) {
+        if (!mindmap || !state.showUserTerms) return [];
+        const allTerms = getUserTermsForMap(mindmap);
+
+        return allTerms
+            .map(term => {
+                const anchorParentId = resolveAnchorNodeIdForCategory(mindmap, term.category, term.parent_id);
+                const parentUnsolvedInBlindMode =
+                    state.blindMode &&
+                    anchorParentId !== 'root' &&
+                    !state.solvedNodeIds.has(anchorParentId);
+                return {
+                    ...term,
+                    anchorParentId,
+                    deferredByBlindMode: parentUnsolvedInBlindMode
+                };
+            })
+            .filter(t => !t.deferredByBlindMode);
+    }
+
+    async function persistUserTermsOnCurrentMap(updatedTerms) {
+        if (!state.currentMap) return;
+        state.currentMap.user_terms = updatedTerms;
+        saveUserTermsForMapId(state.currentMap.id, updatedTerms);
+        await saveCustomMindmapToDb(state.currentMap);
+    }
+
+    async function addUserTermsToCurrentMap({ category, parentId = null, rawInput = '', note = '', runAiCheck = false }) {
+        if (!state.currentMap) return [];
+        const safeCat = CATEGORIES[category] ? category : 'pathophysiology';
+        const anchorId = resolveAnchorNodeIdForCategory(state.currentMap, safeCat, parentId);
+
+        const labels = String(rawInput || '')
+            .split(/[\n;]+/)
+            .map(s => s.trim())
+            .filter(s => s.length >= 2);
+
+        if (labels.length === 0) return [];
+
+        const existing = getUserTermsForMap(state.currentMap);
+        const created = labels.map((label, idx) => ({
+            id: `ut_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
+            label: label.slice(0, 64),
+            note: String(note || '').trim().slice(0, 240),
+            category: safeCat,
+            parent_id: anchorId,
+            ai_status: 'unchecked', // 'unchecked' | 'valid' | 'partial' | 'wrong'
+            ai_feedback: '',
+            created_at: new Date().toISOString()
+        }));
+
+        const updated = [...existing, ...created];
+        await persistUserTermsOnCurrentMap(updated);
+
+        if (anchorId !== 'root' && state.collapsedNodeIds.has(anchorId)) {
+            state.collapsedNodeIds.delete(anchorId);
+        }
+
+        const savedZoom = state.zoom;
+        const savedPanX = state.panX;
+        const savedPanY = state.panY;
+
+        computeLayout(state.currentMap);
+        renderModule();
+        if (state.viewMode === 'canvas') {
+            state.zoom = savedZoom;
+            state.panX = savedPanX;
+            state.panY = savedPanY;
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+                if (!state.blindMode || anchorId === 'root' || state.solvedNodeIds.has(anchorId)) {
+                    focusCameraOnNode(created[0].id, Math.max(0.76, state.zoom));
+                }
+            });
+        }
+
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+
+        if (runAiCheck) {
+            for (const item of created) {
+                await runAiCheckForUserTerm(item.id);
+            }
+        }
+        return created;
+    }
+
+    async function deleteUserTerm(termId) {
+        if (!state.currentMap) return;
+        const existing = getUserTermsForMap(state.currentMap);
+        const updated = existing.filter(t => t.id !== termId);
+        await persistUserTermsOnCurrentMap(updated);
+
+        const savedZoom = state.zoom;
+        const savedPanX = state.panX;
+        const savedPanY = state.panY;
+
+        computeLayout(state.currentMap);
+        renderModule();
+        if (state.viewMode === 'canvas') {
+            state.zoom = savedZoom;
+            state.panX = savedPanX;
+            state.panY = savedPanY;
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+            });
+        }
+    }
+
+    async function saveUserTermToLearningDepot(term) {
+        if (!term || !state.currentMap) return;
+        const catLabel = CATEGORIES[term.category]?.label || term.category;
+        const parentNode = state.currentMap.nodes.find(n => n.id === term.parent_id);
+        const parentLabel = parentNode ? parentNode.label : state.currentMap.central_concept;
+
+        const details = [
+            term.note ? `Eigene Notiz: ${term.note}` : '',
+            term.ai_feedback ? `KI-Feedback: ${term.ai_feedback}` : ''
+        ].filter(Boolean).join(' | ');
+
+        const entryPayload = {
+            case_id: state.currentMap.id,
+            case_title: `Mindmap: ${state.currentMap.title || state.currentMap.central_concept}`,
+            category: state.currentMap.specialty || 'Mindmap-Labor',
+            cue_context: `✍️ Eigene Ergänzung • ${catLabel} (${parentLabel})`,
+            highlighted_text: `${term.label}${details ? ` — ${details}` : ''}`
+        };
+
+        if (typeof window.createDepotEntry === 'function') {
+            await window.createDepotEntry(entryPayload);
+        } else {
+            const items = safeParseJson(localStorage.getItem(DEPOT_STORAGE_KEY), []);
+            if (Array.isArray(items) && !items.some(i => i.highlighted_text === entryPayload.highlighted_text)) {
+                items.unshift({
+                    id: 'dep_mm_ut_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                    ...entryPayload,
+                    user_note: '',
+                    mastered: false,
+                    created_at: new Date().toISOString()
+                });
+                safeStorageSet(DEPOT_STORAGE_KEY, items);
+            }
+        }
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
+    }
+
+    async function runAiCheckForUserTerm(termId) {
+        if (!state.currentMap || inFlightUserTermIds.has(termId)) return null;
+        const terms = getUserTermsForMap(state.currentMap);
+        const term = terms.find(t => t.id === termId);
+        if (!term) return null;
+
+        inFlightUserTermIds.add(termId);
+        const catLabel = CATEGORIES[term.category]?.label || term.category;
+        const parentNode = state.currentMap.nodes.find(n => n.id === term.parent_id);
+        const parentContext = parentNode ? `übergeordneter Knoten "${parentNode.label}"` : `Hauptast ${catLabel}`;
+
+        const tutorEl = document.getElementById('mm-tutor-message');
+        if (tutorEl) {
+            tutorEl.innerHTML = `<div class="mm-tutor-thinking"><span>🤖 Prüfe deine Ergänzung „${escapeHtml(term.label)}“ fachlich & kontextuell...</span></div>`;
+        }
+
+        const prompt = `Du bist medizinischer Facharzt-Tutor (Staatsexamensniveau).
+Ein Medizinstudent ergänzt in einer klinischen Mindmap zum Thema "${state.currentMap.central_concept}" (${state.currentMap.specialty}) im Kategorieast "${catLabel}" (${parentContext}) spontan folgenden eigenen Begriff aus dem freien Abruf:
+Begriff: "${term.label}"
+${term.note ? `Eigene Notiz: "${term.note}"` : ''}
+
+Bewerte präzise:
+1. Ist dieser Begriff medizinisch korrekt für "${state.currentMap.central_concept}" und passt er in den Ast "${catLabel}"?
+2. Klassifiziere als "valid" (korrekt & klinisch wertvolle Ergänzung), "partial" (im Kern richtig, aber falsche Kategorie oder wichtige Einschränkung/Nuance fehlt) oder "wrong" (fachlich falsch, Kontraindikation oder Verwechslung mit Differenzialdiagnose).
+3. Gib ein prägnantes Feedback (2 Sätze, per Du, konkret mit Mechanismus/Cutoff/Korrektur).
+
+Antworte AUSSCHLIESSLICH als valides JSON-Array mit genau einem Objekt:
+[
+  {
+    "status": "valid | partial | wrong",
+    "feedback": "Prägnante klinische Einordnung..."
+  }
+]`;
+
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'depot_quiz', prompt })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const item = Array.isArray(data?.result) ? data.result[0] : null;
+            if (!item || !item.feedback) throw new Error('Ungültige KI-Antwort');
+
+            const normalizedStatus = ['valid', 'partial', 'wrong'].includes(item.status) ? item.status : 'partial';
+            const wasValidBefore = term.ai_status === 'valid';
+            term.ai_status = normalizedStatus;
+            term.ai_feedback = String(item.feedback).trim();
+            await persistUserTermsOnCurrentMap(terms);
+
+            if (normalizedStatus === 'valid' && !wasValidBefore && typeof window.applyXpDelta === 'function') {
+                window.applyXpDelta(15, 'Freier Abruf verifiziert');
+            }
+
+            const savedZoom = state.zoom;
+            const savedPanX = state.panX;
+            const savedPanY = state.panY;
+            renderModule();
+            if (state.viewMode === 'canvas') {
+                state.zoom = savedZoom;
+                state.panX = savedPanX;
+                state.panY = savedPanY;
+                requestAnimationFrame(() => {
+                    applyStageTransform();
+                    drawSvgConnections();
+                    showUserTermDetailInTutor(term.id);
+                });
+            }
+            return term;
+        } catch (_err) {
+            if (tutorEl) {
+                tutorEl.innerHTML = `<strong style="color:#f59e0b;">⚠️ KI-Check aktuell offline:</strong> Deine Ergänzung <strong>„${escapeHtml(term.label)}“</strong> bleibt sicher lokal als eigene Notiz gespeichert.`;
+            }
+            return null;
+        } finally {
+            inFlightUserTermIds.delete(termId);
+        }
+    }
+
+    /**
+     * Befördert einen eigenen Zusatzbegriff dauerhaft in einen vollwertigen offiziellen
+     * Prüfungs-Knoten (map.nodes) inkl. Relation, sokratischer Leitfrage & Staatsexamens-Mastery-Question.
+     */
+    async function promoteUserTermToOfficialNode(termId) {
+        if (!state.currentMap || inFlightUserTermIds.has(termId)) return null;
+        const map = state.currentMap;
+        const terms = getUserTermsForMap(map);
+        const term = terms.find(t => t.id === termId);
+        if (!term) return null;
+
+        if (term.ai_status === 'wrong') {
+            const proceed = window.confirm(
+                `Der KI-Check hat „${term.label}“ als fachlich fehlerhaft bzw. unpassend markiert.\nMöchtest du den Begriff trotzdem als offiziellen Knoten aufnehmen?`
+            );
+            if (!proceed) return null;
+        }
+
+        inFlightUserTermIds.add(termId);
+        const anchorId = resolveAnchorNodeIdForCategory(map, term.category, term.parent_id);
+        const parentNode = map.nodes.find(n => n.id === anchorId);
+        const parentLabel = parentNode ? parentNode.label : map.central_concept;
+        const catLabel = CATEGORIES[term.category]?.label || term.category;
+
+        const tutorEl = document.getElementById('mm-tutor-message');
+        if (tutorEl) {
+            tutorEl.innerHTML = `<div class="mm-tutor-thinking"><span>⭐ Befördere „${escapeHtml(term.label)}“ zum offiziellen Prüfungs-Knoten & generiere Staatsexamens-Frage...</span></div>`;
+        }
+
+        const prompt = `Du bist medizinischer Facharzt-Tutor & Prüfungsautor (Staatsexamensniveau IMPP/NBME).
+Ein Medizinstudent möchte seinen eigenen Zusatzbegriff dauerhaft als vollwertigen Knoten in die klinische Mindmap "${map.central_concept}" (${map.specialty}) aufnehmen:
+- Zielbegriff: "${term.label}"
+- Kategorie: "${catLabel}"
+- Übergeordneter Knoten: "${parentLabel}"
+${term.note ? `- Eigene Notiz: "${term.note}"` : ''}
+${term.ai_feedback ? `- Bisheriges KI-Feedback: "${term.ai_feedback}"` : ''}
+
+Erstelle die vollständigen Knoten-Metadaten inklusive einer tiefgehenden 4-Optionen-Verständnisfrage (strikte Längenparität 14–24 Wörter, keine Test-Wiseness).
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
+[
+  {
+    "label": "Prägnantes klinisches Label (max. 48 Zeichen)",
+    "relation_label": "Kurze kausale Verb-Phrase (max. 28 Zeichen, ohne das Label zu verraten)",
+    "socratic_hint": "Sokratische Leitfrage ohne das Label zu spoilern?",
+    "explanation": "Präzise klinisch-pathophysiologische Zusammenfassung (1–2 Sätze).",
+    "mastery_question": {
+      "question": "Tiefgehende Staatsexamensfrage (Mechanismus / Cutoff / Kontraindikation)?",
+      "options": ["Option 1...", "Option 2...", "Option 3...", "Option 4..."],
+      "correct_index": 0,
+      "socratic_nudge": "Sokratischer Impuls bei Falschklick ohne Spoiler.",
+      "rationale": "Präzise klinische Begründung."
+    }
+  }
+]`;
+
+        let aiNodeData = null;
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'depot_quiz', prompt })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const item = Array.isArray(data?.result) ? data.result[0] : null;
+                if (item && item.explanation) {
+                    aiNodeData = item;
+                }
+            }
+        } catch (_e) {
+            console.warn('[Mindmap V7.2] Offline-Beförderung aktiv.');
+        } finally {
+            inFlightUserTermIds.delete(termId);
+        }
+
+        const newNodeId = `n_user_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+        const mqRaw = aiNodeData?.mastery_question;
+        let masteryQuestion = null;
+        if (mqRaw && mqRaw.question && Array.isArray(mqRaw.options) && mqRaw.options.length >= 4) {
+            const opts = mqRaw.options.slice(0, 4);
+            const safeIdx = (Number.isInteger(mqRaw.correct_index) && mqRaw.correct_index >= 0 && mqRaw.correct_index < opts.length)
+                ? mqRaw.correct_index
+                : 0;
+            masteryQuestion = {
+                question: mqRaw.question,
+                options: opts,
+                correct_index: safeIdx,
+                socratic_nudge: mqRaw.socratic_nudge || aiNodeData.socratic_hint || 'Überdenke den exakten Pathomechanismus dieses Knotens.',
+                rationale: mqRaw.rationale || aiNodeData.explanation,
+                _aiGenerated: true
+            };
+        }
+
+        const promotedNode = {
+            id: newNodeId,
+            label: String(aiNodeData?.label || term.label).trim().slice(0, 52),
+            category: term.category,
+            parent_id: anchorId,
+            relation_label: String(aiNodeData?.relation_label || 'ergänzt klinisch über').trim().slice(0, 34),
+            socratic_hint: String(aiNodeData?.socratic_hint || `Welches wichtige Zusatzkonzept im Ast „${catLabel}“ ergänzt „${parentLabel}“?`).trim(),
+            explanation: String(aiNodeData?.explanation || term.ai_feedback || term.note || `Vom Nutzer ergänztes und verifiziertes Konzept zu „${parentLabel}“.`).trim(),
+            _userPromoted: true
+        };
+        if (masteryQuestion) {
+            promotedNode.mastery_question = masteryQuestion;
+        }
+
+        // Aus user_terms entfernen und als offiziellen Knoten aufnehmen
+        const remainingTerms = terms.filter(t => t.id !== termId);
+        map.nodes.push(promotedNode);
+        map.user_terms = remainingTerms;
+        saveUserTermsForMapId(map.id, remainingTerms);
+
+        // Kausal-konsistent einbinden: ist der Elternknoten bereits gelöst (oder Root), direkt sichtbar gelöst setzen
+        if (anchorId === 'root' || state.solvedNodeIds.has(anchorId)) {
+            state.solvedNodeIds.add(newNodeId);
+        } else {
+            rebuildPoolOrder();
+        }
+
+        if (anchorId !== 'root' && state.collapsedNodeIds.has(anchorId)) {
+            state.collapsedNodeIds.delete(anchorId);
+        }
+
+        await saveCustomMindmapToDb(map);
+
+        if (typeof window.applyXpDelta === 'function') {
+            window.applyXpDelta(40, 'Eigener Prüfungs-Knoten erstellt');
+        }
+        if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
+
+        const savedZoom = state.zoom;
+        const savedPanX = state.panX;
+        const savedPanY = state.panY;
+
+        computeLayout(map);
+        renderModule();
+        if (state.viewMode === 'canvas') {
+            state.zoom = savedZoom;
+            state.panX = savedPanX;
+            state.panY = savedPanY;
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+                focusCameraOnNode(newNodeId, Math.max(0.78, state.zoom));
+
+                const updatedTutor = document.getElementById('mm-tutor-message');
+                if (updatedTutor) {
+                    updatedTutor.innerHTML = `
+                        <strong style="color:#fde047;">⭐ Erfolgreich zum offiziellen Prüfungs-Knoten befördert (+40 XP)!</strong><br>
+                        <strong>„${escapeHtml(promotedNode.label)}“</strong> ist jetzt fest in deiner Mindmap verankert und wird bei künftigen Durchläufen regulär abgefragt.
+                        <div style="margin-top:6px; font-size:0.8rem; color:#cbd5e1;">${escapeHtml(promotedNode.explanation)}</div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+                            <button type="button" class="mm-depot-pin-btn" data-retest-node="${escapeHtml(newNodeId)}">
+                                🔬 Neue Prüfungsfrage direkt testen
+                            </button>
+                            <button type="button" class="mm-depot-pin-btn" data-pin-node="${escapeHtml(newNodeId)}">
+                                📌 Ins Lern-Depot
+                            </button>
+                        </div>
+                    `;
+                    bindTutorActionButtons(updatedTutor);
+                }
+            });
+        }
+
+        return promotedNode;
+    }
+
+    function showUserTermDetailInTutor(termId) {
+        if (!state.currentMap) return;
+        const term = getUserTermsForMap(state.currentMap).find(t => t.id === termId);
+        const tutorEl = document.getElementById('mm-tutor-message');
+        if (!term || !tutorEl) return;
+
+        const catCfg = CATEGORIES[term.category] || { label: 'Ergänzung', icon: '✍️', color: '#38bdf8' };
+        const statusLabels = {
+            unchecked: '📝 Noch nicht KI-geprüft',
+            valid: '✅ KI-verifiziert (+15 XP)',
+            partial: '🟡 Teilweise / Nuance beachten',
+            wrong: '🚨 Fachlicher Fehler / falscher Ast'
+        };
+        const statusColor = term.ai_status === 'valid' ? '#10b981' : (term.ai_status === 'wrong' ? '#ef4444' : '#f59e0b');
+
+        tutorEl.innerHTML = `
+            <strong style="color:${escapeHtml(catCfg.color)};">✍️ Eigener Zusatzbegriff (${catCfg.icon} ${escapeHtml(catCfg.label)}):</strong><br>
+            <div style="font-weight:800; font-size:0.9rem; margin:3px 0;">„${escapeHtml(term.label)}“</div>
+            ${term.note ? `<div style="font-size:0.8rem; color:#cbd5e1; margin-bottom:5px;">Notiz: ${escapeHtml(term.note)}</div>` : ''}
+            <div style="font-size:0.78rem; font-weight:700; color:${statusColor}; margin-bottom:4px;">${statusLabels[term.ai_status] || statusLabels.unchecked}</div>
+            ${term.ai_feedback ? `
+                <div style="margin-top:4px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid ${statusColor}; font-size:0.8rem;">
+                    ${escapeHtml(term.ai_feedback)}
+                </div>
+            ` : ''}
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-aicheck">🤖 KI-Check</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-promote" style="border-color:rgba(250,204,21,0.55); color:#fde047;" title="Wandelt diesen Begriff dauerhaft in einen offiziellen Prüfungs-Knoten mit eigener Staatsexamensfrage um">⭐ Zu Prüfungs-Knoten</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-depot">📌 Depot</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-delete" style="border-color:rgba(239,68,68,0.45); color:#fca5a5;">🗑️</button>
+            </div>
+        `;
+
+        tutorEl.querySelector('#mm-tutor-ut-aicheck')?.addEventListener('click', () => runAiCheckForUserTerm(term.id));
+        tutorEl.querySelector('#mm-tutor-ut-promote')?.addEventListener('click', () => promoteUserTermToOfficialNode(term.id));
+        tutorEl.querySelector('#mm-tutor-ut-depot')?.addEventListener('click', async e => {
+            const btn = e.currentTarget;
+            await saveUserTermToLearningDepot(term);
+            btn.textContent = '✅ Gespeichert';
+            btn.disabled = true;
+        });
+        tutorEl.querySelector('#mm-tutor-ut-delete')?.addEventListener('click', () => deleteUserTerm(term.id));
+    }
+
+    function renderUserTermNode(ut) {
+        const pos = state.nodePositions[ut.id] || { x: state.rootX, y: state.rootY };
+        const catCfg = CATEGORIES[ut.category] || { label: 'Ergänzung', icon: '✍️', color: '#38bdf8' };
+
+        const statusMap = {
+            unchecked: { cls: '', text: '✍️ Notiz' },
+            valid: { cls: 'status-valid', text: '✅ Valid' },
+            partial: { cls: 'status-partial', text: '🟡 Nuance' },
+            wrong: { cls: 'status-wrong', text: '🚨 Check' }
+        };
+        const st = statusMap[ut.ai_status] || statusMap.unchecked;
+        const isPromoteReady = ut.ai_status === 'valid';
+
+        return `
+            <div class="mm-node mm-node-userterm"
+                 id="mm-node-dom-${escapeHtml(ut.id)}"
+                 style="left: ${pos.x}px; top: ${pos.y}px; --ut-accent: ${escapeHtml(catCfg.color)};"
+                 data-userterm-id="${escapeHtml(ut.id)}"
+                 title="Eigene Ergänzung (${escapeHtml(catCfg.label)}) – klicken für Details, KI-Check oder Beförderung">
+                <div class="mm-ut-top">
+                    <div class="mm-ut-label">${catCfg.icon} ${escapeHtml(ut.label)}</div>
+                </div>
+                ${ut.note ? `<div class="mm-ut-note-preview">${escapeHtml(ut.note)}</div>` : ''}
+                <div class="mm-ut-bottom">
+                    <span class="mm-ut-status-pill ${st.cls}">${st.text}</span>
+                    <div class="mm-ut-mini-actions">
+                        <button type="button" class="mm-ut-mini-btn" data-ut-aicheck="${escapeHtml(ut.id)}" title="Fachlich per KI prüfen">🤖</button>
+                        <button type="button" class="mm-ut-mini-btn ${isPromoteReady ? 'is-promote-ready' : ''}" data-ut-promote="${escapeHtml(ut.id)}" title="Zu offiziellem Prüfungs-Knoten mit Mastery-Frage befördern">⭐</button>
+                        <button type="button" class="mm-ut-mini-btn" data-ut-delete="${escapeHtml(ut.id)}" title="Zusatzbegriff löschen">✕</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function openUserTermModal(preselectedCategory = null, preselectedParentId = null) {
+        if (!state.currentMap) return;
+        const map = state.currentMap;
+        const existing = document.querySelector('.mm-synapse-modal-backdrop');
+        if (existing) existing.remove();
+
+        const safeCategory = (typeof preselectedCategory === 'string' && CATEGORIES[preselectedCategory])
+            ? preselectedCategory
+            : 'pathophysiology';
+        const safeParentId = typeof preselectedParentId === 'string' ? preselectedParentId : '';
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'mm-synapse-modal-backdrop';
+
+        const renderModalInner = (selectedCat, selectedParent) => {
+            const solvedNodesInCat = map.nodes.filter(n => n.category === selectedCat && state.solvedNodeIds.has(n.id));
+            const allTerms = getUserTermsForMap(map);
+            const termsInCat = allTerms.filter(t => t.category === selectedCat);
+            const catCfg = CATEGORIES[selectedCat];
+
+            backdrop.innerHTML = `
+                <div class="mm-synapse-modal">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                        <span style="font-size:0.8rem; font-weight:800; color:${escapeHtml(catCfg.color)}; text-transform:uppercase;">
+                            ✍️ Eigene Zusatzbegriffe (Free-Recall & Promotion)
+                        </span>
+                        <button type="button" id="mm-ut-modal-close" class="mm-btn" style="padding:4px 10px;">✕</button>
+                    </div>
+
+                    <p style="font-size:0.82rem; color:var(--text-muted, #94a3b8); margin:0 0 12px;">
+                        Notiere Konzepte, Cutoffs oder Eselsbrücken, die dir zusätzlich zu diesem Ast einfallen (mehrere mit <strong>;</strong> oder <strong>Enter</strong> trennen). Gute Ergänzungen kannst du per <strong>⭐</strong> direkt zu einem offiziellen Prüfungs-Knoten befördern.
+                    </p>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label for="mm-ut-cat-select" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Kategorieast:</label>
+                            <select id="mm-ut-cat-select" class="mm-select" style="width:100%;">
+                                ${Object.entries(CATEGORIES).map(([key, cfg]) => `
+                                    <option value="${key}" ${key === selectedCat ? 'selected' : ''}>${cfg.icon} ${escapeHtml(cfg.label)}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="mm-ut-parent-select" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Anhängen an:</label>
+                            <select id="mm-ut-parent-select" class="mm-select" style="width:100%;">
+                                <option value="">🌿 Hauptast (${escapeHtml(catCfg.label)})</option>
+                                ${solvedNodesInCat.map(n => `
+                                    <option value="${escapeHtml(n.id)}" ${n.id === selectedParent ? 'selected' : ''}>↳ ${escapeHtml(n.label)}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <label for="mm-ut-input-label" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Zusätzliche(r) Begriff(e):</label>
+                    <textarea id="mm-ut-input-label" class="mm-recall-textarea" style="min-height:60px; margin-top:0; margin-bottom:10px;" placeholder="z. B. Morphin verzögert P2Y12-Resorption;&#10;V3r/V4r bei inferiorem STEMI obligat"></textarea>
+
+                    <label for="mm-ut-input-note" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Optionaler Zusammenhang / Merksatz:</label>
+                    <input type="text" id="mm-ut-input-note" class="mm-lib-search-input" style="max-width:100%; width:100%; margin-bottom:12px;" placeholder="Warum gehört das hierher? (optional)" />
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-size:0.74rem; color:#94a3b8;">
+                            ${state.blindMode ? '🕶️ Blind-Modus: Begriffe an ungelösten Ästen erscheinen nach deren Lösung.' : '✨ Kompakter gestrichelter Ast – garantiert überlappungsfrei.'}
+                        </span>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button type="button" id="mm-ut-save-only" class="mm-btn">💾 An Ast heften</button>
+                            <button type="button" id="mm-ut-save-aicheck" class="mm-btn mm-btn-primary">🤖 Anheften & KI-Check</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:15px; padding-top:11px; border-top:1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size:0.77rem; font-weight:800; color:#cbd5e1;">
+                            📌 Notiert in „${escapeHtml(catCfg.label)}“ (${termsInCat.length}) • Gesamt: ${allTerms.length}
+                        </div>
+                        ${termsInCat.length === 0 ? `
+                            <div style="font-size:0.77rem; color:#64748b; margin-top:6px;">Noch keine eigenen Zusatzbegriffe in dieser Kategorie.</div>
+                        ` : `
+                            <div class="mm-ut-modal-list">
+                                ${termsInCat.map(t => `
+                                    <div class="mm-ut-modal-row">
+                                        <div style="flex:1; min-width:0;">
+                                            <div style="font-weight:700; font-size:0.82rem;">${escapeHtml(t.label)}</div>
+                                            ${t.note ? `<div style="font-size:0.73rem; color:#94a3b8; margin-top:2px;">${escapeHtml(t.note)}</div>` : ''}
+                                            ${t.ai_feedback ? `<div style="font-size:0.72rem; color:#38bdf8; margin-top:3px;">🤖 ${escapeHtml(t.ai_feedback)}</div>` : ''}
+                                        </div>
+                                        <div style="display:flex; gap:4px; flex-shrink:0;">
+                                            <button type="button" class="mm-ut-mini-btn" data-modal-ut-ai="${escapeHtml(t.id)}" title="Mit KI prüfen">🤖</button>
+                                            <button type="button" class="mm-ut-mini-btn ${t.ai_status === 'valid' ? 'is-promote-ready' : ''}" data-modal-ut-promote="${escapeHtml(t.id)}" title="Zu offiziellem Prüfungs-Knoten befördern">⭐</button>
+                                            <button type="button" class="mm-ut-mini-btn" data-modal-ut-del="${escapeHtml(t.id)}" title="Löschen">🗑️</button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+
+            backdrop.querySelector('#mm-ut-modal-close')?.addEventListener('click', () => backdrop.remove());
+            backdrop.querySelector('#mm-ut-cat-select')?.addEventListener('change', e => {
+                renderModalInner(e.target.value, '');
+            });
+
+            const submitTerms = async withAi => {
+                const catVal = backdrop.querySelector('#mm-ut-cat-select')?.value || selectedCat;
+                const parentVal = backdrop.querySelector('#mm-ut-parent-select')?.value || null;
+                const rawVal = backdrop.querySelector('#mm-ut-input-label')?.value || '';
+                const noteVal = backdrop.querySelector('#mm-ut-input-note')?.value || '';
+                if (!rawVal.trim()) return;
+
+                backdrop.remove();
+                await addUserTermsToCurrentMap({
+                    category: catVal,
+                    parentId: parentVal || null,
+                    rawInput: rawVal,
+                    note: noteVal,
+                    runAiCheck: withAi
+                });
+            };
+
+            backdrop.querySelector('#mm-ut-save-only')?.addEventListener('click', () => submitTerms(false));
+            backdrop.querySelector('#mm-ut-save-aicheck')?.addEventListener('click', () => submitTerms(true));
+
+            backdrop.querySelectorAll('[data-modal-ut-ai]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-modal-ut-ai');
+                    btn.textContent = '⏳';
+                    btn.disabled = true;
+                    await runAiCheckForUserTerm(id);
+                    renderModalInner(selectedCat, selectedParent);
+                });
+            });
+
+            backdrop.querySelectorAll('[data-modal-ut-promote]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-modal-ut-promote');
+                    backdrop.remove();
+                    await promoteUserTermToOfficialNode(id);
+                });
+            });
+
+            backdrop.querySelectorAll('[data-modal-ut-del]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-modal-ut-del');
+                    await deleteUserTerm(id);
+                    renderModalInner(selectedCat, selectedParent);
+                });
+            });
+
+            backdrop.querySelector('#mm-ut-input-label')?.focus();
+        };
+
+        backdrop.addEventListener('click', e => {
+            if (e.target === backdrop) backdrop.remove();
+        });
+
+        document.body.appendChild(backdrop);
+        renderModalInner(safeCategory, safeParentId);
+    }
+
+    // ========================================================================
+    // 3. TOPOLOGIE-ENGINE (N-EBENEN, ZYKLUS-SCHUTZ, USER-TERMS & COLLAPSE)
     // ========================================================================
 
     function buildTreeTopology(mindmap) {
@@ -2437,6 +3340,16 @@
             childrenMap.get(pid).push(node.id);
         });
 
+        // V7.2: Sichtbare eigene Zusatzbegriffe als überlappungsfreie Blattknoten einhängen
+        const renderableTerms = getRenderableUserTerms(mindmap);
+        const userTermIds = new Set();
+        renderableTerms.forEach(ut => {
+            userTermIds.add(ut.id);
+            childrenMap.set(ut.id, []);
+            const anchorId = childrenMap.has(ut.anchorParentId) ? ut.anchorParentId : 'root';
+            childrenMap.get(anchorId).push(ut.id);
+        });
+
         const meta = {};
         let maxDepth = 1;
 
@@ -2450,6 +3363,7 @@
                 subtreeLeaves: 1,
                 branchRootId,
                 hiddenByCollapse: true,
+                isUserTerm: userTermIds.has(nodeId),
                 side: 'right'
             };
             childrenIds.forEach(cid => traverseHidden(cid, depth + 1, branchRootId));
@@ -2481,6 +3395,7 @@
                 subtreeLeaves: Math.max(1, visibleLeaves),
                 branchRootId,
                 hiddenByCollapse: parentCollapsed,
+                isUserTerm: userTermIds.has(nodeId),
                 side: 'right'
             };
 
@@ -2592,6 +3507,7 @@
         }
 
         rebuildPoolOrder();
+        if (state.currentMap) computeLayout(state.currentMap);
         renderModule();
         if (state.viewMode === 'canvas') {
             requestAnimationFrame(() => {
@@ -2626,11 +3542,13 @@
         const targets = new Set(sourceList.filter(id => validNodeIds.has(id)));
         if (targets.size === 0) return;
 
-        // Alle Nachfahren eines zurückgesetzten Knotens ebenfalls öffnen, damit Kausal-Sperre konsistent bleibt
+        // Nur echte Knoten-Nachfahren zurücksetzen (User-Terms bleiben unangetastet)
         const toReset = new Set();
         targets.forEach(id => {
             toReset.add(id);
-            getDescendantIds(id).forEach(descId => toReset.add(descId));
+            getDescendantIds(id).forEach(descId => {
+                if (validNodeIds.has(descId)) toReset.add(descId);
+            });
         });
 
         state.viewMode = 'canvas';
@@ -2678,7 +3596,7 @@
     /**
      * Bidirektionaler gewichteter Tidy-Tree (Reingold-Tilford-Prinzip):
      * Jede Tiefenebene erhält eine disjunkte X-Spalte, jeder sichtbare Blattknoten eine disjunkte Y-Zeile.
-     * Überlappungen und SVG-Rand-Clipping sind mathematisch ausgeschlossen – auch bei asymmetrischen 40+-Knoten-Bäumen.
+     * Überlappungen und SVG-Rand-Clipping sind mathematisch ausgeschlossen – auch mit Zusatzbegriffen.
      */
     function computeBidirectionalTreeLayout(mindmap, topology) {
         const { rootChildren, meta } = topology;
@@ -2733,7 +3651,6 @@
         const leftHeight = computeSideHeight(leftRoots);
         const contentHeight = Math.max(rightHeight, leftHeight);
 
-        // Symmetrisches Padding auf beiden Seiten auch bei asymmetrischer Tiefe (verhindert SVG-Clipping rechts)
         const leftReq = leftSpanX + STAGE_PADDING_X;
         const rightReq = rightSpanX + STAGE_PADDING_X;
         const stageWidth = Math.max(MIN_STAGE_W, Math.round(leftReq + rightReq));
@@ -2870,7 +3787,6 @@
             angleCursor += slice;
         });
 
-        // Abschließender sanfter Kollisions-Resolver für sichtbare Knoten
         const visibleIds = Object.keys(positions).filter(id => id !== 'root' && !isNodeHiddenByCollapse(id));
         for (let iter = 0; iter < 28; iter++) {
             for (let i = 0; i < visibleIds.length; i++) {
@@ -3018,8 +3934,7 @@
         state.zoom = newZoom;
 
         applyStageTransform();
-    }
-   // ========================================================================
+    }// ========================================================================
     // 7. RENDERING, TIER-FORTSCHRITT & ANTI-SPOILER KAUSAL-LOGIK
     // ========================================================================
 
@@ -3306,6 +4221,7 @@
                         const weakCount = Array.isArray(prog?.weak_nodes) ? prog.weak_nodes.length : 0;
                         const distCount = (m.distractors || []).length;
                         const crossCount = (m.cross_links || []).length;
+                        const userTermsCount = getUserTermsForMap(m).length;
 
                         return `
                             <div class="mm-map-card" style="--folder-accent:${escapeHtml(folder.color)};">
@@ -3329,6 +4245,7 @@
                                         <span class="mm-map-mini-badge">🪜 ${depthCount} Ebenen</span>
                                         ${distCount > 0 ? `<span class="mm-map-mini-badge">🛡️ ${distCount} Fallen</span>` : ''}
                                         ${crossCount > 0 ? `<span class="mm-map-mini-badge">⚡ ${crossCount} Brücken</span>` : ''}
+                                        ${userTermsCount > 0 ? `<span class="mm-map-mini-badge">✍️ ${userTermsCount} Notizen</span>` : ''}
                                         ${prog?.completed
                                             ? `<span class="mm-map-mini-badge is-done">✅ ${prog.accuracy}% • ${prog.best_time_sec || 0}s</span>`
                                             : `<span class="mm-map-mini-badge">⭕ Offen</span>`
@@ -3523,7 +4440,7 @@
             });
         });
 
-        // Suche aktualisiert nur #mm-lib-grid-mount, damit der Fokus im Suchfeld bleibt!
+        // Suche aktualisiert nur #mm-lib-grid-mount, damit der Fokus im Suchfeld bleibt
         document.getElementById('mm-lib-search')?.addEventListener('input', e => {
             state.librarySearchQuery = e.target.value;
             const mount = document.getElementById('mm-lib-grid-mount');
@@ -3550,7 +4467,7 @@
                 <div class="mindmap-wrapper">
                     <div class="mm-header">
                         <div class="mm-title-group">
-                            <h2>🕸️ Klinisches Mindmap-Labor V7.1</h2>
+                            <h2>🕸️ Klinisches Mindmap-Labor V7.2</h2>
                             <p>Aktuell sind keine Mindmaps in deiner Bibliothek vorhanden.</p>
                         </div>
                         <div class="mm-controls">
@@ -3582,15 +4499,17 @@
         const eliminatedDistractorsCount = activeDistractors.filter(d => state.eliminatedDistractorIds.has(d.id)).length;
         const allRealSolved = solvedCount === totalNodes;
         const visibleNodes = map.nodes.filter(n => !isNodeHiddenByCollapse(n.id));
+        const allUserTermsCount = getUserTermsForMap(map).length;
+        const visibleUserTerms = getRenderableUserTerms(map).filter(ut => !isNodeHiddenByCollapse(ut.id));
 
         container.innerHTML = `
             <div class="mindmap-wrapper">
                 <!-- TOP HEADER -->
                 <div class="mm-header">
                     <div class="mm-title-group">
-                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V7.1 Deep-Tree (${totalNodes} Knoten • ${state.maxTreeDepth} Ebenen)</span></h2>
+                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V7.2 Deep-Tree (${totalNodes} Knoten • ${state.maxTreeDepth} Ebenen)</span></h2>
                         <p>
-                            <strong>Grob ➔ Mechanismus ➔ Molekulares Detail:</strong> Arbeite dich über alle Verzweigungsebenen vor, enttarne klinische Fallen aktiv in der Quarantäne und beweise im Tiefen-Verhör echtes Verständnis!
+                            <strong>Grob ➔ Mechanismus ➔ Molekulares Detail:</strong> Arbeite dich über alle Verzweigungsebenen vor, ergänze spontan eigene Zusatzbegriffe (✍️+) und befördere starke Einfälle (⭐) zu Prüfungs-Knoten!
                         </p>
                     </div>
                     <div class="mm-controls">
@@ -3676,6 +4595,14 @@
                             ${state.showCrossLinks ? '⚡ Querverbindungen: AN' : '⚡ Querverbindungen: AUS'}
                         </button>
 
+                        <button id="mm-toggle-userterms" class="mm-btn ${state.showUserTerms ? 'active' : ''}" title="Eigene notierte Zusatzbegriffe im Baum ein- oder ausblenden">
+                            ${state.showUserTerms ? `✍️ Eigene: AN (${allUserTermsCount})` : `✍️ Eigene: AUS (${allUserTermsCount})`}
+                        </button>
+
+                        <button id="mm-btn-add-userterm" class="mm-btn mm-btn-primary" title="Spontane eigene Begriffe an einen Kategorieast anheften">
+                            ✍️ + Begriff
+                        </button>
+
                         <button id="mm-toggle-blind" class="mm-btn mm-btn-blind ${state.blindMode ? 'active' : ''}" title="Verbirgt die Kategoriefarben vor dem Lösen">
                             ${state.blindMode ? '🕶️ Farben: Verdeckt' : '🎨 Farben: Sichtbar'}
                         </button>
@@ -3686,13 +4613,14 @@
                     </div>
                 </div>
 
-                <!-- LEGENDE & FORTSCHRITT -->
+                <!-- LEGENDE (+ DIREKT-ADD PRO KATEGORIE) & FORTSCHRITT -->
                 <div class="mm-statusbar">
                     <div class="mm-legend">
-                        ${Object.entries(CATEGORIES).map(([_key, cfg]) => `
+                        ${Object.entries(CATEGORIES).map(([key, cfg]) => `
                             <span class="mm-legend-item">
                                 <span class="mm-dot" style="background:${cfg.color}"></span>
                                 <span>${cfg.icon} ${escapeHtml(cfg.label)}</span>
+                                <button type="button" class="mm-legend-add-btn" data-legend-add-cat="${key}" title="Eigenen Zusatzbegriff im Ast „${escapeHtml(cfg.label)}“ ergänzen">+</button>
                             </span>
                         `).join('')}
                     </div>
@@ -3749,10 +4677,10 @@
                         <div class="mm-tutor-box">
                             <div class="mm-box-header">
                                 <span class="mm-box-title">🏛️ Sokratischer KI-Tutor</span>
-                                <span class="mm-tutor-bloom">Bloom: Analyse → Synthese</span>
+                                <span class="mm-tutor-bloom">Bloom: Analyse → Erschaffen</span>
                             </div>
                             <div id="mm-tutor-message" class="mm-tutor-content">
-                                Starte an den offenen <strong>Hauptästen (Ebene 1)</strong> und arbeite dich Schritt für Schritt in die <strong>molekularen & Leitlinien-Details (Ebene 2–3)</strong> vor.
+                                Starte an den offenen <strong>Hauptästen (Ebene 1)</strong> und arbeite dich in die <strong>Tiefendetails (Ebene 2–3)</strong> vor. Über <strong>+</strong> in der Legende oder <strong>✍️+</strong> an gelösten Knoten kannst du jederzeit eigene Einfälle anheften!
                                 ${state.includeDistractors ? '<br><span style="color:#fca5a5; font-size:0.78rem;">🛡️ <strong>Achtung:</strong> Im Pool verstecken sich klinische Fallen – ziehe sie aktiv in die rote Quarantäne!</span>' : ''}
                             </div>
                         </div>
@@ -3773,7 +4701,7 @@
                         </div>
 
                         <div class="mm-canvas-help-pill">
-                            🖱️ Ziehen = Verschieben • Mausrad = Zoom • „−“ am gelösten Knoten = Ast einklappen • Goldene Bögen = Querverbindungs-Synthese
+                            🖱️ Ziehen = Verschieben • Mausrad = Zoom • „−“ = Ast einklappen • „✍️+“ = Eigener Begriff • „⭐“ = Zu Prüfungs-Knoten befördern
                         </div>
 
                         <!-- TRANSFORMABLE DYNAMIC STAGE -->
@@ -3798,6 +4726,9 @@
 
                                 <!-- SICHTBARE ZIEL-SLOTS / GELÖSTE KNOTEN -->
                                 ${visibleNodes.map(node => renderCanvasNode(node)).join('')}
+
+                                <!-- EIGENE KOMPAKTE ZUSATZBEGRIFFE (V7.2 FREE RECALL) -->
+                                ${visibleUserTerms.map(ut => renderUserTermNode(ut)).join('')}
                             </div>
                         </div>
                     </div>
@@ -3830,7 +4761,7 @@
                     </span>
                     <strong class="mm-ins-target">
                         ${isSolved
-                            ? `✅ ${escapeHtml(node.label)}${state.uncertainNodeIds.has(node.id) ? ' ⚠️' : ''}`
+                            ? `✅ ${escapeHtml(node.label)}${node._userPromoted ? ' ⭐' : ''}${state.uncertainNodeIds.has(node.id) ? ' ⚠️' : ''}`
                             : (isLocked ? `🔒 [Löse erst Ebene ${meta.depth - 1}]` : `🔓 [${escapeHtml(cat)} – klicken für Fokus & Leitfrage]`)
                         }
                     </strong>
@@ -3891,6 +4822,13 @@
                      data-slot-id="${escapeHtml(node.id)}"
                      title="Klicken für Erklärung, Lern-Depot-Pin oder erneute Tiefen-Prüfungsfrage">
                     ${collapseBtnHtml}
+                    <button type="button"
+                            class="mm-node-add-term-btn"
+                            data-add-term-node="${escapeHtml(node.id)}"
+                            data-add-term-cat="${escapeHtml(node.category)}"
+                            title="Eigenen Zusatzbegriff direkt an diesen Ast anheften">
+                        ✍️+
+                    </button>
                     <div class="mm-node-rel-banner">
                         <span class="mm-rel-origin">
                             <span class="mm-tier-pill ${tMeta.badgeClass}">E${depth}</span>
@@ -3901,6 +4839,7 @@
                     <div class="mm-node-body-solved">
                         <span class="mm-solved-cat-pill">
                             ✅ ${catCfg.icon} ${escapeHtml(catCfg.label)}
+                            ${node._userPromoted ? `<span class="mm-node-promoted-badge" title="Aus deinem eigenen Zusatzbegriff beförderter Prüfungs-Knoten">⭐ Eigen</span>` : ''}
                             ${isUncertain ? `<span class="mm-node-uncertain-badge" title="Als unsicher/geraten markiert – im Fehler-Drill erneut üben">⚠️ Wackel</span>` : ''}
                         </span>
                         <div class="mm-solved-title">${escapeHtml(node.label)}</div>
@@ -3955,7 +4894,7 @@
     }
 
     // ========================================================================
-    // 8. SVG-VERBINDUNGEN (TIDY-TREE S-KURVEN, RADIAL & QUERVERBINDUNGEN)
+    // 8. SVG-VERBINDUNGEN (TIDY-TREE S-KURVEN, USER-TERMS & QUERVERBINDUNGEN)
     // ========================================================================
 
     function getBoxBorderPoint(cx, cy, halfW, halfH, tx, ty, extraPad = 6) {
@@ -3982,6 +4921,7 @@
             return { halfW: domEl.offsetWidth / 2, halfH: domEl.offsetHeight / 2 };
         }
         if (nodeId === 'root') return { halfW: 150, halfH: 54 };
+        if (state.nodeMeta[nodeId]?.isUserTerm) return { halfW: 107, halfH: 30 };
         return { halfW: 136, halfH: 58 };
     }
 
@@ -4077,6 +5017,51 @@
             }
         });
 
+        // 1B. Gestrichelte Kanten zu eigenen Zusatzbegriffen (V7.2)
+        getRenderableUserTerms(state.currentMap).forEach(ut => {
+            if (isNodeHiddenByCollapse(ut.id)) return;
+            const parentId = ut.anchorParentId || 'root';
+            const fromCenter = state.nodePositions[parentId] || { x: state.rootX, y: state.rootY };
+            const toCenter = state.nodePositions[ut.id] || { x: state.rootX, y: state.rootY };
+            const fromDim = getNodeHalfDimensions(parentId);
+            const toDim = getNodeHalfDimensions(ut.id);
+            const side = state.nodeMeta[ut.id]?.side || 'right';
+            const catCfg = CATEGORIES[ut.category];
+            const strokeColor = catCfg ? catCfg.color : '#38bdf8';
+            const isHovered = state.hoveredNodeId === ut.id || state.hoveredNodeId === parentId;
+
+            let x1, y1, x2, y2, cx1, cy1, cx2, cy2;
+            if (state.layoutMode === 'tree') {
+                const dir = side === 'left' ? -1 : 1;
+                x1 = fromCenter.x + dir * (fromDim.halfW + 4);
+                y1 = fromCenter.y;
+                x2 = toCenter.x - dir * (toDim.halfW + 8);
+                y2 = toCenter.y;
+                const midSpan = Math.abs(x2 - x1) * 0.5;
+                cx1 = x1 + dir * midSpan;
+                cy1 = y1;
+                cx2 = x2 - dir * midSpan;
+                cy2 = y2;
+            } else {
+                const startPt = getBoxBorderPoint(fromCenter.x, fromCenter.y, fromDim.halfW, fromDim.halfH, toCenter.x, toCenter.y, 4);
+                const endPt = getBoxBorderPoint(toCenter.x, toCenter.y, toDim.halfW, toDim.halfH, fromCenter.x, fromCenter.y, 8);
+                x1 = startPt.x;
+                y1 = startPt.y;
+                x2 = endPt.x;
+                y2 = endPt.y;
+                cx1 = x1 + (x2 - x1) * 0.35;
+                cy1 = y1 + (y2 - y1) * 0.15;
+                cx2 = x1 + (x2 - x1) * 0.65;
+                cy2 = y1 + (y2 - y1) * 0.85;
+            }
+
+            pathsHtml += `
+                <path class="mm-edge-userterm"
+                      d="M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${cx1.toFixed(1)} ${cy1.toFixed(1)}, ${cx2.toFixed(1)} ${cy2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}"
+                      style="stroke: ${strokeColor}; opacity: ${isHovered ? '1' : '0.78'}; stroke-width: ${isHovered ? '2.6' : '1.8'};" />
+            `;
+        });
+
         // 2. Fachübergreifende Querverbindungen (cross_links) zeichnen, sobald beide Endknoten gelöst & sichtbar sind
         if (state.showCrossLinks && Array.isArray(state.currentMap.cross_links)) {
             state.currentMap.cross_links.forEach((cl, idx) => {
@@ -4137,7 +5122,7 @@
     }
 
     // ========================================================================
-    // 9. EVENT-BINDING (PRESETS, SUCHE, QUARANTÄNE, DRAG & DROP, ZOOM, PAN)
+    // 9. EVENT-BINDING (PRESETS, SUCHE, QUARANTÄNE, USER-TERMS, ZOOM, PAN)
     // ========================================================================
 
     function bindPoolChipEvents() {
@@ -4233,8 +5218,86 @@
             });
         });
 
+        // V7.2: Eigene Zusatzbegriffe ein-/ausblenden & hinzufügen
+        document.getElementById('mm-toggle-userterms')?.addEventListener('click', () => {
+            state.showUserTerms = !state.showUserTerms;
+            computeLayout(state.currentMap);
+            renderModule();
+            requestAnimationFrame(() => {
+                applyStageTransform();
+                drawSvgConnections();
+            });
+        });
+
+        document.getElementById('mm-btn-add-userterm')?.addEventListener('click', () => {
+            openUserTermModal(null, null);
+        });
+
+        document.querySelectorAll('[data-legend-add-cat]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                openUserTermModal(btn.getAttribute('data-legend-add-cat'), null);
+            });
+        });
+
+        document.querySelectorAll('[data-add-term-node]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                openUserTermModal(
+                    btn.getAttribute('data-add-term-cat'),
+                    btn.getAttribute('data-add-term-node')
+                );
+            });
+        });
+
+        document.querySelectorAll('.mm-node-userterm').forEach(el => {
+            const utId = el.getAttribute('data-userterm-id');
+            el.addEventListener('mouseenter', () => {
+                state.hoveredNodeId = utId;
+                drawSvgConnections();
+            });
+            el.addEventListener('mouseleave', () => {
+                state.hoveredNodeId = null;
+                drawSvgConnections();
+            });
+            el.addEventListener('click', () => showUserTermDetailInTutor(utId));
+        });
+
+        document.querySelectorAll('[data-ut-aicheck]').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                e.stopPropagation();
+                const id = btn.getAttribute('data-ut-aicheck');
+                btn.textContent = '⏳';
+                btn.disabled = true;
+                await runAiCheckForUserTerm(id);
+            });
+        });
+
+        document.querySelectorAll('[data-ut-promote]').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                e.stopPropagation();
+                const id = btn.getAttribute('data-ut-promote');
+                btn.textContent = '⏳';
+                btn.disabled = true;
+                const promoted = await promoteUserTermToOfficialNode(id);
+                if (!promoted) {
+                    btn.textContent = '⭐';
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-ut-delete]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                deleteUserTerm(btn.getAttribute('data-ut-delete'));
+            });
+        });
+
+        // Blind-Mode-Toggle ruft computeLayout auf, weil ggf. im Blind-Mode geparkte Zusatzbegriffe sichtbar/versteckt werden
         document.getElementById('mm-toggle-blind')?.addEventListener('click', () => {
             state.blindMode = !state.blindMode;
+            computeLayout(state.currentMap);
             renderModule();
             requestAnimationFrame(() => {
                 applyStageTransform();
@@ -4915,7 +5978,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 }
             }
         } catch (_e) {
-            console.warn('[Mindmap V7.1] Offline-Synthese-Fallback für Mastery-Question aktiv.');
+            console.warn('[Mindmap V7.2] Offline-Synthese-Fallback für Mastery-Question aktiv.');
         }
 
         const safeRootTitle = getRootDisplayTitle();
@@ -5327,6 +6390,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             }
         }
 
+        // Falls im Blind-Modus zuvor geparkte Zusatzbegriffe an diesem Knoten jetzt sichtbar werden -> Layout neu berechnen
+        const newlyVisibleUserTerms = getRenderableUserTerms(map).some(ut => !state.nodePositions[ut.id]);
+        if (newlyVisibleUserTerms) {
+            computeLayout(map);
+        }
+
         const newlyUnlockedChildren = map.nodes.filter(n => n.parent_id === targetNode.id);
         const unlockedCrossLinks = (map.cross_links || []).filter(cl =>
             (cl.from === targetNode.id && state.solvedNodeIds.has(cl.to)) ||
@@ -5431,7 +6500,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const depth = state.nodeMeta[node.id]?.depth || 1;
         const rationaleText = node.mastery_question?.rationale || node.explanation || node.socratic_hint || 'Klinisch verifiziertes Konzept.';
         tutorEl.innerHTML = `
-            <strong style="color:#10b981;">✅ Gelöster Ebene-${depth}-Knoten: „${escapeHtml(node.label)}“</strong><br>
+            <strong style="color:#10b981;">✅ Gelöster Ebene-${depth}-Knoten: „${escapeHtml(node.label)}“${node._userPromoted ? ' ⭐' : ''}</strong><br>
             <span style="font-size:0.8rem; color:#94a3b8;">Kausalkette: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(node.relation_label)}</em></span><br>
             <div style="margin-top:6px;">${escapeHtml(rationaleText)}</div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
@@ -5550,12 +6619,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
     }
 
     // ========================================================================
-    // 11. V7.1 DEEP-TREE EXTRAKTIONS-PROMPT & VALIDIERENDER JSON-IMPORT
+    // 11. V7.2 DEEP-TREE EXTRAKTIONS-PROMPT & VALIDIERENDER JSON-IMPORT
     // ========================================================================
 
     function copyExtractionPrompt() {
         const promptTemplate = `# ROLLE & ZIEL
-Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau IMPP/NBME) und Wissens-Architekt für das MedCheck Mindmap-Labor V7.0 ("Deep-Tree Multi-Tier Mastery & Synthesis").
+Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau IMPP/NBME) und Wissens-Architekt für das MedCheck Mindmap-Labor V7.2 ("Deep-Tree Multi-Tier Mastery & Synthesis").
 Extrahiere aus dem folgenden Vorlesungstext das Thema VOLLSTÄNDIG von grob nach hochdetailliert in ein direkt importierbares, valides JSON-Objekt.
 
 # 1. INHALTLICHE & STRUKTURELLE REGELN (ZERO-SUPERFICIALITY & FULL DEPTH)
@@ -5655,7 +6724,7 @@ Hier ist der Vorlesungstext:
             const btn = document.getElementById('mm-btn-prompt');
             if (btn) {
                 const orig = btn.innerHTML;
-                btn.innerHTML = '✅ V7.1 Deep-Tree Prompt kopiert!';
+                btn.innerHTML = '✅ V7.2 Deep-Tree Prompt kopiert!';
                 setTimeout(() => { btn.innerHTML = orig; }, 2200);
             }
         };
@@ -5771,6 +6840,22 @@ Hier ist der Vorlesungstext:
                         })
                     : [];
 
+                // Optionale importierte Zusatzbegriffe sauber normalisieren
+                parsed.user_terms = Array.isArray(parsed.user_terms)
+                    ? parsed.user_terms
+                        .filter(t => t && t.label)
+                        .map((t, idx) => ({
+                            id: t.id || `ut_imp_${Date.now()}_${idx}`,
+                            label: String(t.label).trim().slice(0, 64),
+                            note: String(t.note || '').trim().slice(0, 240),
+                            category: CATEGORIES[t.category] ? t.category : 'pathophysiology',
+                            parent_id: seenIds.has(t.parent_id) ? t.parent_id : resolveAnchorNodeIdForCategory(parsed, t.category),
+                            ai_status: ['unchecked', 'valid', 'partial', 'wrong'].includes(t.ai_status) ? t.ai_status : 'unchecked',
+                            ai_feedback: String(t.ai_feedback || ''),
+                            created_at: t.created_at || new Date().toISOString()
+                        }))
+                    : [];
+
                 parsed.id = parsed.id || `mm_custom_${Date.now()}`;
                 parsed.schema_version = BUILTIN_SCHEMA_VERSION;
                 parsed.title = parsed.title || parsed.central_concept;
@@ -5783,6 +6868,10 @@ Hier ist der Vorlesungstext:
                     setFolderOverride(parsed.id, chosenFolderId);
                 } else {
                     parsed.folder_id = resolveFolderForMindmap(parsed, folders).id;
+                }
+
+                if (parsed.user_terms.length > 0) {
+                    saveUserTermsForMapId(parsed.id, parsed.user_terms);
                 }
 
                 await saveCustomMindmapToDb(parsed);
@@ -5807,6 +6896,10 @@ Hier ist der Vorlesungstext:
         applyDifficultyPreset,
         openDeepComprehensionGate,
         openCrossLinkSynthesisModal,
+        openUserTermModal,
+        addUserTermsToCurrentMap,
+        runAiCheckForUserTerm,
+        promoteUserTermToOfficialNode,
         startWeakNodeDrill,
         focusNextOpenSlot
     };
