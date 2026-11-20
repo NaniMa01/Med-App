@@ -10022,3 +10022,115 @@ body.bento-right-collapsed .bento-right-sidebar {
     0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
     100% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
 }
+
+/* ==========================================================================
+   SIDEBAR FULL-COLLAPSE (V7.3 CLEAN EDGE-TOGGLE)
+   ========================================================================== */
+
+:root {
+    --mc-sidebar-width: 260px; /* wird per JS exakt an die echte Breite angepasst */
+}
+
+/* Sanfte Transition für Seitenleiste & Hauptbereich */
+.sidebar,
+aside.sidebar,
+#sidebar {
+    transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                min-width 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.18s ease,
+                padding 0.24s ease,
+                border-color 0.2s ease;
+    will-change: transform, width;
+}
+
+/* Zustand: Seitenleiste komplett ausgeblendet */
+body.mc-sidebar-hidden .sidebar,
+body.mc-sidebar-hidden aside.sidebar,
+body.mc-sidebar-hidden #sidebar {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin: 0 !important;
+    border-right-width: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    transform: translateX(-100%);
+}
+
+/* Hauptbereich nutzt sofort die volle Breite (deckt Flex, Grid & margin-left ab) */
+body.mc-sidebar-hidden .app-layout,
+body.mc-sidebar-hidden .app-shell,
+body.mc-sidebar-hidden .layout-wrapper {
+    grid-template-columns: 0 1fr !important;
+}
+
+body.mc-sidebar-hidden main,
+body.mc-sidebar-hidden .main-content,
+body.mc-sidebar-hidden .content-wrapper,
+body.mc-sidebar-hidden .content-body {
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Entkoppelter Toggle-Tab am Rand (bleibt auch bei versteckter Sidebar erreichbar) */
+.mc-sidebar-edge-toggle {
+    position: fixed;
+    top: 50%;
+    left: var(--mc-sidebar-width, 260px);
+    transform: translateY(-50%);
+    z-index: 1400;
+    width: 22px;
+    height: 46px;
+    padding: 0;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    background: var(--surface-secondary, rgba(15, 23, 42, 0.92));
+    color: var(--text-muted, #94a3b8);
+    backdrop-filter: blur(10px);
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+                width 0.16s ease,
+                background 0.16s ease,
+                color 0.16s ease,
+                border-color 0.16s ease;
+}
+
+.mc-sidebar-edge-toggle:hover {
+    width: 28px;
+    background: rgba(30, 41, 59, 0.98);
+    border-color: rgba(56, 189, 248, 0.55);
+    color: #38bdf8;
+}
+
+.mc-sidebar-edge-toggle svg {
+    transition: transform 0.22s ease;
+}
+
+/* Wenn Sidebar ausgeblendet ist: Tab rutscht sauber an den linken Bildschirmrand */
+body.mc-sidebar-hidden .mc-sidebar-edge-toggle {
+    left: 0 !important;
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+}
+
+body.mc-sidebar-hidden .mc-sidebar-edge-toggle svg {
+    transform: rotate(180deg);
+}
+
+/* Auf schmalen Mobile-Screens eigenen Mobile-Drawer nicht stören */
+@media (max-width: 768px) {
+    .mc-sidebar-edge-toggle {
+        display: none;
+    }
+}
