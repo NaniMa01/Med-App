@@ -1,8 +1,9 @@
 /**
- * MedCheck - Interactive Clinical Mindmap Module V7.2 (js/mindmap.js)
- * "Deep-Tree Multi-Tier Mastery, Synthesis, Specialty Folders & Free-Recall Promotion Edition"
+ * MedCheck - Interactive Clinical Mindmap Module V7.3 (js/mindmap.js)
+ * "Clean Minimalist Studio, Deep-Tree Mastery, Specialty Folders & Free-Recall Promotion Edition"
  *
- * Upgrades in V7.0 – V7.2:
+ * Upgrades in V7.0 – V7.3:
+ *  - Clean Minimalist Studio Chrome (2 compact bars, monochrome SVG icons, Segmented Control & Popover Switches).
  *  - True N-Tier Multi-Branch Hierarchy (Tier 1 Macro -> Tier 2 Mechanism/Algorithm -> Tier 3+ Molecular/Cutoff/Guideline Details).
  *  - Zero-Overlap Dual Layout Engine: Bi-Directional Weighted Tidy-Tree (default) + Weighted Angular-Sector Radial View,
  *    with dynamic stage sizing and per-branch Collapse/Expand toggles.
@@ -10,18 +11,17 @@
  *  - Compact Custom User Terms per Category Branch (Free-Recall Brainstorming + AI Verification + 1-Click Promotion to Official Exam Node).
  *  - Active Clinical Distractor Quarantine Zone & Metacognitive Confidence Calibration inside the Deep Clinical Mastery Gate.
  *  - Cross-Domain Synthesis Links (cross_links) rendered as dashed synthesis arcs + final transfer check.
- *  - Focused Weak-Node Drill ("Nur Fehler & Wackelkandidaten wiederholen") + Pool Search + Camera Focus on next open slot.
  */
 
 (function () {
     'use strict';
 
     const CATEGORIES = {
-        etiology: { label: 'Ätiologie & Risiko', color: '#3b82f6', cssClass: 'cat-etiology', icon: '🧬' },
-        pathophysiology: { label: 'Pathophysiologie', color: '#ef4444', cssClass: 'cat-pathophysiology', icon: '⚡' },
-        clinical: { label: 'Klinik & Symptome', color: '#f59e0b', cssClass: 'cat-clinical', icon: '🩺' },
-        diagnostics: { label: 'Diagnostik', color: '#8b5cf6', cssClass: 'cat-diagnostics', icon: '🔬' },
-        therapy: { label: 'Therapie', color: '#10b981', cssClass: 'cat-therapy', icon: '💊' }
+        etiology: { label: 'Ätiologie & Risiko', shortLabel: 'Ätiologie', color: '#3b82f6', cssClass: 'cat-etiology', icon: '🧬' },
+        pathophysiology: { label: 'Pathophysiologie', shortLabel: 'Pathophysiologie', color: '#ef4444', cssClass: 'cat-pathophysiology', icon: '⚡' },
+        clinical: { label: 'Klinik & Symptome', shortLabel: 'Klinik', color: '#f59e0b', cssClass: 'cat-clinical', icon: '🩺' },
+        diagnostics: { label: 'Diagnostik', shortLabel: 'Diagnostik', color: '#8b5cf6', cssClass: 'cat-diagnostics', icon: '🔬' },
+        therapy: { label: 'Therapie', shortLabel: 'Therapie', color: '#10b981', cssClass: 'cat-therapy', icon: '💊' }
     };
 
     const TIER_META = {
@@ -40,6 +40,17 @@
         STAGE_PADDING_Y: 220,
         MIN_STAGE_W: 2400,
         MIN_STAGE_H: 1500
+    };
+
+    const UI_ICONS = {
+        back: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+        plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+        upload: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+        sliders: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+        more: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>',
+        chevron: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+        folder: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+        trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>'
     };
 
     const DELETED_BUILTINS_KEY = 'medcheck_deleted_builtin_mindmaps_v1';
@@ -1047,6 +1058,7 @@
         hideRelationLabels: false,           // Im Exam-Modus: Relation-Spoiler auf ungelösten Slots ausblenden
         showCrossLinks: true,
         showUserTerms: true,                 // V7.2: Eigene Zusatzbegriffe im Baum anzeigen
+        openPopover: null,                   // V7.3: null | 'options' | 'more'
         blindRootMode: false,
         rootRevealed: false,
         showInspector: false,
@@ -1074,7 +1086,7 @@
     };
 
     // ========================================================================
-    // 1. INITIALISIERUNG, SCOPED CSS (V7.2) & DOM-STRUKTUR
+    // 1. INITIALISIERUNG, SCOPED CSS (V7.3 CLEAN STUDIO) & DOM-STRUKTUR
     // ========================================================================
 
     function safeParseJson(raw, fallback = null) {
@@ -1092,105 +1104,408 @@
             localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
             return true;
         } catch (err) {
-            console.warn(`[Mindmap V7.2] localStorage Schreibfehler (${key}):`, err);
+            console.warn(`[Mindmap V7.3] localStorage Schreibfehler (${key}):`, err);
             return false;
         }
     }
 
+    function closeOpenPopovers() {
+        if (!state.openPopover) return;
+        state.openPopover = null;
+        document.querySelectorAll('.mm-popover-panel').forEach(p => p.classList.add('is-hidden'));
+        document.querySelectorAll('[data-popover-trigger]').forEach(t => {
+            t.classList.remove('is-active');
+            t.setAttribute('aria-expanded', 'false');
+        });
+    }
+
     function ensureMindmapStyles() {
-        if (document.getElementById('medcheck-mindmap-v72-styles')) return;
-        ['medcheck-mindmap-v6-styles', 'medcheck-mindmap-v7-styles', 'medcheck-mindmap-v71-styles'].forEach(oldId => {
+        if (document.getElementById('medcheck-mindmap-v73-styles')) return;
+        ['medcheck-mindmap-v6-styles', 'medcheck-mindmap-v7-styles', 'medcheck-mindmap-v71-styles', 'medcheck-mindmap-v72-styles'].forEach(oldId => {
             const oldEl = document.getElementById(oldId);
             if (oldEl) oldEl.remove();
         });
 
         const styleEl = document.createElement('style');
-        styleEl.id = 'medcheck-mindmap-v72-styles';
+        styleEl.id = 'medcheck-mindmap-v73-styles';
         styleEl.textContent = `
-            .mm-preset-bar {
+            /* === V7.3 CLEAN MINIMALIST STUDIO BAR & POPOVERS === */
+            .mm-studio-chrome {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-bottom: 12px;
+            }
+            .mm-studio-topbar {
+                position: relative;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 flex-wrap: wrap;
                 gap: 10px;
-                padding: 10px 14px;
-                margin-bottom: 12px;
+                padding: 8px 12px;
                 border-radius: 12px;
-                background: var(--surface-secondary, rgba(15, 23, 42, 0.72));
-                border: 1px solid var(--card-border, rgba(56, 189, 248, 0.22));
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.78));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.16));
+                backdrop-filter: blur(12px);
             }
-            .mm-preset-group {
+            .mm-progress-rail {
+                position: absolute;
+                left: 10px;
+                right: 10px;
+                bottom: 0;
+                height: 2px;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.12);
+                overflow: hidden;
+                pointer-events: none;
+            }
+            .mm-progress-bar {
+                height: 100%;
+                background: linear-gradient(90deg, #38bdf8, #10b981);
+                transition: width 0.28s ease;
+            }
+            .mm-studio-left,
+            .mm-studio-right {
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                gap: 8px;
                 flex-wrap: wrap;
             }
-            .mm-preset-btn {
-                padding: 6px 12px;
+            .mm-studio-left {
+                flex: 1 1 280px;
+                min-width: 0;
+            }
+            .mm-studio-select {
+                flex: 1;
+                min-width: 190px;
+                max-width: 390px;
+                height: 34px;
+                padding: 0 28px 0 10px;
                 border-radius: 8px;
-                font-size: 0.78rem;
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.18));
+                background: var(--surface-primary, rgba(9, 13, 26, 0.75));
+                color: var(--text-main, #f8fafc);
+                font-size: 0.84rem;
+                font-weight: 600;
+                cursor: pointer;
+                outline: none;
+                text-overflow: ellipsis;
+            }
+            .mm-studio-select:focus {
+                border-color: var(--accent-cyan, #38bdf8);
+            }
+            .mm-clean-btn {
+                height: 34px;
+                padding: 0 11px;
+                border-radius: 8px;
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.18));
+                background: transparent;
+                color: var(--text-main, #e2e8f0);
+                font-size: 0.8rem;
+                font-weight: 600;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                white-space: nowrap;
+                transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            }
+            .mm-clean-btn:hover {
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.75));
+                border-color: rgba(148, 163, 184, 0.35);
+            }
+            .mm-clean-btn.is-active {
+                background: rgba(56, 189, 248, 0.14);
+                border-color: rgba(56, 189, 248, 0.45);
+                color: #38bdf8;
+            }
+            .mm-clean-btn.is-primary {
+                background: #2563eb;
+                border-color: #3b82f6;
+                color: #ffffff;
+            }
+            .mm-clean-btn.is-primary:hover {
+                background: #1d4ed8;
+            }
+            .mm-clean-btn.is-icon-only {
+                width: 34px;
+                padding: 0;
+                justify-content: center;
+            }
+            .mm-segmented {
+                display: inline-flex;
+                align-items: center;
+                padding: 3px;
+                border-radius: 9px;
+                background: var(--surface-primary, rgba(9, 13, 26, 0.72));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.14));
+                gap: 2px;
+            }
+            .mm-seg-btn {
+                height: 28px;
+                padding: 0 11px;
+                border-radius: 6px;
+                border: none;
+                background: transparent;
+                color: var(--text-muted, #94a3b8);
+                font-size: 0.77rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.15s ease, color 0.15s ease;
+            }
+            .mm-seg-btn:hover {
+                color: var(--text-main, #f8fafc);
+            }
+            .mm-seg-btn.active {
+                background: var(--surface-subtle, rgba(51, 65, 85, 0.85));
+                color: var(--text-main, #f8fafc);
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+            }
+
+            /* Popover Container & Switches */
+            .mm-popover-wrap {
+                position: relative;
+            }
+            .mm-popover-panel {
+                position: absolute;
+                top: calc(100% + 8px);
+                right: 0;
+                z-index: 1200;
+                min-width: 285px;
+                padding: 10px;
+                border-radius: 12px;
+                background: var(--surface-primary, #0b1120);
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.24));
+                box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48);
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            .mm-popover-panel.is-compact {
+                min-width: 225px;
+            }
+            .mm-popover-panel.is-hidden {
+                display: none;
+            }
+            .mm-pop-section-title {
+                padding: 6px 8px 3px;
+                font-size: 0.67rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--text-muted, #64748b);
+            }
+            .mm-pop-divider {
+                height: 1px;
+                margin: 4px 2px;
+                background: rgba(148, 163, 184, 0.14);
+            }
+            .mm-switch-row {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 7px 8px;
+                border-radius: 8px;
+                border: none;
+                background: transparent;
+                color: var(--text-main, #e2e8f0);
+                font-size: 0.8rem;
+                font-weight: 500;
+                text-align: left;
+                cursor: pointer;
+                transition: background 0.12s ease;
+            }
+            .mm-switch-row:hover {
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.72));
+            }
+            .mm-switch-row.is-danger {
+                color: #f87171;
+            }
+            .mm-switch-row.is-danger:hover {
+                background: rgba(239, 68, 68, 0.12);
+            }
+            .mm-switch-sub {
+                font-size: 0.72rem;
+                color: var(--text-muted, #64748b);
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            }
+            .mm-toggle-track {
+                width: 32px;
+                height: 18px;
+                border-radius: 999px;
+                background: rgba(148, 163, 184, 0.26);
+                position: relative;
+                flex-shrink: 0;
+                transition: background 0.16s ease;
+            }
+            .mm-toggle-track::after {
+                content: '';
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #e2e8f0;
+                transition: transform 0.16s ease;
+            }
+            .mm-switch-row.is-on .mm-toggle-track {
+                background: #38bdf8;
+            }
+            .mm-switch-row.is-on .mm-toggle-track::after {
+                transform: translateX(14px);
+                background: #0f172a;
+            }
+
+            /* Kompakte Telemetrie- & Kategorie-Leiste (Zeile 2) */
+            .mm-studio-subbar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 7px 12px;
+                border-radius: 10px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.48));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.12));
+            }
+            .mm-clean-legend {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .mm-cat-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                height: 26px;
+                padding: 0 4px 0 9px;
+                border-radius: 999px;
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.55));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.14));
+                font-size: 0.75rem;
+                font-weight: 500;
+                color: var(--text-main, #cbd5e1);
+            }
+            .mm-cat-dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .mm-cat-add {
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                border: none;
+                background: transparent;
+                color: var(--text-muted, #94a3b8);
+                font-size: 0.85rem;
+                line-height: 1;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.14s ease, color 0.14s ease;
+            }
+            .mm-cat-add:hover {
+                background: rgba(56, 189, 248, 0.2);
+                color: #38bdf8;
+            }
+            .mm-telemetry-group {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 12px;
+                font-size: 0.76rem;
+                color: var(--text-muted, #94a3b8);
+            }
+            .mm-telemetry-item {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-variant-numeric: tabular-nums;
+            }
+            .mm-telemetry-val {
+                color: var(--text-main, #f1f5f9);
+                font-weight: 700;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            }
+            .mm-telemetry-val.is-warn {
+                color: #f87171;
+            }
+            .mm-telemetry-val.is-good {
+                color: #34d399;
+            }
+            .mm-tier-inline {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding-left: 10px;
+                border-left: 1px solid rgba(148, 163, 184, 0.18);
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 0.73rem;
+            }
+            .mm-tier-inline-item.is-done {
+                color: #34d399;
+                font-weight: 700;
+            }
+            .mm-drill-pill {
+                height: 24px;
+                padding: 0 9px;
+                border-radius: 999px;
+                border: 1px solid rgba(245, 158, 11, 0.45);
+                background: rgba(245, 158, 11, 0.14);
+                color: #fbbf24;
+                font-size: 0.73rem;
                 font-weight: 700;
                 cursor: pointer;
+            }
+            .mm-drill-pill:hover {
+                background: rgba(245, 158, 11, 0.24);
+            }
+
+            /* Legacy Preset Buttons (genutzt in Bibliotheks-Filter) */
+            .mm-preset-btn {
+                padding: 5px 11px;
+                border-radius: 7px;
+                font-size: 0.77rem;
+                font-weight: 600;
+                cursor: pointer;
                 border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
-                background: var(--surface-subtle, rgba(30, 41, 59, 0.65));
+                background: transparent;
                 color: var(--text-muted, #94a3b8);
-                transition: all 0.18s ease;
+                transition: all 0.15s ease;
             }
             .mm-preset-btn:hover {
                 border-color: var(--accent-cyan, #38bdf8);
                 color: var(--text-main, #f8fafc);
             }
             .mm-preset-btn.active {
-                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.22));
-                border-color: var(--accent-cyan, #38bdf8);
+                background: rgba(56, 189, 248, 0.16);
+                border-color: rgba(56, 189, 248, 0.5);
                 color: var(--text-main, #f8fafc);
-                box-shadow: 0 0 14px rgba(56, 189, 248, 0.18);
             }
+
             /* Tier Badges */
             .mm-tier-pill {
                 display: inline-flex;
                 align-items: center;
-                padding: 2px 7px;
+                padding: 1px 6px;
                 border-radius: 999px;
-                font-size: 0.67rem;
+                font-size: 0.65rem;
                 font-weight: 800;
                 letter-spacing: 0.02em;
                 text-transform: uppercase;
             }
-            .mm-tier-pill.tier-1 { background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
-            .mm-tier-pill.tier-2 { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
-            .mm-tier-pill.tier-3 { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.45); }
-            .mm-tier-pill.tier-4 { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); }
-
-            /* Tier Progress Strip */
-            .mm-tier-progress-strip {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                flex-wrap: wrap;
-                margin-bottom: 10px;
-                padding: 8px 12px;
-                border-radius: 10px;
-                background: var(--surface-secondary, rgba(15, 23, 42, 0.55));
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
-                font-size: 0.76rem;
-            }
-            .mm-tier-chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                padding: 3px 9px;
-                border-radius: 8px;
-                background: var(--surface-subtle, rgba(30, 41, 59, 0.7));
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
-                color: var(--text-main, #e2e8f0);
-                font-weight: 700;
-            }
-            .mm-tier-chip.tier-done {
-                border-color: #10b981;
-                background: rgba(16, 185, 129, 0.14);
-                color: #34d399;
-            }
+            .mm-tier-pill.tier-1 { background: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
+            .mm-tier-pill.tier-2 { background: rgba(168, 85, 247, 0.16); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+            .mm-tier-pill.tier-3 { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+            .mm-tier-pill.tier-4 { background: rgba(239, 68, 68, 0.16); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
 
             /* Pool Search & Quarantine Dropzone */
             .mm-pool-search-wrap {
@@ -1211,10 +1526,10 @@
             }
             .mm-quarantine-zone {
                 margin: 8px 10px 6px;
-                padding: 10px 12px;
+                padding: 9px 11px;
                 border-radius: 10px;
-                border: 1.5px dashed rgba(239, 68, 68, 0.52);
-                background: rgba(239, 68, 68, 0.08);
+                border: 1.5px dashed rgba(239, 68, 68, 0.48);
+                background: rgba(239, 68, 68, 0.07);
                 color: var(--text-main, #fca5a5);
                 font-size: 0.77rem;
                 transition: all 0.18s ease;
@@ -1222,25 +1537,24 @@
             }
             .mm-quarantine-zone:hover,
             .mm-quarantine-zone.drag-over-quarantine {
-                background: rgba(239, 68, 68, 0.22);
+                background: rgba(239, 68, 68, 0.2);
                 border-color: #ef4444;
-                transform: scale(1.015);
-                box-shadow: 0 0 18px rgba(239, 68, 68, 0.25);
+                transform: scale(1.01);
             }
             .mm-quarantine-header {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                font-weight: 800;
-                margin-bottom: 3px;
+                font-weight: 700;
+                margin-bottom: 2px;
             }
             .mm-quarantine-sub {
                 font-size: 0.72rem;
-                color: var(--text-muted, #cbd5e1);
+                color: var(--text-muted, #94a3b8);
                 line-height: 1.35;
             }
 
-            /* Node Enhancements (Collapse, Uncertain Indicator, Promoted Tag) */
+            /* Node Enhancements */
             .mm-node-collapse-btn {
                 position: absolute;
                 right: -11px;
@@ -1276,22 +1590,22 @@
                 margin-left: 5px;
                 padding: 1px 6px;
                 border-radius: 999px;
-                background: rgba(245, 158, 11, 0.22);
-                border: 1px solid rgba(245, 158, 11, 0.55);
+                background: rgba(245, 158, 11, 0.2);
+                border: 1px solid rgba(245, 158, 11, 0.45);
                 color: #fbbf24;
-                font-size: 0.65rem;
-                font-weight: 800;
+                font-size: 0.64rem;
+                font-weight: 700;
             }
             .mm-node-promoted-badge {
                 display: inline-block;
                 margin-left: 4px;
                 padding: 1px 5px;
                 border-radius: 999px;
-                background: rgba(250, 204, 21, 0.16);
-                border: 1px solid rgba(250, 204, 21, 0.5);
+                background: rgba(250, 204, 21, 0.14);
+                border: 1px solid rgba(250, 204, 21, 0.45);
                 color: #fde047;
                 font-size: 0.63rem;
-                font-weight: 800;
+                font-weight: 700;
             }
             .mm-rel-hidden-pill {
                 font-style: italic;
@@ -1322,7 +1636,7 @@
                 border: 1px dashed #f59e0b;
                 color: #fcd34d;
                 font-size: 0.68rem;
-                font-weight: 800;
+                font-weight: 700;
                 white-space: nowrap;
                 z-index: 4;
                 cursor: pointer;
@@ -1330,7 +1644,7 @@
                 transition: transform 0.15s ease;
             }
             .mm-crosslink-badge:hover {
-                transform: translate(-50%, -50%) scale(1.08);
+                transform: translate(-50%, -50%) scale(1.06);
                 background: rgba(245, 158, 11, 0.22);
             }
 
@@ -1339,7 +1653,7 @@
                 position: fixed;
                 inset: 0;
                 z-index: 9999;
-                background: rgba(15, 23, 42, 0.68);
+                background: rgba(15, 23, 42, 0.7);
                 backdrop-filter: blur(10px);
                 display: flex;
                 align-items: center;
@@ -1353,10 +1667,10 @@
                 max-height: 92vh;
                 overflow-y: auto;
                 background: var(--surface-primary, #0f172a);
-                border: 1px solid var(--card-border, rgba(56, 189, 248, 0.5));
-                border-radius: 18px;
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.28));
+                border-radius: 16px;
                 padding: 22px 24px;
-                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+                box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
                 color: var(--text-main, #f8fafc);
             }
             .mm-synapse-chain-box {
@@ -1368,7 +1682,7 @@
                 margin: 10px 0 14px;
                 border-radius: 10px;
                 background: var(--surface-secondary, rgba(15, 23, 42, 0.92));
-                border: 1px dashed var(--accent-cyan, rgba(56, 189, 248, 0.4));
+                border: 1px dashed var(--accent-cyan, rgba(56, 189, 248, 0.35));
                 font-size: 0.82rem;
                 flex-wrap: wrap;
             }
@@ -1386,7 +1700,7 @@
                 background: rgba(16, 185, 129, 0.16);
                 border: 1px solid #10b981;
                 color: #10b981;
-                font-weight: 800;
+                font-weight: 700;
                 font-size: 0.75rem;
             }
             .mm-mastery-question-box {
@@ -1418,7 +1732,7 @@
                 padding: 4px 10px;
                 border-radius: 7px;
                 font-size: 0.75rem;
-                font-weight: 700;
+                font-weight: 600;
                 cursor: pointer;
                 border: 1px solid var(--card-border, rgba(255, 255, 255, 0.14));
                 background: transparent;
@@ -1523,15 +1837,15 @@
                 padding: 5px 10px;
                 border-radius: 7px;
                 font-size: 0.75rem;
-                font-weight: 700;
-                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.14));
-                border: 1px solid var(--accent-cyan, rgba(56, 189, 248, 0.4));
+                font-weight: 600;
+                background: var(--badge-primary-bg, rgba(56, 189, 248, 0.12));
+                border: 1px solid var(--accent-cyan, rgba(56, 189, 248, 0.35));
                 color: var(--accent-blue, #38bdf8);
                 cursor: pointer;
                 transition: all 0.15s ease;
             }
             .mm-depot-pin-btn:hover {
-                background: rgba(56, 189, 248, 0.26);
+                background: rgba(56, 189, 248, 0.24);
             }
             .mm-chip.distractor-eliminated {
                 opacity: 0.36 !important;
@@ -1565,11 +1879,11 @@
                 cursor: pointer;
             }
 
-            /* === V7.1 FACHGEBIETS-ORDNERSYSTEM === */
+            /* === FACHGEBIETS-ORDNERSYSTEM (CLEAN) === */
             .mm-library-shell {
                 display: flex;
                 flex-direction: column;
-                gap: 16px;
+                gap: 14px;
             }
             .mm-library-toolbar {
                 display: flex;
@@ -1577,21 +1891,22 @@
                 justify-content: space-between;
                 flex-wrap: wrap;
                 gap: 10px;
-                padding: 12px 16px;
-                border-radius: 14px;
+                padding: 10px 14px;
+                border-radius: 12px;
                 background: var(--surface-secondary, rgba(15, 23, 42, 0.72));
-                border: 1px solid var(--card-border, rgba(56, 189, 248, 0.22));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.16));
             }
             .mm-lib-search-input {
                 flex: 1;
-                min-width: 220px;
-                max-width: 380px;
-                padding: 8px 12px;
-                border-radius: 9px;
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.14));
+                min-width: 210px;
+                max-width: 360px;
+                height: 34px;
+                padding: 0 11px;
+                border-radius: 8px;
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.18));
                 background: var(--surface-primary, rgba(6, 9, 19, 0.8));
                 color: var(--text-main, #f8fafc);
-                font-size: 0.84rem;
+                font-size: 0.82rem;
                 outline: none;
             }
             .mm-lib-search-input:focus {
@@ -1603,74 +1918,78 @@
                 justify-content: space-between;
                 flex-wrap: wrap;
                 gap: 12px;
-                padding: 12px 16px;
+                padding: 11px 15px;
                 border-radius: 12px;
-                background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(16, 185, 129, 0.1));
-                border: 1px solid rgba(56, 189, 248, 0.35);
+                background: rgba(56, 189, 248, 0.08);
+                border: 1px solid rgba(56, 189, 248, 0.28);
             }
             .mm-folder-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
-                gap: 14px;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 12px;
             }
             .mm-folder-card {
                 position: relative;
                 display: flex;
                 flex-direction: column;
                 gap: 10px;
-                padding: 16px 18px;
-                border-radius: 15px;
-                background: var(--surface-secondary, rgba(15, 23, 42, 0.82));
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
+                padding: 15px 17px;
+                border-radius: 13px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.8));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.14));
                 border-top: 3px solid var(--folder-accent, #38bdf8);
                 cursor: pointer;
-                transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+                transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
             }
             .mm-folder-card:hover {
-                transform: translateY(-3px);
+                transform: translateY(-2px);
                 border-color: var(--folder-accent, #38bdf8);
-                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+                box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
             }
             .mm-folder-card.is-empty {
                 opacity: 0.62;
             }
             .mm-folder-card-top {
                 display: flex;
-                align-items: flex-start;
+                align-items: center;
                 justify-content: space-between;
                 gap: 10px;
             }
-            .mm-folder-icon {
-                font-size: 1.65rem;
-                line-height: 1;
+            .mm-folder-dot-badge {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--folder-accent, #38bdf8);
+                box-shadow: 0 0 10px var(--folder-accent, #38bdf8);
             }
             .mm-folder-count-pill {
-                padding: 3px 9px;
+                padding: 2px 8px;
                 border-radius: 999px;
                 font-size: 0.72rem;
-                font-weight: 800;
-                background: var(--surface-subtle, rgba(30, 41, 59, 0.9));
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
-                color: var(--text-main, #e2e8f0);
+                font-weight: 700;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.85));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.14));
+                color: var(--text-main, #cbd5e1);
             }
             .mm-folder-title {
-                font-size: 0.98rem;
-                font-weight: 800;
+                font-size: 0.95rem;
+                font-weight: 700;
                 color: var(--text-main, #f8fafc);
-                margin: 2px 0 0;
             }
             .mm-folder-meta {
-                font-size: 0.77rem;
+                font-size: 0.75rem;
                 color: var(--text-muted, #94a3b8);
                 display: flex;
                 justify-content: space-between;
                 gap: 8px;
+                font-variant-numeric: tabular-nums;
             }
             .mm-folder-progress-track {
                 width: 100%;
-                height: 6px;
+                height: 4px;
                 border-radius: 999px;
-                background: rgba(148, 163, 184, 0.18);
+                background: rgba(148, 163, 184, 0.16);
                 overflow: hidden;
             }
             .mm-folder-progress-fill {
@@ -1681,19 +2000,19 @@
             }
             .mm-map-card-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-                gap: 14px;
+                grid-template-columns: repeat(auto-fill, minmax(305px, 1fr));
+                gap: 12px;
             }
             .mm-map-card {
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
                 gap: 12px;
-                padding: 16px 18px;
-                border-radius: 14px;
-                background: var(--surface-secondary, rgba(15, 23, 42, 0.85));
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
-                border-left: 4px solid var(--folder-accent, #38bdf8);
+                padding: 15px 17px;
+                border-radius: 13px;
+                background: var(--surface-secondary, rgba(15, 23, 42, 0.84));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.14));
+                border-left: 3px solid var(--folder-accent, #38bdf8);
                 transition: transform 0.15s ease, border-color 0.15s ease;
             }
             .mm-map-card:hover {
@@ -1707,18 +2026,19 @@
                 font-size: 0.72rem;
             }
             .mm-map-mini-badge {
-                padding: 2px 8px;
+                padding: 2px 7px;
                 border-radius: 6px;
-                background: var(--surface-subtle, rgba(30, 41, 59, 0.9));
+                background: var(--surface-subtle, rgba(30, 41, 59, 0.85));
                 color: var(--text-muted, #cbd5e1);
-                font-weight: 700;
+                font-weight: 600;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             }
             .mm-map-mini-badge.is-done {
-                background: rgba(16, 185, 129, 0.16);
+                background: rgba(16, 185, 129, 0.15);
                 color: #34d399;
             }
             .mm-map-mini-badge.is-weak {
-                background: rgba(245, 158, 11, 0.18);
+                background: rgba(245, 158, 11, 0.16);
                 color: #fbbf24;
             }
             .mm-map-card-actions {
@@ -1728,12 +2048,13 @@
                 gap: 8px;
                 flex-wrap: wrap;
                 padding-top: 10px;
-                border-top: 1px solid rgba(255, 255, 255, 0.08);
+                border-top: 1px solid rgba(148, 163, 184, 0.12);
             }
             .mm-move-folder-select {
-                padding: 5px 8px;
+                height: 30px;
+                padding: 0 8px;
                 border-radius: 7px;
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.14));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.18));
                 background: var(--surface-primary, rgba(6, 9, 19, 0.85));
                 color: var(--text-main, #e2e8f0);
                 font-size: 0.74rem;
@@ -1745,83 +2066,67 @@
                 align-items: center;
                 gap: 10px;
                 flex-wrap: wrap;
-                font-size: 0.9rem;
+                font-size: 0.88rem;
                 font-weight: 700;
             }
 
-            /* === V7.2 KOMPAKTE ZUSATZBEGRIFFE & 1-KLICK-BEFÖRDERUNG === */
-            .mm-legend-item {
-                display: inline-flex;
-                align-items: center;
-                gap: 5px;
-            }
-            .mm-legend-add-btn {
-                width: 18px;
-                height: 18px;
-                border-radius: 999px;
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.2));
-                background: var(--surface-subtle, rgba(30, 41, 59, 0.85));
-                color: var(--text-main, #e2e8f0);
-                font-size: 0.74rem;
-                font-weight: 900;
-                line-height: 1;
-                cursor: pointer;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
-            }
-            .mm-legend-add-btn:hover {
-                transform: scale(1.15);
-                border-color: var(--accent-cyan, #38bdf8);
-                background: rgba(56, 189, 248, 0.24);
-                color: #ffffff;
-            }
+            /* === KOMPAKTE ZUSATZBEGRIFFE & 1-KLICK-BEFÖRDERUNG === */
             .mm-node-add-term-btn {
                 position: absolute;
                 top: -9px;
                 right: 8px;
                 z-index: 6;
-                padding: 1px 6px;
+                width: 20px;
+                height: 20px;
                 border-radius: 999px;
-                border: 1px solid rgba(56, 189, 248, 0.52);
+                border: 1px solid rgba(56, 189, 248, 0.5);
                 background: var(--surface-primary, #0f172a);
                 color: #38bdf8;
-                font-size: 0.65rem;
+                font-size: 0.82rem;
                 font-weight: 800;
+                line-height: 1;
                 cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
                 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
                 transition: transform 0.14s ease, background 0.14s ease;
             }
             .mm-node-add-term-btn:hover {
-                transform: scale(1.08);
+                transform: scale(1.12);
                 background: #38bdf8;
                 color: #0f172a;
             }
-            /* Bewusst kompakt gehalten, damit der Baum schlank bleibt */
             .mm-node-userterm {
                 width: 214px;
-                min-height: 58px;
+                min-height: 56px;
                 padding: 7px 9px;
-                border-radius: 11px;
+                border-radius: 10px;
                 background: var(--surface-secondary, rgba(15, 23, 42, 0.92));
-                border: 1.6px dashed var(--ut-accent, #38bdf8);
+                border: 1.5px dashed var(--ut-accent, #38bdf8);
                 box-shadow: 0 6px 16px rgba(0, 0, 0, 0.26);
                 cursor: pointer;
                 transition: transform 0.15s ease, box-shadow 0.15s ease;
             }
             .mm-node-userterm:hover {
                 transform: translate(-50%, -50%) scale(1.03);
-                box-shadow: 0 8px 22px rgba(56, 189, 248, 0.24);
+                box-shadow: 0 8px 22px rgba(56, 189, 248, 0.22);
             }
             .mm-ut-top {
                 display: flex;
                 align-items: flex-start;
-                justify-content: space-between;
                 gap: 6px;
             }
+            .mm-ut-dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                margin-top: 4px;
+                flex-shrink: 0;
+                background: var(--ut-accent, #38bdf8);
+            }
             .mm-ut-label {
-                font-size: 0.79rem;
+                font-size: 0.78rem;
                 font-weight: 700;
                 line-height: 1.28;
                 color: var(--text-main, #f8fafc);
@@ -1829,6 +2134,7 @@
             }
             .mm-ut-note-preview {
                 margin-top: 2px;
+                padding-left: 13px;
                 font-size: 0.68rem;
                 line-height: 1.25;
                 color: var(--text-muted, #94a3b8);
@@ -1849,25 +2155,25 @@
                 padding: 1px 6px;
                 border-radius: 999px;
                 font-size: 0.62rem;
-                font-weight: 800;
-                background: rgba(148, 163, 184, 0.15);
+                font-weight: 700;
+                background: rgba(148, 163, 184, 0.14);
                 color: #cbd5e1;
                 white-space: nowrap;
             }
             .mm-ut-status-pill.status-valid {
-                background: rgba(16, 185, 129, 0.18);
+                background: rgba(16, 185, 129, 0.16);
                 color: #34d399;
-                border: 1px solid rgba(16, 185, 129, 0.42);
+                border: 1px solid rgba(16, 185, 129, 0.4);
             }
             .mm-ut-status-pill.status-partial {
-                background: rgba(245, 158, 11, 0.18);
+                background: rgba(245, 158, 11, 0.16);
                 color: #fbbf24;
-                border: 1px solid rgba(245, 158, 11, 0.42);
+                border: 1px solid rgba(245, 158, 11, 0.4);
             }
             .mm-ut-status-pill.status-wrong {
-                background: rgba(239, 68, 68, 0.18);
+                background: rgba(239, 68, 68, 0.16);
                 color: #f87171;
-                border: 1px solid rgba(239, 68, 68, 0.42);
+                border: 1px solid rgba(239, 68, 68, 0.4);
             }
             .mm-ut-mini-actions {
                 display: inline-flex;
@@ -1875,14 +2181,14 @@
                 gap: 3px;
             }
             .mm-ut-mini-btn {
-                padding: 1px 5px;
+                padding: 1px 6px;
                 border-radius: 5px;
-                border: 1px solid rgba(255, 255, 255, 0.14);
-                background: rgba(30, 41, 59, 0.85);
+                border: 1px solid rgba(148, 163, 184, 0.22);
+                background: rgba(30, 41, 59, 0.8);
                 color: var(--text-main, #e2e8f0);
-                font-size: 0.66rem;
+                font-size: 0.64rem;
                 font-weight: 700;
-                line-height: 1.3;
+                line-height: 1.35;
                 cursor: pointer;
                 transition: background 0.14s ease, border-color 0.14s ease;
             }
@@ -1892,11 +2198,11 @@
             }
             .mm-ut-mini-btn.is-promote-ready {
                 border-color: rgba(250, 204, 21, 0.65);
-                background: rgba(250, 204, 21, 0.18);
+                background: rgba(250, 204, 21, 0.16);
                 color: #fde047;
             }
             .mm-ut-mini-btn.is-promote-ready:hover:not(:disabled) {
-                background: rgba(250, 204, 21, 0.32);
+                background: rgba(250, 204, 21, 0.3);
             }
             .mm-edge-userterm {
                 fill: none;
@@ -1922,7 +2228,7 @@
                 padding: 8px 10px;
                 border-radius: 9px;
                 background: var(--surface-secondary, rgba(30, 41, 59, 0.72));
-                border: 1px solid var(--card-border, rgba(255, 255, 255, 0.1));
+                border: 1px solid var(--card-border, rgba(148, 163, 184, 0.14));
             }
             @keyframes mmFadeIn {
                 from { opacity: 0; transform: scale(0.96); }
@@ -1973,6 +2279,16 @@
                     if (isViewVisible() && state.viewMode === 'canvas') {
                         fitStageToViewport();
                         drawSvgConnections();
+                    }
+                });
+                document.addEventListener('click', e => {
+                    if (state.openPopover && !e.target.closest('.mm-popover-wrap')) {
+                        closeOpenPopovers();
+                    }
+                });
+                document.addEventListener('keydown', e => {
+                    if (e.key === 'Escape' && state.openPopover) {
+                        closeOpenPopovers();
                     }
                 });
             }
@@ -2053,7 +2369,7 @@
     }
 
     /**
-     * Migriert veraltete gecachte Built-in-Versionen sauber auf V7.2,
+     * Migriert veraltete gecachte Built-in-Versionen sauber auf V7.3,
      * behält aber KI-Fragen, Ordner-Zuweisungen, eigene Zusatzbegriffe sowie
      * bereits beförderte Benutzer-Knoten (_userPromoted) vollständig bei.
      */
@@ -2080,7 +2396,6 @@
                 }
             });
 
-            // Vom Nutzer beförderte Knoten aus älteren Ständen mitnehmen
             (candidateMap.nodes || []).forEach(oldNode => {
                 if (oldNode?._userPromoted && !upgradedIds.has(oldNode.id)) {
                     upgraded.nodes.push(oldNode);
@@ -2210,7 +2525,7 @@
                     safeStorageSet('medcheck_mindmap_progress', state.progressCache);
                 }
             } catch (e) {
-                console.warn('[Mindmap V7.2] Supabase-Sync im Offline-Fallback:', e);
+                console.warn('[Mindmap V7.3] Supabase-Sync im Offline-Fallback:', e);
             }
         }
 
@@ -2251,7 +2566,7 @@
                     updated_at: new Date().toISOString()
                 });
             } catch (err) {
-                console.warn('[Mindmap V7.2] Lokal gesichert:', err);
+                console.warn('[Mindmap V7.3] Lokal gesichert:', err);
             }
         }
     }
@@ -2293,7 +2608,7 @@
                 await sb.from('mindmap_progress').delete().eq('mindmap_id', targetId).eq('user_id', user.id);
                 await sb.from('mindmaps').delete().eq('id', targetId);
             } catch (err) {
-                console.warn('[Mindmap V7.2] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
+                console.warn('[Mindmap V7.3] Fehler beim Cloud-Delete (lokal bereits gelöscht):', err);
             }
         }
 
@@ -2362,7 +2677,7 @@
                     last_played_at: new Date().toISOString()
                 }, { onConflict: 'user_id,mindmap_id' });
             } catch (err) {
-                console.warn('[Mindmap V7.2] Fortschritt lokal gespeichert:', err);
+                console.warn('[Mindmap V7.3] Fortschritt lokal gespeichert:', err);
             }
         }
     }
@@ -2565,6 +2880,7 @@
     }
 
     function openFolderLibrary(folderId = null) {
+        closeOpenPopovers();
         state.viewMode = 'folders';
         state.activeFolderId = folderId;
         state.librarySearchQuery = '';
@@ -2572,6 +2888,7 @@
     }
 
     async function openFolder(folderId) {
+        closeOpenPopovers();
         const viewSection = ensureDomStructure();
         viewSection.classList.remove('hidden');
         viewSection.style.display = 'block';
@@ -2605,12 +2922,12 @@
     function renderGroupedMapOptions(selectedMapId) {
         const folders = getFoldersWithStats().filter(f => f.maps.length > 0);
         return folders.map(folder => `
-            <optgroup label="${escapeHtml(`${folder.icon} ${folder.label} (${folder.maps.length})`)}">
+            <optgroup label="${escapeHtml(`${folder.label} (${folder.maps.length})`)}">
                 ${folder.maps.map(m => {
                     const prog = state.progressCache[m.id];
-                    const badge = prog?.completed ? `✅ (${prog.accuracy}%)` : '⭕';
+                    const prefix = prog?.completed ? `✓ ${prog.accuracy}% · ` : '';
                     return `<option value="${escapeHtml(m.id)}" ${m.id === selectedMapId ? 'selected' : ''}>
-                        ${badge} ${escapeHtml(m.title)} (${(m.nodes || []).length} Kn.)
+                        ${prefix}${escapeHtml(m.title)} (${(m.nodes || []).length})
                     </option>`;
                 }).join('')}
             </optgroup>
@@ -2618,7 +2935,7 @@
     }
 
     // ========================================================================
-    // 2C. EIGENE ZUSATZBEGRIFFE PRO KATEGORIEAST + 1-KLICK-BEFÖRDERUNG (V7.2)
+    // 2C. EIGENE ZUSATZBEGRIFFE PRO KATEGORIEAST + 1-KLICK-BEFÖRDERUNG (V7.3)
     // ========================================================================
 
     function getAllStoredUserTermsMap() {
@@ -2793,7 +3110,7 @@
             case_id: state.currentMap.id,
             case_title: `Mindmap: ${state.currentMap.title || state.currentMap.central_concept}`,
             category: state.currentMap.specialty || 'Mindmap-Labor',
-            cue_context: `✍️ Eigene Ergänzung • ${catLabel} (${parentLabel})`,
+            cue_context: `Eigene Ergänzung · ${catLabel} (${parentLabel})`,
             highlighted_text: `${term.label}${details ? ` — ${details}` : ''}`
         };
 
@@ -2828,7 +3145,7 @@
 
         const tutorEl = document.getElementById('mm-tutor-message');
         if (tutorEl) {
-            tutorEl.innerHTML = `<div class="mm-tutor-thinking"><span>🤖 Prüfe deine Ergänzung „${escapeHtml(term.label)}“ fachlich & kontextuell...</span></div>`;
+            tutorEl.innerHTML = `<div class="mm-tutor-thinking"><span>Prüfe „${escapeHtml(term.label)}“ fachlich & kontextuell...</span></div>`;
         }
 
         const prompt = `Du bist medizinischer Facharzt-Tutor (Staatsexamensniveau).
@@ -2887,7 +3204,7 @@ Antworte AUSSCHLIESSLICH als valides JSON-Array mit genau einem Objekt:
             return term;
         } catch (_err) {
             if (tutorEl) {
-                tutorEl.innerHTML = `<strong style="color:#f59e0b;">⚠️ KI-Check aktuell offline:</strong> Deine Ergänzung <strong>„${escapeHtml(term.label)}“</strong> bleibt sicher lokal als eigene Notiz gespeichert.`;
+                tutorEl.innerHTML = `<strong style="color:#f59e0b;">KI-Check offline:</strong> „${escapeHtml(term.label)}“ bleibt lokal gespeichert.`;
             }
             return null;
         } finally {
@@ -2921,7 +3238,7 @@ Antworte AUSSCHLIESSLICH als valides JSON-Array mit genau einem Objekt:
 
         const tutorEl = document.getElementById('mm-tutor-message');
         if (tutorEl) {
-            tutorEl.innerHTML = `<div class="mm-tutor-thinking"><span>⭐ Befördere „${escapeHtml(term.label)}“ zum offiziellen Prüfungs-Knoten & generiere Staatsexamens-Frage...</span></div>`;
+            tutorEl.innerHTML = `<div class="mm-tutor-thinking"><span>Befördere „${escapeHtml(term.label)}“ zum offiziellen Prüfungs-Knoten...</span></div>`;
         }
 
         const prompt = `Du bist medizinischer Facharzt-Tutor & Prüfungsautor (Staatsexamensniveau IMPP/NBME).
@@ -2965,7 +3282,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 }
             }
         } catch (_e) {
-            console.warn('[Mindmap V7.2] Offline-Beförderung aktiv.');
+            console.warn('[Mindmap V7.3] Offline-Beförderung aktiv.');
         } finally {
             inFlightUserTermIds.delete(termId);
         }
@@ -3002,13 +3319,11 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             promotedNode.mastery_question = masteryQuestion;
         }
 
-        // Aus user_terms entfernen und als offiziellen Knoten aufnehmen
         const remainingTerms = terms.filter(t => t.id !== termId);
         map.nodes.push(promotedNode);
         map.user_terms = remainingTerms;
         saveUserTermsForMapId(map.id, remainingTerms);
 
-        // Kausal-konsistent einbinden: ist der Elternknoten bereits gelöst (oder Root), direkt sichtbar gelöst setzen
         if (anchorId === 'root' || state.solvedNodeIds.has(anchorId)) {
             state.solvedNodeIds.add(newNodeId);
         } else {
@@ -3044,15 +3359,15 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 const updatedTutor = document.getElementById('mm-tutor-message');
                 if (updatedTutor) {
                     updatedTutor.innerHTML = `
-                        <strong style="color:#fde047;">⭐ Erfolgreich zum offiziellen Prüfungs-Knoten befördert (+40 XP)!</strong><br>
-                        <strong>„${escapeHtml(promotedNode.label)}“</strong> ist jetzt fest in deiner Mindmap verankert und wird bei künftigen Durchläufen regulär abgefragt.
+                        <strong style="color:#fde047;">★ Zum Prüfungs-Knoten befördert (+40 XP)</strong><br>
+                        <strong>„${escapeHtml(promotedNode.label)}“</strong> ist jetzt fest im Baum verankert.
                         <div style="margin-top:6px; font-size:0.8rem; color:#cbd5e1;">${escapeHtml(promotedNode.explanation)}</div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
                             <button type="button" class="mm-depot-pin-btn" data-retest-node="${escapeHtml(newNodeId)}">
-                                🔬 Neue Prüfungsfrage direkt testen
+                                Prüfungsfrage testen
                             </button>
                             <button type="button" class="mm-depot-pin-btn" data-pin-node="${escapeHtml(newNodeId)}">
-                                📌 Ins Lern-Depot
+                                Ins Lern-Depot
                             </button>
                         </div>
                     `;
@@ -3070,30 +3385,30 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const tutorEl = document.getElementById('mm-tutor-message');
         if (!term || !tutorEl) return;
 
-        const catCfg = CATEGORIES[term.category] || { label: 'Ergänzung', icon: '✍️', color: '#38bdf8' };
+        const catCfg = CATEGORIES[term.category] || { label: 'Ergänzung', shortLabel: 'Ergänzung', color: '#38bdf8' };
         const statusLabels = {
-            unchecked: '📝 Noch nicht KI-geprüft',
-            valid: '✅ KI-verifiziert (+15 XP)',
-            partial: '🟡 Teilweise / Nuance beachten',
-            wrong: '🚨 Fachlicher Fehler / falscher Ast'
+            unchecked: 'Noch nicht KI-geprüft',
+            valid: 'KI-verifiziert (+15 XP)',
+            partial: 'Teilweise korrekt · Nuance prüfen',
+            wrong: 'Fachliche Abweichung / falscher Ast'
         };
-        const statusColor = term.ai_status === 'valid' ? '#10b981' : (term.ai_status === 'wrong' ? '#ef4444' : '#f59e0b');
+        const statusColor = term.ai_status === 'valid' ? '#34d399' : (term.ai_status === 'wrong' ? '#f87171' : '#fbbf24');
 
         tutorEl.innerHTML = `
-            <strong style="color:${escapeHtml(catCfg.color)};">✍️ Eigener Zusatzbegriff (${catCfg.icon} ${escapeHtml(catCfg.label)}):</strong><br>
-            <div style="font-weight:800; font-size:0.9rem; margin:3px 0;">„${escapeHtml(term.label)}“</div>
+            <strong style="color:${escapeHtml(catCfg.color)};">Eigener Begriff · ${escapeHtml(catCfg.shortLabel || catCfg.label)}</strong><br>
+            <div style="font-weight:700; font-size:0.9rem; margin:3px 0;">„${escapeHtml(term.label)}“</div>
             ${term.note ? `<div style="font-size:0.8rem; color:#cbd5e1; margin-bottom:5px;">Notiz: ${escapeHtml(term.note)}</div>` : ''}
-            <div style="font-size:0.78rem; font-weight:700; color:${statusColor}; margin-bottom:4px;">${statusLabels[term.ai_status] || statusLabels.unchecked}</div>
+            <div style="font-size:0.76rem; font-weight:600; color:${statusColor}; margin-bottom:4px;">${statusLabels[term.ai_status] || statusLabels.unchecked}</div>
             ${term.ai_feedback ? `
-                <div style="margin-top:4px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid ${statusColor}; font-size:0.8rem;">
+                <div style="margin-top:4px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.08); border-left:3px solid ${statusColor}; font-size:0.8rem;">
                     ${escapeHtml(term.ai_feedback)}
                 </div>
             ` : ''}
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
-                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-aicheck">🤖 KI-Check</button>
-                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-promote" style="border-color:rgba(250,204,21,0.55); color:#fde047;" title="Wandelt diesen Begriff dauerhaft in einen offiziellen Prüfungs-Knoten mit eigener Staatsexamensfrage um">⭐ Zu Prüfungs-Knoten</button>
-                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-depot">📌 Depot</button>
-                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-delete" style="border-color:rgba(239,68,68,0.45); color:#fca5a5;">🗑️</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-aicheck">KI-Check</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-promote" style="border-color:rgba(250,204,21,0.5); color:#fde047;" title="In einen offiziellen Prüfungs-Knoten mit eigener Staatsexamensfrage umwandeln">★ Befördern</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-depot">Depot</button>
+                <button type="button" class="mm-depot-pin-btn" id="mm-tutor-ut-delete" style="border-color:rgba(239,68,68,0.4); color:#fca5a5;">Entfernen</button>
             </div>
         `;
 
@@ -3102,7 +3417,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         tutorEl.querySelector('#mm-tutor-ut-depot')?.addEventListener('click', async e => {
             const btn = e.currentTarget;
             await saveUserTermToLearningDepot(term);
-            btn.textContent = '✅ Gespeichert';
+            btn.textContent = 'Gespeichert';
             btn.disabled = true;
         });
         tutorEl.querySelector('#mm-tutor-ut-delete')?.addEventListener('click', () => deleteUserTerm(term.id));
@@ -3110,13 +3425,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
     function renderUserTermNode(ut) {
         const pos = state.nodePositions[ut.id] || { x: state.rootX, y: state.rootY };
-        const catCfg = CATEGORIES[ut.category] || { label: 'Ergänzung', icon: '✍️', color: '#38bdf8' };
+        const catCfg = CATEGORIES[ut.category] || { label: 'Ergänzung', shortLabel: 'Notiz', color: '#38bdf8' };
 
         const statusMap = {
-            unchecked: { cls: '', text: '✍️ Notiz' },
-            valid: { cls: 'status-valid', text: '✅ Valid' },
-            partial: { cls: 'status-partial', text: '🟡 Nuance' },
-            wrong: { cls: 'status-wrong', text: '🚨 Check' }
+            unchecked: { cls: '', text: 'Notiz' },
+            valid: { cls: 'status-valid', text: '✓ Valid' },
+            partial: { cls: 'status-partial', text: 'Nuance' },
+            wrong: { cls: 'status-wrong', text: 'Prüfen' }
         };
         const st = statusMap[ut.ai_status] || statusMap.unchecked;
         const isPromoteReady = ut.ai_status === 'valid';
@@ -3128,15 +3443,16 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                  data-userterm-id="${escapeHtml(ut.id)}"
                  title="Eigene Ergänzung (${escapeHtml(catCfg.label)}) – klicken für Details, KI-Check oder Beförderung">
                 <div class="mm-ut-top">
-                    <div class="mm-ut-label">${catCfg.icon} ${escapeHtml(ut.label)}</div>
+                    <span class="mm-ut-dot"></span>
+                    <div class="mm-ut-label">${escapeHtml(ut.label)}</div>
                 </div>
                 ${ut.note ? `<div class="mm-ut-note-preview">${escapeHtml(ut.note)}</div>` : ''}
                 <div class="mm-ut-bottom">
                     <span class="mm-ut-status-pill ${st.cls}">${st.text}</span>
                     <div class="mm-ut-mini-actions">
-                        <button type="button" class="mm-ut-mini-btn" data-ut-aicheck="${escapeHtml(ut.id)}" title="Fachlich per KI prüfen">🤖</button>
-                        <button type="button" class="mm-ut-mini-btn ${isPromoteReady ? 'is-promote-ready' : ''}" data-ut-promote="${escapeHtml(ut.id)}" title="Zu offiziellem Prüfungs-Knoten mit Mastery-Frage befördern">⭐</button>
-                        <button type="button" class="mm-ut-mini-btn" data-ut-delete="${escapeHtml(ut.id)}" title="Zusatzbegriff löschen">✕</button>
+                        <button type="button" class="mm-ut-mini-btn" data-ut-aicheck="${escapeHtml(ut.id)}" title="Fachlich per KI prüfen">KI</button>
+                        <button type="button" class="mm-ut-mini-btn ${isPromoteReady ? 'is-promote-ready' : ''}" data-ut-promote="${escapeHtml(ut.id)}" title="Zu offiziellem Prüfungs-Knoten befördern">★</button>
+                        <button type="button" class="mm-ut-mini-btn" data-ut-delete="${escapeHtml(ut.id)}" title="Zusatzbegriff löschen">×</button>
                     </div>
                 </div>
             </div>
@@ -3145,6 +3461,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
     function openUserTermModal(preselectedCategory = null, preselectedParentId = null) {
         if (!state.currentMap) return;
+        closeOpenPopovers();
+
         const map = state.currentMap;
         const existing = document.querySelector('.mm-synapse-modal-backdrop');
         if (existing) existing.remove();
@@ -3166,29 +3484,32 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             backdrop.innerHTML = `
                 <div class="mm-synapse-modal">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
-                        <span style="font-size:0.8rem; font-weight:800; color:${escapeHtml(catCfg.color)}; text-transform:uppercase;">
-                            ✍️ Eigene Zusatzbegriffe (Free-Recall & Promotion)
-                        </span>
-                        <button type="button" id="mm-ut-modal-close" class="mm-btn" style="padding:4px 10px;">✕</button>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="mm-cat-dot" style="background:${escapeHtml(catCfg.color)}; width:9px; height:9px;"></span>
+                            <span style="font-size:0.86rem; font-weight:700; color:var(--text-main, #f8fafc);">
+                                Zusatzbegriffe · ${escapeHtml(catCfg.label)}
+                            </span>
+                        </div>
+                        <button type="button" id="mm-ut-modal-close" class="mm-clean-btn is-icon-only" aria-label="Schließen">×</button>
                     </div>
 
-                    <p style="font-size:0.82rem; color:var(--text-muted, #94a3b8); margin:0 0 12px;">
-                        Notiere Konzepte, Cutoffs oder Eselsbrücken, die dir zusätzlich zu diesem Ast einfallen (mehrere mit <strong>;</strong> oder <strong>Enter</strong> trennen). Gute Ergänzungen kannst du per <strong>⭐</strong> direkt zu einem offiziellen Prüfungs-Knoten befördern.
+                    <p style="font-size:0.8rem; color:var(--text-muted, #94a3b8); margin:0 0 12px;">
+                        Mehrere Begriffe einfach mit <strong>;</strong> oder <strong>Enter</strong> trennen. Verifizierte Ergänzungen lassen sich per <strong>★</strong> zu einem Prüfungs-Knoten befördern.
                     </p>
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                         <div>
-                            <label for="mm-ut-cat-select" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Kategorieast:</label>
-                            <select id="mm-ut-cat-select" class="mm-select" style="width:100%;">
+                            <label for="mm-ut-cat-select" style="display:block; font-size:0.74rem; font-weight:600; margin-bottom:4px; color:#94a3b8;">Kategorieast</label>
+                            <select id="mm-ut-cat-select" class="mm-studio-select" style="width:100%; max-width:none;">
                                 ${Object.entries(CATEGORIES).map(([key, cfg]) => `
-                                    <option value="${key}" ${key === selectedCat ? 'selected' : ''}>${cfg.icon} ${escapeHtml(cfg.label)}</option>
+                                    <option value="${key}" ${key === selectedCat ? 'selected' : ''}>${escapeHtml(cfg.label)}</option>
                                 `).join('')}
                             </select>
                         </div>
                         <div>
-                            <label for="mm-ut-parent-select" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Anhängen an:</label>
-                            <select id="mm-ut-parent-select" class="mm-select" style="width:100%;">
-                                <option value="">🌿 Hauptast (${escapeHtml(catCfg.label)})</option>
+                            <label for="mm-ut-parent-select" style="display:block; font-size:0.74rem; font-weight:600; margin-bottom:4px; color:#94a3b8;">Anhängen an</label>
+                            <select id="mm-ut-parent-select" class="mm-studio-select" style="width:100%; max-width:none;">
+                                <option value="">Hauptast (${escapeHtml(catCfg.shortLabel || catCfg.label)})</option>
                                 ${solvedNodesInCat.map(n => `
                                     <option value="${escapeHtml(n.id)}" ${n.id === selectedParent ? 'selected' : ''}>↳ ${escapeHtml(n.label)}</option>
                                 `).join('')}
@@ -3196,28 +3517,28 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                         </div>
                     </div>
 
-                    <label for="mm-ut-input-label" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Zusätzliche(r) Begriff(e):</label>
+                    <label for="mm-ut-input-label" style="display:block; font-size:0.74rem; font-weight:600; margin-bottom:4px; color:#94a3b8;">Begriff(e)</label>
                     <textarea id="mm-ut-input-label" class="mm-recall-textarea" style="min-height:60px; margin-top:0; margin-bottom:10px;" placeholder="z. B. Morphin verzögert P2Y12-Resorption;&#10;V3r/V4r bei inferiorem STEMI obligat"></textarea>
 
-                    <label for="mm-ut-input-note" style="display:block; font-size:0.75rem; font-weight:700; margin-bottom:4px; color:#cbd5e1;">Optionaler Zusammenhang / Merksatz:</label>
+                    <label for="mm-ut-input-note" style="display:block; font-size:0.74rem; font-weight:600; margin-bottom:4px; color:#94a3b8;">Optionaler Zusammenhang / Merksatz</label>
                     <input type="text" id="mm-ut-input-note" class="mm-lib-search-input" style="max-width:100%; width:100%; margin-bottom:12px;" placeholder="Warum gehört das hierher? (optional)" />
 
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="font-size:0.74rem; color:#94a3b8;">
-                            ${state.blindMode ? '🕶️ Blind-Modus: Begriffe an ungelösten Ästen erscheinen nach deren Lösung.' : '✨ Kompakter gestrichelter Ast – garantiert überlappungsfrei.'}
+                        <span style="font-size:0.73rem; color:#94a3b8;">
+                            ${state.blindMode ? 'Blind-Modus aktiv: Begriffe an ungelösten Ästen erscheinen nach deren Lösung.' : 'Wird kompakt und überlappungsfrei am Ast angeheftet.'}
                         </span>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <button type="button" id="mm-ut-save-only" class="mm-btn">💾 An Ast heften</button>
-                            <button type="button" id="mm-ut-save-aicheck" class="mm-btn mm-btn-primary">🤖 Anheften & KI-Check</button>
+                            <button type="button" id="mm-ut-save-only" class="mm-clean-btn">Anheften</button>
+                            <button type="button" id="mm-ut-save-aicheck" class="mm-clean-btn is-primary">Anheften & KI-Check</button>
                         </div>
                     </div>
 
-                    <div style="margin-top:15px; padding-top:11px; border-top:1px solid rgba(255,255,255,0.1);">
-                        <div style="font-size:0.77rem; font-weight:800; color:#cbd5e1;">
-                            📌 Notiert in „${escapeHtml(catCfg.label)}“ (${termsInCat.length}) • Gesamt: ${allTerms.length}
+                    <div style="margin-top:15px; padding-top:11px; border-top:1px solid rgba(148,163,184,0.14);">
+                        <div style="font-size:0.75rem; font-weight:700; color:#cbd5e1;">
+                            Notiert in ${escapeHtml(catCfg.shortLabel || catCfg.label)} (${termsInCat.length}) · Gesamt: ${allTerms.length}
                         </div>
                         ${termsInCat.length === 0 ? `
-                            <div style="font-size:0.77rem; color:#64748b; margin-top:6px;">Noch keine eigenen Zusatzbegriffe in dieser Kategorie.</div>
+                            <div style="font-size:0.76rem; color:#64748b; margin-top:6px;">Noch keine eigenen Zusatzbegriffe in dieser Kategorie.</div>
                         ` : `
                             <div class="mm-ut-modal-list">
                                 ${termsInCat.map(t => `
@@ -3225,12 +3546,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                                         <div style="flex:1; min-width:0;">
                                             <div style="font-weight:700; font-size:0.82rem;">${escapeHtml(t.label)}</div>
                                             ${t.note ? `<div style="font-size:0.73rem; color:#94a3b8; margin-top:2px;">${escapeHtml(t.note)}</div>` : ''}
-                                            ${t.ai_feedback ? `<div style="font-size:0.72rem; color:#38bdf8; margin-top:3px;">🤖 ${escapeHtml(t.ai_feedback)}</div>` : ''}
+                                            ${t.ai_feedback ? `<div style="font-size:0.72rem; color:#38bdf8; margin-top:3px;">KI: ${escapeHtml(t.ai_feedback)}</div>` : ''}
                                         </div>
                                         <div style="display:flex; gap:4px; flex-shrink:0;">
-                                            <button type="button" class="mm-ut-mini-btn" data-modal-ut-ai="${escapeHtml(t.id)}" title="Mit KI prüfen">🤖</button>
-                                            <button type="button" class="mm-ut-mini-btn ${t.ai_status === 'valid' ? 'is-promote-ready' : ''}" data-modal-ut-promote="${escapeHtml(t.id)}" title="Zu offiziellem Prüfungs-Knoten befördern">⭐</button>
-                                            <button type="button" class="mm-ut-mini-btn" data-modal-ut-del="${escapeHtml(t.id)}" title="Löschen">🗑️</button>
+                                            <button type="button" class="mm-ut-mini-btn" data-modal-ut-ai="${escapeHtml(t.id)}" title="Mit KI prüfen">KI</button>
+                                            <button type="button" class="mm-ut-mini-btn ${t.ai_status === 'valid' ? 'is-promote-ready' : ''}" data-modal-ut-promote="${escapeHtml(t.id)}" title="Zu offiziellem Prüfungs-Knoten befördern">★</button>
+                                            <button type="button" class="mm-ut-mini-btn" data-modal-ut-del="${escapeHtml(t.id)}" title="Löschen">×</button>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -3268,7 +3589,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             backdrop.querySelectorAll('[data-modal-ut-ai]').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-modal-ut-ai');
-                    btn.textContent = '⏳';
+                    btn.textContent = '...';
                     btn.disabled = true;
                     await runAiCheckForUserTerm(id);
                     renderModalInner(selectedCat, selectedParent);
@@ -3340,7 +3661,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             childrenMap.get(pid).push(node.id);
         });
 
-        // V7.2: Sichtbare eigene Zusatzbegriffe als überlappungsfreie Blattknoten einhängen
+        // Sichtbare eigene Zusatzbegriffe als überlappungsfreie Blattknoten einhängen
         const renderableTerms = getRenderableUserTerms(mindmap);
         const userTermIds = new Set();
         renderableTerms.forEach(ut => {
@@ -3442,8 +3763,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             drawSvgConnections();
         });
     }
-
-    // ========================================================================
+   // ========================================================================
     // 4. DISTRAKTOR-GENERATOR, SCHWIERIGKEITS-PRESETS & SCHWACHSTELLEN-DRILL
     // ========================================================================
 
@@ -3478,6 +3798,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
     }
 
     function applyDifficultyPreset(presetName) {
+        state.openPopover = null;
         state.difficultyPreset = presetName;
         if (presetName === 'guided') {
             state.blindMode = false;
@@ -3551,6 +3872,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             });
         });
 
+        state.openPopover = null;
         state.viewMode = 'canvas';
         state.collapsedNodeIds.clear();
         state.solvedNodeIds = new Set(
@@ -3574,7 +3896,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             drawSvgConnections();
             const tutorEl = document.getElementById('mm-tutor-message');
             if (tutorEl) {
-                tutorEl.innerHTML = `<strong style="color:#f59e0b;">🎯 Gezielter Schwachstellen-Drill gestartet (${toReset.size} Knoten)!</strong><br>Alle sicher gemeisterten Konzepte bleiben verankert. Beweise jetzt bei deinen Wackelkandidaten echtes Tiefenverständnis!`;
+                tutorEl.innerHTML = `<strong style="color:#f59e0b;">Schwachstellen-Drill gestartet (${toReset.size} Knoten)</strong><br>Alle sicher gemeisterten Konzepte bleiben verankert. Festige jetzt gezielt deine Wackelkandidaten.`;
             }
         });
     }
@@ -3593,11 +3915,6 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         }
     }
 
-    /**
-     * Bidirektionaler gewichteter Tidy-Tree (Reingold-Tilford-Prinzip):
-     * Jede Tiefenebene erhält eine disjunkte X-Spalte, jeder sichtbare Blattknoten eine disjunkte Y-Zeile.
-     * Überlappungen und SVG-Rand-Clipping sind mathematisch ausgeschlossen – auch mit Zusatzbegriffen.
-     */
     function computeBidirectionalTreeLayout(mindmap, topology) {
         const { rootChildren, meta } = topology;
         const { COL_SPACING_X, ROOT_GAP_X, ROW_SPACING_Y, BRANCH_EXTRA_GAP_Y, STAGE_PADDING_X, STAGE_PADDING_Y, MIN_STAGE_W, MIN_STAGE_H } = LAYOUT_CONFIG;
@@ -3718,11 +4035,6 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         state.nodePositions = positions;
     }
 
-    /**
-     * Gewichtetes Radial-Sektor-Layout (Alternative Ansicht):
-     * Jeder Hauptast bekommt proportional zu seiner Blatt-Anzahl einen eigenen Winkel-Sektor,
-     * die Ringradien skalieren dynamisch mit Baumtiefe und Blatt-Dichte.
-     */
     function computeWeightedRadialLayout(mindmap, topology) {
         const { rootChildren, meta, maxDepth } = topology;
         const totalLeaves = Math.max(1, rootChildren.reduce((sum, id) => sum + (meta[id]?.subtreeLeaves || 1), 0));
@@ -3934,8 +4246,10 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         state.zoom = newZoom;
 
         applyStageTransform();
-    }// ========================================================================
-    // 7. RENDERING, TIER-FORTSCHRITT & ANTI-SPOILER KAUSAL-LOGIK
+    }
+
+    // ========================================================================
+    // 7. RENDERING (V7.3 CLEAN MINIMALIST STUDIO) & ANTI-SPOILER KAUSAL-LOGIK
     // ========================================================================
 
     function selectMindmap(mindmapId, options = {}) {
@@ -3946,6 +4260,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             return;
         }
 
+        state.openPopover = null;
         state.currentMap = found;
         state.activeFolderId = resolveFolderForMindmap(found).id;
         if (!options.keepFolderView) {
@@ -3999,7 +4314,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         if (!state.blindRootMode || state.rootRevealed || forceReveal || state.solvedNodeIds.size === state.currentMap.nodes.length) {
             return state.currentMap.central_concept;
         }
-        return '🕵️ [Zentraldiagnose deduzieren]';
+        return '[Zentraldiagnose deduzieren]';
     }
 
     function getParentLabel(node, forceReveal = false) {
@@ -4018,6 +4333,17 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
     function isSlotCurrentlyLocked(node) {
         if (!state.strictCausalOrder) return false;
         return !isParentSolvedOrRoot(node);
+    }
+
+    function updateLiveTelemetryCounters() {
+        const streakEl = document.getElementById('mm-stat-streak');
+        if (streakEl) streakEl.textContent = String(state.streakCount);
+
+        const mistakesEl = document.getElementById('mm-stat-mistakes');
+        if (mistakesEl) {
+            mistakesEl.textContent = String(state.mistakesCount);
+            mistakesEl.classList.toggle('is-warn', state.mistakesCount > 0);
+        }
     }
 
     function getPoolItemsForCurrentState(applySearchFilter = true) {
@@ -4067,24 +4393,24 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
             return `
                 <div class="mm-all-solved-banner">
-                    🎉 Alle ${totalNodes} Tiefenknoten gemeistert!
+                    Alle ${totalNodes} Knoten verifiziert.
                     ${remainingDist.length > 0 ? `
-                        <div style="margin-top:6px; font-size:0.78rem; color:#fcd34d;">
-                            🎭 Noch ${remainingDist.length} nicht-quarantänisierte DD-Falle(n) im Pool – ziehe sie zur Verifizierung in die Quarantäne!
+                        <div style="margin-top:5px; font-size:0.76rem; color:#fcd34d;">
+                            Noch ${remainingDist.length} offene DD-Falle(n) im Pool – zur Prüfung in die Quarantäne ziehen.
                         </div>
                     ` : ''}
                     <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
                         ${weakOrUncertainCount > 0 ? `
-                            <button type="button" id="mm-btn-weak-drill" class="mm-depot-pin-btn" style="border-color:#f59e0b; color:#fbbf24;">
-                                🎯 Nur ${weakOrUncertainCount} Schwachstellen drillen
+                            <button type="button" id="mm-btn-weak-drill" class="mm-depot-pin-btn" style="border-color:rgba(245,158,11,0.55); color:#fbbf24;">
+                                Drill (${weakOrUncertainCount})
                             </button>
                             <button type="button" id="mm-btn-save-weak-depot" class="mm-depot-pin-btn">
-                                📌 Schwachstellen ins Lern-Depot
+                                Ins Lern-Depot
                             </button>
                         ` : ''}
                         ${crossLinksWithQuestions.length > 0 ? `
-                            <button type="button" id="mm-btn-run-synthesis" class="mm-depot-pin-btn" style="border-color:#10b981; color:#34d399;">
-                                ⚡ Querverbindungs-Synthese (${crossLinksWithQuestions.length})
+                            <button type="button" id="mm-btn-run-synthesis" class="mm-depot-pin-btn" style="border-color:rgba(16,185,129,0.5); color:#34d399;">
+                                Synthese (${crossLinksWithQuestions.length})
                             </button>
                         ` : ''}
                     </div>
@@ -4094,7 +4420,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         }
 
         if (poolItems.length === 0) {
-            return `<div style="padding:14px; text-align:center; color:#94a3b8; font-size:0.8rem;">Keine passenden Bausteine für „${escapeHtml(state.poolSearchQuery)}“.</div>`;
+            return `<div style="padding:14px; text-align:center; color:#94a3b8; font-size:0.8rem;">Keine Treffer für „${escapeHtml(state.poolSearchQuery)}“.</div>`;
         }
 
         return poolItems.map(item => renderSingleChipHtml(item)).join('');
@@ -4107,27 +4433,28 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const isEliminated = state.eliminatedDistractorIds.has(item.id) ? 'distractor-eliminated' : '';
         const depth = !item.is_distractor ? (state.nodeMeta[item.id]?.depth || 1) : null;
 
-        let subBadgeText = 'Klinisches Konzept (Ebene & Echtheit prüfen)';
+        let subBadgeText = 'Konzept';
         if (isEliminated) {
-            subBadgeText = '🚫 Quarantänisierte DD-Falle';
+            subBadgeText = 'Enttarnte DD-Falle';
         } else if (!state.blindMode && catCfg) {
+            const catShort = catCfg.shortLabel || catCfg.label;
             subBadgeText = (state.difficultyPreset === 'guided' && depth)
-                ? `${catCfg.icon} ${catCfg.label} • Ebene ${depth}`
-                : `${catCfg.icon} ${catCfg.label}`;
+                ? `${catShort} · E${depth}`
+                : catShort;
         }
 
         return `
             <div class="mm-chip ${catClass} ${isSelected} ${isEliminated}"
                  data-node-id="${escapeHtml(item.id)}"
                  draggable="false"
-                 title="${isEliminated ? 'Als klinische Falle enttarnt' : 'Auf einen passenden Slot ziehen ODER bei Verdacht auf Falle in die rote DD-Quarantäne ziehen!'}">
+                 title="${isEliminated ? 'Als klinische Falle enttarnt' : 'Auf einen passenden Slot ziehen oder bei Verdacht auf Falle in die DD-Quarantäne ziehen'}">
                 <span class="mm-chip-cat-tag">${escapeHtml(subBadgeText)}</span>
                 <span class="mm-chip-label">${escapeHtml(item.label)}</span>
             </div>
         `;
     }
 
-    function renderTierProgressStrip(map) {
+    function renderCompactTierTelemetry(map) {
         const depthStats = {};
         map.nodes.forEach(n => {
             const d = state.nodeMeta[n.id]?.depth || 1;
@@ -4139,33 +4466,18 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const depths = Object.keys(depthStats).map(Number).sort((a, b) => a - b);
         const activeDistractors = getActiveDistractors(map);
         const eliminatedCount = activeDistractors.filter(d => state.eliminatedDistractorIds.has(d.id)).length;
-        const weakTotal = new Set([...state.weakNodeIds, ...state.uncertainNodeIds]).size;
 
-        return `
-            <div class="mm-tier-progress-strip">
-                <span style="font-weight:800; color:#94a3b8;">🪜 Vertiefungs-Ebenen:</span>
-                ${depths.map(d => {
-                    const st = depthStats[d];
-                    const done = st.solved === st.total;
-                    const tMeta = TIER_META[d] || { short: `E${d} • Detail` };
-                    return `
-                        <span class="mm-tier-chip ${done ? 'tier-done' : ''}" title="${escapeHtml(tMeta.full || '')}">
-                            ${done ? '✅' : '🔹'} ${escapeHtml(tMeta.short)}: ${st.solved}/${st.total}
-                        </span>
-                    `;
-                }).join('')}
-                ${state.includeDistractors && activeDistractors.length > 0 ? `
-                    <span class="mm-tier-chip ${eliminatedCount === activeDistractors.length ? 'tier-done' : ''}" title="Aktive Enttarnung falscher Differenzialdiagnosen in der Quarantäne">
-                        🛡️ DD-Quarantäne: ${eliminatedCount}/${activeDistractors.length}
-                    </span>
-                ` : ''}
-                ${weakTotal > 0 ? `
-                    <button type="button" id="mm-strip-weak-drill" class="mm-preset-btn" style="margin-left:auto; border-color:rgba(245,158,11,0.55); color:#fbbf24;">
-                        🎯 ${weakTotal} Wackelkandidat(en) drillen
-                    </button>
-                ` : ''}
-            </div>
-        `;
+        const tierSpans = depths.map(d => {
+            const st = depthStats[d];
+            const done = st.solved === st.total;
+            return `<span class="mm-tier-inline-item ${done ? 'is-done' : ''}" title="Ebene ${d}">E${d} ${st.solved}/${st.total}</span>`;
+        }).join('');
+
+        const distSpan = (state.includeDistractors && activeDistractors.length > 0)
+            ? `<span class="mm-tier-inline-item ${eliminatedCount === activeDistractors.length ? 'is-done' : ''}" title="Enttarnte DD-Fallen">DD ${eliminatedCount}/${activeDistractors.length}</span>`
+            : '';
+
+        return `<div class="mm-tier-inline">${tierSpans}${distSpan}</div>`;
     }
 
     function renderFolderLibraryGridHtml() {
@@ -4193,19 +4505,18 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
             if (visibleMaps.length === 0) {
                 return `
-                    <div style="padding:28px; text-align:center; border-radius:14px; background:var(--surface-secondary, rgba(15,23,42,0.7)); border:1px dashed var(--card-border, rgba(255,255,255,0.16));">
-                        <div style="font-size:1.5rem; margin-bottom:6px;">📂</div>
+                    <div style="padding:28px; text-align:center; border-radius:13px; background:var(--surface-secondary, rgba(15,23,42,0.7)); border:1px dashed var(--card-border, rgba(148,163,184,0.2));">
                         <div style="font-weight:700; margin-bottom:6px;">
-                            ${activeFolder ? `Noch keine passenden Mindmaps im Ordner „${escapeHtml(activeFolder.label)}“` : 'Keine Mindmaps für diesen Filter gefunden'}
+                            ${activeFolder ? `Noch keine Mindmaps in „${escapeHtml(activeFolder.label)}“` : 'Keine Mindmaps für diesen Filter gefunden'}
                         </div>
-                        <div style="font-size:0.82rem; color:var(--text-muted, #94a3b8); margin-bottom:14px;">
-                            Importiere ein neues Vorlesungs-JSON direkt in diesen Fachordner oder setze den Filter zurück.
+                        <div style="font-size:0.8rem; color:var(--text-muted, #94a3b8); margin-bottom:14px;">
+                            Importiere ein Vorlesungs-JSON direkt in diesen Fachordner oder setze den Filter zurück.
                         </div>
                         <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">
-                            <button type="button" class="mm-btn mm-btn-primary" data-lib-import-folder="${escapeHtml(activeFolder?.id || '')}">
-                                📥 Mindmap hier importieren
+                            <button type="button" class="mm-clean-btn is-primary" data-lib-import-folder="${escapeHtml(activeFolder?.id || '')}">
+                                ${UI_ICONS.upload} Hier importieren
                             </button>
-                            ${state.activeFolderId ? `<button type="button" class="mm-btn" data-lib-back-root="1">← Alle Fachordner</button>` : ''}
+                            ${state.activeFolderId ? `<button type="button" class="mm-clean-btn" data-lib-back-root="1">${UI_ICONS.back} Alle Ordner</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -4226,44 +4537,45 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                         return `
                             <div class="mm-map-card" style="--folder-accent:${escapeHtml(folder.color)};">
                                 <div>
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
-                                        <span style="font-size:0.74rem; font-weight:800; color:${escapeHtml(folder.color)};">
-                                            ${escapeHtml(folder.icon)} ${escapeHtml(folder.label)}
+                                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
+                                        <span style="display:inline-flex; align-items:center; gap:6px; font-size:0.74rem; font-weight:700; color:${escapeHtml(folder.color)};">
+                                            <span class="mm-cat-dot" style="background:${escapeHtml(folder.color)};"></span>
+                                            ${escapeHtml(folder.label)}
                                         </span>
-                                        <button type="button" class="mm-btn" data-lib-delete-map="${escapeHtml(m.id)}" style="padding:3px 7px; font-size:0.72rem; border-color:rgba(239,68,68,0.4); color:#fca5a5 !important;" title="Mindmap löschen">
-                                            🗑️
+                                        <button type="button" class="mm-clean-btn is-icon-only" data-lib-delete-map="${escapeHtml(m.id)}" style="width:28px; height:28px; color:#f87171; border-color:rgba(239,68,68,0.28);" title="Mindmap löschen" aria-label="Mindmap löschen">
+                                            ${UI_ICONS.trash}
                                         </button>
                                     </div>
-                                    <div style="font-size:0.98rem; font-weight:800; color:var(--text-main, #f8fafc); margin-bottom:4px;">
+                                    <div style="font-size:0.95rem; font-weight:700; color:var(--text-main, #f8fafc); margin-bottom:3px;">
                                         ${escapeHtml(m.title)}
                                     </div>
-                                    <div style="font-size:0.78rem; color:var(--text-muted, #94a3b8); margin-bottom:10px;">
-                                        🎯 ${escapeHtml(m.central_concept)}
+                                    <div style="font-size:0.77rem; color:var(--text-muted, #94a3b8); margin-bottom:10px;">
+                                        ${escapeHtml(m.central_concept)}
                                     </div>
                                     <div class="mm-map-card-badges">
-                                        <span class="mm-map-mini-badge">🧩 ${nodeCount} Knoten</span>
-                                        <span class="mm-map-mini-badge">🪜 ${depthCount} Ebenen</span>
-                                        ${distCount > 0 ? `<span class="mm-map-mini-badge">🛡️ ${distCount} Fallen</span>` : ''}
-                                        ${crossCount > 0 ? `<span class="mm-map-mini-badge">⚡ ${crossCount} Brücken</span>` : ''}
-                                        ${userTermsCount > 0 ? `<span class="mm-map-mini-badge">✍️ ${userTermsCount} Notizen</span>` : ''}
+                                        <span class="mm-map-mini-badge">${nodeCount} Kn.</span>
+                                        <span class="mm-map-mini-badge">${depthCount} Ebenen</span>
+                                        ${distCount > 0 ? `<span class="mm-map-mini-badge">${distCount} DD</span>` : ''}
+                                        ${crossCount > 0 ? `<span class="mm-map-mini-badge">${crossCount} Brücken</span>` : ''}
+                                        ${userTermsCount > 0 ? `<span class="mm-map-mini-badge">${userTermsCount} Notizen</span>` : ''}
                                         ${prog?.completed
-                                            ? `<span class="mm-map-mini-badge is-done">✅ ${prog.accuracy}% • ${prog.best_time_sec || 0}s</span>`
-                                            : `<span class="mm-map-mini-badge">⭕ Offen</span>`
+                                            ? `<span class="mm-map-mini-badge is-done">✓ ${prog.accuracy}% · ${prog.best_time_sec || 0}s</span>`
+                                            : `<span class="mm-map-mini-badge">Offen</span>`
                                         }
-                                        ${weakCount > 0 ? `<span class="mm-map-mini-badge is-weak">⚠️ ${weakCount} Wackel</span>` : ''}
+                                        ${weakCount > 0 ? `<span class="mm-map-mini-badge is-weak">${weakCount} Wackel</span>` : ''}
                                     </div>
                                 </div>
 
                                 <div class="mm-map-card-actions">
-                                    <select class="mm-move-folder-select" data-move-map-id="${escapeHtml(m.id)}" title="Mindmap in einen anderen Fachordner verschieben">
+                                    <select class="mm-move-folder-select" data-move-map-id="${escapeHtml(m.id)}" title="In einen anderen Fachordner verschieben">
                                         ${folders.map(f => `
                                             <option value="${escapeHtml(f.id)}" ${f.id === folder.id ? 'selected' : ''}>
-                                                📂 ${escapeHtml(f.icon)} ${escapeHtml(f.label)}
+                                                ${escapeHtml(f.label)}
                                             </option>
                                         `).join('')}
                                     </select>
-                                    <button type="button" class="mm-btn mm-btn-primary" data-lib-open-map="${escapeHtml(m.id)}">
-                                        🚀 Öffnen
+                                    <button type="button" class="mm-clean-btn is-primary" style="height:30px; padding:0 12px;" data-lib-open-map="${escapeHtml(m.id)}">
+                                        Öffnen
                                     </button>
                                 </div>
                             </div>
@@ -4273,7 +4585,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             `;
         }
 
-        // ANSICHT B: Fachgebiets-Ordner-Übersicht (Dashboard-Spiegelung)
+        // ANSICHT B: Schlichte Fachgebiets-Ordner-Übersicht (Dashboard-Spiegelung)
         return `
             <div class="mm-folder-grid">
                 ${folders.map(folder => {
@@ -4284,15 +4596,15 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                              style="--folder-accent:${escapeHtml(folder.color)};"
                              data-open-folder="${escapeHtml(folder.id)}">
                             <div class="mm-folder-card-top">
-                                <span class="mm-folder-icon">${escapeHtml(folder.icon)}</span>
+                                <span class="mm-folder-dot-badge"></span>
                                 <span class="mm-folder-count-pill">
-                                    ${total} ${total === 1 ? 'Mindmap' : 'Mindmaps'}
+                                    ${total} ${total === 1 ? 'Map' : 'Maps'}
                                 </span>
                             </div>
                             <div class="mm-folder-title">${escapeHtml(folder.label)}</div>
                             <div class="mm-folder-meta">
-                                <span>${total > 0 ? `✅ ${folder.completedCount}/${total} gemeistert` : 'Noch leer – klick zum Import'}</span>
-                                <span>${folder.avgAccuracy !== null ? `Ø ${folder.avgAccuracy}%` : (folder.weakMapCount > 0 ? `⚠️ ${folder.weakMapCount}` : '')}</span>
+                                <span>${total > 0 ? `${folder.completedCount}/${total} gemeistert` : 'Leer · zum Import öffnen'}</span>
+                                <span>${folder.avgAccuracy !== null ? `Ø ${folder.avgAccuracy}%` : (folder.weakMapCount > 0 ? `${folder.weakMapCount} offen` : '')}</span>
                             </div>
                             <div class="mm-folder-progress-track">
                                 <div class="mm-folder-progress-fill" style="width:${pct}%;"></div>
@@ -4312,33 +4624,35 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
         container.innerHTML = `
             <div class="mindmap-wrapper mm-library-shell">
-                <div class="mm-header">
-                    <div class="mm-title-group">
-                        <h2>📁 Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">Fachgebiets-Ordner (${completedMaps}/${totalMaps} gemeistert)</span></h2>
-                        <p>Wähle ein Fachgebiet wie im Dashboard, starte deine Deep-Tree-Mindmaps oder sortiere neue Vorlesungen direkt ein.</p>
+                <div class="mm-studio-topbar">
+                    <div class="mm-studio-left">
+                        <span style="display:inline-flex; align-items:center; gap:8px; font-size:0.96rem; font-weight:700; color:var(--text-main, #f8fafc);">
+                            ${UI_ICONS.folder} Mindmap-Labor
+                        </span>
+                        <span class="mm-folder-count-pill">${completedMaps}/${totalMaps} gemeistert</span>
                     </div>
-                    <div class="mm-controls">
+                    <div class="mm-studio-right">
                         ${deletedBuiltins.length > 0 ? `
-                            <button id="mm-btn-restore-builtins" class="mm-btn">♻️ Standards wiederherstellen</button>
+                            <button id="mm-btn-restore-builtins" class="mm-clean-btn">Standards</button>
                         ` : ''}
-                        <button id="mm-btn-prompt" class="mm-btn">📋 Deep-Tree Prompt</button>
-                        <button id="mm-btn-import" class="mm-btn mm-btn-primary">📥 JSON Import</button>
+                        <button id="mm-btn-prompt" class="mm-clean-btn">Prompt</button>
+                        <button id="mm-btn-import" class="mm-clean-btn is-primary">${UI_ICONS.upload} Import</button>
                     </div>
                 </div>
 
                 ${state.currentMap ? `
                     <div class="mm-resume-banner">
                         <div>
-                            <div style="font-size:0.74rem; font-weight:800; color:#38bdf8; text-transform:uppercase;">⚡ Aktive Sitzung</div>
-                            <div style="font-size:0.92rem; font-weight:800;">
+                            <div style="font-size:0.7rem; font-weight:700; color:#38bdf8; text-transform:uppercase; letter-spacing:0.05em;">Aktive Sitzung</div>
+                            <div style="font-size:0.9rem; font-weight:700; color:var(--text-main, #f8fafc);">
                                 ${escapeHtml(state.currentMap.title)}
-                                <span style="font-weight:500; font-size:0.8rem; color:var(--text-muted, #94a3b8);">
-                                    (${state.solvedNodeIds.size}/${state.currentMap.nodes.length} Knoten gelöst)
+                                <span style="font-weight:500; font-size:0.78rem; color:var(--text-muted, #94a3b8); margin-left:6px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+                                    ${state.solvedNodeIds.size}/${state.currentMap.nodes.length}
                                 </span>
                             </div>
                         </div>
-                        <button type="button" id="mm-lib-resume-active" class="mm-btn mm-btn-primary">
-                            ▶ Direkt zur Mindmap zurück
+                        <button type="button" id="mm-lib-resume-active" class="mm-clean-btn is-primary">
+                            Fortsetzen
                         </button>
                     </div>
                 ` : ''}
@@ -4346,22 +4660,28 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 <div class="mm-library-toolbar">
                     <div class="mm-breadcrumb-bar">
                         ${activeFolder ? `
-                            <button type="button" id="mm-lib-back-btn" class="mm-btn">← Alle Ordner</button>
-                            <span style="color:${escapeHtml(activeFolder.color)};">
-                                ${escapeHtml(activeFolder.icon)} ${escapeHtml(activeFolder.label)} (${activeFolder.maps.length})
+                            <button type="button" id="mm-lib-back-btn" class="mm-clean-btn" style="height:30px;">${UI_ICONS.back} Alle Ordner</button>
+                            <span style="display:inline-flex; align-items:center; gap:7px; color:${escapeHtml(activeFolder.color)};">
+                                <span class="mm-cat-dot" style="background:${escapeHtml(activeFolder.color)};"></span>
+                                ${escapeHtml(activeFolder.label)} (${activeFolder.maps.length})
                             </span>
                         ` : `
-                            <span>🗂️ Alle Fachgebiete (${folders.filter(f => f.maps.length > 0).length} belegt / ${folders.length} gesamt)</span>
+                            <span style="color:var(--text-main, #e2e8f0);">Fachgebiete</span>
+                            <span style="font-size:0.76rem; font-weight:500; color:var(--text-muted, #94a3b8);">
+                                ${folders.filter(f => f.maps.length > 0).length} von ${folders.length} belegt
+                            </span>
                         `}
                     </div>
 
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <input type="text" id="mm-lib-search" class="mm-lib-search-input"
                                value="${escapeHtml(state.librarySearchQuery)}"
-                               placeholder="🔎 Mindmap oder Thema suchen..." />
-                        <button type="button" class="mm-preset-btn ${state.libraryFilterMode === 'all' ? 'active' : ''}" data-lib-filter="all">Alle</button>
-                        <button type="button" class="mm-preset-btn ${state.libraryFilterMode === 'open' ? 'active' : ''}" data-lib-filter="open">⭕ Offen</button>
-                        <button type="button" class="mm-preset-btn ${state.libraryFilterMode === 'weak' ? 'active' : ''}" data-lib-filter="weak">⚠️ Wackelkandidaten</button>
+                               placeholder="Thema suchen..." />
+                        <div class="mm-segmented">
+                            <button type="button" class="mm-seg-btn ${state.libraryFilterMode === 'all' ? 'active' : ''}" data-lib-filter="all">Alle</button>
+                            <button type="button" class="mm-seg-btn ${state.libraryFilterMode === 'open' ? 'active' : ''}" data-lib-filter="open">Offen</button>
+                            <button type="button" class="mm-seg-btn ${state.libraryFilterMode === 'weak' ? 'active' : ''}" data-lib-filter="weak">Wackel</button>
+                        </div>
                     </div>
                 </div>
 
@@ -4465,18 +4785,15 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         if (!state.currentMap) {
             container.innerHTML = `
                 <div class="mindmap-wrapper">
-                    <div class="mm-header">
-                        <div class="mm-title-group">
-                            <h2>🕸️ Klinisches Mindmap-Labor V7.2</h2>
-                            <p>Aktuell sind keine Mindmaps in deiner Bibliothek vorhanden.</p>
+                    <div class="mm-studio-topbar">
+                        <div class="mm-studio-left">
+                            <button id="mm-btn-folders" class="mm-clean-btn">${UI_ICONS.back} Ordner</button>
+                            <span style="font-size:0.84rem; color:var(--text-muted, #94a3b8);">Keine Mindmaps vorhanden</span>
                         </div>
-                        <div class="mm-controls">
-                            <button id="mm-btn-folders" class="mm-btn">📁 Ordner</button>
-                            ${deletedBuiltins.length > 0 ? `
-                                <button id="mm-btn-restore-builtins" class="mm-btn">♻️ Standard-Mindmaps wiederherstellen</button>
-                            ` : ''}
-                            <button id="mm-btn-prompt" class="mm-btn">📋 Deep-Tree Prompt</button>
-                            <button id="mm-btn-import" class="mm-btn mm-btn-primary">📥 JSON Importieren</button>
+                        <div class="mm-studio-right">
+                            ${deletedBuiltins.length > 0 ? `<button id="mm-btn-restore-builtins" class="mm-clean-btn">Standards</button>` : ''}
+                            <button id="mm-btn-prompt" class="mm-clean-btn">Prompt</button>
+                            <button id="mm-btn-import" class="mm-clean-btn is-primary">${UI_ICONS.upload} Import</button>
                         </div>
                     </div>
                 </div>
@@ -4491,6 +4808,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const map = state.currentMap;
         const totalNodes = map.nodes.length;
         const solvedCount = state.solvedNodeIds.size;
+        const progressPct = totalNodes > 0 ? Math.round((solvedCount / totalNodes) * 100) : 0;
         const savedProg = state.progressCache[map.id];
         const poolItems = getPoolItemsForCurrentState(true);
         const unfilteredPoolCount = getPoolItemsForCurrentState(false).filter(i => !state.eliminatedDistractorIds.has(i.id)).length;
@@ -4501,139 +4819,168 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const visibleNodes = map.nodes.filter(n => !isNodeHiddenByCollapse(n.id));
         const allUserTermsCount = getUserTermsForMap(map).length;
         const visibleUserTerms = getRenderableUserTerms(map).filter(ut => !isNodeHiddenByCollapse(ut.id));
+        const weakTotal = new Set([...state.weakNodeIds, ...state.uncertainNodeIds]).size;
+
+        const optionsOpen = state.openPopover === 'options';
+        const moreOpen = state.openPopover === 'more';
 
         container.innerHTML = `
             <div class="mindmap-wrapper">
-                <!-- TOP HEADER -->
-                <div class="mm-header">
-                    <div class="mm-title-group">
-                        <h2>🕸️ Klinisches Mindmap-Labor <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.16); color:#38bdf8; vertical-align:middle;">V7.2 Deep-Tree (${totalNodes} Knoten • ${state.maxTreeDepth} Ebenen)</span></h2>
-                        <p>
-                            <strong>Grob ➔ Mechanismus ➔ Molekulares Detail:</strong> Arbeite dich über alle Verzweigungsebenen vor, ergänze spontan eigene Zusatzbegriffe (✍️+) und befördere starke Einfälle (⭐) zu Prüfungs-Knoten!
-                        </p>
-                    </div>
-                    <div class="mm-controls">
-                        <button id="mm-btn-folders" class="mm-btn active" title="Zur Fachgebiets-Ordner-Übersicht wechseln">
-                            📁 Ordner
-                        </button>
-
-                        <select id="mm-map-selector" class="mm-select" title="Mindmap auswählen (nach Fachgebiet sortiert)">
-                            ${renderGroupedMapOptions(map.id)}
-                        </select>
-
-                        <button id="mm-btn-delete" class="mm-btn" style="border-color: rgba(239, 68, 68, 0.45); color: #fca5a5 !important;" title="Aktuelle Mindmap löschen">
-                            🗑️ Löschen
-                        </button>
-
-                        ${deletedBuiltins.length > 0 ? `
-                            <button id="mm-btn-restore-builtins" class="mm-btn" title="Ausgeblendete Standard-Mindmaps wiederherstellen">
-                                ♻️ Standards
+                <!-- SCHLICHTE STUDIO-STEUERUNG (2 KOMPAKTE ZEILEN) -->
+                <div class="mm-studio-chrome">
+                    <!-- ZEILE 1: NAVIGATION, PRESETS & POPOVERS -->
+                    <div class="mm-studio-topbar">
+                        <div class="mm-studio-left">
+                            <button id="mm-btn-folders" class="mm-clean-btn" title="Zur Fachgebiets-Ordner-Übersicht">
+                                ${UI_ICONS.back} Ordner
                             </button>
-                        ` : ''}
+                            <select id="mm-map-selector" class="mm-studio-select" title="Mindmap wechseln">
+                                ${renderGroupedMapOptions(map.id)}
+                            </select>
+                        </div>
 
-                        <button id="mm-toggle-layout" class="mm-btn active" title="Zwischen überlappungsfreiem Bidirektional-Baum und Radial-Ansicht wechseln">
-                            ${state.layoutMode === 'tree' ? '🌳 Baum-Ansicht (0 Überlappung)' : '🕸️ Radial-Sektoren'}
-                        </button>
-
-                        <button id="mm-btn-inspector" class="mm-btn ${state.showInspector ? 'active' : ''}" title="Zeigt die gesamte N-Ebenen-Kausalstruktur als Baum">
-                            🧭 Baum-Logik
-                        </button>
-
-                        <button id="mm-toggle-expand" class="mm-btn ${state.expandedCanvas ? 'active' : ''}" title="Mindmap auf volle Breite ausdehnen">
-                            ${state.expandedCanvas ? '📐 Standard' : '🔭 Großansicht'}
-                        </button>
-
-                        <button id="mm-btn-reset" class="mm-btn" title="Mindmap zurücksetzen & neu mischen">
-                            🔄 Reset
-                        </button>
-
-                        <button id="mm-btn-prompt" class="mm-btn" title="V7.0 Deep-Tree Prompt (16–24 Knoten, 3–4 Ebenen, Querverbindungen & Fallen) kopieren">
-                            📋 Deep-Tree Prompt
-                        </button>
-
-                        <button id="mm-btn-import" class="mm-btn mm-btn-primary">
-                            📥 JSON Import
-                        </button>
-                    </div>
-                </div>
-
-                <!-- CLINICAL REASONING PRESET & CHALLENGE BAR -->
-                <div class="mm-preset-bar">
-                    <div class="mm-preset-group">
-                        <span style="font-size:0.78rem; font-weight:800; color:#94a3b8; margin-right:4px;">🎓 Anspruch:</span>
-                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'guided' ? 'active' : ''}" data-preset="guided" title="Direktes Einrasten, Kategoriefarben & Ebenen sichtbar, keine Distraktoren">
-                            🟢 Assistenzarzt (Guided)
-                        </button>
-                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'clinical' ? 'active' : ''}" data-preset="clinical" title="Deep Mastery Gate + Metakognitions-Check + aktive DD-Quarantäne">
-                            🟡 Facharzt (Deep Mastery)
-                        </button>
-                        <button type="button" class="mm-preset-btn ${state.difficultyPreset === 'exam' ? 'active' : ''}" data-preset="exam" title="Blind-Modus + Verdeckte Pfeil-Hints + Active-Recall-First + DD-Quarantäne + Diagnose-Deduktion">
-                            🔴 Staatsexamen (IMPP-Mastery)
-                        </button>
-                    </div>
-
-                    <div class="mm-preset-group">
-                        <button id="mm-toggle-deep-gate" class="mm-btn ${state.deepComprehensionMode ? 'active' : ''}" title="Öffnet beim Platzieren jedes Bausteins das klinische Tiefen-Verhör inkl. Konfidenz-Check">
-                            ${state.deepComprehensionMode ? '🔬 Tiefen-Verhör: AN' : '⚡ Direktes Einrasten'}
-                        </button>
-
-                        ${state.deepComprehensionMode ? `
-                            <button id="mm-toggle-recall-first" class="mm-btn ${state.activeRecallFirstMode ? 'active' : ''}" title="Erzwingt zuerst eine eigene Freitext-Hypothese vor den 4 MC-Optionen">
-                                ${state.activeRecallFirstMode ? '✍️ Active-Recall-First: AN' : '📋 MC-Optionen sofort'}
+                        <div class="mm-segmented" role="group" aria-label="Anspruch">
+                            <button type="button" class="mm-seg-btn ${state.difficultyPreset === 'guided' ? 'active' : ''}" data-preset="guided" title="Direktes Einrasten, Kategoriefarben sichtbar, ohne Fallen">
+                                Guided
                             </button>
-                        ` : ''}
+                            <button type="button" class="mm-seg-btn ${state.difficultyPreset === 'clinical' ? 'active' : ''}" data-preset="clinical" title="Tiefen-Verhör beim Platzieren + DD-Fallen">
+                                Facharzt
+                            </button>
+                            <button type="button" class="mm-seg-btn ${state.difficultyPreset === 'exam' ? 'active' : ''}" data-preset="exam" title="Blind-Modus + Active-Recall-First + DD-Fallen + Diagnose-Deduktion">
+                                Examen
+                            </button>
+                        </div>
 
-                        <button id="mm-toggle-distractors" class="mm-btn ${state.includeDistractors ? 'active' : ''}" title="Mischt Differenzialdiagnose-Fallen in den Pool, die aktiv in die Quarantäne gezogen werden müssen">
-                            ${state.includeDistractors ? `🎭 DD-Fallen: AN (${activeDistractorsCount})` : '🎭 DD-Fallen: AUS'}
-                        </button>
+                        <div class="mm-studio-right">
+                            <button id="mm-btn-add-userterm" class="mm-clean-btn is-primary" title="Eigenen Zusatzbegriff an einen Ast anheften">
+                                ${UI_ICONS.plus} Begriff
+                            </button>
 
-                        <button id="mm-toggle-hide-rel" class="mm-btn ${state.hideRelationLabels ? 'active' : ''}" title="Verbirgt die Kausal-Relationstexte auf noch ungelösten Slots (erschwert reines Schlüsselwort-Matching)">
-                            ${state.hideRelationLabels ? '🙈 Pfeil-Hinweise: Verdeckt' : '🏷️ Pfeil-Hinweise: Sichtbar'}
-                        </button>
+                            <button id="mm-btn-import" class="mm-clean-btn" title="Mindmap als JSON importieren">
+                                ${UI_ICONS.upload} Import
+                            </button>
 
-                        <button id="mm-toggle-crosslinks" class="mm-btn ${state.showCrossLinks ? 'active' : ''}" title="Zeigt fachübergreifende Synthese-Querverbindungen zwischen gelösten Ästen">
-                            ${state.showCrossLinks ? '⚡ Querverbindungen: AN' : '⚡ Querverbindungen: AUS'}
-                        </button>
+                            <!-- OPTIONEN POPOVER -->
+                            <div class="mm-popover-wrap">
+                                <button type="button" id="mm-btn-options-pop" class="mm-clean-btn ${optionsOpen ? 'is-active' : ''}" data-popover-trigger="options" aria-haspopup="true" aria-expanded="${optionsOpen}">
+                                    ${UI_ICONS.sliders} Optionen ${UI_ICONS.chevron}
+                                </button>
+                                <div class="mm-popover-panel ${optionsOpen ? '' : 'is-hidden'}" id="mm-popover-options">
+                                    <div class="mm-pop-section-title">Ansicht & Layout</div>
+                                    <button type="button" id="mm-toggle-layout" class="mm-switch-row">
+                                        <span>Layout</span>
+                                        <span class="mm-switch-sub">${state.layoutMode === 'tree' ? 'Baum' : 'Radial'}</span>
+                                    </button>
+                                    <button type="button" id="mm-btn-inspector" class="mm-switch-row ${state.showInspector ? 'is-on' : ''}">
+                                        <span>Baum-Logik Übersicht</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    <button type="button" id="mm-toggle-expand" class="mm-switch-row ${state.expandedCanvas ? 'is-on' : ''}">
+                                        <span>Großansicht</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    <button type="button" id="mm-toggle-crosslinks" class="mm-switch-row ${state.showCrossLinks ? 'is-on' : ''}">
+                                        <span>Querverbindungen</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    <button type="button" id="mm-toggle-userterms" class="mm-switch-row ${state.showUserTerms ? 'is-on' : ''}">
+                                        <span>Eigene Begriffe <span class="mm-switch-sub">(${allUserTermsCount})</span></span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
 
-                        <button id="mm-toggle-userterms" class="mm-btn ${state.showUserTerms ? 'active' : ''}" title="Eigene notierte Zusatzbegriffe im Baum ein- oder ausblenden">
-                            ${state.showUserTerms ? `✍️ Eigene: AN (${allUserTermsCount})` : `✍️ Eigene: AUS (${allUserTermsCount})`}
-                        </button>
+                                    <div class="mm-pop-divider"></div>
+                                    <div class="mm-pop-section-title">Prüfungs-Schärfe</div>
+                                    <button type="button" id="mm-toggle-deep-gate" class="mm-switch-row ${state.deepComprehensionMode ? 'is-on' : ''}">
+                                        <span>Tiefen-Verhör beim Platzieren</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    ${state.deepComprehensionMode ? `
+                                        <button type="button" id="mm-toggle-recall-first" class="mm-switch-row ${state.activeRecallFirstMode ? 'is-on' : ''}">
+                                            <span>Active-Recall-First (Freitext)</span>
+                                            <span class="mm-toggle-track"></span>
+                                        </button>
+                                    ` : ''}
+                                    <button type="button" id="mm-toggle-distractors" class="mm-switch-row ${state.includeDistractors ? 'is-on' : ''}">
+                                        <span>DD-Fallen im Pool <span class="mm-switch-sub">(${activeDistractorsCount})</span></span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    <button type="button" id="mm-toggle-hide-rel" class="mm-switch-row ${state.hideRelationLabels ? 'is-on' : ''}">
+                                        <span>Pfeil-Hinweise verdecken</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    <button type="button" id="mm-toggle-blind" class="mm-switch-row ${state.blindMode ? 'is-on' : ''}">
+                                        <span>Kategoriefarben verdecken</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                    <button type="button" id="mm-toggle-blind-root" class="mm-switch-row ${state.blindRootMode ? 'is-on' : ''}">
+                                        <span>Diagnose-Deduktion (Blind)</span>
+                                        <span class="mm-toggle-track"></span>
+                                    </button>
+                                </div>
+                            </div>
 
-                        <button id="mm-btn-add-userterm" class="mm-btn mm-btn-primary" title="Spontane eigene Begriffe an einen Kategorieast anheften">
-                            ✍️ + Begriff
-                        </button>
+                            <!-- MEHR-AKTIONEN POPOVER -->
+                            <div class="mm-popover-wrap">
+                                <button type="button" id="mm-btn-more-pop" class="mm-clean-btn is-icon-only ${moreOpen ? 'is-active' : ''}" data-popover-trigger="more" aria-label="Weitere Aktionen" aria-haspopup="true" aria-expanded="${moreOpen}">
+                                    ${UI_ICONS.more}
+                                </button>
+                                <div class="mm-popover-panel is-compact ${moreOpen ? '' : 'is-hidden'}" id="mm-popover-more">
+                                    <button type="button" id="mm-btn-reset" class="mm-switch-row">
+                                        <span>Durchlauf zurücksetzen</span>
+                                    </button>
+                                    <button type="button" id="mm-btn-prompt" class="mm-switch-row">
+                                        <span>Deep-Tree Prompt kopieren</span>
+                                    </button>
+                                    ${deletedBuiltins.length > 0 ? `
+                                        <button type="button" id="mm-btn-restore-builtins" class="mm-switch-row">
+                                            <span>Standards wiederherstellen</span>
+                                        </button>
+                                    ` : ''}
+                                    <div class="mm-pop-divider"></div>
+                                    <button type="button" id="mm-btn-delete" class="mm-switch-row is-danger">
+                                        <span>Mindmap löschen</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-                        <button id="mm-toggle-blind" class="mm-btn mm-btn-blind ${state.blindMode ? 'active' : ''}" title="Verbirgt die Kategoriefarben vor dem Lösen">
-                            ${state.blindMode ? '🕶️ Farben: Verdeckt' : '🎨 Farben: Sichtbar'}
-                        </button>
-
-                        <button id="mm-toggle-blind-root" class="mm-btn ${state.blindRootMode ? 'active' : ''}" title="Verbirgt das zentrale Krankheitsbild – deduziere die Diagnose aus den Ästen!">
-                            ${state.blindRootMode ? '🕵️ Diagnose-Deduktion: AN' : '🎯 Diagnose sichtbar'}
-                        </button>
+                        <div class="mm-progress-rail" aria-hidden="true">
+                            <div class="mm-progress-bar" style="width:${progressPct}%;"></div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- LEGENDE (+ DIREKT-ADD PRO KATEGORIE) & FORTSCHRITT -->
-                <div class="mm-statusbar">
-                    <div class="mm-legend">
-                        ${Object.entries(CATEGORIES).map(([key, cfg]) => `
-                            <span class="mm-legend-item">
-                                <span class="mm-dot" style="background:${cfg.color}"></span>
-                                <span>${cfg.icon} ${escapeHtml(cfg.label)}</span>
-                                <button type="button" class="mm-legend-add-btn" data-legend-add-cat="${key}" title="Eigenen Zusatzbegriff im Ast „${escapeHtml(cfg.label)}“ ergänzen">+</button>
+                    <!-- ZEILE 2: KOMPAKTE KATEGORIEN (+ ADD) & MONOSPACE-TELEMETRIE -->
+                    <div class="mm-studio-subbar">
+                        <div class="mm-clean-legend">
+                            ${Object.entries(CATEGORIES).map(([key, cfg]) => `
+                                <span class="mm-cat-chip">
+                                    <span class="mm-cat-dot" style="background:${cfg.color}"></span>
+                                    <span>${escapeHtml(cfg.shortLabel || cfg.label)}</span>
+                                    <button type="button" class="mm-cat-add" data-legend-add-cat="${key}" title="Zusatzbegriff in „${escapeHtml(cfg.label)}“ ergänzen">+</button>
+                                </span>
+                            `).join('')}
+                        </div>
+
+                        <div class="mm-telemetry-group">
+                            <span class="mm-telemetry-item">
+                                Gelöst <span class="mm-telemetry-val ${allRealSolved ? 'is-good' : ''}" id="mm-stat-progress">${solvedCount}/${totalNodes}</span>
                             </span>
-                        `).join('')}
-                    </div>
-                    <div class="mm-stats">
-                        <span class="mm-stat-badge" id="mm-stat-progress">🧩 Verifiziert: ${solvedCount} / ${totalNodes}</span>
-                        <span class="mm-stat-badge" id="mm-stat-streak">🔥 Serie: ${state.streakCount}</span>
-                        <span class="mm-stat-badge" id="mm-stat-mistakes">⚠️ Fehler: ${state.mistakesCount}</span>
-                        ${savedProg?.best_time_sec ? `<span class="mm-stat-badge">⏱️ Bestzeit: ${savedProg.best_time_sec}s</span>` : ''}
+                            <span class="mm-telemetry-item">
+                                Serie <span class="mm-telemetry-val" id="mm-stat-streak">${state.streakCount}</span>
+                            </span>
+                            <span class="mm-telemetry-item">
+                                Fehler <span class="mm-telemetry-val ${state.mistakesCount > 0 ? 'is-warn' : ''}" id="mm-stat-mistakes">${state.mistakesCount}</span>
+                            </span>
+                            ${savedProg?.best_time_sec ? `<span class="mm-telemetry-item">Best <span class="mm-telemetry-val">${savedProg.best_time_sec}s</span></span>` : ''}
+                            ${renderCompactTierTelemetry(map)}
+                            ${weakTotal > 0 ? `
+                                <button type="button" id="mm-strip-weak-drill" class="mm-drill-pill">
+                                    Drill (${weakTotal})
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                 </div>
-
-                <!-- EBENEN-FORTSCHRITTSLEISTE (GROB -> DETAIL) -->
-                ${renderTierProgressStrip(map)}
 
                 <!-- OPTIONALER N-EBENEN KAUSALKETTEN-INSPEKTOR -->
                 ${state.showInspector ? renderInspectorPanel(map) : ''}
@@ -4644,26 +4991,26 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                     <div class="mm-sidebar-panel">
                         <div class="mm-pool-box">
                             <div class="mm-box-header">
-                                <span class="mm-box-title">📦 Klinischer Pool (${unfilteredPoolCount})</span>
-                                <span class="mm-box-sub">${state.includeDistractors ? `${activeDistractorsCount - eliminatedDistractorsCount} DD-Fallen aktiv` : 'Ohne Ebenen-Spoiler'}</span>
+                                <span class="mm-box-title">Begriffe (${unfilteredPoolCount})</span>
+                                <span class="mm-box-sub">${state.includeDistractors ? `${activeDistractorsCount - eliminatedDistractorsCount} DD-Fallen` : 'Ziehen oder klicken'}</span>
                             </div>
 
                             ${!allRealSolved ? `
                                 <div class="mm-pool-search-wrap">
                                     <input type="text" id="mm-pool-search" class="mm-pool-search-input"
                                            value="${escapeHtml(state.poolSearchQuery)}"
-                                           placeholder="🔎 Baustein im Pool filtern..." />
+                                           placeholder="Baustein filtern..." />
                                 </div>
                             ` : ''}
 
                             ${state.includeDistractors && activeDistractorsCount > 0 ? `
                                 <div id="mm-quarantine-dropzone" class="mm-quarantine-zone" title="Ziehe falsche Differenzialdiagnosen / Kontraindikationen hierher (oder Chip auswählen + hier klicken)">
                                     <div class="mm-quarantine-header">
-                                        <span>🛡️ DD-Fallen-Quarantäne</span>
-                                        <span>${eliminatedDistractorsCount} / ${activeDistractorsCount} enttarnt</span>
+                                        <span>DD-Quarantäne</span>
+                                        <span>${eliminatedDistractorsCount}/${activeDistractorsCount}</span>
                                     </div>
                                     <div class="mm-quarantine-sub">
-                                        Falle entdeckt? Baustein hierher ziehen (oder erst auswählen & klicken), um ihn aktiv auszusortieren!
+                                        Falsche Differenzialdiagnose hierher ziehen.
                                     </div>
                                 </div>
                             ` : ''}
@@ -4676,12 +5023,11 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                         <!-- SOKRATISCHES AI-FEEDBACK PANEL -->
                         <div class="mm-tutor-box">
                             <div class="mm-box-header">
-                                <span class="mm-box-title">🏛️ Sokratischer KI-Tutor</span>
-                                <span class="mm-tutor-bloom">Bloom: Analyse → Erschaffen</span>
+                                <span class="mm-box-title">Sokratischer Tutor</span>
+                                <span class="mm-tutor-bloom">Analyse & Transfer</span>
                             </div>
                             <div id="mm-tutor-message" class="mm-tutor-content">
-                                Starte an den offenen <strong>Hauptästen (Ebene 1)</strong> und arbeite dich in die <strong>Tiefendetails (Ebene 2–3)</strong> vor. Über <strong>+</strong> in der Legende oder <strong>✍️+</strong> an gelösten Knoten kannst du jederzeit eigene Einfälle anheften!
-                                ${state.includeDistractors ? '<br><span style="color:#fca5a5; font-size:0.78rem;">🛡️ <strong>Achtung:</strong> Im Pool verstecken sich klinische Fallen – ziehe sie aktiv in die rote Quarantäne!</span>' : ''}
+                                Klicke auf einen offenen Knoten für eine Leitfrage oder ordne einen Baustein aus der Liste zu.
                             </div>
                         </div>
                     </div>
@@ -4689,19 +5035,19 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                     <!-- RECHTE SPALTE: DYNAMISCHES OVERLAP-FREE PAN & ZOOM CANVAS -->
                     <div id="mm-canvas-viewport" class="mm-canvas-container">
                         <div class="mm-canvas-HUD">
-                            <button type="button" class="mm-hud-btn" id="mm-zoom-out" title="Herauszoomen">➖</button>
+                            <button type="button" class="mm-hud-btn" id="mm-zoom-out" title="Herauszoomen">−</button>
                             <span id="mm-zoom-label" class="mm-hud-zoom-text">${Math.round(state.zoom * 100)}%</span>
-                            <button type="button" class="mm-hud-btn" id="mm-zoom-in" title="Hineinzoomen">➕</button>
+                            <button type="button" class="mm-hud-btn" id="mm-zoom-in" title="Hineinzoomen">+</button>
                             <button type="button" class="mm-hud-btn" id="mm-zoom-100" title="100% Originalgröße">100%</button>
-                            <button type="button" class="mm-hud-btn" id="mm-zoom-fit" title="Gesamten Baum einpassen">🎯 Alles</button>
-                            <button type="button" class="mm-hud-btn" id="mm-focus-next" title="Kamera direkt zum nächsten offenen Slot fahren">🧭 Nächster Slot</button>
+                            <button type="button" class="mm-hud-btn" id="mm-zoom-fit" title="Gesamten Baum einpassen">Einpassen</button>
+                            <button type="button" class="mm-hud-btn" id="mm-focus-next" title="Kamera zum nächsten offenen Slot fahren">Nächster Slot</button>
                             ${state.collapsedNodeIds.size > 0 ? `
-                                <button type="button" class="mm-hud-btn" id="mm-expand-all" title="Alle eingeklappten Äste wieder öffnen">📂 Alle aufklappen</button>
+                                <button type="button" class="mm-hud-btn" id="mm-expand-all" title="Alle eingeklappten Äste wieder öffnen">Alle aufklappen</button>
                             ` : ''}
                         </div>
 
                         <div class="mm-canvas-help-pill">
-                            🖱️ Ziehen = Verschieben • Mausrad = Zoom • „−“ = Ast einklappen • „✍️+“ = Eigener Begriff • „⭐“ = Zu Prüfungs-Knoten befördern
+                            Ziehen = Verschieben · Mausrad = Zoom · „−“ = Einklappen · „+“ = Begriff ergänzen
                         </div>
 
                         <!-- TRANSFORMABLE DYNAMIC STAGE -->
@@ -4714,7 +5060,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                                      id="mm-node-dom-root"
                                      style="left: ${state.rootX}px; top: ${state.rootY}px;"
                                      data-node-pos="root">
-                                    <span class="mm-root-badge">🎯 ZENTRALKONZEPT • ${escapeHtml(map.specialty)}</span>
+                                    <span class="mm-root-badge">${escapeHtml(map.specialty)}</span>
                                     <span class="mm-root-title">${escapeHtml(getRootDisplayTitle())}</span>
                                     ${state.blindRootMode && !state.rootRevealed && !allRealSolved ? `
                                         <div class="mm-root-deduce-box" onclick="event.stopPropagation();">
@@ -4727,7 +5073,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                                 <!-- SICHTBARE ZIEL-SLOTS / GELÖSTE KNOTEN -->
                                 ${visibleNodes.map(node => renderCanvasNode(node)).join('')}
 
-                                <!-- EIGENE KOMPAKTE ZUSATZBEGRIFFE (V7.2 FREE RECALL) -->
+                                <!-- EIGENE KOMPAKTE ZUSATZBEGRIFFE -->
                                 ${visibleUserTerms.map(ut => renderUserTermNode(ut)).join('')}
                             </div>
                         </div>
@@ -4746,8 +5092,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             const meta = state.nodeMeta[node.id] || { depth: 1, childrenIds: [] };
             const isSolved = state.solvedNodeIds.has(node.id);
             const isLocked = isSlotCurrentlyLocked(node);
-            const cat = state.blindMode && !isSolved ? 'Verdeckt' : (CATEGORIES[node.category]?.label || node.category);
-            const rel = (state.hideRelationLabels && !isSolved) ? '??? (im Exam-Modus verdeckt)' : (node.relation_label || 'führt zu');
+            const cat = state.blindMode && !isSolved ? 'Verdeckt' : (CATEGORIES[node.category]?.shortLabel || node.category);
+            const rel = (state.hideRelationLabels && !isSolved) ? '??? (verdeckt)' : (node.relation_label || 'führt zu');
             const indent = Math.max(0, (meta.depth - 1) * 14);
             const kids = (meta.childrenIds || []).map(id => map.nodes.find(n => n.id === id)).filter(Boolean);
 
@@ -4757,12 +5103,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                      style="cursor:pointer; margin-left:${indent}px;">
                     <span class="mm-ins-rel">
                         <span class="mm-tier-pill tier-${Math.min(4, meta.depth)}">E${meta.depth}</span>
-                        ➔ <strong>${escapeHtml(rel)}</strong>:
+                        → <strong>${escapeHtml(rel)}</strong>:
                     </span>
                     <strong class="mm-ins-target">
                         ${isSolved
-                            ? `✅ ${escapeHtml(node.label)}${node._userPromoted ? ' ⭐' : ''}${state.uncertainNodeIds.has(node.id) ? ' ⚠️' : ''}`
-                            : (isLocked ? `🔒 [Löse erst Ebene ${meta.depth - 1}]` : `🔓 [${escapeHtml(cat)} – klicken für Fokus & Leitfrage]`)
+                            ? `✓ ${escapeHtml(node.label)}${node._userPromoted ? ' ★' : ''}${state.uncertainNodeIds.has(node.id) ? ' (Wackel)' : ''}`
+                            : (isLocked ? `[Gesperrt · erst E${meta.depth - 1}]` : `[Offen · ${escapeHtml(cat)}]`)
                         }
                     </strong>
                 </div>
@@ -4773,8 +5119,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         return `
             <div class="mm-inspector-panel">
                 <div class="mm-inspector-header">
-                    <strong>🧭 Vollständige ${state.maxTreeDepth}-Ebenen-Kausalstruktur (${escapeHtml(getRootDisplayTitle())})</strong>
-                    <span>Klicke auf einen Schritt, um die Kamera direkt dorthin zu fahren und die Leitfrage zu öffnen!</span>
+                    <strong>Kausalstruktur · ${state.maxTreeDepth} Ebenen (${escapeHtml(getRootDisplayTitle())})</strong>
+                    <span>Klick auf einen Schritt fokussiert den Knoten und zeigt die Leitfrage.</span>
                 </div>
                 <div class="mm-inspector-grid">
                     ${rootNodes.map(rootNode => `
@@ -4796,20 +5142,20 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const isSolved = state.solvedNodeIds.has(node.id);
         const isLocked = isSlotCurrentlyLocked(node);
         const isUncertain = state.uncertainNodeIds.has(node.id);
-        const catCfg = CATEGORIES[node.category] || { label: 'Konzept', cssClass: 'cat-blind', icon: '🔹' };
+        const catCfg = CATEGORIES[node.category] || { label: 'Konzept', shortLabel: 'Konzept', cssClass: 'cat-blind' };
 
         const hasChildren = (meta.childrenIds || []).length > 0;
         const isCollapsed = state.collapsedNodeIds.has(node.id);
         const collapsedDescCount = isCollapsed ? getDescendantIds(node.id).length : 0;
 
         const showRelation = isSolved || !state.hideRelationLabels;
-        const relationText = showRelation ? (node.relation_label || 'Verbindung') : 'Kausalbeziehung selbst erschließen';
+        const relationText = showRelation ? (node.relation_label || 'Verbindung') : 'Kausalbeziehung erschließen';
 
         const collapseBtnHtml = (isSolved && hasChildren) ? `
             <button type="button"
                     class="mm-node-collapse-btn ${meta.side === 'left' ? 'side-left' : ''}"
                     data-collapse-node="${escapeHtml(node.id)}"
-                    title="${isCollapsed ? `Unterast (+${collapsedDescCount} Knoten) aufklappen` : 'Unterast zur besseren Übersicht einklappen'}">
+                    title="${isCollapsed ? `Unterast (+${collapsedDescCount}) aufklappen` : 'Unterast einklappen'}">
                 ${isCollapsed ? `+${collapsedDescCount}` : '−'}
             </button>
         ` : '';
@@ -4820,27 +5166,27 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                      id="mm-node-dom-${escapeHtml(node.id)}"
                      style="left: ${pos.x}px; top: ${pos.y}px;"
                      data-slot-id="${escapeHtml(node.id)}"
-                     title="Klicken für Erklärung, Lern-Depot-Pin oder erneute Tiefen-Prüfungsfrage">
+                     title="Klicken für Erklärung, Lern-Depot oder Prüfungsfrage">
                     ${collapseBtnHtml}
                     <button type="button"
                             class="mm-node-add-term-btn"
                             data-add-term-node="${escapeHtml(node.id)}"
                             data-add-term-cat="${escapeHtml(node.category)}"
-                            title="Eigenen Zusatzbegriff direkt an diesen Ast anheften">
-                        ✍️+
+                            title="Eigenen Zusatzbegriff an diesen Ast anheften">
+                        +
                     </button>
                     <div class="mm-node-rel-banner">
                         <span class="mm-rel-origin">
                             <span class="mm-tier-pill ${tMeta.badgeClass}">E${depth}</span>
-                            ${depth > 1 ? escapeHtml(` Aus „${getParentLabel(node)}“`) : ' Hauptast'}
+                            ${depth > 1 ? escapeHtml(` ${getParentLabel(node)}`) : ' Hauptast'}
                         </span>
-                        <strong class="mm-rel-verb">➔ ${escapeHtml(node.relation_label || 'Verbindung')}</strong>
+                        <strong class="mm-rel-verb">→ ${escapeHtml(node.relation_label || 'Verbindung')}</strong>
                     </div>
                     <div class="mm-node-body-solved">
                         <span class="mm-solved-cat-pill">
-                            ✅ ${catCfg.icon} ${escapeHtml(catCfg.label)}
-                            ${node._userPromoted ? `<span class="mm-node-promoted-badge" title="Aus deinem eigenen Zusatzbegriff beförderter Prüfungs-Knoten">⭐ Eigen</span>` : ''}
-                            ${isUncertain ? `<span class="mm-node-uncertain-badge" title="Als unsicher/geraten markiert – im Fehler-Drill erneut üben">⚠️ Wackel</span>` : ''}
+                            ${escapeHtml(catCfg.shortLabel || catCfg.label)}
+                            ${node._userPromoted ? `<span class="mm-node-promoted-badge" title="Beförderter eigener Prüfungs-Knoten">★ Eigen</span>` : ''}
+                            ${isUncertain ? `<span class="mm-node-uncertain-badge" title="Als unsicher markiert – im Drill wiederholen">Wackel</span>` : ''}
                         </span>
                         <div class="mm-solved-title">${escapeHtml(node.label)}</div>
                     </div>
@@ -4852,16 +5198,16 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             return `
                 <div class="mm-node mm-node-slot cat-blind mm-node-locked"
                      id="mm-node-dom-${escapeHtml(node.id)}"
-                     style="left: ${pos.x}px; top: ${pos.y}px; opacity: 0.56; filter: grayscale(0.42);"
+                     style="left: ${pos.x}px; top: ${pos.y}px; opacity: 0.52; filter: grayscale(0.45);"
                      data-slot-id="${escapeHtml(node.id)}"
-                     title="Löse zuerst den übergeordneten Knoten auf Ebene ${depth - 1}, um dieses Tiefendetail freizuschalten!">
+                     title="Löse zuerst den übergeordneten Knoten auf Ebene ${depth - 1}">
                     <div class="mm-node-rel-banner">
-                        <span class="mm-rel-origin">🔒 <span class="mm-tier-pill ${tMeta.badgeClass}">E${depth}</span> Gesperrtes Detail</span>
-                        <strong class="mm-rel-verb ${!showRelation ? 'mm-rel-hidden-pill' : ''}">➔ ${escapeHtml(relationText)}</strong>
+                        <span class="mm-rel-origin"><span class="mm-tier-pill ${tMeta.badgeClass}">E${depth}</span> Gesperrt</span>
+                        <strong class="mm-rel-verb ${!showRelation ? 'mm-rel-hidden-pill' : ''}">→ ${escapeHtml(relationText)}</strong>
                     </div>
                     <div class="mm-slot-inner">
-                        <span class="mm-slot-hint">⏳ Kausal-Sperre (Ebene ${depth})</span>
-                        <span class="mm-slot-cta">Zuerst Ebene ${depth - 1} verifizieren!</span>
+                        <span class="mm-slot-hint">Ebene ${depth} gesperrt</span>
+                        <span class="mm-slot-cta">Erst E${depth - 1} verifizieren</span>
                     </div>
                 </div>
             `;
@@ -4869,25 +5215,25 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
         const slotCatClass = state.blindMode ? 'cat-blind' : catCfg.cssClass;
         const slotHintLabel = state.blindMode
-            ? `❓ Offenes Konzept (${tMeta.short})`
-            : `${catCfg.icon} ${catCfg.label}`;
+            ? `Offen · E${depth}`
+            : (catCfg.shortLabel || catCfg.label);
 
         return `
             <div class="mm-node mm-node-slot ${slotCatClass} ${depth > 1 ? 'mm-node-second-order' : ''}"
                  id="mm-node-dom-${escapeHtml(node.id)}"
                  style="left: ${pos.x}px; top: ${pos.y}px;"
                  data-slot-id="${escapeHtml(node.id)}"
-                 title="Klicken für sokratische Leitfrage oder passenden Baustein hier ablegen">
+                 title="Klicken für sokratische Leitfrage oder passenden Baustein ablegen">
                 <div class="mm-node-rel-banner">
                     <span class="mm-rel-origin">
                         <span class="mm-tier-pill ${tMeta.badgeClass}">E${depth}</span>
-                        ${escapeHtml(depth === 1 ? ' Hauptast' : ` Aus „${getParentLabel(node)}“`)}
+                        ${escapeHtml(depth === 1 ? ' Hauptast' : ` ${getParentLabel(node)}`)}
                     </span>
-                    <strong class="mm-rel-verb ${!showRelation ? 'mm-rel-hidden-pill' : ''}">➔ ${escapeHtml(relationText)}</strong>
+                    <strong class="mm-rel-verb ${!showRelation ? 'mm-rel-hidden-pill' : ''}">→ ${escapeHtml(relationText)}</strong>
                 </div>
                 <div class="mm-slot-inner">
                     <span class="mm-slot-hint">${escapeHtml(slotHintLabel)}</span>
-                    <span class="mm-slot-cta">${state.deepComprehensionMode ? '🔬 Ablegen ➔ Tiefen-Verhör' : '💡 Klicken oder Baustein ziehen'}</span>
+                    <span class="mm-slot-cta">${state.deepComprehensionMode ? 'Ablegen → Verhör' : 'Ablegen oder klicken'}</span>
                 </div>
             </div>
         `;
@@ -4921,7 +5267,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             return { halfW: domEl.offsetWidth / 2, halfH: domEl.offsetHeight / 2 };
         }
         if (nodeId === 'root') return { halfW: 150, halfH: 54 };
-        if (state.nodeMeta[nodeId]?.isUserTerm) return { halfW: 107, halfH: 30 };
+        if (state.nodeMeta[nodeId]?.isUserTerm) return { halfW: 107, halfH: 29 };
         return { halfW: 136, halfH: 58 };
     }
 
@@ -5017,7 +5363,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             }
         });
 
-        // 1B. Gestrichelte Kanten zu eigenen Zusatzbegriffen (V7.2)
+        // 1B. Gestrichelte Kanten zu eigenen Zusatzbegriffen
         getRenderableUserTerms(state.currentMap).forEach(ut => {
             if (isNodeHiddenByCollapse(ut.id)) return;
             const parentId = ut.anchorParentId || 'root';
@@ -5062,7 +5408,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             `;
         });
 
-        // 2. Fachübergreifende Querverbindungen (cross_links) zeichnen, sobald beide Endknoten gelöst & sichtbar sind
+        // 2. Fachübergreifende Querverbindungen (cross_links) zeichnen
         if (state.showCrossLinks && Array.isArray(state.currentMap.cross_links)) {
             state.currentMap.cross_links.forEach((cl, idx) => {
                 if (!state.solvedNodeIds.has(cl.from) || !state.solvedNodeIds.has(cl.to)) return;
@@ -5100,8 +5446,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                             class="mm-crosslink-badge"
                             data-crosslink-id="${escapeHtml(cl.id || `cl_${idx}`)}"
                             style="left:${badgeX.toFixed(1)}px; top:${badgeY.toFixed(1)}px;"
-                            title="Klicken für Querverbindungs-Synthese-Prüfung zwischen diesen beiden Ästen!">
-                        ⚡ ${escapeHtml(cl.label || 'Querverbindung')}
+                            title="Klicken für Querverbindungs-Synthese-Prüfung">
+                        ${escapeHtml(cl.label || 'Querverbindung')}
                     </button>
                 `;
             });
@@ -5122,7 +5468,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
     }
 
     // ========================================================================
-    // 9. EVENT-BINDING (PRESETS, SUCHE, QUARANTÄNE, USER-TERMS, ZOOM, PAN)
+    // 9. EVENT-BINDING (POPOVERS, PRESETS, SUCHE, QUARANTÄNE, USER-TERMS, PAN)
     // ========================================================================
 
     function bindPoolChipEvents() {
@@ -5140,7 +5486,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 const n = state.currentMap?.nodes.find(item => item.id === weakId);
                 if (n) await saveNodeToLearningDepot(n, '[Wiederholungs-Fokus]');
             }
-            btn.textContent = '✅ Im Lern-Depot gespeichert!';
+            btn.textContent = 'Gespeichert';
             btn.disabled = true;
         });
         document.getElementById('mm-btn-run-synthesis')?.addEventListener('click', () => {
@@ -5150,12 +5496,41 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
     }
 
     function bindEvents() {
+        // Popover-Trigger (Optionen & Mehr-Menü)
+        document.querySelectorAll('[data-popover-trigger]').forEach(trigger => {
+            trigger.addEventListener('click', e => {
+                e.stopPropagation();
+                const name = trigger.getAttribute('data-popover-trigger');
+                state.openPopover = (state.openPopover === name) ? null : name;
+                document.querySelectorAll('.mm-popover-panel').forEach(p => {
+                    const isTarget = p.id === `mm-popover-${state.openPopover}`;
+                    p.classList.toggle('is-hidden', !isTarget);
+                });
+                document.querySelectorAll('[data-popover-trigger]').forEach(t => {
+                    const active = t.getAttribute('data-popover-trigger') === state.openPopover;
+                    t.classList.toggle('is-active', active);
+                    t.setAttribute('aria-expanded', String(active));
+                });
+            });
+        });
+
+        // Klicks im Popover nicht als Outside-Click werten
+        document.querySelectorAll('.mm-popover-panel').forEach(panel => {
+            panel.addEventListener('click', e => e.stopPropagation());
+        });
+
         document.getElementById('mm-map-selector')?.addEventListener('change', e => selectMindmap(e.target.value));
         document.getElementById('mm-btn-folders')?.addEventListener('click', () => {
             openFolderLibrary(resolveFolderForMindmap(state.currentMap).id);
         });
-        document.getElementById('mm-btn-delete')?.addEventListener('click', () => deleteCurrentMindmap());
-        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', () => restoreDeletedBuiltinMindmaps());
+        document.getElementById('mm-btn-delete')?.addEventListener('click', () => {
+            closeOpenPopovers();
+            deleteCurrentMindmap();
+        });
+        document.getElementById('mm-btn-restore-builtins')?.addEventListener('click', () => {
+            closeOpenPopovers();
+            restoreDeletedBuiltinMindmaps();
+        });
         document.getElementById('mm-strip-weak-drill')?.addEventListener('click', () => startWeakNodeDrill());
 
         document.querySelectorAll('[data-preset]').forEach(btn => {
@@ -5218,7 +5593,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             });
         });
 
-        // V7.2: Eigene Zusatzbegriffe ein-/ausblenden & hinzufügen
+        // Eigene Zusatzbegriffe ein-/ausblenden & hinzufügen
         document.getElementById('mm-toggle-userterms')?.addEventListener('click', () => {
             state.showUserTerms = !state.showUserTerms;
             computeLayout(state.currentMap);
@@ -5267,9 +5642,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             btn.addEventListener('click', async e => {
                 e.stopPropagation();
                 const id = btn.getAttribute('data-ut-aicheck');
-                btn.textContent = '⏳';
+                btn.textContent = '...';
                 btn.disabled = true;
-                await runAiCheckForUserTerm(id);
+                const result = await runAiCheckForUserTerm(id);
+                if (!result) {
+                    btn.textContent = 'KI';
+                    btn.disabled = false;
+                }
             });
         });
 
@@ -5277,11 +5656,11 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             btn.addEventListener('click', async e => {
                 e.stopPropagation();
                 const id = btn.getAttribute('data-ut-promote');
-                btn.textContent = '⏳';
+                btn.textContent = '...';
                 btn.disabled = true;
                 const promoted = await promoteUserTermToOfficialNode(id);
                 if (!promoted) {
-                    btn.textContent = '⭐';
+                    btn.textContent = '★';
                     btn.disabled = false;
                 }
             });
@@ -5294,7 +5673,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             });
         });
 
-        // Blind-Mode-Toggle ruft computeLayout auf, weil ggf. im Blind-Mode geparkte Zusatzbegriffe sichtbar/versteckt werden
+        // Blind-Mode-Toggle berechnet Layout neu, da ggf. geparkte Zusatzbegriffe erscheinen/verschwinden
         document.getElementById('mm-toggle-blind')?.addEventListener('click', () => {
             state.blindMode = !state.blindMode;
             computeLayout(state.currentMap);
@@ -5334,11 +5713,17 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         });
 
         document.getElementById('mm-btn-reset')?.addEventListener('click', () => {
+            closeOpenPopovers();
             if (state.currentMap) selectMindmap(state.currentMap.id);
         });
 
-        document.getElementById('mm-btn-prompt')?.addEventListener('click', () => copyExtractionPrompt());
+        document.getElementById('mm-btn-prompt')?.addEventListener('click', () => {
+            closeOpenPopovers();
+            copyExtractionPrompt();
+        });
+
         document.getElementById('mm-btn-import')?.addEventListener('click', () => {
+            closeOpenPopovers();
             openImportModal(resolveFolderForMindmap(state.currentMap).id);
         });
 
@@ -5363,7 +5748,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             } else {
                 const tutorEl = document.getElementById('mm-tutor-message');
                 if (tutorEl) {
-                    tutorEl.innerHTML = `<strong style="color:#fca5a5;">🛡️ DD-Fallen-Quarantäne:</strong> Wähle zuerst einen verdächtigen Baustein aus dem Pool aus (oder ziehe ihn direkt auf dieses Feld), um ihn als Differenzialdiagnose-Falle zu enttarnen!`;
+                    tutorEl.innerHTML = `<strong style="color:#fca5a5;">DD-Quarantäne:</strong> Wähle zuerst einen verdächtigen Baustein aus dem Pool aus oder ziehe ihn direkt auf das rote Feld.`;
                 }
             }
         });
@@ -5390,10 +5775,10 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 });
                 const newTutor = document.getElementById('mm-tutor-message');
                 if (newTutor) {
-                    newTutor.innerHTML = `<strong style="color:#10b981;">🎯 Starke diagnostische Deduktion (+100 XP)!</strong><br>Du hast das zentrale Krankheitsbild <strong>„${escapeHtml(state.currentMap.central_concept)}“</strong> korrekt aus den Kausalästen abgeleitet!`;
+                    newTutor.innerHTML = `<strong style="color:#10b981;">Diagnose korrekt deduziert (+100 XP)</strong><br>Du hast <strong>„${escapeHtml(state.currentMap.central_concept)}“</strong> aus den Kausalästen abgeleitet.`;
                 }
             } else if (tutorEl) {
-                tutorEl.innerHTML = `<strong style="color:#f59e0b;">🕵️ Noch nicht ganz:</strong> „${escapeHtml(rootGuessInput.value)}“ deckt sich noch nicht mit dem gesuchten Zentralkonzept. Nutze die sokratischen Leitfragen der Hauptäste!`;
+                tutorEl.innerHTML = `<strong style="color:#f59e0b;">Noch nicht ganz:</strong> „${escapeHtml(rootGuessInput.value)}“ passt noch nicht zum gesuchten Zentralkonzept. Nutze die Leitfragen der Hauptäste.`;
             }
         };
         rootGuessBtn?.addEventListener('click', verifyRootDeduction);
@@ -5623,7 +6008,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const activeDistractors = getActiveDistractors(map);
         const distractorObj = activeDistractors.find(d => d.id === draggedNodeId);
 
-        // Echten Knoten fälschlich aussortiert -> Sokratischer Stopp!
+        // Echten Knoten fälschlich aussortiert -> Sokratischer Stopp
         if (!distractorObj) {
             const realNode = map.nodes.find(n => n.id === draggedNodeId);
             state.mistakesCount += 1;
@@ -5631,21 +6016,17 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             if (realNode) state.weakNodeIds.add(realNode.id);
             state.selectedChipId = null;
 
-            const mistakesBadge = document.getElementById('mm-stat-mistakes');
-            if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
-            const streakBadge = document.getElementById('mm-stat-streak');
-            if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
-
+            updateLiveTelemetryCounters();
             document.querySelectorAll('.mm-chip.selected-chip').forEach(c => c.classList.remove('selected-chip'));
 
             const tutorEl = document.getElementById('mm-tutor-message');
             if (tutorEl && realNode) {
                 const depth = state.nodeMeta[realNode.id]?.depth || 1;
                 tutorEl.innerHTML = `
-                    <strong style="color:#ef4444;">🛑 Halt – das ist KEINE Falle!</strong><br>
-                    <strong>„${escapeHtml(realNode.label)}“</strong> ist ein echtes, prüfungsrelevantes Kernkonzept auf <strong>Ebene ${depth}</strong> von <em>${escapeHtml(getRootDisplayTitle())}</em>!<br>
+                    <strong style="color:#ef4444;">Keine Falle:</strong><br>
+                    <strong>„${escapeHtml(realNode.label)}“</strong> ist ein echtes Kernkonzept auf <strong>Ebene ${depth}</strong> von <em>${escapeHtml(getRootDisplayTitle())}</em>.<br>
                     <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8; font-size:0.8rem;">
-                        💡 <strong>Denkanstoß:</strong> ${escapeHtml(realNode.socratic_hint || 'Prüfe, zu welchem Hauptast oder Detailknoten dieser Baustein gehört.')}
+                        <strong>Denkanstoß:</strong> ${escapeHtml(realNode.socratic_hint || 'Prüfe, zu welchem Hauptast oder Detailknoten dieser Baustein gehört.')}
                     </div>
                 `;
             }
@@ -5689,28 +6070,28 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         backdrop.innerHTML = `
             <div class="mm-synapse-modal">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
-                    <span style="font-size:0.78rem; font-weight:800; color:#ef4444; text-transform:uppercase;">
-                        🛡️ Klinische Falle erkannt – Begründe die Quarantäne!
+                    <span style="font-size:0.78rem; font-weight:700; color:#f87171; text-transform:uppercase; letter-spacing:0.04em;">
+                        DD-Quarantäne begründen
                     </span>
-                    <span style="font-size:0.74rem; padding:3px 8px; border-radius:6px; background:rgba(239,68,68,0.16); color:#fca5a5; font-weight:700;">
+                    <span style="font-size:0.73rem; padding:2px 8px; border-radius:6px; background:rgba(239,68,68,0.14); color:#fca5a5; font-weight:600;">
                         Differenzialdiagnose / Kontraindikation
                     </span>
                 </div>
                 <div class="mm-mastery-question-box" style="border-left-color:#ef4444;">
-                    Du willst <strong>„${escapeHtml(distractorObj.label)}“</strong> aussortieren. Warum ist dieser Baustein bei <em>${escapeHtml(safeRootTitle)}</em> eine klinische Falle?
+                    Warum ist <strong>„${escapeHtml(distractorObj.label)}“</strong> bei <em>${escapeHtml(safeRootTitle)}</em> eine klinische Falle?
                 </div>
                 <div class="mm-synapse-options">
                     ${options.map((o, idx) => `
                         <button type="button" class="mm-synapse-opt-btn" data-q-opt="${idx}">
                             <span><strong>${String.fromCharCode(65 + idx)})</strong> ${escapeHtml(o.text)}</span>
-                            <span style="color:#64748b; font-weight:800;">➔</span>
+                            <span style="color:#64748b; font-weight:700;">→</span>
                         </button>
                     `).join('')}
                 </div>
                 <div id="mm-quarantine-fb"></div>
                 <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-                    <button type="button" id="mm-quarantine-confirm" class="mm-btn mm-btn-primary" style="display:none;">
-                        ✅ Falle sicher entsorgen (+30 XP)
+                    <button type="button" id="mm-quarantine-confirm" class="mm-clean-btn is-primary" style="display:none;">
+                        Falle entsorgen (+30 XP)
                     </button>
                 </div>
             </div>
@@ -5729,7 +6110,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                     btn.classList.add('correct-choice');
                     backdrop.querySelectorAll('[data-q-opt]').forEach(b => { b.disabled = true; });
                     if (fb) {
-                        fb.innerHTML = `<div class="mm-mastery-rationale-box"><strong style="color:#10b981;">🎯 Exakt begründet!</strong> Du fällst auf diese klassische Prüfungs- & Klinikfalle nicht herein.</div>`;
+                        fb.innerHTML = `<div class="mm-mastery-rationale-box"><strong style="color:#34d399;">Korrekt begründet.</strong> Diese Differenzialdiagnose-Falle ist sicher enttarnt.</div>`;
                     }
                     const confirmBtn = backdrop.querySelector('#mm-quarantine-confirm');
                     if (confirmBtn) {
@@ -5747,13 +6128,10 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                     btn.classList.add('wrong-choice');
                     btn.disabled = true;
 
-                    const mistakesBadge = document.getElementById('mm-stat-mistakes');
-                    if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
-                    const streakBadge = document.getElementById('mm-stat-streak');
-                    if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
+                    updateLiveTelemetryCounters();
 
                     if (fb) {
-                        fb.innerHTML = `<div class="mm-mastery-nudge-box"><strong>🤔 Genau hinsehen:</strong> Welcher pathophysiologische Mechanismus oder welche Leitlinien-Kontraindikation macht genau <em>„${escapeHtml(distractorObj.label)}“</em> falsch?</div>`;
+                        fb.innerHTML = `<div class="mm-mastery-nudge-box"><strong>Prüfe genauer:</strong> Welcher Pathomechanismus oder welche Leitlinien-Kontraindikation macht genau <em>„${escapeHtml(distractorObj.label)}“</em> falsch?</div>`;
                     }
                 }
             });
@@ -5786,8 +6164,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const tutorEl = document.getElementById('mm-tutor-message');
         if (tutorEl) {
             tutorEl.innerHTML = `
-                <strong style="color:#10b981;">🛡️ Klinische Falle erfolgreich quarantänisiert!</strong><br>
-                <strong>„${escapeHtml(distractorObj.label)}“</strong> wurde sicher aussortiert:<br>
+                <strong style="color:#34d399;">Falle quarantänisiert:</strong><br>
+                <strong>„${escapeHtml(distractorObj.label)}“</strong> wurde aussortiert:<br>
                 <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; font-size:0.8rem;">
                     ${escapeHtml(distractorObj.distractor_reason)}
                 </div>
@@ -5814,15 +6192,14 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             }
             if (tutorEl) {
                 tutorEl.innerHTML = `
-                    <strong style="color:#38bdf8;">🔒 Kausaler Zwischenschritt auf Ebene ${targetDepth - 1} fehlt noch!</strong><br>
-                    Dieser Ziel-Slot ist ein <strong>Detailknoten auf Ebene ${targetDepth}</strong>.<br>
-                    Verifiziere zuerst den direkt übergeordneten Knoten auf Ebene ${targetDepth - 1}, bevor du diese Vertiefung zuordnest! (Kein Fehlerpunkt abgezogen).
+                    <strong style="color:#38bdf8;">Zwischenschritt auf Ebene ${targetDepth - 1} fehlt</strong><br>
+                    Dieser Slot liegt auf <strong>Ebene ${targetDepth}</strong>. Verifiziere zuerst den übergeordneten Knoten auf Ebene ${targetDepth - 1} (kein Fehlerpunkt).
                 `;
             }
             return;
         }
 
-        // 2. Distraktor-Falle auf dem Canvas abgelegt!
+        // 2. Distraktor-Falle auf dem Canvas abgelegt
         const activeDistractors = getActiveDistractors(map);
         const distractorObj = activeDistractors.find(d => d.id === draggedNodeId);
         if (distractorObj) {
@@ -5847,8 +6224,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             const newTutorEl = document.getElementById('mm-tutor-message');
             if (newTutorEl) {
                 newTutorEl.innerHTML = `
-                    <strong style="color:#ef4444;">🚨 Klinische Differenzialdiagnose-Falle ausgelöst!</strong><br>
-                    <strong>„${escapeHtml(distractorObj.label)}“</strong> gehört NICHT in diese Mindmap (Tipp: Ziehe Fallen künftig direkt in die rote <strong>DD-Quarantäne</strong> für Bonus-XP!):<br>
+                    <strong style="color:#f87171;">Differenzialdiagnose-Falle ausgelöst:</strong><br>
+                    <strong>„${escapeHtml(distractorObj.label)}“</strong> gehört in die rote <strong>DD-Quarantäne</strong>:<br>
                     <div style="margin-top:6px; padding:7px 9px; border-radius:6px; background:rgba(239,68,68,0.14); border-left:3px solid #ef4444; font-size:0.81rem;">
                         ${escapeHtml(distractorObj.distractor_reason)}
                     </div>
@@ -5901,10 +6278,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         state.streakCount = 0;
         state.weakNodeIds.add(targetNode.id);
 
-        const mistakesBadge = document.getElementById('mm-stat-mistakes');
-        if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
-        const streakBadge = document.getElementById('mm-stat-streak');
-        if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
+        updateLiveTelemetryCounters();
 
         if (slotElement) {
             slotElement.classList.remove('mm-node-error');
@@ -5978,7 +6352,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 }
             }
         } catch (_e) {
-            console.warn('[Mindmap V7.2] Offline-Synthese-Fallback für Mastery-Question aktiv.');
+            console.warn('[Mindmap V7.3] Offline-Synthese-Fallback für Mastery-Question aktiv.');
         }
 
         const safeRootTitle = getRootDisplayTitle();
@@ -6003,7 +6377,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         if (existingModal) existingModal.remove();
 
         const parentLabel = getParentLabel(targetNode, isReviewOnly);
-        const catCfg = CATEGORIES[targetNode.category] || { label: 'Konzept', icon: '🩺', color: '#38bdf8' };
+        const catCfg = CATEGORIES[targetNode.category] || { label: 'Konzept', shortLabel: 'Konzept', color: '#38bdf8' };
         const depth = state.nodeMeta[targetNode.id]?.depth || 1;
         const tMeta = TIER_META[Math.min(4, depth)] || { short: `E${depth}`, badgeClass: 'tier-4' };
 
@@ -6012,26 +6386,27 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         backdrop.innerHTML = `
             <div class="mm-synapse-modal">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
-                    <span style="font-size:0.76rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em;">
-                        🔬 ${isReviewOnly ? 'Tiefenverständnis-Training (Review)' : 'Schritt 2/2: Klinisches Tiefen-Verhör vor dem Einrasten'}
+                    <span style="font-size:0.76rem; font-weight:700; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em;">
+                        ${isReviewOnly ? 'Tiefenverständnis · Review' : 'Schritt 2/2 · Klinisches Tiefen-Verhör'}
                     </span>
                     <div style="display:flex; gap:6px; align-items:center;">
-                        <span class="mm-tier-pill ${tMeta.badgeClass}">${escapeHtml(tMeta.short)}</span>
-                        <span style="font-size:0.75rem; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.14); color:#38bdf8; font-weight:700;">
-                            ${catCfg.icon} ${escapeHtml(catCfg.label)}
+                        <span class="mm-tier-pill ${tMeta.badgeClass}">E${depth}</span>
+                        <span style="display:inline-flex; align-items:center; gap:5px; font-size:0.74rem; padding:2px 8px; border-radius:6px; background:rgba(56,189,248,0.12); color:#cbd5e1; font-weight:600;">
+                            <span class="mm-cat-dot" style="background:${escapeHtml(catCfg.color)};"></span>
+                            ${escapeHtml(catCfg.shortLabel || catCfg.label)}
                         </span>
                     </div>
                 </div>
 
                 <div class="mm-synapse-chain-box">
                     <span class="mm-synapse-node-pill">${escapeHtml(parentLabel)}</span>
-                    <span class="mm-synapse-missing-pill">➔ ${escapeHtml(targetNode.relation_label || 'Kausalverbindung')} ➔</span>
+                    <span class="mm-synapse-missing-pill">→ ${escapeHtml(targetNode.relation_label || 'Kausalverbindung')} →</span>
                     <span class="mm-synapse-node-pill" style="border-color:#38bdf8;">${escapeHtml(targetNode.label)}</span>
                 </div>
 
                 <div id="mm-gate-body">
-                    <div style="padding:24px; text-align:center; color:#94a3b8; font-size:0.88rem;">
-                        🧠 Generiere tiefgehende klinische Verständnisfrage zu <strong>„${escapeHtml(targetNode.label)}“</strong>...
+                    <div style="padding:24px; text-align:center; color:#94a3b8; font-size:0.86rem;">
+                        Generiere Verständnisfrage zu <strong>„${escapeHtml(targetNode.label)}“</strong>...
                     </div>
                 </div>
             </div>
@@ -6068,16 +6443,16 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
                 ${!optionsRevealed ? `
                     <div class="mm-recall-first-box">
-                        <div style="font-size:0.8rem; font-weight:800; color:#fcd34d;">
-                            ✍️ Active-Recall-Stufe (Freitext-Hypothese vor den Antwortoptionen):
+                        <div style="font-size:0.8rem; font-weight:700; color:#fcd34d;">
+                            Active-Recall-Stufe (Freitext-Hypothese vor den Antwortoptionen)
                         </div>
                         <div style="font-size:0.78rem; color:#cbd5e1; margin-top:2px;">
-                            Formuliere kurz deine eigene Erklärung, bevor du die 4 Optionen aufdeckst (maximiert den Testing-Effekt!):
+                            Formuliere kurz deine eigene Erklärung, bevor du die 4 Optionen aufdeckst:
                         </div>
                         <textarea id="mm-recall-hypothesis-input" class="mm-recall-textarea" placeholder="Meine pathophysiologische / klinische Begründung...">${escapeHtml(userHypothesisText)}</textarea>
                         <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-                            <button type="button" id="mm-btn-reveal-mc" class="mm-btn mm-btn-primary">
-                                🔓 Antwortoptionen aufdecken & verifizieren
+                            <button type="button" id="mm-btn-reveal-mc" class="mm-clean-btn is-primary">
+                                Optionen aufdecken
                             </button>
                         </div>
                     </div>
@@ -6090,13 +6465,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
                     <!-- METAKOGNITIVE KONFIDENZ-KALIBRIERUNG -->
                     <div class="mm-confidence-bar">
-                        <span style="color:#94a3b8; font-weight:700;">🧠 Selbsteinschätzung vor Klick:</span>
+                        <span style="color:#94a3b8; font-weight:600;">Selbsteinschätzung vor Klick:</span>
                         <div style="display:flex; gap:6px;">
                             <button type="button" class="mm-conf-btn ${confidenceState === 'sure' ? 'active-sure' : ''}" data-conf="sure">
-                                🎯 Sicher gewusst
+                                Sicher gewusst
                             </button>
                             <button type="button" class="mm-conf-btn ${confidenceState === 'unsure' ? 'active-unsure' : ''}" data-conf="unsure" title="Markiert den Knoten auch bei richtiger Antwort als Wackelkandidat für deinen Fehler-Drill">
-                                🎲 Unsicher / Geraten
+                                Unsicher / Geraten
                             </button>
                         </div>
                     </div>
@@ -6105,7 +6480,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                         ${shuffledOptions.map((opt, idx) => `
                             <button type="button" class="mm-synapse-opt-btn" data-opt-idx="${idx}">
                                 <span><strong>${String.fromCharCode(65 + idx)})</strong> ${escapeHtml(opt.text)}</span>
-                                <span style="color:#64748b; font-weight:800;">➔</span>
+                                <span style="color:#64748b; font-weight:700;">→</span>
                             </button>
                         `).join('')}
                     </div>
@@ -6115,19 +6490,19 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08); flex-wrap:wrap;">
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button type="button" id="mm-gate-ai-regen" class="mm-btn" style="font-size:0.76rem;" title="Generiert per KI eine völlig neue klinische Prüfungsfrage zu diesem Knoten">
-                            🔄 Neue KI-Prüfungsfrage
+                        <button type="button" id="mm-gate-ai-regen" class="mm-clean-btn" style="height:30px; font-size:0.75rem;" title="Generiert per KI eine neue klinische Prüfungsfrage zu diesem Knoten">
+                            Neue KI-Frage
                         </button>
-                        <button type="button" id="mm-gate-pin-depot" class="mm-btn" style="font-size:0.76rem; color:#38bdf8;">
-                            📌 Ins Lern-Depot
+                        <button type="button" id="mm-gate-pin-depot" class="mm-clean-btn" style="height:30px; font-size:0.75rem; color:#38bdf8;">
+                            Ins Lern-Depot
                         </button>
                     </div>
                     <div style="display:flex; gap:8px;">
                         ${isReviewOnly ? `
-                            <button type="button" id="mm-gate-close" class="mm-btn">Schließen</button>
+                            <button type="button" id="mm-gate-close" class="mm-clean-btn" style="height:32px;">Schließen</button>
                         ` : ''}
-                        <button type="button" id="mm-gate-confirm-next" class="mm-btn mm-btn-primary" style="display:none;">
-                            ✅ Verstanden & Knoten einrasten ➔
+                        <button type="button" id="mm-gate-confirm-next" class="mm-clean-btn is-primary" style="display:none; height:32px;">
+                            Knoten einrasten →
                         </button>
                     </div>
                 </div>
@@ -6158,7 +6533,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             gateBody.querySelector('#mm-gate-pin-depot')?.addEventListener('click', async e => {
                 const btn = e.currentTarget;
                 await saveNodeToLearningDepot(targetNode);
-                btn.textContent = '✅ Im Depot gespeichert!';
+                btn.textContent = 'Gespeichert';
                 btn.disabled = true;
             });
 
@@ -6180,13 +6555,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
                         const markedUncertain = confidenceState === 'unsure';
                         const calibrationNote = markedUncertain
-                            ? `<div style="margin-top:6px; font-size:0.78rem; color:#fcd34d;">🎲 <strong>Metakognitions-Hinweis:</strong> Da du „Unsicher/Geraten“ gewählt hast, wird dieser Knoten für deinen späteren Schwachstellen-Drill vorgemerkt!</div>`
+                            ? `<div style="margin-top:6px; font-size:0.78rem; color:#fcd34d;"><strong>Hinweis:</strong> Da du „Unsicher/Geraten“ gewählt hast, wird dieser Knoten für den Schwachstellen-Drill vorgemerkt.</div>`
                             : '';
 
                         if (fbEl) {
                             fbEl.innerHTML = `
                                 <div class="mm-mastery-rationale-box">
-                                    <strong style="color:#10b981;">🎯 Exzellentes Tiefenverständnis!</strong><br>
+                                    <strong style="color:#34d399;">Korrekt verifiziert</strong><br>
                                     ${escapeHtml(masteryData.rationale || targetNode.explanation || '')}
                                     ${calibrationNote}
                                 </div>
@@ -6212,19 +6587,16 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                         btn.classList.add('wrong-choice');
                         btn.disabled = true;
 
-                        const mistakesBadge = document.getElementById('mm-stat-mistakes');
-                        if (mistakesBadge) mistakesBadge.textContent = `⚠️ Fehler: ${state.mistakesCount}`;
-                        const streakBadge = document.getElementById('mm-stat-streak');
-                        if (streakBadge) streakBadge.textContent = `🔥 Serie: 0`;
+                        updateLiveTelemetryCounters();
 
                         const overconfidentNote = confidenceState === 'sure'
-                            ? `<div style="margin-top:4px; font-size:0.76rem; color:#fca5a5;">⚡ <em>Kalibrierungs-Signal:</em> Hohe gefühlte Sicherheit bei falscher Antwort → idealer Lernmoment (Hypercorrection-Effekt)!</div>`
+                            ? `<div style="margin-top:4px; font-size:0.76rem; color:#fca5a5;"><em>Kalibrierungs-Signal:</em> Hohe gefühlte Sicherheit bei falscher Antwort – starker Lernmoment (Hypercorrection-Effekt).</div>`
                             : '';
 
                         if (fbEl) {
                             fbEl.innerHTML = `
                                 <div class="mm-mastery-nudge-box">
-                                    <strong>🤔 Sokratischer Denkanstoß (noch nicht ganz):</strong><br>
+                                    <strong>Sokratischer Denkanstoß:</strong><br>
                                     ${escapeHtml(masteryData.socratic_nudge || targetNode.socratic_hint || 'Prüfe den exakten pathophysiologischen Mechanismus noch einmal.')}
                                     ${overconfidentNote}
                                 </div>
@@ -6238,9 +6610,6 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         renderGateContent('');
     }
 
-    /**
-     * Öffnet eine domänenübergreifende Synthese-Prüfung zu einer Querverbindung (cross_link).
-     */
     async function openCrossLinkSynthesisModal(crossLink) {
         if (!crossLink || !state.currentMap) return;
         const fromNode = state.currentMap.nodes.find(n => n.id === crossLink.from);
@@ -6253,19 +6622,19 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const backdrop = document.createElement('div');
         backdrop.className = 'mm-synapse-modal-backdrop';
         backdrop.innerHTML = `
-            <div class="mm-synapse-modal" style="border-color:rgba(245,158,11,0.55);">
+            <div class="mm-synapse-modal" style="border-color:rgba(245,158,11,0.5);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span style="font-size:0.78rem; font-weight:800; color:#fbbf24; text-transform:uppercase;">
-                        ⚡ Domänenübergreifende Synthese-Prüfung (Bloom-Stufe 5)
+                    <span style="font-size:0.78rem; font-weight:700; color:#fbbf24; text-transform:uppercase; letter-spacing:0.04em;">
+                        Querverbindungs-Synthese · Bloom 5
                     </span>
                 </div>
-                <div class="mm-synapse-chain-box" style="border-color:rgba(245,158,11,0.5);">
+                <div class="mm-synapse-chain-box" style="border-color:rgba(245,158,11,0.45);">
                     <span class="mm-synapse-node-pill">${escapeHtml(fromNode.label)}</span>
-                    <span class="mm-synapse-missing-pill" style="background:rgba(245,158,11,0.16); border-color:#f59e0b; color:#fbbf24;">⚡ ${escapeHtml(crossLink.label || 'Querverbindung')} ➔</span>
+                    <span class="mm-synapse-missing-pill" style="background:rgba(245,158,11,0.16); border-color:#f59e0b; color:#fbbf24;">${escapeHtml(crossLink.label || 'Querverbindung')} →</span>
                     <span class="mm-synapse-node-pill">${escapeHtml(toNode.label)}</span>
                 </div>
                 <div id="mm-synth-body" style="padding:20px; text-align:center; color:#94a3b8; font-size:0.86rem;">
-                    🧠 Lade Transfer-Synthesefrage zwischen diesen beiden Domänen...
+                    Lade Transfer-Synthesefrage...
                 </div>
             </div>
         `;
@@ -6307,12 +6676,12 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         if (!qData) {
             synthBody.innerHTML = `
                 <div class="mm-mastery-rationale-box" style="text-align:left;">
-                    <strong style="color:#fbbf24;">⚡ Klinische Brücke:</strong><br>
+                    <strong style="color:#fbbf24;">Klinische Brücke:</strong><br>
                     <strong>${escapeHtml(fromNode.label)}</strong> beeinflusst unmittelbar <strong>${escapeHtml(toNode.label)}</strong> (${escapeHtml(crossLink.label)}).<br>
-                    <div style="margin-top:6px; font-size:0.8rem; color:#cbd5e1;">${escapeHtml(fromNode.explanation || '')} ➔ ${escapeHtml(toNode.explanation || '')}</div>
+                    <div style="margin-top:6px; font-size:0.8rem; color:#cbd5e1;">${escapeHtml(fromNode.explanation || '')} → ${escapeHtml(toNode.explanation || '')}</div>
                 </div>
                 <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-                    <button type="button" id="mm-synth-close" class="mm-btn mm-btn-primary">Verstanden</button>
+                    <button type="button" id="mm-synth-close" class="mm-clean-btn is-primary">Verstanden</button>
                 </div>
             `;
             synthBody.querySelector('#mm-synth-close')?.addEventListener('click', () => backdrop.remove());
@@ -6333,13 +6702,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 ${opts.map((o, idx) => `
                     <button type="button" class="mm-synapse-opt-btn" data-s-opt="${idx}">
                         <span><strong>${String.fromCharCode(65 + idx)})</strong> ${escapeHtml(o.text)}</span>
-                        <span style="color:#64748b; font-weight:800;">➔</span>
+                        <span style="color:#64748b; font-weight:700;">→</span>
                     </button>
                 `).join('')}
             </div>
             <div id="mm-synth-fb"></div>
             <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
-                <button type="button" id="mm-synth-close" class="mm-btn">Schließen</button>
+                <button type="button" id="mm-synth-close" class="mm-clean-btn">Schließen</button>
             </div>
         `;
 
@@ -6357,13 +6726,13 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                     synthBody.querySelectorAll('[data-s-opt]').forEach(b => { b.disabled = true; });
                     if (typeof window.applyXpDelta === 'function') window.applyXpDelta(50, 'Querverbindungs-Synthese');
                     if (fb) {
-                        fb.innerHTML = `<div class="mm-mastery-rationale-box"><strong style="color:#10b981;">🏆 Transfer gemeistert (+50 XP)!</strong><br>${escapeHtml(qData.rationale || '')}</div>`;
+                        fb.innerHTML = `<div class="mm-mastery-rationale-box"><strong style="color:#34d399;">Transfer gemeistert (+50 XP)</strong><br>${escapeHtml(qData.rationale || '')}</div>`;
                     }
                 } else {
                     btn.classList.add('wrong-choice');
                     btn.disabled = true;
                     if (fb) {
-                        fb.innerHTML = `<div class="mm-mastery-nudge-box"><strong>🤔 Sokratischer Impuls:</strong> ${escapeHtml(qData.socratic_nudge || 'Verknüpfe den Pathomechanismus von Knoten A direkt mit der Konsequenz in Knoten B!')}</div>`;
+                        fb.innerHTML = `<div class="mm-mastery-nudge-box"><strong>Sokratischer Impuls:</strong> ${escapeHtml(qData.socratic_nudge || 'Verknüpfe den Pathomechanismus von Knoten A direkt mit der Konsequenz in Knoten B.')}</div>`;
                     }
                 }
             });
@@ -6424,27 +6793,27 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             const depth = state.nodeMeta[targetNode.id]?.depth || 1;
             const rationaleText = targetNode.mastery_question?.rationale || targetNode.explanation;
             const pearlText = rationaleText
-                ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; font-size:0.8rem;">💡 <strong>Klinische Essenz:</strong> ${escapeHtml(rationaleText)}</div>`
+                ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(16,185,129,0.12); border-left:3px solid #10b981; font-size:0.8rem;"><strong>Essenz:</strong> ${escapeHtml(rationaleText)}</div>`
                 : '';
             const unlockNotice = newlyUnlockedChildren.length > 0
-                ? `<div style="margin-top:6px; color:#38bdf8; font-size:0.8rem;">🔓 <strong>Ebene ${depth + 1} freigeschaltet:</strong> ${newlyUnlockedChildren.length} Vertiefungs-Knoten an „${escapeHtml(targetNode.label)}“ sind jetzt bereit!</div>`
+                ? `<div style="margin-top:6px; color:#38bdf8; font-size:0.79rem;">Ebene ${depth + 1} freigeschaltet: ${newlyUnlockedChildren.length} Vertiefung(en) an „${escapeHtml(targetNode.label)}“.</div>`
                 : '';
             const crossLinkNotice = unlockedCrossLinks.length > 0
-                ? `<div style="margin-top:6px; color:#fbbf24; font-size:0.8rem;">⚡ <strong>Querverbindung sichtbar:</strong> Klicke auf den goldenen Bogen „${escapeHtml(unlockedCrossLinks[0].label)}“ für die Synthese-Prüfung!</div>`
+                ? `<div style="margin-top:5px; color:#fbbf24; font-size:0.79rem;">Querverbindung sichtbar: „${escapeHtml(unlockedCrossLinks[0].label)}“ (Klick für Synthese).</div>`
                 : '';
 
             updatedTutorEl.innerHTML = `
-                <strong style="color:#10b981;">✅ Ebene-${depth}-Knoten & Tiefenverständnis verifiziert!</strong><br>
+                <strong style="color:#34d399;">✓ E${depth}-Knoten verifiziert</strong><br>
                 <strong>„${escapeHtml(targetNode.label)}“</strong> folgt über <em>„${escapeHtml(targetNode.relation_label || 'Verbindung')}“</em> aus <strong>„${escapeHtml(parentLabel)}“</strong>.
                 ${pearlText}
                 ${unlockNotice}
                 ${crossLinkNotice}
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
                     <button type="button" class="mm-depot-pin-btn" data-pin-node="${escapeHtml(targetNode.id)}">
-                        📌 Ins Lern-Depot pinnen
+                        Ins Lern-Depot
                     </button>
                     <button type="button" class="mm-depot-pin-btn" data-retest-node="${escapeHtml(targetNode.id)}">
-                        🔬 Tiefen-Frage erneut öffnen
+                        Prüfungsfrage öffnen
                     </button>
                 </div>
             `;
@@ -6459,9 +6828,9 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 const accuracy = totalAttempts > 0 ? Math.round((map.nodes.length / totalAttempts) * 100) : 100;
                 const weakCount = new Set([...state.weakNodeIds, ...state.uncertainNodeIds]).size;
                 finalTutorEl.innerHTML = `
-                    <strong style="color:#10b981;">🏆 Gesamter ${state.maxTreeDepth}-Ebenen-Baum gemeistert (${accuracy}% Präzision, Max-Serie: ${state.maxStreak})!</strong><br>
-                    Du hast alle ${map.nodes.length} Konzepte von grob bis ins molekulare Detail verifiziert (${state.mistakesCount} Fehler${weakCount > 0 ? `, ${weakCount} Wackelkandidat(en)` : ''}).
-                    ${weakCount > 0 ? `<br>Nutze <strong>„🎯 Schwachstellen drillen“</strong>, um deine unsicheren Knoten gezielt auf 100 % zu festigen!` : ''}
+                    <strong style="color:#34d399;">Mindmap komplett gemeistert (${accuracy}% · Max-Serie ${state.maxStreak})</strong><br>
+                    Alle ${map.nodes.length} Konzepte über ${state.maxTreeDepth} Ebenen verifiziert (${state.mistakesCount} Fehler${weakCount > 0 ? `, ${weakCount} Wackelkandidat(en)` : ''}).
+                    ${weakCount > 0 ? `<br>Nutze <strong>Drill (${weakCount})</strong> in der Kopfzeile für die gezielte Nachschärfung.` : ''}
                 `;
             }
         }
@@ -6475,7 +6844,7 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
                 const node = state.currentMap?.nodes.find(n => n.id === nodeId);
                 if (node) {
                     await saveNodeToLearningDepot(node);
-                    pinBtn.textContent = '✅ Im Lern-Depot gespeichert!';
+                    pinBtn.textContent = 'Gespeichert';
                     pinBtn.disabled = true;
                 }
             });
@@ -6500,15 +6869,15 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const depth = state.nodeMeta[node.id]?.depth || 1;
         const rationaleText = node.mastery_question?.rationale || node.explanation || node.socratic_hint || 'Klinisch verifiziertes Konzept.';
         tutorEl.innerHTML = `
-            <strong style="color:#10b981;">✅ Gelöster Ebene-${depth}-Knoten: „${escapeHtml(node.label)}“${node._userPromoted ? ' ⭐' : ''}</strong><br>
-            <span style="font-size:0.8rem; color:#94a3b8;">Kausalkette: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(node.relation_label)}</em></span><br>
+            <strong style="color:#34d399;">E${depth} · „${escapeHtml(node.label)}“${node._userPromoted ? ' ★' : ''}</strong><br>
+            <span style="font-size:0.78rem; color:#94a3b8;">${escapeHtml(parentLabel)} → <em>${escapeHtml(node.relation_label)}</em></span><br>
             <div style="margin-top:6px;">${escapeHtml(rationaleText)}</div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
                 <button type="button" class="mm-depot-pin-btn" data-pin-node="${escapeHtml(node.id)}">
-                    📌 Ins Lern-Depot pinnen
+                    Ins Lern-Depot
                 </button>
                 <button type="button" class="mm-depot-pin-btn" data-retest-node="${escapeHtml(node.id)}">
-                    🔬 Tiefenverständnis-Frage öffnen
+                    Prüfungsfrage öffnen
                 </button>
             </div>
         `;
@@ -6523,19 +6892,19 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         const depth = state.nodeMeta[targetNode.id]?.depth || 1;
         if (isSlotCurrentlyLocked(targetNode)) {
             tutorEl.innerHTML = `
-                <strong style="color:#f59e0b;">🔒 Dieser Detailknoten (Ebene ${depth}) ist noch gesperrt:</strong><br>
-                Verifiziere zuerst den direkt übergeordneten Knoten auf <strong>Ebene ${depth - 1}</strong>. Sobald das übergeordnete Konzept sitzt, wird diese Vertiefung freigeschaltet!
+                <strong style="color:#fbbf24;">Ebene ${depth} noch gesperrt</strong><br>
+                Verifiziere zuerst den direkt übergeordneten Knoten auf <strong>Ebene ${depth - 1}</strong>.
             `;
             return;
         }
 
         const parentLabel = getParentLabel(targetNode);
-        const targetCat = state.blindMode ? 'Kategorie im Blind-Modus verdeckt' : (CATEGORIES[targetNode.category]?.label || targetNode.category);
-        const relHint = state.hideRelationLabels ? '[im Exam-Modus verdeckt]' : (targetNode.relation_label || '');
+        const targetCat = state.blindMode ? 'Blind-Modus' : (CATEGORIES[targetNode.category]?.shortLabel || targetNode.category);
+        const relHint = state.hideRelationLabels ? '[verdeckt]' : (targetNode.relation_label || '');
 
         tutorEl.innerHTML = `
-            <strong style="color:#38bdf8;">💡 Sokratische Leitfrage (Ebene ${depth}):</strong><br>
-            <span style="font-size:0.8rem; color:#94a3b8;">Gesucht: <strong>${escapeHtml(parentLabel)}</strong> ➔ <em>${escapeHtml(relHint)}</em> (${escapeHtml(targetCat)})</span>
+            <strong style="color:#38bdf8;">Sokratische Leitfrage (E${depth})</strong><br>
+            <span style="font-size:0.78rem; color:#94a3b8;">${escapeHtml(parentLabel)} → <em>${escapeHtml(relHint)}</em> · ${escapeHtml(targetCat)}</span>
             <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;">
                 ${escapeHtml(targetNode.socratic_hint || 'Überlege, welcher Begriff aus dem Pool kausal an diese Stelle gehört.')}
             </div>
@@ -6555,15 +6924,15 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
         let structuralHint = '';
         if (draggedDepth !== targetDepth) {
             structuralHint = draggedDepth > targetDepth
-                ? `⚠️ <strong>Vertiefungs-Ebenen-Konflikt:</strong> „${escapeHtml(draggedNode.label)}“ ist ein spezifischeres Detail der <em>Ebene ${draggedDepth}</em>, aber dieser Slot sucht zuerst ein übergeordnetes Konzept der <em>Ebene ${targetDepth}</em>!`
-                : `⚠️ <strong>Vertiefungs-Ebenen-Konflikt:</strong> „${escapeHtml(draggedNode.label)}“ ist ein übergeordnetes Konzept der <em>Ebene ${draggedDepth}</em>, nicht das hier gesuchte Detail der <em>Ebene ${targetDepth}</em> unter „${escapeHtml(parentLabel)}“!`;
+                ? `<strong>Ebenen-Konflikt:</strong> „${escapeHtml(draggedNode.label)}“ gehört auf <em>Ebene ${draggedDepth}</em>, gesucht ist <em>Ebene ${targetDepth}</em>.`
+                : `<strong>Ebenen-Konflikt:</strong> „${escapeHtml(draggedNode.label)}“ gehört auf <em>Ebene ${draggedDepth}</em>, nicht als Detail auf <em>Ebene ${targetDepth}</em> unter „${escapeHtml(parentLabel)}“.`;
         } else if (draggedNode.category !== targetNode.category) {
-            structuralHint = `⚠️ <strong>Domänen-Konflikt:</strong> Du hast ein Konzept der <em>${escapeHtml(draggedCat)}</em> gewählt, an dieser Stelle wird jedoch <em>${escapeHtml(targetCat)}</em> gesucht.`;
+            structuralHint = `<strong>Domänen-Konflikt:</strong> Gewählt wurde <em>${escapeHtml(draggedCat)}</em>, gesucht ist <em>${escapeHtml(targetCat)}</em>.`;
         }
 
         tutorEl.innerHTML = `
             <div class="mm-tutor-thinking">
-                <span>🧠 Analysiere deinen Zuordnungsversuch sokratisch...</span>
+                <span>Analysiere Zuordnung sokratisch...</span>
             </div>
         `;
 
@@ -6598,8 +6967,8 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
 
             if (aiFlaw || aiQuestion) {
                 tutorEl.innerHTML = `
-                    ${structuralHint ? `<div style="margin-bottom:6px; font-size:0.8rem; color:#fcd34d;">${structuralHint}</div>` : ''}
-                    <strong style="color:#f59e0b;">🤔 Sokratisches Differential-Feedback:</strong><br>
+                    ${structuralHint ? `<div style="margin-bottom:6px; font-size:0.79rem; color:#fcd34d;">${structuralHint}</div>` : ''}
+                    <strong style="color:#fbbf24;">Differential-Feedback:</strong><br>
                     ${aiFlaw ? `<span>${escapeHtml(aiFlaw)}</span><br>` : ''}
                     ${aiQuestion ? `<div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;"><strong style="color:#38bdf8;">Leitfrage:</strong> ${escapeHtml(aiQuestion)}</div>` : ''}
                 `;
@@ -6607,24 +6976,24 @@ Antworte AUSSCHLIESSLICH mit einem validen JSON-Array mit genau einem Objekt:
             }
             throw new Error('Leere AI-Antwort');
         } catch (_err) {
-            const fallbackReason = structuralHint || `<strong>„${escapeHtml(draggedNode.label)}“</strong> erfüllt nicht die gesuchte Kausalrolle auf Ebene ${targetDepth} ausgehend von <strong>„${escapeHtml(parentLabel)}“</strong>.`;
+            const fallbackReason = structuralHint || `<strong>„${escapeHtml(draggedNode.label)}“</strong> passt nicht auf Ebene ${targetDepth} unter <strong>„${escapeHtml(parentLabel)}“</strong>.`;
             tutorEl.innerHTML = `
-                <strong style="color:#f59e0b;">🤔 Sokratische Analyse:</strong><br>
+                <strong style="color:#fbbf24;">Sokratische Analyse:</strong><br>
                 ${fallbackReason}<br>
                 <div style="margin-top:6px; padding:6px 8px; border-radius:6px; background:rgba(56,189,248,0.1); border-left:3px solid #38bdf8;">
-                    <strong style="color:#38bdf8;">Leitfrage für diesen Slot:</strong> ${escapeHtml(targetNode.socratic_hint || 'Welche direkte Konsequenz oder Detailmaßnahme ergibt sich hier?')}
+                    <strong style="color:#38bdf8;">Leitfrage:</strong> ${escapeHtml(targetNode.socratic_hint || 'Welche direkte Konsequenz oder Detailmaßnahme ergibt sich hier?')}
                 </div>
             `;
         }
     }
 
     // ========================================================================
-    // 11. V7.2 DEEP-TREE EXTRAKTIONS-PROMPT & VALIDIERENDER JSON-IMPORT
+    // 11. V7.3 DEEP-TREE EXTRAKTIONS-PROMPT & VALIDIERENDER JSON-IMPORT
     // ========================================================================
 
     function copyExtractionPrompt() {
         const promptTemplate = `# ROLLE & ZIEL
-Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau IMPP/NBME) und Wissens-Architekt für das MedCheck Mindmap-Labor V7.2 ("Deep-Tree Multi-Tier Mastery & Synthesis").
+Du bist ein medizinischer Facharzt-Tutor (Staatsexamensniveau IMPP/NBME) und Wissens-Architekt für das MedCheck Mindmap-Labor V7.3 ("Deep-Tree Multi-Tier Mastery & Synthesis").
 Extrahiere aus dem folgenden Vorlesungstext das Thema VOLLSTÄNDIG von grob nach hochdetailliert in ein direkt importierbares, valides JSON-Objekt.
 
 # 1. INHALTLICHE & STRUKTURELLE REGELN (ZERO-SUPERFICIALITY & FULL DEPTH)
@@ -6722,10 +7091,14 @@ Hier ist der Vorlesungstext:
 
         const showCopiedFeedback = () => {
             const btn = document.getElementById('mm-btn-prompt');
-            if (btn) {
-                const orig = btn.innerHTML;
-                btn.innerHTML = '✅ V7.2 Deep-Tree Prompt kopiert!';
-                setTimeout(() => { btn.innerHTML = orig; }, 2200);
+            if (btn && !btn.closest('.mm-popover-panel')) {
+                const orig = btn.textContent;
+                btn.textContent = '✓ Kopiert';
+                setTimeout(() => { btn.textContent = orig; }, 2000);
+            }
+            const tutorEl = document.getElementById('mm-tutor-message');
+            if (tutorEl) {
+                tutorEl.innerHTML = `<strong style="color:#34d399;">Deep-Tree Prompt kopiert</strong><br>Füge ihn direkt in deine KI ein und importiere das erzeugte JSON über <strong>Import</strong>.`;
             }
         };
 
@@ -6754,6 +7127,7 @@ Hier ist der Vorlesungstext:
     }
 
     function openImportModal(preselectedFolderId = null) {
+        closeOpenPopovers();
         const safeFolderId = typeof preselectedFolderId === 'string' ? preselectedFolderId : null;
         const folders = getDashboardFolders();
 
@@ -6764,26 +7138,26 @@ Hier ist der Vorlesungstext:
         modalBackdrop.className = 'mm-modal-backdrop';
         modalBackdrop.innerHTML = `
             <div class="mm-modal">
-                <h3 style="margin-top:0;">📥 Deep-Tree Vorlesungs-Mindmap (JSON) importieren</h3>
-                <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:0.75rem;">
-                    Wähle optional direkt den Ziel-Fachordner aus (oder lasse das Fachgebiet automatisch anhand von <code>specialty</code> zuordnen).
+                <h3 style="margin-top:0; font-size:1.02rem;">Mindmap (JSON) importieren</h3>
+                <p style="font-size:0.82rem; color:#94a3b8; margin-bottom:0.75rem;">
+                    Wähle optional direkt den Ziel-Fachordner oder lasse ihn automatisch anhand von <code>specialty</code> zuordnen.
                 </p>
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:0.75rem; flex-wrap:wrap;">
-                    <label for="mm-import-folder" style="font-size:0.8rem; font-weight:700; color:var(--text-main, #e2e8f0);">📁 Ziel-Ordner:</label>
-                    <select id="mm-import-folder" class="mm-select" style="flex:1; min-width:220px;">
-                        <option value="">✨ Automatisch nach Fachgebiet zuordnen</option>
+                    <label for="mm-import-folder" style="font-size:0.78rem; font-weight:600; color:var(--text-muted, #94a3b8);">Ziel-Ordner</label>
+                    <select id="mm-import-folder" class="mm-studio-select" style="flex:1; min-width:220px; max-width:none;">
+                        <option value="">Automatisch nach Fachgebiet zuordnen</option>
                         ${folders.map(f => `
                             <option value="${escapeHtml(f.id)}" ${safeFolderId === f.id ? 'selected' : ''}>
-                                ${escapeHtml(f.icon)} ${escapeHtml(f.label)}
+                                ${escapeHtml(f.label)}
                             </option>
                         `).join('')}
                     </select>
                 </div>
                 <textarea id="mm-import-textarea" class="mm-textarea" placeholder='{\n  "id": "mm_neuro_hydrocephalus_001",\n  "schema_version": 7,\n  "title": "...",\n  "central_concept": "...",\n  "nodes": [ ... ],\n  "cross_links": [ ... ],\n  "distractors": [ ... ]\n}'></textarea>
-                <div id="mm-import-error" style="color:#ef4444; font-size:0.82rem; margin-bottom:0.75rem;"></div>
-                <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
-                    <button id="mm-modal-cancel" class="mm-btn">Abbrechen</button>
-                    <button id="mm-modal-save" class="mm-btn mm-btn-primary">🚀 Mindmap validieren & speichern</button>
+                <div id="mm-import-error" style="color:#f87171; font-size:0.8rem; margin-bottom:0.75rem;"></div>
+                <div style="display:flex; justify-content:flex-end; gap:0.65rem;">
+                    <button id="mm-modal-cancel" class="mm-clean-btn">Abbrechen</button>
+                    <button id="mm-modal-save" class="mm-clean-btn is-primary">Validieren & speichern</button>
                 </div>
             </div>
         `;
