@@ -1,8 +1,9 @@
 // ==========================================================================
-// js/audit.js – Editorial Clinical Audit, Patient-Triage & Active-Recall Engine (V4.0)
+// js/audit.js – Editorial Clinical Audit, Patient-Triage & Active-Recall Engine (V4.1)
 // Features:
 // - Patienten-Akten-Filter (Patient 1 / 2 / 3) mit Live-Fortschritt & Quick-Next
-// - Präziser Akten-Scanner für Vitalparameter, Laborwerte & anatomische Segmente
+// - Verlustfreier medizinischer Satz-/Absatz-Splitter & Hotspot-Boundary-Schutz
+// - Safari-kompatibler Akten-Scanner für Vitalparameter, Laborwerte & Segmente
 // - Active-Recall Hypothesen-Feld + optionaler sokratischer KI-Check (/api/gemini)
 // - Anti-Pixel-Hunting "Oberarzt-Fokus" nach 3 Fehlalarmen in einem Abschnitt
 // - Klinische Konsequenz-Warnung bei Premature Closure & Fehler-Epikrise mit Batch-Export
@@ -10,8 +11,9 @@
 
 (function initEditorialAuditEngine() {
     let lastUnlockedStudyId = null;
+    let lastRenderedCaseId = null;
     let activePatientFilter = 'ALL'; // 'ALL' | 'patient_1' | 'patient_2' | 'patient_3'
-    let sentenceHintActiveMap = {}; // { [stepIndex]: sentenceIndex }
+    let sentenceHintActiveMap = {}; // { [stepIndex]: paragraphIndex }
 
     function escapeAuditHtml(str) {
         return String(str || '').replace(/[&<>'"]/g, tag => ({
@@ -27,11 +29,33 @@
             .replace(/\u00A0/g, ' ');
     }
 
+    // Robuster Case-Resolver: funktioniert mit window.activeCaseData UND globalem `let activeCaseData` aus app.js
+    function getActiveCase() {
+        if (window.activeCaseData && typeof window.activeCaseData === 'object') {
+            return window.activeCaseData;
+        }
+        try {
+            if (typeof activeCaseData !== 'undefined' && activeCaseData && typeof activeCaseData === 'object') {
+                return activeCaseData;
+            }
+        } catch (_e) {}
+        return window.currentCase || window.activeCase || null;
+    }
+
+    function setGlobalClearedStepsCount(count) {
+        window.clearedStepsCount = count;
+        try {
+            if (typeof clearedStepsCount !== 'undefined') {
+                clearedStepsCount = count;
+            }
+        } catch (_e) {}
+    }
+
     // ----------------------------------------------------------------------
     // 1. PERSISTENZ (FORTSCHRITT, HOTSPOTS, NOISE & ACTIVE RECALL)
     // ----------------------------------------------------------------------
     function getAuditProgressState() {
-        const caseData = window.activeCaseData;
+        const caseData = getActiveCase();
         if (!caseData || !caseData.case_id || window.isSpecialtyBlindMode || typeof ProgressManager === 'undefined') {
             return {
                 clearedStepsCount: 0,
@@ -60,7 +84,7 @@
     }
 
     function saveAuditProgressState(partialAuditState) {
-        const caseData = window.activeCaseData;
+        const caseData = getActiveCase();
         if (!caseData || !caseData.case_id || window.isSpecialtyBlindMode || typeof ProgressManager === 'undefined') {
             return;
         }
@@ -80,50 +104,75 @@
     }
 
     // ----------------------------------------------------------------------
-    // 2. KLINISCHER MESSWERT-HIGHLIGHTER (OHNE REGEX-BOUNDARY-BUGS)
+    // 2. KLINISCHER MESSWERT-HIGHLIGHTER (OHNE LOOKBEHIND -> 100% SAFARI-SICHER)
     // ----------------------------------------------------------------------
     function formatClinicalNumbersInHtml(escapedText) {
-        const pattern = /(?<![A-Za-zÄÖÜäöüß0-9_])(\d{2,3}\/\d{2,3}\s*mmHg|\d+(?:[.,]\d+)?\s*(?:mg\/dl|mmol\/l|µmol\/l|nmol\/l|pmol\/l|g\/dl|µg\/l|ng\/ml|pg\/ml|U\/l|G\/l|T\/l|mmHg|\/min|bpm|°C|mg|g|µg|ml|IE|fl|pg|%|Segmente?|Segment|Jahre|J\.)|(?:≥|≤|&gt;|&lt;)\s*\d+(?:[.,]\d+)?|pH\s*\d+[.,]\d+|(?:Th|[CTLS])\d{1,2})(?![A-Za-zÄÖÜäöüß0-9_])/g;
-        return escapedText.replace(pattern, '<span class="audit-clinical-metric">$1</span>');
+        const pattern = /(^|[^A-Za-zÄÖÜäöüß0-9_#])((?:≥|≤|&gt;|&lt;)\s*\d+(?:[.,]\d+)?|\d{2,3}\/\d{2,3}\s*mmHg|\d+(?:[.,]\d+)?\s*(?:mg\/dl|mmol\/l|µmol\/l|nmol\/l|pmol\/l|g\/dl|µg\/l|ng\/ml|pg\/ml|IU\/l|U\/l|G\/l|T\/l|mmHg|\/min|bpm|°C|kg\/m²|mg|g|µg|ml|IE|fl|pg|cm|mm|%|Segmente?|Segment|Jahre|J\.)|pH\s*\d+[.,]\d+|(?:Th|[CTLS])\d{1,2})(?![A-Za-zÄÖÜäöüß0-9_])/g;
+        return escapedText.replace(pattern, '$1<span class="audit-clinical-metric">$2</span>');
     }
 
     // ----------------------------------------------------------------------
-    // 3. TEXT-SEGMENTIERUNG & KLAUSEL-PARSER
+    // 3. TEXT-SEGMENTIERUNG & VERLUSTFREIER KLAUSEL-/ABSATZ-PARSER
     // ----------------------------------------------------------------------
+    function findPhraseRangesInText(cleanText, normCleanText, phrase) {
+        const matches = [];
+        const cleanPhrase = String(phrase || '').replace(/^\[|\]$/g, '').trim();
+        if (!cleanPhrase) return matches;
+
+        const normPhrase = normalizeForMatch(cleanPhrase);
+        let searchStart = 0;
+
+        while (searchStart < normCleanText.length) {
+            let foundPos = normCleanText.indexOf(normPhrase, searchStart);
+            if (foundPos === -1) {
+                foundPos = normCleanText.toLowerCase().indexOf(normPhrase.toLowerCase(), searchStart);
+            }
+            if (foundPos === -1) break;
+
+            const foundEnd = foundPos + normPhrase.length;
+            matches.push({ start: foundPos, end: foundEnd });
+            searchStart = foundEnd;
+        }
+
+        // Whitespace-toleranter Fallback, falls im JSON doppelte Leerzeichen/Zeilenumbrüche vorkommen
+        if (matches.length === 0) {
+            const escapedTokens = normPhrase
+                .split(/\s+/)
+                .filter(Boolean)
+                .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            if (escapedTokens.length > 0) {
+                const flexRegex = new RegExp(escapedTokens.join('\\s+'), 'gi');
+                let m;
+                while ((m = flexRegex.exec(normCleanText)) !== null) {
+                    matches.push({ start: m.index, end: m.index + m[0].length });
+                }
+            }
+        }
+
+        return matches;
+    }
+
     function parseParagraphIntoSegments(paragraphText, hotspots = []) {
         if (!paragraphText) return [];
 
-        const cleanText = paragraphText.replace(/\[([^\]]+)\]/g, '$1');
+        const cleanText = String(paragraphText).replace(/\[([^\]]+)\]/g, '$1');
         const normCleanText = normalizeForMatch(cleanText);
 
         const ranges = [];
         hotspots.forEach((hs, idx) => {
             if (!hs || !hs.phrase) return;
-            const cleanPhrase = String(hs.phrase).replace(/^\[|\]$/g, '').trim();
-            if (!cleanPhrase) return;
-
-            const normPhrase = normalizeForMatch(cleanPhrase);
-            let searchStart = 0;
-
-            while (searchStart < normCleanText.length) {
-                let foundPos = normCleanText.indexOf(normPhrase, searchStart);
-                if (foundPos === -1) {
-                    foundPos = normCleanText.toLowerCase().indexOf(normPhrase.toLowerCase(), searchStart);
-                }
-                if (foundPos === -1) break;
-
-                const foundEnd = foundPos + normPhrase.length;
-                const overlaps = ranges.some(r => !(foundEnd <= r.start || foundPos >= r.end));
+            const foundList = findPhraseRangesInText(cleanText, normCleanText, hs.phrase);
+            foundList.forEach(({ start, end }) => {
+                const overlaps = ranges.some(r => !(end <= r.start || start >= r.end));
                 if (!overlaps) {
                     ranges.push({
-                        start: foundPos,
-                        end: foundEnd,
+                        start,
+                        end,
                         hotspotIndex: idx,
-                        text: cleanText.slice(foundPos, foundEnd)
+                        text: cleanText.slice(start, end)
                     });
                 }
-                searchStart = foundEnd;
-            }
+            });
         });
 
         ranges.sort((a, b) => a.start - b.start);
@@ -224,67 +273,120 @@
         return clauses;
     }
 
-    function splitStepIntoEditorialParagraphs(rawText) {
+    // 100 % verlustfreier Satz-/Absatz-Splitter (schützt Abkürzungen, Ordinalzahlen & Hotspots)
+    function splitStepIntoEditorialParagraphs(rawText, hotspots = []) {
         if (!rawText) return [];
 
         const normalizedRaw = String(rawText)
+            .replace(/\r\n/g, '\n')
             .replace(/\\n/g, '\n')
             .replace(/^Patient\s*\d+\s*\n+/i, '')
             .trim();
+
+        if (!normalizedRaw) return [];
 
         const explicitParagraphs = normalizedRaw
             .split(/\n\s*\n|<br\s*\/?>\s*<br\s*\/?>/i)
             .map(p => p.trim())
             .filter(Boolean);
 
+        let paragraphs = [];
+
         if (explicitParagraphs.length > 1) {
-            return explicitParagraphs;
-        }
+            paragraphs = explicitParagraphs;
+        } else {
+            const singleBlock = explicitParagraphs[0] || normalizedRaw;
+            const words = singleBlock.split(/\s+/).filter(Boolean);
 
-        const singleBlock = explicitParagraphs[0] || normalizedRaw;
-        const sentenceRegex = /[^.!?]+(?:\.(?:\s+(?=[A-ZÄÖÜ0-9"„])|$)|[!?]+(?:\s+|$))/g;
-        const rawSentences = singleBlock.match(sentenceRegex);
+            const abbrevPattern = /^(?:[A-ZÄÖÜa-zäöüß]|ca|bzw|inkl|ggf|evtl|sog|vgl|mind|max|Nr|Abb|Tab|Dr|Prof|med|St|Lig|Art|Proc|Gl|etc|usw|o\.ä|z\.B|u\.a|d\.h|v\.a|s\.o|s\.u|i\.v|i\.m|s\.c|p\.o|p\.i)\.$/i;
+            const ordinalPattern = /^\d+\.$/;
+            const nextStartsSentence = /^[A-ZÄÖÜ0-9"„(]/;
 
-        if (!rawSentences || rawSentences.length <= 2) {
-            return [singleBlock];
-        }
+            const sentences = [];
+            let current = [];
 
-        const mergedSentences = [];
-        let buffer = '';
+            for (let i = 0; i < words.length; i++) {
+                const word = words[i];
+                current.push(word);
 
-        rawSentences.forEach(s => {
-            buffer += (buffer ? ' ' : '') + s.trim();
-            const endsWithAbbrev = /\b([A-Za-z]|ca|bzw|inkl|ggf|evtl|sog|z\.\s*B|u\.\s*a|d\.\s*h|Dr|Prof|St|mind|max|vgl|Nr|Abb|Tab)\.$/i.test(buffer);
-            if (!endsWithAbbrev && buffer.split(/\s+/).length >= 5) {
-                mergedSentences.push(buffer);
-                buffer = '';
+                const isSentenceEndPunct = /[.!?]["”»)\]]*$/.test(word);
+                if (!isSentenceEndPunct) continue;
+
+                const strippedWord = word.replace(/["”»)\]]+$/, '');
+                const isAbbrev = abbrevPattern.test(strippedWord);
+                const isOrdinal = ordinalPattern.test(strippedWord);
+                const nextWord = words[i + 1];
+                const looksLikeNewSentence = !nextWord || nextStartsSentence.test(nextWord);
+
+                if (!isAbbrev && !isOrdinal && looksLikeNewSentence && current.length >= 4) {
+                    sentences.push(current.join(' '));
+                    current = [];
+                }
             }
-        });
 
-        if (buffer) {
-            if (mergedSentences.length > 0) {
-                mergedSentences[mergedSentences.length - 1] += ' ' + buffer;
+            if (current.length > 0) {
+                if (sentences.length > 0 && current.length < 3) {
+                    sentences[sentences.length - 1] += ' ' + current.join(' ');
+                } else {
+                    sentences.push(current.join(' '));
+                }
+            }
+
+            if (sentences.length <= 2) {
+                paragraphs = [singleBlock];
             } else {
-                mergedSentences.push(buffer);
+                for (let i = 0; i < sentences.length; i += 2) {
+                    paragraphs.push(sentences.slice(i, i + 2).join(' '));
+                }
             }
         }
 
-        const paragraphs = [];
-        for (let i = 0; i < mergedSentences.length; i += 2) {
-            paragraphs.push(mergedSentences.slice(i, i + 2).join(' '));
+        // Hotspot-Boundary-Schutz: Falls ein Hotspot über zwei Absätze getrennt wurde, zusammenführen
+        if (paragraphs.length > 1 && Array.isArray(hotspots) && hotspots.length > 0) {
+            const merged = [paragraphs[0]];
+            for (let i = 1; i < paragraphs.length; i++) {
+                const prev = merged[merged.length - 1];
+                const curr = paragraphs[i];
+                const combined = `${prev} ${curr}`;
+                const normPrev = normalizeForMatch(prev.replace(/\[([^\]]+)\]/g, '$1')).toLowerCase();
+                const normCurr = normalizeForMatch(curr.replace(/\[([^\]]+)\]/g, '$1')).toLowerCase();
+                const normCombined = normalizeForMatch(combined.replace(/\[([^\]]+)\]/g, '$1')).toLowerCase();
+
+                const spansBoundary = hotspots.some(hs => {
+                    if (!hs || !hs.phrase) return false;
+                    const p = normalizeForMatch(String(hs.phrase).replace(/^\[|\]$/g, '').trim()).toLowerCase();
+                    if (!p) return false;
+                    return !normPrev.includes(p) && !normCurr.includes(p) && normCombined.includes(p);
+                });
+
+                if (spansBoundary) {
+                    merged[merged.length - 1] = combined;
+                } else {
+                    merged.push(curr);
+                }
+            }
+            paragraphs = merged;
         }
 
-        return paragraphs;
+        return paragraphs.length > 0 ? paragraphs : [normalizedRaw];
     }
 
     // ----------------------------------------------------------------------
-    // 4. STYLESHEET (DARK & LIGHT MODE KONSISTENT)
+    // 4. STYLESHEET (DARK & LIGHT MODE KONSISTENT + SCROLL-REVEAL-SCHUTZ)
     // ----------------------------------------------------------------------
     function injectAuditEnhancementStyles() {
         if (document.getElementById('mc-audit-v4-styles')) return;
         const style = document.createElement('style');
         style.id = 'mc-audit-v4-styles';
         style.textContent = `
+            /* Schutz vor EditorialScrollEngine: Audit-Abschnitte dürfen niemals auf opacity: 0 hängen bleiben */
+            #player-container .audit-step-container,
+            #player-container .audit-step-container.scroll-reveal-item,
+            #player-container .audit-paragraph {
+                opacity: 1 !important;
+                transform: none !important;
+                visibility: visible !important;
+            }
             .audit-patient-triage-bar {
                 display: flex;
                 align-items: center;
@@ -576,8 +678,21 @@
     function renderTimeline() {
         injectAuditEnhancementStyles();
         const container = document.getElementById('player-container');
-        const caseData = window.activeCaseData;
-        if (!container || !caseData || !Array.isArray(caseData.timeline)) return;
+        const caseData = getActiveCase();
+        if (!container || !caseData) return;
+
+        // Fallwechsel unabhängig von der Script-Ladereihenfolge zuverlässig erkennen
+        const currentCaseId = caseData.case_id || caseData.id || '__unknown__';
+        if (lastRenderedCaseId !== currentCaseId) {
+            lastRenderedCaseId = currentCaseId;
+            activePatientFilter = 'ALL';
+            sentenceHintActiveMap = {};
+        }
+
+        if (!Array.isArray(caseData.timeline) || caseData.timeline.length === 0) {
+            container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall sind keine Audit-Abschnitte hinterlegt.</div>';
+            return;
+        }
 
         const auditState = getAuditProgressState();
         const clearedMap = auditState.clearedStepsMap || {};
@@ -585,9 +700,8 @@
         const resolvedNoiseMap = auditState.resolvedNoiseMap || {};
 
         const clearedCount = Object.keys(clearedMap).filter(k => clearedMap[k]).length;
-        if (typeof window.clearedStepsCount !== 'undefined') {
-            window.clearedStepsCount = clearedCount;
-        }
+        setGlobalClearedStepsCount(clearedCount);
+
         const badge = document.getElementById('badge-mode-audit');
         if (badge) {
             badge.innerText = `${clearedCount}/${caseData.timeline.length}`;
@@ -630,26 +744,25 @@
                 return '';
             }
 
-            const rawText = step.content || '';
-            const hotspots = step.hotspots || [];
+            const rawText = step.content || step.text || step.narrative || step.description || '';
+            const hotspots = Array.isArray(step.hotspots) ? step.hotspots : [];
             const isStepCleared = !!clearedMap[stepIndex];
 
             let foundErrorsCount = 0;
             let unfoundErrorsCount = 0;
             hotspots.forEach((hs, hIdx) => {
                 const st = resolvedHsMap[`${stepIndex}_${hIdx}`];
-                if (hs.is_error) {
+                if (hs && hs.is_error) {
                     if (st === 'signal' || st === 'corrected') foundErrorsCount++;
                     else unfoundErrorsCount++;
                 }
             });
 
-            // Zähle persistierte Fehlalarme in diesem Abschnitt
             const stepNoisePrefix = `${stepIndex}_`;
             const stepNoiseCount = Object.keys(resolvedNoiseMap).filter(k => k.startsWith(stepNoisePrefix) && resolvedNoiseMap[k]).length;
             const activeHintParaIdx = sentenceHintActiveMap[stepIndex];
 
-            const paragraphs = splitStepIntoEditorialParagraphs(rawText);
+            const paragraphs = splitStepIntoEditorialParagraphs(rawText, hotspots);
 
             const paragraphsHTML = paragraphs.map((paraText, paraIdx) => {
                 const segments = parseParagraphIntoSegments(paraText, hotspots);
@@ -673,7 +786,8 @@
                 }).join(' ');
 
                 const isHighlightedPara = (activeHintParaIdx === paraIdx && unfoundErrorsCount > 0 && !isStepCleared);
-                return `<p class="audit-paragraph ${isHighlightedPara ? 'is-focus-sentence' : ''}">${spansHTML}</p>`;
+                // sm-upgraded schützt Audit-Absätze vor EditorialScrollEngine.upgradeEditorialCallouts()
+                return `<p class="audit-paragraph sm-upgraded ${isHighlightedPara ? 'is-focus-sentence' : ''}">${spansHTML}</p>`;
             }).join('');
 
             const stepRadLinks = radLinks.filter(l => l.stepIndex !== null && Number(l.stepIndex) === stepIndex);
@@ -686,7 +800,6 @@
                 `;
             }).join('');
 
-            // Anti-Pixel-Hunting Button ab 3 Fehlalarmen in diesem Abschnitt
             const focusAssistBtnHtml = (!isStepCleared && unfoundErrorsCount > 0 && stepNoiseCount >= 3)
                 ? `<button type="button" class="ghost-tool-btn" style="font-size:0.7rem; padding:3px 8px; border-color:rgba(245,158,11,0.45); color:#f59e0b;"
                            onclick="window.activateOberarztFocus(${stepIndex})"
@@ -711,7 +824,7 @@
                 : '';
 
             return `
-                <article class="audit-step-container" id="audit-step-${stepIndex}">
+                <article class="audit-step-container is-in-view" id="audit-step-${stepIndex}">
                     <header class="audit-step-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                         <div>
                             <span class="audit-step-kicker">Abschnitt ${stepIndex + 1}</span>
@@ -737,11 +850,9 @@
             `;
         }).join('');
 
-        // Quick-Navigation zum nächsten Patienten, falls ein einzelner Patient fertig auditiert wurde
         let nextPatientBannerHtml = '';
         if (activePatientFilter !== 'ALL' && patientGroups.length > 1) {
-            const currentPgIdx = patientGroups.findIndex(g => g.id === activePatientFilter);
-            const currentPg = patientGroups[currentPgIdx];
+            const currentPg = patientGroups.find(g => g.id === activePatientFilter);
             if (currentPg && currentPg.cleared === currentPg.total) {
                 const nextPg = patientGroups.find(g => g.cleared < g.total);
                 nextPatientBannerHtml = `
@@ -788,7 +899,7 @@
     };
 
     window.activateOberarztFocus = function(stepIndex) {
-        const step = window.activeCaseData?.timeline?.[stepIndex];
+        const step = getActiveCase()?.timeline?.[stepIndex];
         if (!step) return;
 
         const auditState = getAuditProgressState();
@@ -796,14 +907,15 @@
         const hotspots = step.hotspots || [];
 
         const nextUnfoundHs = hotspots.find((hs, idx) => {
-            if (!hs.is_error) return false;
+            if (!hs || !hs.is_error) return false;
             const st = resolvedHsMap[`${stepIndex}_${idx}`];
             return st !== 'signal' && st !== 'corrected';
         });
 
         if (!nextUnfoundHs) return;
 
-        const paragraphs = splitStepIntoEditorialParagraphs(step.content || '');
+        const rawText = step.content || step.text || step.narrative || step.description || '';
+        const paragraphs = splitStepIntoEditorialParagraphs(rawText, hotspots);
         const normPhrase = normalizeForMatch(String(nextUnfoundHs.phrase || '').replace(/^\[|\]$/g, '').trim()).toLowerCase();
         const targetParaIdx = paragraphs.findIndex(p => normalizeForMatch(p).toLowerCase().includes(normPhrase));
 
@@ -832,7 +944,6 @@
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
         if (typeof applyXpDelta === 'function') applyXpDelta(-20, 'Fehlalarm');
 
-        // Prüfen, ob ab jetzt 3 Fehlalarme erreicht wurden -> Oberarzt-Fokus-Button einblenden
         const stepNoiseCount = Object.keys({ ...auditState.resolvedNoiseMap, ...(keyToSave ? { [keyToSave]: true } : {}) })
             .filter(k => k.startsWith(`${stepIndex}_`)).length;
         if (stepNoiseCount === 3) {
@@ -841,7 +952,7 @@
     };
 
     window.clearStep = function(stepIndex) {
-        const caseData = window.activeCaseData;
+        const caseData = getActiveCase();
         if (!caseData || !caseData.timeline || !caseData.timeline[stepIndex]) return;
 
         const step = caseData.timeline[stepIndex];
@@ -850,7 +961,7 @@
         const resolvedHsMap = auditState.resolvedHotspotsMap || {};
 
         const unfoundErrorHotspots = hotspots.filter((hs, i) => {
-            if (!hs.is_error) return false;
+            if (!hs || !hs.is_error) return false;
             const spanGroup = document.querySelectorAll(`[data-hs-group="hs-${stepIndex}-${i}"]`);
             const domResolved = spanGroup.length > 0 && Array.from(spanGroup).some(el => el.classList.contains('resolved-signal'));
             const stateResolved = resolvedHsMap[`${stepIndex}_${i}`] === 'signal' || resolvedHsMap[`${stepIndex}_${i}`] === 'corrected';
@@ -892,10 +1003,7 @@
 
             const clearedStepsMap = { ...(auditState.clearedStepsMap || {}), [stepIndex]: true };
             const newClearedCount = Object.keys(clearedStepsMap).filter(k => clearedStepsMap[k]).length;
-
-            if (typeof window.clearedStepsCount !== 'undefined') {
-                window.clearedStepsCount = newClearedCount;
-            }
+            setGlobalClearedStepsCount(newClearedCount);
 
             saveAuditProgressState({
                 clearedStepsCount: newClearedCount,
@@ -916,7 +1024,7 @@
             if (updatedFb) {
                 updatedFb.style.display = 'block';
                 updatedFb.className = 'feedback-box feedback-success';
-                updatedFb.innerHTML = hotspots.filter(hs => hs.is_error).length === 0
+                updatedFb.innerHTML = hotspots.filter(hs => hs && hs.is_error).length === 0
                     ? `<strong>Abschnitt freigegeben (+100 XP):</strong> Korrekt eingeschätzt (Null-Fehler-Kontrolle).`
                     : `<strong>Abschnitt freigegeben (+100 XP):</strong> Alle kritischen Fehler in diesem Abschnitt wurden erfolgreich identifiziert.`;
             }
@@ -980,7 +1088,7 @@
         const hsKey = `${stepIndex}_${hotspotIndex}`;
         const inputEl = document.getElementById(`audit-hyp-${hsKey}`);
         const outputEl = document.getElementById(`audit-ai-eval-${hsKey}`);
-        const hs = window.activeCaseData?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
+        const hs = getActiveCase()?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
         if (!inputEl || !outputEl || !hs) return;
 
         const hypothesis = inputEl.value.trim();
@@ -1030,7 +1138,7 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
     };
 
     window.evaluateAuditHotspot = function(stepIndex, hotspotIndex) {
-        const caseData = window.activeCaseData;
+        const caseData = getActiveCase();
         const step = caseData?.timeline?.[stepIndex];
         const hs = step?.hotspots?.[hotspotIndex];
         const fb = document.getElementById(`audit-fb-${stepIndex}`);
@@ -1100,7 +1208,7 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
     };
 
     window.revealHint = function(stepIndex, hotspotIndex) {
-        const hs = window.activeCaseData?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
+        const hs = getActiveCase()?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
         const fb = document.getElementById(`audit-fb-${stepIndex}`);
         if (!hs || !fb) return;
 
@@ -1124,12 +1232,11 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
             </div>
         `;
 
-        // Behält das Active-Recall-Eingabefeld erhalten, damit der Student seinen Gedanken nach dem Impuls noch formulieren kann!
         fb.innerHTML = renderActiveRecallEditorHtml(stepIndex, hotspotIndex, savedHypothesis, savedCategory, socraticBlockHtml);
     };
 
     window.revealSynthesis = function(stepIndex, hotspotIndex, rewardActiveRecall = false) {
-        const hs = window.activeCaseData?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
+        const hs = getActiveCase()?.timeline?.[stepIndex]?.hotspots?.[hotspotIndex];
         const fb = document.getElementById(`audit-fb-${stepIndex}`);
         if (!hs || !fb) return;
 
@@ -1184,7 +1291,7 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
     };
 
     window.saveAuditSynthesisToDepot = async function(stepIndex, hotspotIndex, btnEl) {
-        const caseData = window.activeCaseData;
+        const caseData = getActiveCase();
         const step = caseData?.timeline?.[stepIndex];
         const hs = step?.hotspots?.[hotspotIndex];
         if (!caseData || !hs || typeof createDepotEntry !== 'function') return;
@@ -1206,7 +1313,7 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
     };
 
     window.saveAllAuditErrorsToDepot = async function(btnEl) {
-        const caseData = window.activeCaseData;
+        const caseData = getActiveCase();
         if (!caseData || !Array.isArray(caseData.timeline) || typeof createDepotEntry !== 'function') return;
 
         const auditState = getAuditProgressState();
@@ -1224,7 +1331,7 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
             const hotspots = step.hotspots || [];
             for (let hsIdx = 0; hsIdx < hotspots.length; hsIdx++) {
                 const hs = hotspots[hsIdx];
-                if (!hs.is_error) continue;
+                if (!hs || !hs.is_error) continue;
                 const status = resolvedHsMap[`${stepIdx}_${hsIdx}`];
                 if (status === 'signal' || status === 'corrected' || clearedMap[stepIdx]) {
                     await createDepotEntry({
@@ -1243,18 +1350,6 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
             btnEl.textContent = exportedCount > 0 ? `✓ ${exportedCount} im Depot gesichert` : 'Keine Fehler offen';
         }
     };
-
-    // Bei Fallwechsel Filter & Satz-Hinweise sauber zurücksetzen (ohne Doppel-Wrapping)
-    const origLoadCase = window.loadCaseById;
-    if (typeof origLoadCase === 'function' && !origLoadCase._auditV4Wrapped) {
-        const wrappedLoadCase = async function(caseId, opts = {}) {
-            activePatientFilter = 'ALL';
-            sentenceHintActiveMap = {};
-            return await origLoadCase.apply(this, arguments);
-        };
-        wrappedLoadCase._auditV4Wrapped = true;
-        window.loadCaseById = wrappedLoadCase;
-    }
 
     // Globale Exporte
     window.parseParagraphIntoSegments = parseParagraphIntoSegments;
