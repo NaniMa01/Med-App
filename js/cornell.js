@@ -1,16 +1,18 @@
 /**
- * MedCheck – Synchronized Cornell Notes Engine V2.0 (js/cornell.js)
+ * MedCheck – Synchronized Cornell Notes Engine V2.1 (js/cornell.js)
  * Features:
  * - Zusammenhängender klinischer Fließtext rechts, gegliedert nach Themen & Differenzialdiagnosen
  * - Exakte 1:1 vertikale Höhen- & Baseline-Synchronisation mit den Titeln in der linken Spalte
- * - Deutsches Wortstamm- & Hyphen-Matching (keine verwaisten "Fortsetzung"-Zeilen mehr)
- * - Automatische Konvertierung bestehender Bullet-Listen in lesbaren Fließtext
- * - Live-Suchfilter, Quick-Jump-Navigation, Active-Recall-Modus & 1-Klick Lern-Depot-Export
+ * - Multi-Format-Parser: V6-HTML, Legacy-<br><br>, <ul>-Listen & Plain-Text-Cues (inkl. ▼-Deep-Dive-Recovery)
+ * - 100 % Safari-/iOS-kompatibel (keine Lookbehind-Regexes)
+ * - Live-Suchfilter mit DOM-Highlight ohne Input-Rebuild, Quick-Jump, Active-Recall-Drill & 1-Klick Lern-Depot
  */
 
 const CornellNotesModule = (() => {
     let isRecallHideMode = false;
     let filterQuery = '';
+    let lastRenderedCaseId = null;
+    let revealedRowsSet = new Set(); // Trackt individuell aufgedeckte Zeilen im Active-Recall-Modus
 
     const STOPWORDS = new Set([
         'der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einer', 'einem', 'einen',
@@ -27,10 +29,34 @@ const CornellNotesModule = (() => {
         }[tag] || tag));
     }
 
+    function escapeRegExp(str) {
+        return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     function stripHtml(html) {
         const tmp = document.createElement('div');
         tmp.innerHTML = String(html || '');
         return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+    }
+
+    // Entfernt gefährliche Tags, behält aber alle redaktionellen MedCheck-Elemente
+    function sanitizeEditorialHtml(rawHtml) {
+        return String(rawHtml || '')
+            .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '');
+    }
+
+    // Robuster Case-Resolver (kompatibel mit window.activeCaseData und globalem `let activeCaseData`)
+    function getActiveCase() {
+        if (window.activeCaseData && typeof window.activeCaseData === 'object') {
+            return window.activeCaseData;
+        }
+        try {
+            if (typeof activeCaseData !== 'undefined' && activeCaseData && typeof activeCaseData === 'object') {
+                return activeCaseData;
+            }
+        } catch (_e) {}
+        return window.currentCase || window.activeCase || null;
     }
 
     /**
@@ -48,11 +74,27 @@ const CornellNotesModule = (() => {
             .map(w => (w.length > 7 ? w.slice(0, 7) : w));
     }
 
+    // Sicherer Fallback für aufklappbare Deep-Dive-Exkurse
+    if (typeof window.toggleDeepDive !== 'function') {
+        window.toggleDeepDive = function(btnElement) {
+            const card = btnElement?.closest?.('.sm-deep-dive-card');
+            if (card) card.classList.toggle('is-open');
+        };
+    }
+
     function injectStyles() {
         if (document.getElementById('mc-cornell-sync-css')) return;
         const style = document.createElement('style');
         style.id = 'mc-cornell-sync-css';
         style.textContent = `
+            /* Schutz vor EditorialScrollEngine: Cornell-Zeilen dürfen nie auf opacity: 0 hängen bleiben */
+            #overview-container .cornell-sync-row,
+            #overview-container .cornell-sync-row.scroll-reveal-item {
+                opacity: 1 !important;
+                transform: none !important;
+                visibility: visible !important;
+            }
+
             .cornell-toolbar {
                 display: flex;
                 align-items: center;
@@ -99,7 +141,7 @@ const CornellNotesModule = (() => {
             }
             .cornell-search-input {
                 width: 100%;
-                padding: 5px 10px;
+                padding: 5px 28px 5px 10px;
                 border-radius: 8px;
                 border: 1px solid var(--card-border, rgba(148, 163, 184, 0.25));
                 background: var(--surface-primary, rgba(6, 9, 19, 0.6));
@@ -110,8 +152,37 @@ const CornellNotesModule = (() => {
                 outline: none;
                 border-color: var(--accent-cyan, #38bdf8);
             }
+            .cornell-search-clear {
+                position: absolute;
+                right: 6px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: none;
+                border: none;
+                color: var(--text-muted, #94a3b8);
+                cursor: pointer;
+                font-size: 0.75rem;
+                padding: 2px 4px;
+                display: none;
+            }
+            .cornell-search-clear.visible {
+                display: block;
+            }
 
-            /* 1:1 SYNCHRONISIERTE ZEILE (LINKER TITEL = EXAKT GLEICHE HÖHE WIE FLIESSTEXT RECHTS) */
+            .cornell-recall-status-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 8px 18px;
+                background: rgba(56, 189, 248, 0.08);
+                border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+                font-size: 0.76rem;
+                color: var(--text-main, #f8fafc);
+            }
+
+            /* 1:1 SYNCHRONISIERTE ZEILE */
             .cornell-sync-sheet {
                 display: flex;
                 flex-direction: column;
@@ -138,7 +209,7 @@ const CornellNotesModule = (() => {
                 background: rgba(2, 132, 199, 0.06);
             }
 
-            /* Linke Titel-Spalte (exakt auf Baseline des ersten Satzes rechts ausgerichtet) */
+            /* Linke Titel-Spalte */
             .cornell-sync-cue-col {
                 padding: 18px 16px 18px 20px;
                 border-right: 2px solid rgba(239, 68, 68, 0.35);
@@ -207,12 +278,12 @@ const CornellNotesModule = (() => {
 
             /* Rechte Fließtext-Spalte */
             .cornell-sync-note-col {
-                padding: 18px 24px;
+                padding: 18px 86px 18px 24px;
                 font-size: 0.94rem;
                 line-height: 1.72;
                 color: var(--text-main, #f1f5f9);
                 border-left: 3px solid transparent;
-                transition: border-color 0.18s ease, background-color 0.18s ease, filter 0.2s ease;
+                transition: border-color 0.18s ease, background-color 0.18s ease;
                 position: relative;
             }
             .cornell-prose-flow {
@@ -231,37 +302,85 @@ const CornellNotesModule = (() => {
                 background: rgba(56, 189, 248, 0.04);
             }
 
-            /* Dezenter Depot-Export-Button pro Absatz bei Hover */
+            /* Depot-Button ohne Textüberlappung */
             .cornell-row-depot-btn {
                 position: absolute;
                 top: 14px;
-                right: 14px;
+                right: 12px;
                 opacity: 0;
                 pointer-events: none;
-                font-size: 0.7rem;
+                font-size: 0.69rem;
                 padding: 3px 8px;
                 border-radius: 7px;
                 transition: opacity 0.15s ease;
+                z-index: 2;
             }
             .cornell-sync-row:hover .cornell-row-depot-btn,
-            .cornell-sync-row.is-row-pinned .cornell-row-depot-btn {
-                opacity: 0.9;
+            .cornell-sync-row.is-row-pinned .cornell-row-depot-btn,
+            .cornell-sync-row.is-row-revealed .cornell-row-depot-btn {
+                opacity: 0.92;
                 pointer-events: auto;
             }
 
-            /* Active-Recall-Modus: Rechter Fließtext verschwommen bis zum Klick/Hover */
-            .cornell-recall-active .cornell-sync-note-col .cornell-prose-flow {
-                filter: blur(6px);
-                opacity: 0.32;
+            /* Echter Active-Recall-Modus: Nur per Klick aufdecken (kein versehentlicher Hover-Spoiler!) */
+            .cornell-recall-active .cornell-sync-row:not(.is-row-revealed) .cornell-prose-flow {
+                filter: blur(7px);
+                opacity: 0.28;
                 cursor: pointer;
                 user-select: none;
                 transition: filter 0.2s ease, opacity 0.2s ease;
             }
-            .cornell-recall-active .cornell-sync-row.is-row-pinned .cornell-sync-note-col .cornell-prose-flow,
-            .cornell-recall-active .cornell-sync-row:hover .cornell-sync-note-col .cornell-prose-flow {
+            .cornell-recall-active .cornell-sync-row.is-row-revealed .cornell-prose-flow {
                 filter: none;
                 opacity: 1;
                 user-select: text;
+                transition: filter 0.2s ease, opacity 0.2s ease;
+            }
+            .cornell-recall-reveal-hint {
+                display: none;
+            }
+            .cornell-recall-active .cornell-sync-row:not(.is-row-revealed) .cornell-recall-reveal-hint {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                padding: 6px 13px;
+                border-radius: 999px;
+                background: var(--surface-primary, rgba(15, 23, 42, 0.92));
+                border: 1px solid var(--accent-cyan, #38bdf8);
+                color: var(--accent-cyan, #38bdf8);
+                font-size: 0.74rem;
+                font-weight: 700;
+                cursor: pointer;
+                z-index: 3;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            }
+
+            /* Such-Markierung */
+            .cornell-search-mark {
+                background: rgba(250, 204, 21, 0.32);
+                color: inherit;
+                border-radius: 3px;
+                padding: 0 2px;
+            }
+
+            /* Inline-Popover für med-term-highlight (Touch & Desktop) */
+            .cornell-term-popover {
+                position: fixed;
+                z-index: 9999;
+                max-width: 310px;
+                padding: 9px 12px;
+                border-radius: 10px;
+                background: var(--surface-elevated, #0f172a);
+                border: 1px solid var(--accent-cyan, #38bdf8);
+                color: var(--text-main, #f8fafc);
+                font-size: 0.78rem;
+                line-height: 1.45;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+                pointer-events: auto;
             }
 
             @media (max-width: 720px) {
@@ -274,7 +393,14 @@ const CornellNotesModule = (() => {
                     padding: 12px 14px 8px 14px;
                 }
                 .cornell-sync-note-col {
-                    padding: 12px 14px 16px 14px;
+                    padding: 12px 14px 36px 14px;
+                }
+                .cornell-row-depot-btn {
+                    top: auto;
+                    bottom: 8px;
+                    right: 12px;
+                    opacity: 0.78;
+                    pointer-events: auto;
                 }
             }
         `;
@@ -282,7 +408,8 @@ const CornellNotesModule = (() => {
     }
 
     /**
-     * Extrahiert die führende Überschrift aus einem HTML-Absatz (z.B. "<b>Locked-in-Syndrom:</b> Text..." -> "Locked-in-Syndrom")
+     * Extrahiert die führende Überschrift aus einem HTML- oder Plain-Text-Absatz
+     * (z.B. "<b>Locked-in-Syndrom:</b> Text..." oder "Epidemiologie: Text...")
      */
     function extractLeadingHeading(blockHtml) {
         const tmp = document.createElement('div');
@@ -292,17 +419,23 @@ const CornellNotesModule = (() => {
 
         if (firstElem && (firstElem.tagName === 'B' || firstElem.tagName === 'STRONG')) {
             const rawHeading = firstElem.textContent.replace(/[:–—-]+$/, '').trim();
-            if (rawHeading.length >= 2 && rawHeading.length <= 75) {
+            if (rawHeading.length >= 2 && rawHeading.length <= 80) {
                 return rawHeading;
+            }
+        }
+
+        // Plain-Text-Fallback: "Überschrift: Fließtext..."
+        const plain = stripHtml(blockHtml);
+        const colonIdx = plain.indexOf(':');
+        if (colonIdx >= 3 && colonIdx <= 75) {
+            const candidate = plain.slice(0, colonIdx).trim();
+            if (candidate && !/[.!?]/.test(candidate)) {
+                return candidate;
             }
         }
         return '';
     }
 
-    /**
-     * Erzeugt einen sinnvollen Fallback-Titel aus den ersten Schlüsselbegriffen eines Absatzes,
-     * falls ein Absatz keinen eigenen Cue im JSON hatte.
-     */
     function deriveFallbackTitleFromBlock(block) {
         if (block.leadingHeading) return block.leadingHeading;
 
@@ -319,15 +452,186 @@ const CornellNotesModule = (() => {
     }
 
     /**
-     * Wandelt HTML-Inhalte (auch bestehende <ul><li>-Listen) in sauberen, zusammenhängenden
-     * Fließtext (<p>) um und trennt nur dort in neue Blöcke, wo ein neues Thema oder eine
-     * neue Differenzialdiagnose beginnt.
+     * Rekonstruiert aus Plain-Text-Resten eines gestrippten Deep-Dives ("...Ende.Titel▼Exkurs...")
+     * wieder eine funktionale, aufklappbare SpringerMedizin-Deep-Dive-Card.
+     */
+    function extractStrippedDeepDiveFromPlainText(rawText) {
+        const arrowIdx = rawText.indexOf('▼');
+        if (arrowIdx === -1 || /sm-deep-dive-card/i.test(rawText)) {
+            return { mainText: rawText, deepDiveHtml: '' };
+        }
+
+        const beforeArrow = rawText.slice(0, arrowIdx);
+        const afterArrow = rawText.slice(arrowIdx + 1).trim();
+        if (!afterArrow) return { mainText: rawText, deepDiveHtml: '' };
+
+        // Letztes Satzende vor dem Deep-Dive-Titel finden
+        const titleMatch = beforeArrow.match(/([\s\S]*?[.!?])\s*([A-ZÄÖÜ][^.!?\n]{3,120})$/);
+        if (!titleMatch) {
+            return { mainText: rawText, deepDiveHtml: '' };
+        }
+
+        const mainText = titleMatch[1].trim();
+        const ddTitle = titleMatch[2].trim();
+        const deepDiveHtml = `
+            <div class="sm-deep-dive-card">
+                <button type="button" class="sm-deep-dive-trigger" onclick="toggleDeepDive(this)">
+                    <span>${escapeSafe(ddTitle)}</span>
+                    <span class="sm-deep-dive-chevron">▼</span>
+                </button>
+                <div class="sm-deep-dive-grid-wrapper">
+                    <div class="sm-deep-dive-inner">
+                        <div class="sm-deep-dive-content">${escapeSafe(afterArrow)}</div>
+                    </div>
+                </div>
+            </div>
+        `.trim();
+
+        return { mainText, deepDiveHtml };
+    }
+
+    /**
+     * Formatiert Plain-Text-Absätze mit führender "Überschrift:" sowie inline "Merke:/Cave:/Klinik-Perle:"
+     * sauber in lesbares HTML.
+     */
+    function formatPlainProseChunkToHtml(chunkText) {
+        const clean = String(chunkText || '').trim();
+        if (!clean) return '';
+
+        // Falls bereits HTML-Tags enthalten sind, unverändert in <p> belassen
+        if (/<[a-z][\s\S]*>/i.test(clean)) {
+            return /^<p\b/i.test(clean) ? clean : `<p>${clean}</p>`;
+        }
+
+        // Inline-Callouts ("Merke:", "Cave:", "Klinik-Perle:") als eigene Absätze absetzen
+        const parts = clean
+            .replace(/([.!?])\s*(?=(?:Merke|Cave|Klinik-Perle)\s*:)/gi, '$1\u0000')
+            .split('\u0000')
+            .map(p => p.trim())
+            .filter(Boolean);
+
+        return parts.map(part => {
+            const escaped = escapeSafe(part);
+            const colonIdx = part.indexOf(':');
+            if (colonIdx >= 3 && colonIdx <= 75 && !/[.!?]/.test(part.slice(0, colonIdx))) {
+                const head = escapeSafe(part.slice(0, colonIdx + 1));
+                const rest = escapeSafe(part.slice(colonIdx + 1));
+                return `<p><b>${head}</b>${rest}</p>`;
+            }
+            return `<p>${escaped}</p>`;
+        }).join('');
+    }
+
+    /**
+     * Teilt einen einzelnen Plain-Text-Block anhand der definierten Cues ("Cue:") auf –
+     * selbst dann, wenn im JSON kein Leerzeichen nach dem Satzpunkt steht.
+     */
+    function splitPlainBlockByCues(plainText, cuesList) {
+        if (!plainText || !Array.isArray(cuesList) || cuesList.length < 2) return null;
+
+        const splitPoints = [];
+        cuesList.forEach(cue => {
+            const cleanCue = stripHtml(cue).trim();
+            if (cleanCue.length < 3) return;
+            const regex = new RegExp(escapeRegExp(cleanCue) + '\\s*:', 'gi');
+            const match = regex.exec(plainText);
+            if (match) {
+                splitPoints.push(match.index);
+            }
+        });
+
+        const uniqueSorted = Array.from(new Set(splitPoints)).sort((a, b) => a - b);
+        if (uniqueSorted.length < 2) return null;
+
+        const chunks = [];
+        if (uniqueSorted[0] > 0) {
+            const preamble = plainText.slice(0, uniqueSorted[0]).trim();
+            if (preamble) chunks.push(preamble);
+        }
+        for (let i = 0; i < uniqueSorted.length; i++) {
+            const start = uniqueSorted[i];
+            const end = i + 1 < uniqueSorted.length ? uniqueSorted[i + 1] : plainText.length;
+            const slice = plainText.slice(start, end).trim();
+            if (slice) chunks.push(slice);
+        }
+
+        return chunks.length > 1 ? chunks : null;
+    }
+
+    /**
+     * Führt verwaiste reine Überschriften-Blöcke (z.B. "<p><strong>Vaskuläre Myelopathien:</strong></p>")
+     * mit dem nachfolgenden Fließtext-Absatz zusammen.
+     */
+    function mergeOrphanHeadingBlocks(blocks) {
+        if (!Array.isArray(blocks) || blocks.length < 2) return blocks;
+
+        const merged = [];
+        for (let i = 0; i < blocks.length; i++) {
+            const curr = blocks[i];
+            const next = blocks[i + 1];
+            const isStandaloneHeading = next
+                && curr.plainText.length <= 75
+                && /:$/.test(curr.plainText)
+                && !/[.!?]/.test(curr.plainText);
+
+            if (isStandaloneHeading) {
+                const combinedHtml = `${curr.html}${next.html}`;
+                merged.push({
+                    html: combinedHtml,
+                    plainText: `${curr.plainText} ${next.plainText}`.trim(),
+                    leadingHeading: curr.leadingHeading || curr.plainText.replace(/:$/, '').trim()
+                });
+                i++; // nächsten Block als bereits verschmolzen überspringen
+            } else {
+                merged.push(curr);
+            }
+        }
+        return merged;
+    }
+
+    /**
+     * Wandelt HTML- oder Plain-Text-Inhalte in saubere, thematisch gegliederte Fließtext-Blöcke um.
      */
     function parseNoteIntoProseBlocks(rawNotesHtml, cuesList = []) {
-        let html = String(rawNotesHtml || '').trim();
+        let html = sanitizeEditorialHtml(rawNotesHtml).trim();
         if (!html) return [];
 
-        // Legacy <br><br> Trenner in <p> umwandeln
+        const hasHtmlTags = /<[a-z][\s\S]*>/i.test(html);
+
+        // FALL A: Reiner Plain-Text (wie bei HTML-gestrippten JSONs)
+        if (!hasHtmlTags) {
+            const { mainText, deepDiveHtml } = extractStrippedDeepDiveFromPlainText(html);
+            const cueChunks = splitPlainBlockByCues(mainText, cuesList);
+
+            let plainBlocks;
+            if (cueChunks) {
+                plainBlocks = cueChunks.map(chunk => {
+                    const formatted = formatPlainProseChunkToHtml(chunk);
+                    return {
+                        html: formatted,
+                        plainText: stripHtml(formatted),
+                        leadingHeading: extractLeadingHeading(formatted)
+                    };
+                });
+            } else {
+                const paraParts = mainText.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+                plainBlocks = paraParts.map(part => {
+                    const formatted = formatPlainProseChunkToHtml(part);
+                    return {
+                        html: formatted,
+                        plainText: stripHtml(formatted),
+                        leadingHeading: extractLeadingHeading(formatted)
+                    };
+                });
+            }
+
+            if (deepDiveHtml && plainBlocks.length > 0) {
+                plainBlocks[plainBlocks.length - 1].html += deepDiveHtml;
+            }
+            return plainBlocks;
+        }
+
+        // FALL B: HTML-Inhalte (inkl. Legacy <br><br> Trenner)
         const hasBlockTags = /<(p|ul|ol|div|h[1-6]|blockquote)\b/i.test(html);
         if (!hasBlockTags && /<br\s*\/?>/i.test(html)) {
             const parts = html.split(/(?:<br\s*\/?>\s*){2,}/i).map(s => s.trim()).filter(Boolean);
@@ -340,16 +644,17 @@ const CornellNotesModule = (() => {
         wrapper.innerHTML = html;
 
         const blocks = [];
-        const normalizedCuesLower = cuesList.map(c => c.toLowerCase());
+        const normalizedCuesLower = cuesList.map(c => stripHtml(c).toLowerCase());
 
         Array.from(wrapper.childNodes).forEach(node => {
             if (node.nodeType === Node.TEXT_NODE) {
                 const txt = node.textContent.trim();
                 if (txt) {
+                    const formatted = formatPlainProseChunkToHtml(txt);
                     blocks.push({
-                        html: `<p>${escapeSafe(txt)}</p>`,
+                        html: formatted,
                         plainText: txt,
-                        leadingHeading: ''
+                        leadingHeading: extractLeadingHeading(formatted)
                     });
                 }
                 return;
@@ -372,13 +677,11 @@ const CornellNotesModule = (() => {
                 return;
             }
 
-            // Listen (<ul> / <ol>) intelligent in Fließtext (<p>) überführen:
+            // Listen (<ul> / <ol>) intelligent in Fließtext (<p>) überführen
             if (tag === 'UL' || tag === 'OL') {
                 const listItems = Array.from(node.children).filter(li => li.tagName === 'LI');
                 if (listItems.length === 0) return;
 
-                // Prüfen, ob die einzelnen <li> eigene Unterthemen / Differenzialdiagnosen sind
-                // (z.B. "<li><b>Locked-in-Syndrom:</b> ...</li>") oder ob alle zusammen EIN Thema bilden
                 const itemInfos = listItems.map(li => {
                     const inner = li.innerHTML.trim();
                     const heading = extractLeadingHeading(li.outerHTML);
@@ -391,8 +694,6 @@ const CornellNotesModule = (() => {
                 const distinctTopicsCount = itemInfos.filter(i => i.heading || i.matchesSeparateCue).length;
 
                 if (distinctTopicsCount >= 2 || (cuesList.length > 1 && listItems.length > 1)) {
-                    // Jede Differenzialdiagnose / jedes Unterthema wird ein eigener Fließtext-Absatz (<p>)
-                    // (ohne Bullet-Punkte "•", damit es als echter Fließtext erscheint!)
                     itemInfos.forEach(item => {
                         let proseContent = item.inner;
                         if (!/[.!?]$/.test(stripHtml(proseContent))) {
@@ -405,7 +706,6 @@ const CornellNotesModule = (() => {
                         });
                     });
                 } else {
-                    // Alle Listenpunkte gehören zum SELBE Thema -> Zu einem einzigen zusammenhängenden Fließtext-Absatz verbinden!
                     const mergedProse = itemInfos
                         .map(item => {
                             let s = item.inner.trim();
@@ -435,27 +735,28 @@ const CornellNotesModule = (() => {
             }
         });
 
-        // Falls ein gesamter Block nur aus 1 langen Absatz besteht, aber mehrere Cues definiert wurden,
-        // an thematischen Satzgrenzen vor Fett-Überschriften in Absätze teilen
+        // Falls ein gesamter HTML-Block nur aus 1 langen Absatz besteht, aber mehrere Cues definiert wurden:
+        // Safari-sicher (OHNE Lookbehind) an Fett-Überschriften aufteilen
         if (blocks.length === 1 && cuesList.length > 1) {
             const innerMatch = blocks[0].html.match(/^<p[^>]*>([\s\S]*)<\/p>$/i);
             if (innerMatch && innerMatch[1]) {
                 const chunks = innerMatch[1]
-                    .split(/(?<=[.!?])\s+(?=(?:<b>|<strong>)[A-ZÄÖÜ])/g)
+                    .replace(/([.!?])\s*(?=(?:<b\b[^>]*>|<strong\b[^>]*>)[A-ZÄÖÜ])/g, '$1\u0000')
+                    .split('\u0000')
                     .map(s => s.trim())
                     .filter(Boolean);
 
                 if (chunks.length > 1) {
-                    return chunks.map(chunk => ({
+                    return mergeOrphanHeadingBlocks(chunks.map(chunk => ({
                         html: `<p>${chunk}</p>`,
                         plainText: stripHtml(chunk),
                         leadingHeading: extractLeadingHeading(`<p>${chunk}</p>`)
-                    }));
+                    })));
                 }
             }
         }
 
-        return blocks;
+        return mergeOrphanHeadingBlocks(blocks);
     }
 
     /**
@@ -471,7 +772,6 @@ const CornellNotesModule = (() => {
             return rawCues.map(c => ({ cue: c, html: '', plainText: '' }));
         }
 
-        // Bewertungs-Matrix zwischen jedem Cue und jedem Fließtext-Absatz
         const candidateScores = [];
         rawCues.forEach((cue, cIdx) => {
             const cueLower = cue.toLowerCase();
@@ -484,23 +784,17 @@ const CornellNotesModule = (() => {
                 const blockStems = new Set(extractStemTokens(block.plainText));
                 const headingStems = new Set(extractStemTokens(block.leadingHeading));
 
-                // 1. Direkter Abgleich mit der fettgedruckten Überschrift des Absatzes
                 if (headingLower && (headingLower === cueLower || headingLower.includes(cueLower) || cueLower.includes(headingLower))) {
                     score += 140;
                 }
-
-                // 2. Exakter Phrasen-Match im Fließtext
                 if (cueLower.length >= 4 && textLower.includes(cueLower)) {
                     score += 65;
                 }
-
-                // 3. Wortstamm-Überlappung (fängt Flexionen & Bindestriche wie "Komaähnliche" vs "Koma-ähnlichen" auf!)
                 cueStems.forEach(stem => {
                     if (headingStems.has(stem)) score += 32;
                     else if (blockStems.has(stem)) score += 18;
                 });
 
-                // 4. Sanfter Positions-Tiebreaker (falls Reihenfolge im JSON bereits 1:1 stimmt)
                 if (cIdx === bIdx) {
                     score += 16;
                 } else if (Math.abs(cIdx - bIdx) === 1) {
@@ -511,7 +805,6 @@ const CornellNotesModule = (() => {
             });
         });
 
-        // Eindeutige 1:1-Zuordnung nach höchstem semantischem Score
         candidateScores.sort((a, b) => b.score - a.score);
         const assignedCueForBlock = new Array(blocks.length).fill(null);
         const usedCues = new Set();
@@ -525,7 +818,6 @@ const CornellNotesModule = (() => {
             usedCues.add(cIdx);
         });
 
-        // Falls ein Cue noch frei ist, auf den nächsten unbesetzten Absatz legen
         rawCues.forEach((cue, cIdx) => {
             if (usedCues.has(cIdx)) return;
             const freeBlockIdx = assignedCueForBlock.findIndex(val => val === null);
@@ -535,17 +827,12 @@ const CornellNotesModule = (() => {
             }
         });
 
-        // Alle Fließtext-Absätze vollständig ausgeben – jeder mit seinem exakten linken Titel!
-        const pairs = blocks.map((block, bIdx) => {
-            const title = assignedCueForBlock[bIdx] || deriveFallbackTitleFromBlock(block);
-            return {
-                cue: title,
-                html: block.html,
-                plainText: block.plainText
-            };
-        });
+        const pairs = blocks.map((block, bIdx) => ({
+            cue: assignedCueForBlock[bIdx] || deriveFallbackTitleFromBlock(block),
+            html: block.html,
+            plainText: block.plainText
+        }));
 
-        // Falls es mehr Cues als Absätze gab, verbleibende Cues im letzten Block mit anzeigen
         const remainingCues = rawCues.filter((_, idx) => !usedCues.has(idx));
         if (remainingCues.length > 0 && pairs.length > 0) {
             pairs[pairs.length - 1].extraCues = remainingCues;
@@ -554,42 +841,153 @@ const CornellNotesModule = (() => {
         return pairs;
     }
 
-    function render() {
-        const container = document.getElementById('overview-container');
-        if (!container) return;
+    // Sicherer DOM-Highlighter: markiert Suchbegriffe nur in TextNodes ohne HTML-Tags zu beschädigen
+    function highlightSearchInElement(rootEl, query) {
+        const cleanQuery = (query || '').trim();
+        if (!rootEl || cleanQuery.length < 2) return;
 
-        injectStyles();
-
-        const data = activeCaseData?.case_overview;
-        if (!data) {
-            container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall ist keine detaillierte Übersicht verfügbar.</div>';
-            return;
+        const regex = new RegExp(`(${escapeRegExp(cleanQuery)})`, 'gi');
+        const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+        const textNodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.nodeValue || !node.nodeValue.trim()) continue;
+            const parentTag = node.parentElement?.tagName;
+            if (parentTag === 'BUTTON' || parentTag === 'SCRIPT' || parentTag === 'STYLE' || parentTag === 'MARK') continue;
+            if (regex.test(node.nodeValue)) {
+                textNodes.push(node);
+            }
+            regex.lastIndex = 0;
         }
 
+        textNodes.forEach(textNode => {
+            const frag = document.createDocumentFragment();
+            const parts = textNode.nodeValue.split(regex);
+            parts.forEach((part, idx) => {
+                if (idx % 2 === 1) {
+                    const mark = document.createElement('mark');
+                    mark.className = 'cornell-search-mark';
+                    mark.textContent = part;
+                    frag.appendChild(mark);
+                } else if (part) {
+                    frag.appendChild(document.createTextNode(part));
+                }
+            });
+            textNode.parentNode?.replaceChild(frag, textNode);
+        });
+    }
+
+    // Interaktives Glossar-Popover für <span class="med-term-highlight" data-med-info="...">
+    function closeMedTermPopover() {
+        document.getElementById('mc-cornell-term-popover')?.remove();
+    }
+
+    function openMedTermPopover(termEl) {
+        closeMedTermPopover();
+        const info = termEl?.getAttribute('data-med-info');
+        if (!info) return;
+
+        const pop = document.createElement('div');
+        pop.id = 'mc-cornell-term-popover';
+        pop.className = 'cornell-term-popover';
+        pop.innerHTML = `<strong style="color:var(--accent-cyan,#38bdf8); display:block; margin-bottom:2px;">${escapeSafe(termEl.textContent)}</strong><span>${escapeSafe(info)}</span>`;
+        document.body.appendChild(pop);
+
+        const rect = termEl.getBoundingClientRect();
+        const popRect = pop.getBoundingClientRect();
+        const top = rect.top > popRect.height + 16 ? rect.top - popRect.height - 8 : rect.bottom + 8;
+        const left = Math.min(window.innerWidth - popRect.width - 12, Math.max(12, rect.left));
+        pop.style.top = `${Math.max(12, top)}px`;
+        pop.style.left = `${left}px`;
+    }
+
+    function computeAllPairs(data) {
         const allPairs = [];
-        if (Array.isArray(data.cornell_notes)) {
+        if (Array.isArray(data?.cornell_notes)) {
             data.cornell_notes.forEach(entry => {
                 allPairs.push(...buildAlignedPairsForEntry(entry));
             });
         }
+        return allPairs;
+    }
+
+    // Aktualisiert NUR Toolbar, Recall-Leiste & Zeilen – lässt das Suchfeld unberührt im DOM!
+    function renderSheetContent(container, allPairs, caseObj) {
+        const tocHost = container.querySelector('#cornell-toc-host');
+        const recallBarHost = container.querySelector('#cornell-recall-bar-host');
+        const sheetHost = container.querySelector('#cornell-sync-sheet');
+        const rootEl = container.querySelector('#cornell-sheet-root');
+        const clearBtn = container.querySelector('#cornell-search-clear-btn');
+        if (!sheetHost || !rootEl) return;
+
+        rootEl.classList.toggle('cornell-recall-active', isRecallHideMode);
+        if (clearBtn) clearBtn.classList.toggle('visible', filterQuery.trim().length > 0);
 
         const qLower = filterQuery.trim().toLowerCase();
-        const visiblePairs = qLower
-            ? allPairs.filter(p => p.cue.toLowerCase().includes(qLower) || p.plainText.toLowerCase().includes(qLower))
-            : allPairs;
+        const visibleEntries = allPairs
+            .map((pair, origIdx) => ({ pair, origIdx }))
+            .filter(({ pair }) => {
+                if (!qLower) return true;
+                const extraMatch = Array.isArray(pair.extraCues) && pair.extraCues.some(ec => ec.toLowerCase().includes(qLower));
+                return pair.cue.toLowerCase().includes(qLower)
+                    || pair.plainText.toLowerCase().includes(qLower)
+                    || extraMatch;
+            });
 
-        const tocPillsHtml = visiblePairs.map((p, idx) => `
-            <button type="button"
-                    class="cornell-toc-pill"
-                    data-jump-row="cornell-row-${idx}"
-                    title="Direkt zu „${escapeSafe(p.cue)}“ springen">
-                ${idx + 1}. ${escapeSafe(p.cue)}
-            </button>
-        `).join('');
+        // 1. Recall-Fortschrittsleiste
+        if (recallBarHost) {
+            if (isRecallHideMode && visibleEntries.length > 0) {
+                const revealedVisibleCount = visibleEntries.filter(e => revealedRowsSet.has(e.origIdx)).length;
+                const allRevealed = revealedVisibleCount === visibleEntries.length;
+                recallBarHost.innerHTML = `
+                    <div class="cornell-recall-status-bar">
+                        <span>🧠 <strong>Active-Recall aktiv:</strong> Überlege zuerst anhand des linken Stichworts, dann klicke auf die Zeile zum Abgleich (<strong>${revealedVisibleCount}/${visibleEntries.length}</strong> aufgedeckt).</span>
+                        <button type="button" class="ghost-tool-btn" id="btn-cornell-reveal-all" style="font-size:0.72rem; padding:3px 9px;">
+                            ${allRevealed ? '🙈 Alle wieder abdecken' : '👁️ Alle aufdecken'}
+                        </button>
+                    </div>
+                `;
+            } else {
+                recallBarHost.innerHTML = '';
+            }
+        }
 
-        const rowsHtml = visiblePairs.map((pair, rowIdx) => {
+        // 2. TOC Quick-Jump-Pills
+        if (tocHost) {
+            if (visibleEntries.length > 1) {
+                tocHost.innerHTML = `
+                    <div class="cornell-toolbar">
+                        <div class="cornell-toc-pills">
+                            ${visibleEntries.map(({ pair }, idx) => `
+                                <button type="button"
+                                        class="cornell-toc-pill"
+                                        data-jump-row="cornell-row-${idx}"
+                                        title="Direkt zu „${escapeSafe(pair.cue)}“ springen">
+                                    ${idx + 1}. ${escapeSafe(pair.cue)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                tocHost.innerHTML = '';
+            }
+        }
+
+        // 3. Synchronisierte Cornell-Zeilen
+        if (visibleEntries.length === 0) {
+            sheetHost.innerHTML = `
+                <div style="padding:24px; text-align:center; color:var(--text-muted);">
+                    Keine passenden Abschnitte für „${escapeSafe(filterQuery)}“ gefunden.
+                </div>
+            `;
+            return;
+        }
+
+        sheetHost.innerHTML = visibleEntries.map(({ pair, origIdx }, rowIdx) => {
             const rowId = `cornell-row-${rowIdx}`;
             const targetId = `cornell-note-target-${rowIdx}`;
+            const isRevealed = revealedRowsSet.has(origIdx);
 
             const extraCuesHtml = Array.isArray(pair.extraCues)
                 ? pair.extraCues.map(ec => `
@@ -601,7 +999,10 @@ const CornellNotesModule = (() => {
                 : '';
 
             return `
-                <div class="cornell-grid cornell-sync-row" id="${rowId}" data-row-idx="${rowIdx}">
+                <div class="cornell-grid cornell-sync-row is-in-view ${isRevealed ? 'is-row-revealed' : ''}"
+                     id="${rowId}"
+                     data-row-idx="${rowIdx}"
+                     data-orig-idx="${origIdx}">
                     <div class="cornell-sync-cue-col">
                         <div class="cornell-sync-cue-item cornell-cue-item"
                              tabindex="0"
@@ -620,6 +1021,9 @@ const CornellNotesModule = (() => {
                                 title="Diesen Abschnitt ins Lern-Depot speichern">
                             📌 Depot
                         </button>
+                        <button type="button" class="cornell-recall-reveal-hint" data-reveal-row="${origIdx}">
+                            👁️ Lösung aufdecken
+                        </button>
                         <div class="cornell-prose-flow">
                             ${pair.html}
                         </div>
@@ -628,78 +1032,66 @@ const CornellNotesModule = (() => {
             `;
         }).join('');
 
-        const topicTitle = window.isSpecialtyBlindMode
-            ? 'Klinisches Krankheitsbild (Blind-Training)'
-            : (data.topic || 'Thematische Übersicht');
+        // Suchtreffer im Text hervorheben
+        if (qLower.length >= 2) {
+            highlightSearchInElement(sheetHost, filterQuery);
+        }
 
-        container.innerHTML = `
-            <div class="cornell-wrapper ${isRecallHideMode ? 'cornell-recall-active' : ''}" id="cornell-sheet-root">
-                <div class="cornell-header">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
-                        <div>
-                            <h2>${escapeSafe(topicTitle)}</h2>
-                            <div class="cornell-header-subtitle">
-                                Vollständige Cornell-Note · ${allPairs.length} Themenabschnitte (1:1 Fließtext-Synchronisation)
-                            </div>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <div class="cornell-search-box">
-                                <input type="text"
-                                       id="cornell-live-search-input"
-                                       class="cornell-search-input"
-                                       value="${escapeSafe(filterQuery)}"
-                                       placeholder="🔍 In Übersicht suchen...">
-                            </div>
-                            <button type="button"
-                                    class="ghost-tool-btn"
-                                    id="btn-toggle-cornell-recall"
-                                    style="font-size:0.76rem; padding:6px 12px;"
-                                    title="Blendet den Fließtext rechts aus, damit du dich anhand der linken Titel selbst abfragen kannst">
-                                ${isRecallHideMode ? '👁️ Text einblenden' : '🧠 Active-Recall (Text abdecken)'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                ${visiblePairs.length > 1 ? `
-                    <div class="cornell-toolbar">
-                        <div class="cornell-toc-pills">
-                            ${tocPillsHtml}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <div class="cornell-body cornell-sync-sheet">
-                    ${rowsHtml || '<div style="padding:20px; color:var(--text-muted);">Keine passenden Abschnitte gefunden.</div>'}
-                </div>
-
-                <div class="cornell-summary">
-                    <div class="cornell-summary-badge">Take-Home Message (Synthese)</div>
-                    <p>${escapeSafe(data.summary || 'Keine Zusammenfassung hinterlegt.')}</p>
-                </div>
-            </div>
-        `;
-
-        bindInteractions(container, visiblePairs);
+        bindSheetInteractions(container, allPairs, visibleEntries, caseObj);
     }
 
-    function bindInteractions(container, visiblePairs) {
+    function bindSheetInteractions(container, allPairs, visibleEntries, caseObj) {
         const rows = Array.from(container.querySelectorAll('.cornell-sync-row'));
 
+        const toggleRowRecall = (row, origIdx) => {
+            if (!isRecallHideMode) return;
+            if (revealedRowsSet.has(origIdx)) {
+                revealedRowsSet.delete(origIdx);
+                row.classList.remove('is-row-revealed');
+            } else {
+                revealedRowsSet.add(origIdx);
+                row.classList.add('is-row-revealed');
+            }
+            if (typeof window.triggerHaptic === 'function') window.triggerHaptic(7);
+
+            // Zähler in der Recall-Leiste aktualisieren ohne komplettes Re-Render
+            const bar = container.querySelector('.cornell-recall-status-bar');
+            if (bar) {
+                const revealedVisibleCount = visibleEntries.filter(e => revealedRowsSet.has(e.origIdx)).length;
+                const strongs = bar.querySelectorAll('strong');
+                if (strongs.length >= 2) {
+                    strongs[1].textContent = `${revealedVisibleCount}/${visibleEntries.length}`;
+                }
+                const allBtn = bar.querySelector('#btn-cornell-reveal-all');
+                if (allBtn) {
+                    allBtn.textContent = revealedVisibleCount === visibleEntries.length
+                        ? '🙈 Alle wieder abdecken'
+                        : '👁️ Alle aufdecken';
+                }
+            }
+        };
+
         rows.forEach((row, idx) => {
-            const cueItem = row.querySelector('.cornell-sync-cue-item');
+            const origIdx = Number(row.getAttribute('data-orig-idx'));
+            const cueItems = Array.from(row.querySelectorAll('.cornell-sync-cue-item'));
+            const noteCol = row.querySelector('.cornell-sync-note-col');
+            const revealBtn = row.querySelector('.cornell-recall-reveal-hint');
 
             row.addEventListener('mouseenter', () => {
                 row.classList.add('is-row-hovered');
-                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(3);
             });
 
             row.addEventListener('mouseleave', () => {
                 row.classList.remove('is-row-hovered');
             });
 
-            if (cueItem) {
+            // Alle Cues (inkl. extraCues) interaktiv machen
+            cueItems.forEach(cueItem => {
                 cueItem.addEventListener('click', () => {
+                    if (isRecallHideMode) {
+                        toggleRowRecall(row, origIdx);
+                        return;
+                    }
                     const wasPinned = row.classList.contains('is-row-pinned');
                     rows.forEach(r => r.classList.remove('is-row-pinned'));
                     if (!wasPinned) {
@@ -722,8 +1114,40 @@ const CornellNotesModule = (() => {
                         rows[idx - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 });
+            });
+
+            // Klick auf verschwommenen Text oder "Lösung aufdecken"-Pill im Active-Recall-Modus
+            if (revealBtn) {
+                revealBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleRowRecall(row, origIdx);
+                });
+            }
+            if (noteCol) {
+                noteCol.addEventListener('click', (e) => {
+                    if (!isRecallHideMode) return;
+                    if (e.target.closest('button, a, .sm-deep-dive-card, .med-term-highlight')) return;
+                    if (!revealedRowsSet.has(origIdx)) {
+                        toggleRowRecall(row, origIdx);
+                    }
+                });
             }
         });
+
+        // "Alle aufdecken / Alle abdecken" im Active-Recall-Modus
+        const revealAllBtn = container.querySelector('#btn-cornell-reveal-all');
+        if (revealAllBtn) {
+            revealAllBtn.addEventListener('click', () => {
+                const allRevealed = visibleEntries.every(e => revealedRowsSet.has(e.origIdx));
+                if (allRevealed) {
+                    visibleEntries.forEach(e => revealedRowsSet.delete(e.origIdx));
+                } else {
+                    visibleEntries.forEach(e => revealedRowsSet.add(e.origIdx));
+                }
+                if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
+                renderSheetContent(container, allPairs, caseObj);
+            });
+        }
 
         // Quick-Jump-Pills
         container.querySelectorAll('.cornell-toc-pill[data-jump-row]').forEach(pill => {
@@ -741,48 +1165,177 @@ const CornellNotesModule = (() => {
         container.querySelectorAll('.cornell-row-depot-btn[data-save-row-idx]').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const pair = visiblePairs[Number(btn.getAttribute('data-save-row-idx'))];
-                if (!pair || typeof window.createDepotEntry !== 'function') return;
+                const entry = visibleEntries[Number(btn.getAttribute('data-save-row-idx'))];
+                const saveFn = window.createDepotEntry || (typeof createDepotEntry === 'function' ? createDepotEntry : null);
+                if (!entry || !saveFn) return;
 
-                await window.createDepotEntry({
-                    case_id: activeCaseData?.case_id || 'cornell_note',
-                    case_title: activeCaseData?.metadata?.title || activeCaseData?.case_id || 'Cornell Note',
-                    category: activeCaseData?.folder_name || activeCaseData?.metadata?.medical_field || 'Allgemein',
-                    cue_context: pair.cue,
-                    highlighted_text: pair.plainText
+                await saveFn({
+                    case_id: caseObj?.case_id || 'cornell_note',
+                    case_title: caseObj?.metadata?.title || caseObj?.case_id || 'Cornell Note',
+                    category: caseObj?.folder_name || caseObj?.metadata?.medical_field || 'Allgemein',
+                    cue_context: entry.pair.cue,
+                    highlighted_text: entry.pair.plainText
                 });
                 btn.textContent = '✓ Gespeichert';
                 btn.disabled = true;
             });
         });
 
-        // Live-Suchfeld mit Fokus-Erhalt
+        // Touch- & Tastatur-Popover für interaktive Fachbegriffe (.med-term-highlight)
+        container.querySelectorAll('.med-term-highlight[data-med-info]').forEach(termEl => {
+            termEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openMedTermPopover(termEl);
+            });
+            termEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openMedTermPopover(termEl);
+                }
+            });
+        });
+    }
+
+    // Einmaliger Dokument-Listener zum Schließen des Fachbegriff-Popovers
+    if (!window._mcCornellPopoverCloseBound) {
+        window._mcCornellPopoverCloseBound = true;
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest?.('.cornell-term-popover') && !e.target.closest?.('.med-term-highlight')) {
+                closeMedTermPopover();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeMedTermPopover();
+        });
+    }
+
+    function render() {
+        const container = document.getElementById('overview-container');
+        if (!container) return;
+
+        injectStyles();
+        closeMedTermPopover();
+
+        const caseObj = getActiveCase();
+        const data = caseObj?.case_overview;
+        if (!data) {
+            container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall ist keine detaillierte Übersicht verfügbar.</div>';
+            return;
+        }
+
+        // Bei Fallwechsel Suchfilter & Recall-Aufdeckstatus sauber zurücksetzen
+        const currentCaseId = caseObj.case_id || caseObj.id || '__unknown__';
+        if (lastRenderedCaseId !== currentCaseId) {
+            lastRenderedCaseId = currentCaseId;
+            filterQuery = '';
+            revealedRowsSet = new Set();
+        }
+
+        const allPairs = computeAllPairs(data);
+
+        const topicTitle = window.isSpecialtyBlindMode
+            ? 'Klinisches Krankheitsbild (Blind-Training)'
+            : (data.topic || 'Thematische Übersicht');
+
+        container.innerHTML = `
+            <div class="cornell-wrapper ${isRecallHideMode ? 'cornell-recall-active' : ''}" id="cornell-sheet-root">
+                <div class="cornell-header">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h2>${escapeSafe(topicTitle)}</h2>
+                            <div class="cornell-header-subtitle">
+                                Vollständige Cornell-Note · ${allPairs.length} Themenabschnitte (1:1 Fließtext-Synchronisation)
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <div class="cornell-search-box">
+                                <input type="text"
+                                       id="cornell-live-search-input"
+                                       class="cornell-search-input"
+                                       value="${escapeSafe(filterQuery)}"
+                                       placeholder="🔍 In Übersicht suchen..."
+                                       autocomplete="off">
+                                <button type="button"
+                                        id="cornell-search-clear-btn"
+                                        class="cornell-search-clear ${filterQuery ? 'visible' : ''}"
+                                        title="Suche leeren">✕</button>
+                            </div>
+                            <button type="button"
+                                    class="ghost-tool-btn"
+                                    id="btn-toggle-cornell-recall"
+                                    style="font-size:0.76rem; padding:6px 12px;"
+                                    title="Blendet den Fließtext rechts aus, damit du dich anhand der linken Titel selbst abfragen kannst">
+                                ${isRecallHideMode ? '👁️ Text einblenden' : '🧠 Active-Recall (Text abdecken)'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cornell-recall-bar-host"></div>
+                <div id="cornell-toc-host"></div>
+                <div class="cornell-body cornell-sync-sheet" id="cornell-sync-sheet"></div>
+
+                <div class="cornell-summary">
+                    <div class="cornell-summary-badge">Take-Home Message (Synthese)</div>
+                    <p>${escapeSafe(data.summary || 'Keine Zusammenfassung hinterlegt.')}</p>
+                </div>
+            </div>
+        `;
+
+        // Header-Events einmalig binden (überleben alle Live-Such-Updates)
         const searchInput = container.querySelector('#cornell-live-search-input');
+        const clearBtn = container.querySelector('#cornell-search-clear-btn');
+        const recallBtn = container.querySelector('#btn-toggle-cornell-recall');
+
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
-                const pos = e.target.selectionStart;
                 filterQuery = e.target.value;
-                render();
-                const nextInput = document.getElementById('cornell-live-search-input');
-                if (nextInput) {
-                    nextInput.focus();
-                    try { nextInput.setSelectionRange(pos, pos); } catch (_e) {}
+                renderSheetContent(container, allPairs, caseObj);
+            });
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && filterQuery) {
+                    e.stopPropagation();
+                    filterQuery = '';
+                    searchInput.value = '';
+                    renderSheetContent(container, allPairs, caseObj);
                 }
             });
         }
 
-        // Active-Recall-Modus Toggle
-        const recallBtn = container.querySelector('#btn-toggle-cornell-recall');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                filterQuery = '';
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.focus();
+                }
+                renderSheetContent(container, allPairs, caseObj);
+            });
+        }
+
         if (recallBtn) {
             recallBtn.addEventListener('click', () => {
                 isRecallHideMode = !isRecallHideMode;
+                if (isRecallHideMode) {
+                    revealedRowsSet = new Set();
+                }
+                recallBtn.textContent = isRecallHideMode
+                    ? '👁️ Text einblenden'
+                    : '🧠 Active-Recall (Text abdecken)';
                 if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
-                render();
+                renderSheetContent(container, allPairs, caseObj);
             });
         }
+
+        renderSheetContent(container, allPairs, caseObj);
     }
 
-    return { render };
+    function resetState() {
+        filterQuery = '';
+        revealedRowsSet = new Set();
+    }
+
+    return { render, resetState };
 })();
 
 window.CornellNotesModule = CornellNotesModule;
