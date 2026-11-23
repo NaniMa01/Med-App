@@ -1123,6 +1123,49 @@ const FOLDER_SYNC_TIMESTAMP_KEY = 'medcheck_folder_sync_updated_at_v1';
 const SOLITAIRE_DECK_CLOUD_PREFIX = '__SOL_DECK__';
 let folderSyncDebounceTimer = null;
 
+// Einmalige Migration alter Keys (ohne _v1) in die einheitlichen _v1-Keys
+(function migrateLegacyFolderStorageKeys() {
+    try {
+        const legacyDeleted = JSON.parse(localStorage.getItem('medcheck_deleted_folders') || '[]');
+        const currentDeleted = JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]');
+        if (Array.isArray(legacyDeleted) && legacyDeleted.length > 0) {
+            const merged = Array.from(new Set([...currentDeleted, ...legacyDeleted]));
+            localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(merged));
+            localStorage.removeItem('medcheck_deleted_folders');
+        }
+
+        const legacyHidden = JSON.parse(localStorage.getItem('medcheck_hidden_cloud_cases') || '[]');
+        const currentHidden = JSON.parse(localStorage.getItem(HIDDEN_CLOUD_CASES_KEY) || '[]');
+        if (Array.isArray(legacyHidden) && legacyHidden.length > 0) {
+            const mergedHidden = Array.from(new Set([...currentHidden, ...legacyHidden]));
+            localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(mergedHidden));
+            localStorage.removeItem('medcheck_hidden_cloud_cases');
+        }
+    } catch (e) {
+        console.warn('[StorageMigration] Übersprungen:', e);
+    }
+})();
+
+// Rohzugriff auf custom_cases OHNE Filter (verhindert Datenverlust bei Mutationen!)
+function getRawCustomCases() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('custom_cases') || '[]');
+        return Array.isArray(parsed) ? parsed.filter(c => c && !isSystemOrSolitaireCloudRow(c)) : [];
+    } catch (_e) {
+        return [];
+    }
+}
+window.getRawCustomCases = getRawCustomCases;
+
+function saveRawCustomCases(casesList) {
+    try {
+        const clean = Array.isArray(casesList) ? casesList.filter(c => c && !isSystemOrSolitaireCloudRow(c)) : [];
+        localStorage.setItem('custom_cases', JSON.stringify(clean));
+    } catch (e) {
+        console.error('[Storage] Fehler beim Speichern von custom_cases:', e);
+    }
+}
+
 // WICHTIG: Jeder User bekommt seine EIGENE Ordner-Konfigurations-ID!
 function getUserFolderConfigCloudId(userId) {
     const uid = userId || window.currentSessionUser?.id;
@@ -1153,10 +1196,99 @@ function isSystemOrSolitaireCloudRow(caseIdOrObj) {
            field === '__SYSTEM__';
 }
 
+function getDeletedFoldersSet() {
+    try {
+        const arr = JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]');
+        return new Set(Array.isArray(arr) ? arr : []);
+    } catch (_e) {
+        return new Set();
+    }
+}
+window.getDeletedFoldersSet = getDeletedFoldersSet;
+
+function markFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    if (!clean || clean.toLowerCase() === 'allgemein') return;
+    try {
+        const set = getDeletedFoldersSet();
+        set.add(clean);
+        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+    } catch (e) {
+        console.warn('Konnte Ordner nicht als gelöscht markieren:', e);
+    }
+}
+
+function unmarkFolderAsDeleted(folderName) {
+    if (!folderName) return;
+    const clean = folderName.trim();
+    try {
+        const set = getDeletedFoldersSet();
+        if (set.has(clean)) {
+            set.delete(clean);
+            localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
+        }
+    } catch (e) {
+        console.warn('Konnte gelöschten Ordner-Status nicht aufheben:', e);
+    }
+}
+
+function getHiddenCloudCaseIds() {
+    try {
+        const arr = JSON.parse(localStorage.getItem(HIDDEN_CLOUD_CASES_KEY) || '[]');
+        return Array.isArray(arr) ? arr : [];
+    } catch (_e) {
+        return [];
+    }
+}
+window.getHiddenCloudCaseIds = getHiddenCloudCaseIds;
+
+function addHiddenCloudCaseId(caseId) {
+    if (!caseId) return;
+    try {
+        const list = getHiddenCloudCaseIds();
+        if (!list.includes(caseId)) {
+            list.push(caseId);
+            localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(list));
+        }
+    } catch (e) {
+        console.warn('Konnte versteckte Fall-ID nicht speichern:', e);
+    }
+}
+window.addHiddenCloudCaseId = addHiddenCloudCaseId;
+
+function removeHiddenCloudCaseId(caseId) {
+    if (!caseId) return;
+    try {
+        const list = getHiddenCloudCaseIds();
+        if (list.includes(caseId)) {
+            localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, JSON.stringify(list.filter(id => id !== caseId)));
+        }
+    } catch (e) {
+        console.warn('Konnte versteckte Fall-ID nicht entfernen:', e);
+    }
+}
+window.removeHiddenCloudCaseId = removeHiddenCloudCaseId;
+
+// Sofort-Hilfe: Stellt alle versehentlich ausgeblendeten Cloud-Fälle & gelöschten Ordner-Sperren wieder her
+window.restoreAllHiddenCasesAndFolders = async function() {
+    localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, '[]');
+    localStorage.setItem(DELETED_FOLDERS_SET_KEY, '[]');
+    await pushFolderConfigToSupabase(true);
+    if (typeof loadCasesFromDatabase === 'function') {
+        await loadCasesFromDatabase();
+    } else if (typeof renderDashboardCases === 'function') {
+        renderDashboardCases();
+    }
+    if (typeof showScorePopup === 'function') {
+        showScorePopup('♻️ Alle ausgeblendeten Fälle wiederhergestellt!', 'positive');
+    }
+};
+
 function exportLocalFolderConfigPayload(customTimestamp = null) {
     const ts = customTimestamp || Date.now();
     return {
-        schema_version: 1,
+        schema_version: 2,
         updatedAt: ts,
         superFolderOrder: getSuperFolderOrder(),
         folderSuperMapping: getFolderSuperMapping(),
@@ -1165,7 +1297,9 @@ function exportLocalFolderConfigPayload(customTimestamp = null) {
         caseFolderOverrides: getCaseFolderOverrides(),
         deletedFolders: Array.from(getDeletedFoldersSet()),
         hiddenCloudCases: getHiddenCloudCaseIds(),
-        excludedSpecialtySupers: getExcludedSpecialtySuperFolders()
+        excludedSpecialtySupers: typeof getExcludedSpecialtySuperFolders === 'function'
+            ? getExcludedSpecialtySuperFolders()
+            : []
     };
 }
 
@@ -1214,6 +1348,7 @@ function applyCloudFolderConfigIfNewer(cloudPayload, forceApply = false) {
         return false;
     }
 }
+
 function updateFolderSyncStatusBadge(state = 'synced') {
     const btn = document.getElementById('folder-cloud-sync-btn');
     if (!btn) return;
@@ -1232,7 +1367,7 @@ function updateFolderSyncStatusBadge(state = 'synced') {
     }
 }
 
-// Speichert die Ordnerstruktur NUR für den jeweiligen User (is_public: false!)
+// Speichert die Ordnerstruktur NUR für den jeweiligen User (fehlertolerant je Ziel)
 async function pushFolderConfigToSupabase(immediate = false) {
     const ts = setLocalFolderSyncTimestamp(Date.now());
     const payload = exportLocalFolderConfigPayload(ts);
@@ -1248,20 +1383,42 @@ async function pushFolderConfigToSupabase(immediate = false) {
             const { data: { session } } = await sb.auth.getSession();
             const currentUser = session?.user;
 
-            if (currentUser) {
+            if (!currentUser) {
+                updateFolderSyncStatusBadge('error');
+                return;
+            }
+
+            let anySucceeded = false;
+
+            // 1. Primär: user_profiles.folder_config des jeweiligen Users
+            const { error: profileErr } = await sb.from('user_profiles').upsert({
+                id: currentUser.id,
+                user_id: currentUser.id,
+                email: currentUser.email?.toLowerCase(),
+                folder_config: payload,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+
+            if (!profileErr) {
+                anySucceeded = true;
+            } else {
+                console.warn('[FolderSync] user_profiles upsert fehlgeschlagen:', profileErr.message);
+            }
+
+            // 2. Backup in eigenen Auth-Metadaten (funktioniert unabhängig von Tabellen-RLS)
+            const { error: metaErr } = await sb.auth.updateUser({
+                data: { medcheck_folder_config_v1: payload }
+            });
+            if (!metaErr) {
+                anySucceeded = true;
+            } else {
+                console.warn('[FolderSync] auth.updateUser fehlgeschlagen:', metaErr.message);
+            }
+
+            // 3. Optionaler Fallback in cases-Tabelle (nur wenn RLS es zulässt, blockiert nicht)
+            if (isCreatorUser(currentUser)) {
                 const userConfigId = getUserFolderConfigCloudId(currentUser.id);
-
-                // 1. In user_profiles.folder_config des jeweiligen Users speichern
-                await sb.from('user_profiles').upsert({
-                    id: currentUser.id,
-                    user_id: currentUser.id,
-                    email: currentUser.email?.toLowerCase(),
-                    folder_config: payload,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-
-                // 2. User-spezifischer Eintrag in cases (is_public: false, damit es niemand anderem angezeigt wird!)
-                await sb.from('cases').upsert({
+                const { error: caseCfgErr } = await sb.from('cases').upsert({
                     case_id: userConfigId,
                     title: '__SYSTEM_FOLDER_CONFIG__',
                     medical_field: '__SYSTEM__',
@@ -1271,15 +1428,14 @@ async function pushFolderConfigToSupabase(immediate = false) {
                     content: payload
                 }, { onConflict: 'case_id' });
 
-                // 3. Backup in den eigenen Auth-Metadaten
-                await sb.auth.updateUser({
-                    data: { medcheck_folder_config_v1: payload }
-                }).catch(() => {});
-
-                updateFolderSyncStatusBadge('synced');
-            } else {
-                updateFolderSyncStatusBadge('error');
+                if (caseCfgErr) {
+                    console.warn('[FolderSync] cases-Config-Mirror übersprungen:', caseCfgErr.message);
+                } else {
+                    anySucceeded = true;
+                }
             }
+
+            updateFolderSyncStatusBadge(anySucceeded ? 'synced' : 'error');
         } catch (err) {
             console.warn('[FolderSync] Cloud-Push fehlgeschlagen:', err);
             updateFolderSyncStatusBadge('error');
@@ -1299,7 +1455,9 @@ window.forceSyncFoldersAcrossDevices = async function() {
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(10);
     updateFolderSyncStatusBadge('syncing');
     await pushFolderConfigToSupabase(true);
-    await loadCasesFromDatabase();
+    if (typeof loadCasesFromDatabase === 'function') {
+        await loadCasesFromDatabase();
+    }
     if (typeof showScorePopup === 'function') {
         showScorePopup('☁️ Ordnerstruktur synchronisiert!', 'positive');
     }
@@ -1326,33 +1484,6 @@ function setCaseFolderOverride(caseId, folderName) {
     saveCaseFolderOverrides(map);
 }
 
-function getDeletedFoldersSet() {
-    try {
-        return new Set(JSON.parse(localStorage.getItem(DELETED_FOLDERS_SET_KEY) || '[]'));
-    } catch (_e) {
-        return new Set();
-    }
-}
-
-function markFolderAsDeleted(folderName) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-    if (clean.toLowerCase() === 'allgemein') return;
-    const set = getDeletedFoldersSet();
-    set.add(clean);
-    localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
-}
-
-function unmarkFolderAsDeleted(folderName) {
-    if (!folderName) return;
-    const clean = folderName.trim();
-    const set = getDeletedFoldersSet();
-    if (set.has(clean)) {
-        set.delete(clean);
-        localStorage.setItem(DELETED_FOLDERS_SET_KEY, JSON.stringify(Array.from(set)));
-    }
-}
-
 function applyFolderOverridesToCase(caseObj) {
     if (!caseObj) return caseObj;
     const cId = caseObj.case_id || caseObj.id;
@@ -1367,6 +1498,7 @@ function applyFolderOverridesToCase(caseObj) {
         currentFolder = overrides[cId];
     }
 
+    // Gelöschte/umbenannte Alt-Ordner landen sicher in 'Allgemein' statt den Fall verschwinden zu lassen
     if (deletedFolders.has(currentFolder)) {
         currentFolder = 'Allgemein';
         if (cId) {
@@ -1388,7 +1520,6 @@ function getActiveSupabaseClient() {
 const getSupabaseInstance = getActiveSupabaseClient;
 
 async function syncModifiedCasesToSupabase(casesList) {
-    // Eigene Ordnerstruktur des Users immer in sein eigenes Profil synchronisieren
     await pushFolderConfigToSupabase(false);
 
     if (!Array.isArray(casesList) || casesList.length === 0) return;
@@ -1400,22 +1531,25 @@ async function syncModifiedCasesToSupabase(casesList) {
         const currentUser = session?.user;
         if (!currentUser) return;
 
-        // WICHTIG: Nur wenn Marco (Creator) Fälle verschiebt, wird der globale Ordner in der Cloud geändert.
-        // Andere User speichern Fälle nur für sich privat (is_public: false), falls es ihre eigenen sind!
         const userIsCreator = isCreatorUser(currentUser);
 
         for (const c of casesList) {
             const cId = c.case_id || c.id;
             if (!cId || cId === BUILTIN_DEMO_CASE.case_id || isSystemOrSolitaireCloudRow(cId)) continue;
             const folder = (c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
+            const title = c.metadata?.title || c.title || cId;
 
-            if (userIsCreator) {
-                // Marco aktualisiert nur Fälle, die bereits in der Cloud veröffentlicht wurden!
-                // Lokale Fälle, die du NICHT hochgeladen hast, werden nicht automatisch geteilt!
-                if (window.cloudCaseIds && window.cloudCaseIds.has(cId)) {
-                    await sb.from('cases')
-                        .update({ medical_field: folder, content: c })
-                        .eq('case_id', cId);
+            if (userIsCreator && window.cloudCaseIds && window.cloudCaseIds.has(cId)) {
+                const { error } = await sb.from('cases')
+                    .update({
+                        title,
+                        medical_field: folder,
+                        content: c
+                    })
+                    .eq('case_id', cId);
+
+                if (error) {
+                    console.warn(`[Sync] Cloud-Update für ${cId} fehlgeschlagen:`, error.message);
                 }
             }
         }
@@ -1423,7 +1557,6 @@ async function syncModifiedCasesToSupabase(casesList) {
         console.warn('[Sync] Hintergrund-Sync zu Supabase übersprungen:', err);
     }
 }
-
 // ==========================================================================
 // 07. FALL- & ORDNER-VERWALTUNG (CREATE, RENAME, DELETE, MOVE, STEP-ORDER)
 // ==========================================================================
@@ -2026,39 +2159,36 @@ window.renameFolder = async function(oldName, newName) {
     });
 
     if (typeof BUILTIN_DEMO_CASE !== 'undefined') {
-        const demoFolder = (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
-        if (demoFolder === cleanOld || overrides[BUILTIN_DEMO_CASE.case_id] === cleanOld) {
+        const demoFolder = (overrides[BUILTIN_DEMO_CASE.case_id] || BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim();
+        if (demoFolder === cleanOld) {
             overrides[BUILTIN_DEMO_CASE.case_id] = cleanNew;
         }
     }
 
-    let customCases = getCustomCases();
+    // WICHTIG: Rohdaten lesen, damit gefilterte Fälle nicht verloren gehen!
+    let customCases = getRawCustomCases();
     let modifiedCases = [];
     customCases.forEach(c => {
-        if (typeof applyFolderOverridesToCase === 'function') applyFolderOverridesToCase(c);
-        const cFolder = (c.folder_name || c.metadata?.medical_field || '').trim();
+        const cId = c.case_id || c.id;
+        const cFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || '').trim();
         if (cFolder === cleanOld) {
             c.folder_name = cleanNew;
             if (c.metadata) c.metadata.medical_field = cleanNew;
-            overrides[c.case_id || c.id] = cleanNew;
+            if (cId) overrides[cId] = cleanNew;
             modifiedCases.push(c);
         }
     });
 
     if (typeof saveCaseFolderOverrides === 'function') saveCaseFolderOverrides(overrides);
-    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    saveRawCustomCases(customCases);
 
-    if (typeof openFolders !== 'undefined') {
-        if (openFolders[cleanOld] !== undefined) {
-            openFolders[cleanNew] = openFolders[cleanOld];
-            delete openFolders[cleanOld];
-        }
+    if (typeof openFolders !== 'undefined' && openFolders[cleanOld] !== undefined) {
+        openFolders[cleanNew] = openFolders[cleanOld];
+        delete openFolders[cleanOld];
     }
-    if (typeof bookshelfFolderState !== 'undefined') {
-        if (bookshelfFolderState[cleanOld] !== undefined) {
-            bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
-            delete bookshelfFolderState[cleanOld];
-        }
+    if (typeof bookshelfFolderState !== 'undefined' && bookshelfFolderState[cleanOld] !== undefined) {
+        bookshelfFolderState[cleanNew] = bookshelfFolderState[cleanOld];
+        delete bookshelfFolderState[cleanOld];
     }
 
     if (typeof window.triggerHaptic === 'function') window.triggerHaptic(8);
@@ -2066,7 +2196,6 @@ window.renameFolder = async function(oldName, newName) {
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
 
     if (typeof syncModifiedCasesToSupabase === 'function') await syncModifiedCasesToSupabase(modifiedCases);
-    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 
 window.deleteFolder = async function(folderName, caseCount = 0) {
@@ -2089,10 +2218,10 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
                 id: 'deleteMode',
                 type: 'select',
                 label: 'Umgang mit enthaltenen Fällen',
-                defaultValue: 'delete_all',
+                defaultValue: 'move_general',
                 options: [
-                    { value: 'delete_all', label: `Ordner inkl. aller ${caseCount} Fälle für mich entfernen (Empfohlen)` },
-                    { value: 'move_general', label: `Nur Ordner auflösen (${caseCount} Fälle nach „Allgemein“ verschieben)` }
+                    { value: 'move_general', label: `Nur Ordner auflösen (${caseCount} Fälle nach „Allgemein“ verschieben – Sicher)` },
+                    { value: 'delete_all', label: `Ordner inkl. aller ${caseCount} Fälle für mich ausblenden/entfernen` }
                 ]
             }
         ] : [],
@@ -2101,7 +2230,7 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     });
 
     if (!res) return;
-    const deleteMode = (typeof res === 'object' && res.deleteMode) ? res.deleteMode : 'delete_all';
+    const deleteMode = (typeof res === 'object' && res.deleteMode) ? res.deleteMode : 'move_general';
 
     markFolderAsDeleted(clean);
 
@@ -2117,11 +2246,12 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     if (typeof saveFolderSuperMapping === 'function') saveFolderSuperMapping(mapping);
 
     const overrides = typeof getCaseFolderOverrides === 'function' ? getCaseFolderOverrides() : {};
-    let customCases = getCustomCases();
+    let customCases = getRawCustomCases();
     let modifiedCases = [];
 
-    const demoCurrentFolder = typeof BUILTIN_DEMO_CASE !== 'undefined' ? (overrides[BUILTIN_DEMO_CASE.case_id]
-        || (BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim()) : '';
+    const demoCurrentFolder = typeof BUILTIN_DEMO_CASE !== 'undefined'
+        ? (overrides[BUILTIN_DEMO_CASE.case_id] || BUILTIN_DEMO_CASE.folder_name || BUILTIN_DEMO_CASE.metadata?.medical_field || '').trim()
+        : '';
 
     if (deleteMode === 'delete_all') {
         if (typeof BUILTIN_DEMO_CASE !== 'undefined' && demoCurrentFolder === clean) {
@@ -2168,7 +2298,7 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     }
 
     if (typeof saveCaseFolderOverrides === 'function') saveCaseFolderOverrides(overrides);
-    localStorage.setItem('custom_cases', JSON.stringify(customCases));
+    saveRawCustomCases(customCases);
 
     if (typeof openFolders !== 'undefined') delete openFolders[clean];
     if (typeof bookshelfFolderState !== 'undefined') delete bookshelfFolderState[clean];
@@ -2179,9 +2309,130 @@ window.deleteFolder = async function(folderName, caseCount = 0) {
     if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
 
     if (typeof syncModifiedCasesToSupabase === 'function') await syncModifiedCasesToSupabase(modifiedCases);
-    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 };
 
+window.moveCaseToFolder = async function(caseId, targetFolder) {
+    if (!caseId || !targetFolder || isSystemOrSolitaireCloudRow(caseId)) return;
+    const cleanFolder = targetFolder.trim();
+
+    unmarkFolderAsDeleted(cleanFolder);
+    removeHiddenCloudCaseId(caseId);
+    if (typeof setCaseFolderOverride === 'function') setCaseFolderOverride(caseId, cleanFolder);
+
+    let customCases = getRawCustomCases();
+    let targetCase = customCases.find(c => (c.case_id || c.id) === caseId);
+
+    if (!targetCase && typeof BUILTIN_DEMO_CASE !== 'undefined' && caseId === BUILTIN_DEMO_CASE.case_id) {
+        targetCase = JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE));
+    }
+
+    if (!targetCase) {
+        const allRegistered = window.getRegisteredCases ? window.getRegisteredCases({ ignoreSpecialtyFilter: true }) : [];
+        const found = allRegistered.find(c => (c.case_id || c.id) === caseId);
+        if (found) {
+            targetCase = JSON.parse(JSON.stringify(found));
+        }
+    }
+
+    if (!targetCase) {
+        console.warn('Fall nicht gefunden zum Verschieben:', caseId);
+        return;
+    }
+
+    targetCase.folder_name = cleanFolder;
+    if (targetCase.metadata) {
+        targetCase.metadata.medical_field = cleanFolder;
+    }
+
+    if (typeof BUILTIN_DEMO_CASE === 'undefined' || caseId !== BUILTIN_DEMO_CASE.case_id) {
+        customCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
+        customCases.push(targetCase);
+        saveRawCustomCases(customCases);
+    }
+
+    if (typeof registerDynamicFolder === 'function') registerDynamicFolder(cleanFolder);
+    if (typeof openFolders !== 'undefined') openFolders[cleanFolder] = true;
+
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
+
+    if (typeof syncModifiedCasesToSupabase === 'function') await syncModifiedCasesToSupabase([targetCase]);
+};
+
+window.deleteCaseById = async function(caseId) {
+    if (!caseId) return;
+
+    if (typeof BUILTIN_DEMO_CASE !== 'undefined' && caseId === BUILTIN_DEMO_CASE.case_id) {
+        alert('Der integrierte System-Demofall kann nicht gelöscht werden.');
+        return;
+    }
+
+    const allCases = window.getRegisteredCases ? window.getRegisteredCases({ ignoreSpecialtyFilter: true }) : [
+        (typeof BUILTIN_DEMO_CASE !== 'undefined' ? BUILTIN_DEMO_CASE : null),
+        ...getRawCustomCases()
+    ].filter(Boolean);
+
+    const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
+    const title = targetCase?.metadata?.title || targetCase?.title || caseId;
+    const isCloudCase = !!(window.cloudCaseIds && window.cloudCaseIds.has(caseId));
+    const isCurrentUserCreator = isCreatorUser();
+
+    const confirmMsg = isCloudCase
+        ? `Möchtest du den Fall „${title}“ für dich ausblenden?`
+        : `Möchtest du den lokalen Fall „${title}“ (${caseId}) wirklich löschen?\n\nDein Lernfortschritt für diesen Fall wird dabei ebenfalls zurückgesetzt.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    if (isCloudCase && isCurrentUserCreator) {
+        const alsoUnpublish = window.confirm(
+            `Creator-Option: Dieser Fall ist in der Supabase-Cloud veröffentlicht.\n\nSoll „${title}“ AUCH komplett aus der Cloud für alle User gelöscht werden?\n(Klicke „Abbrechen“, um ihn nur für dich auszublenden.)`
+        );
+        if (alsoUnpublish) {
+            const sb = typeof getActiveSupabaseClient === 'function' ? getActiveSupabaseClient() : null;
+            if (sb) {
+                try {
+                    const { error } = await sb.from('cases').delete().eq('case_id', caseId);
+                    if (error) throw error;
+                    if (window.cloudCaseIds instanceof Set) window.cloudCaseIds.delete(caseId);
+                } catch (err) {
+                    console.error('Fehler beim Löschen aus der Cloud:', err);
+                    alert(`Cloud-Löschung fehlgeschlagen: ${err.message}`);
+                }
+            }
+        } else {
+            addHiddenCloudCaseId(caseId);
+        }
+    } else if (isCloudCase) {
+        addHiddenCloudCaseId(caseId);
+    }
+
+    let customCases = getRawCustomCases().filter(c => (c.case_id || c.id) !== caseId);
+    saveRawCustomCases(customCases);
+
+    if (typeof ProgressManager !== 'undefined' && ProgressManager && typeof ProgressManager.resetEntireCase === 'function') {
+        ProgressManager.resetEntireCase(caseId);
+    }
+
+    if (typeof activeCaseData !== 'undefined' && activeCaseData && (activeCaseData.case_id === caseId || activeCaseData.id === caseId)) {
+        activeCaseData = null;
+        const playerView = document.getElementById('player-view');
+        if (playerView && playerView.style.display !== 'none') {
+            if (typeof window.switchTab === 'function') window.switchTab('dashboard', document.querySelectorAll('.nav-item')[0]);
+        }
+    }
+
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic(14);
+
+    if (typeof renderDashboardCases === 'function') renderDashboardCases();
+    if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof window.renderSpecialtyHub === 'function') window.renderSpecialtyHub();
+    if (typeof window.SpacedRepetitionEngine !== 'undefined' && typeof window.SpacedRepetitionEngine.renderDashboardWidget === 'function') {
+        const currentFilter = document.getElementById('sr-folder-filter')?.value || 'ALL';
+        window.SpacedRepetitionEngine.renderDashboardWidget('sr-dashboard-widget', currentFilter);
+    }
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
+};
 window.moveCaseToFolder = async function(caseId, targetFolder) {
     if (!caseId || !targetFolder || caseId === (typeof FOLDER_CONFIG_CLOUD_ID !== 'undefined' ? FOLDER_CONFIG_CLOUD_ID : '')) return;
     const cleanFolder = targetFolder.trim();
@@ -3068,10 +3319,9 @@ function computeCaseTelemetry(caseObj, isSolved, savedState) {
     };
 }
 function renderDashboardCases() {
-    initCustomSuperFoldersState();
+   initCustomSuperFoldersState();
     ensureBookshelfHeaderButtons();
 
-    const customCases = getCustomCases();
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
 
     let wrapper = document.getElementById('super-folders-wrapper');
@@ -3086,7 +3336,8 @@ function renderDashboardCases() {
     }
     if (!wrapper) return;
 
-    const allCases = [BUILTIN_DEMO_CASE, ...customCases.filter(c => c.case_id !== BUILTIN_DEMO_CASE.case_id)];
+    // Respektiert Overrides & Hidden-Flags auch für BUILTIN_DEMO_CASE und ignoriert Specialty-Filter auf dem Dashboard
+    const allCases = window.getRegisteredCases({ ignoreSpecialtyFilter: true });
 
     const queryLower = dashboardSearchQuery.toLowerCase();
     const isFilteringActive = queryLower.length > 0 || dashboardSearchStatusFilter !== 'all';
@@ -3880,28 +4131,29 @@ function applyNotabilityFolderHierarchy(dragged, targetInfo) {
     if (typeof renderSubjectProgressDrawer === 'function') {
         renderSubjectProgressDrawer();
     }
+   if (typeof pushFolderConfigToSupabase === 'function') {
+        pushFolderConfigToSupabase();
+    }
 }
+
+
 
 // ==========================================================================
 // 12. PLAYER-LOGIK, CORNELL-OVERVIEW & MINDMAP-KONVERTER
 // ==========================================================================
 function getCustomCases(opts = {}) {
     try {
-        const raw = JSON.parse(localStorage.getItem('custom_cases')) || [];
+        const raw = getRawCustomCases();
         const hiddenIds = new Set(getHiddenCloudCaseIds());
-        const deletedFolders = getDeletedFoldersSet();
-        const overrides = getCaseFolderOverrides();
 
         let list = raw
             .filter(c => {
                 if (!c || isSystemOrSolitaireCloudRow(c)) return false;
                 const cId = c.case_id || c.id;
                 if (cId && hiddenIds.has(cId)) return false;
-                const rawFolder = (overrides[cId] || c.folder_name || c.metadata?.medical_field || 'Allgemein').trim();
-                if (deletedFolders.has(rawFolder)) return false;
                 return true;
             })
-            .map(c => applyFolderOverridesToCase(c));
+            .map(c => applyFolderOverridesToCase(JSON.parse(JSON.stringify(c))));
 
         if (!opts.ignoreSpecialtyFilter && window._shouldFilterForSpecialtyMode && window._shouldFilterForSpecialtyMode()) {
             list = list.filter(c => !window.isCaseExcludedBySpecialtyFilter(c));
@@ -3911,6 +4163,26 @@ function getCustomCases(opts = {}) {
         return [];
     }
 }
+window.getCustomCases = getCustomCases;
+
+window.getRegisteredCases = function(opts = {}) {
+    const hiddenIds = new Set(getHiddenCloudCaseIds());
+    const demoId = BUILTIN_DEMO_CASE.case_id;
+
+    const result = [];
+    if (!hiddenIds.has(demoId)) {
+        const demoCopy = applyFolderOverridesToCase(JSON.parse(JSON.stringify(BUILTIN_DEMO_CASE)));
+        result.push(demoCopy);
+    }
+
+    const custom = getCustomCases({ ignoreSpecialtyFilter: true }).filter(c => c.case_id !== demoId);
+    result.push(...custom);
+
+    if (!opts.ignoreSpecialtyFilter && window._shouldFilterForSpecialtyMode && window._shouldFilterForSpecialtyMode()) {
+        return result.filter(c => !window.isCaseExcludedBySpecialtyFilter(c));
+    }
+    return result;
+};
 
 window.getRegisteredCases = function(opts = {}) {
     const hiddenIds = new Set(getHiddenCloudCaseIds());
@@ -4970,22 +5242,18 @@ window.validateAndSaveCustomCase = function() {
             throw new Error('Das Pflichtfeld "timeline" muss ein Array sein.');
         }
 
-        parsed.folder_name = document.getElementById('case-folder-input')?.value.trim() 
+        parsed.folder_name = document.getElementById('case-folder-input')?.value.trim()
                              || resolveCaseFolderName(parsed);
 
+        // Falls Fall-ID oder Ordner früher einmal gelöscht/ausgeblendet wurden, sauber reaktivieren
+        unmarkFolderAsDeleted(parsed.folder_name);
+        removeHiddenCloudCaseId(parsed.case_id);
+        setCaseFolderOverride(parsed.case_id, parsed.folder_name);
         registerDynamicFolder(parsed.folder_name);
 
-        let customCases = [];
-        try {
-            customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-            if (!Array.isArray(customCases)) { customCases = []; }
-        } catch (_storageError) {
-            customCases = [];
-        }
-
-        customCases = customCases.filter(c => c.case_id !== parsed.case_id);
+        let customCases = getRawCustomCases().filter(c => c.case_id !== parsed.case_id);
         customCases.push(parsed);
-        localStorage.setItem('custom_cases', JSON.stringify(customCases));
+        saveRawCustomCases(customCases);
 
         try {
             if (window.MedicalDictionary && typeof window.MedicalDictionary.registerCase === 'function') {
@@ -4998,15 +5266,17 @@ window.validateAndSaveCustomCase = function() {
 
         if (window.Cloud && window.Cloud.isLoggedIn()) {
             window.Cloud.saveCloudCase(parsed)
-                .then(() => showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`))
+                .then(() => {
+                    if (window.cloudCaseIds instanceof Set) window.cloudCaseIds.add(parsed.case_id);
+                    renderDashboardCases();
+                    showForgeFeedback('feedback-success', `<strong>Korrekt!</strong> Fall "${parsed.case_id}" lokal und online gespeichert.`);
+                })
                 .catch(cloudErr => showForgeFeedback('feedback-error', `Fall lokal gespeichert, aber Online-Speicherung fehlgeschlagen: ${cloudErr.message}`));
         }
-
     } catch (err) {
         showForgeFeedback('feedback-error', `Validierungsfehler: ${err.message}`);
     }
 };
-
 // ==========================================================================
 // 14. LERN-DEPOT (KNOWLEDGE VAULT) & KI-PRÜFUNGS-GENERATOR
 // ==========================================================================
@@ -5014,17 +5284,32 @@ let currentDepotFilter = 'open';
 let pendingSelectionData = null;
 let currentDepotQuizQuestions = [];
 
+// Sicherer Toast-Fallback für alle Aufrufer von showScorePopup
+if (typeof window.showScorePopup !== 'function') {
+    window.showScorePopup = function(message, tone = 'positive') {
+        const container = document.getElementById('hud-popup-container');
+        if (!container) return;
+        const popup = document.createElement('div');
+        popup.className = `score-popup ${tone === 'negative' ? 'negative' : 'positive'}`;
+        popup.innerText = String(message || '');
+        container.appendChild(popup);
+        setTimeout(() => popup.remove(), 1800);
+    };
+}
+
 function getLocalDepot() {
     try {
-        return JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
+        const parsed = JSON.parse(localStorage.getItem(DEPOT_STORAGE_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
     } catch (_e) {
         return [];
     }
 }
 
 function saveLocalDepot(items) {
-    localStorage.setItem(DEPOT_STORAGE_KEY, JSON.stringify(items));
-    updateDepotBadges(items);
+    const clean = Array.isArray(items) ? items : [];
+    localStorage.setItem(DEPOT_STORAGE_KEY, JSON.stringify(clean));
+    updateDepotBadges(clean);
 }
 
 async function syncDepotWithSupabase() {
@@ -5045,10 +5330,47 @@ async function syncDepotWithSupabase() {
         const { data, error } = await sb
             .from('user_depot')
             .select('*')
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
-        if (!error && Array.isArray(data)) {
-            saveLocalDepot(data);
+        if (error) {
+            console.warn('[Depot] Cloud-Sync fehlgeschlagen:', error.message);
+            updateDepotBadges(getLocalDepot());
+            return;
+        }
+
+        if (Array.isArray(data)) {
+            // Verlustfreier Merge: Offline angelegte Einträge behalten und nachsynchronisieren
+            const localItems = getLocalDepot();
+            const cloudById = new Map(data.map(item => [item.id, item]));
+            const unsyncedLocal = localItems.filter(item => item && item.id && !cloudById.has(item.id) && item._synced !== true);
+
+            if (unsyncedLocal.length > 0) {
+                const rowsToPush = unsyncedLocal.map(item => ({
+                    id: item.id,
+                    user_id: user.id,
+                    case_id: item.case_id,
+                    case_title: item.case_title,
+                    category: item.category || 'Allgemein',
+                    cue_context: item.cue_context || '',
+                    highlighted_text: item.highlighted_text,
+                    user_note: item.user_note || '',
+                    is_mastered: !!item.is_mastered
+                }));
+                const { error: pushErr } = await sb.from('user_depot').upsert(rowsToPush, { onConflict: 'id' });
+                if (pushErr) {
+                    console.warn('[Depot] Offline-Nachsync fehlgeschlagen:', pushErr.message);
+                } else {
+                    unsyncedLocal.forEach(item => { item._synced = true; });
+                }
+            }
+
+            const merged = [
+                ...unsyncedLocal,
+                ...data.map(row => ({ ...row, _synced: true }))
+            ].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+            saveLocalDepot(merged);
             const depotView = document.getElementById('depot-view');
             if (depotView && depotView.style.display !== 'none') {
                 renderDepotView();
@@ -5159,9 +5481,7 @@ async function createDepotEntry(entryData) {
 
     const exists = items.some(i => i.highlighted_text === entryData.highlighted_text && i.case_id === entryData.case_id);
     if (exists) {
-        if (typeof showScorePopup === 'function') {
-            showScorePopup('Bereits im Lern-Depot vorhanden', 'neutral');
-        }
+        window.showScorePopup('Bereits im Lern-Depot vorhanden', 'neutral');
         return;
     }
 
@@ -5174,15 +5494,13 @@ async function createDepotEntry(entryData) {
         highlighted_text: entryData.highlighted_text,
         user_note: '',
         is_mastered: false,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        _synced: false
     };
 
     items.unshift(newItem);
     saveLocalDepot(items);
-
-    if (typeof showScorePopup === 'function') {
-        showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
-    }
+    window.showScorePopup('📌 Im Lern-Depot gespeichert!', 'positive');
 
     const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
@@ -5190,7 +5508,7 @@ async function createDepotEntry(entryData) {
             const { data: sessionData } = await sb.auth.getSession();
             const user = sessionData?.session?.user;
             if (user) {
-                await sb.from('user_depot').insert([{
+                const { error } = await sb.from('user_depot').insert([{
                     id: newItem.id,
                     user_id: user.id,
                     case_id: newItem.case_id,
@@ -5201,6 +5519,12 @@ async function createDepotEntry(entryData) {
                     user_note: newItem.user_note,
                     is_mastered: newItem.is_mastered
                 }]);
+                if (error) {
+                    console.warn('[Depot] Cloud-Insert fehlgeschlagen (lokal gesichert):', error.message);
+                } else {
+                    newItem._synced = true;
+                    saveLocalDepot(getLocalDepot().map(i => i.id === newItem.id ? { ...i, _synced: true } : i));
+                }
             }
         } catch (e) {
             console.warn('Supabase Insert im Hintergrund fehlgeschlagen (lokal gesichert):', e);
@@ -5220,7 +5544,13 @@ async function toggleDepotItemMastered(itemId) {
     const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
-            await sb.from('user_depot').update({ is_mastered: target.is_mastered }).eq('id', itemId);
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session?.user) return;
+            const { error } = await sb.from('user_depot')
+                .update({ is_mastered: target.is_mastered })
+                .eq('id', itemId)
+                .eq('user_id', session.user.id);
+            if (error) console.warn('[Depot] Update fehlgeschlagen:', error.message);
         } catch (_e) {}
     }
 }
@@ -5236,7 +5566,13 @@ async function updateDepotItemNote(itemId, noteText) {
     const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
-            await sb.from('user_depot').update({ user_note: target.user_note }).eq('id', itemId);
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session?.user) return;
+            const { error } = await sb.from('user_depot')
+                .update({ user_note: target.user_note })
+                .eq('id', itemId)
+                .eq('user_id', session.user.id);
+            if (error) console.warn('[Depot] Notiz-Update fehlgeschlagen:', error.message);
         } catch (_e) {}
     }
 }
@@ -5249,7 +5585,13 @@ async function deleteDepotItem(itemId) {
     const sb = getActiveSupabaseClient();
     if (sb && sb.auth) {
         try {
-            await sb.from('user_depot').delete().eq('id', itemId);
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session?.user) return;
+            const { error } = await sb.from('user_depot')
+                .delete()
+                .eq('id', itemId)
+                .eq('user_id', session.user.id);
+            if (error) console.warn('[Depot] Löschen fehlgeschlagen:', error.message);
         } catch (_e) {}
     }
 }
@@ -5319,7 +5661,9 @@ function renderDepotView() {
         return;
     }
 
-    container.innerHTML = filtered.map(item => `
+    container.innerHTML = filtered.map(item => {
+        const safeIdJs = escapeDepotHtml(String(item.id || '')).replace(/'/g, "\\'");
+        return `
         <div class="depot-card ${item.is_mastered ? 'is-mastered' : ''}">
             <div>
                 <div class="depot-card-meta">
@@ -5333,19 +5677,20 @@ function renderDepotView() {
             </div>
 
             <div>
-                <input type="text" class="depot-note-input" 
-                       placeholder="Eigene Notiz / Eselsbrücke ergänzen..." 
+                <input type="text" class="depot-note-input"
+                       placeholder="Eigene Notiz / Eselsbrücke ergänzen..."
                        value="${escapeDepotHtml(item.user_note)}"
-                       onchange="updateDepotItemNote('${item.id}', this.value)">
+                       onchange="updateDepotItemNote('${safeIdJs}', this.value)">
                 <div class="depot-card-actions" style="margin-top: 8px;">
-                    <button type="button" class="depot-toggle-btn" onclick="toggleDepotItemMastered('${item.id}')">
+                    <button type="button" class="depot-toggle-btn" onclick="toggleDepotItemMastered('${safeIdJs}')">
                         ${item.is_mastered ? '↺ Zurück zu Offen' : '✓ Als gelernt markieren'}
                     </button>
-                    <button type="button" class="depot-delete-btn" onclick="deleteDepotItem('${item.id}')" title="Eintrag löschen">🗑️</button>
+                    <button type="button" class="depot-delete-btn" onclick="deleteDepotItem('${safeIdJs}')" title="Eintrag löschen">🗑️</button>
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // KI-Prüfungs-Generator aus dem Lern-Depot
@@ -5366,11 +5711,7 @@ async function generateDepotQuizWithAI() {
     }
 
     if (targetItems.length === 0) {
-        if (typeof showScorePopup === 'function') {
-            showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
-        } else {
-            alert('Du hast aktuell keine offenen Lernlücken im Depot. Markiere zuerst Textstellen in einer Fall-Übersicht!');
-        }
+        window.showScorePopup('Keine offenen Lernlücken im Depot vorhanden!', 'neutral');
         return;
     }
 
@@ -5394,7 +5735,7 @@ async function generateDepotQuizWithAI() {
         <div class="skeleton" style="height: 110px; width: 100%;"></div>
     `;
 
-    const notesContext = sampledItems.map((item) => 
+    const notesContext = sampledItems.map((item) =>
         `[ID: ${item.id}] (Thema: ${item.cue_context || item.category}): "${item.highlighted_text}" ${item.user_note ? `(Eigene Notiz des Studenten: ${item.user_note})` : ''}`
     ).join('\n');
 
@@ -5479,8 +5820,8 @@ function renderDepotQuizQuestions(questions) {
             <div class="depot-q-stem">${escapeHtml(q.question)}</div>
             <div class="depot-q-options">
                 ${(q.options || []).map((opt, optIdx) => `
-                    <button type="button" 
-                            class="quiz-opt-btn" 
+                    <button type="button"
+                            class="quiz-opt-btn"
                             id="depot-q-${qIdx}-opt-${optIdx}"
                             onclick="evaluateDepotQuizAnswer(${qIdx}, ${optIdx})">
                         <span><strong>${String.fromCharCode(65 + optIdx)})</strong> ${escapeHtml(opt)}</span>
@@ -5510,12 +5851,17 @@ function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
         }
     });
 
-    if (isCorrect && typeof showScorePopup === 'function') {
-        showScorePopup('+50 XP (Lernlücke gelöst!)', 'positive');
+    if (isCorrect) {
+        if (typeof applyXpDelta === 'function') {
+            applyXpDelta(50, 'Lernlücke gelöst');
+        } else {
+            window.showScorePopup('+50 XP (Lernlücke gelöst!)', 'positive');
+        }
     }
 
     const fbEl = document.getElementById(`depot-q-fb-${qIdx}`);
     if (fbEl) {
+        const safeDepotIdJs = escapeHtml(String(q.source_depot_id || '')).replace(/'/g, "\\'");
         fbEl.style.display = 'block';
         fbEl.innerHTML = `
             <div style="font-weight: 700; color: ${isCorrect ? 'var(--color-symptom)' : 'var(--color-risk)'}; margin-bottom: 4px;">
@@ -5525,7 +5871,7 @@ function evaluateDepotQuizAnswer(qIdx, selectedOptIdx) {
             ${q.source_depot_id ? `
                 <div class="depot-mastery-prompt">
                     <span style="font-size: 0.76rem; color: var(--text-dim);">Sitzt dieses Konzept jetzt sicher?</span>
-                    <button type="button" class="depot-toggle-btn" onclick="markDepotMasteredFromQuiz('${q.source_depot_id}', this)">
+                    <button type="button" class="depot-toggle-btn" onclick="markDepotMasteredFromQuiz('${safeDepotIdJs}', this)">
                         ✓ Im Depot als gelernt abhaken
                     </button>
                 </div>
@@ -5555,10 +5901,14 @@ window.syncPharmaSetsFromCloud = async function() {
         return await window.PharmacologyModule.syncFromCloud();
     }
 };
-
 // ==========================================================================
 // 15. CREATOR HUB, FILE-DROPZONE & SUPABASE CLOUD-SYNC
 // ==========================================================================
+const LAST_SYNCED_USER_KEY = 'medcheck_last_synced_user_id_v1';
+let isLoadingCloudCases = false;
+let pendingCloudCasesReload = false;
+let lastVisibilitySyncAt = 0;
+
 window.addEventListener('dragover', (e) => {
     if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
         e.preventDefault();
@@ -5571,30 +5921,93 @@ window.addEventListener('drop', (e) => {
     }
 }, false);
 
-async function initCreatorHubAndCloudCases() {
-    const sb = getActiveSupabaseClient();
-    await loadCasesFromDatabase();
-    if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud();
+// Wartet bis js/auth.js den Supabase-Client (via /api/config) initialisiert hat
+async function waitForSupabaseClient(timeoutMs = 8000) {
+    const existing = getActiveSupabaseClient();
+    if (existing && existing.auth) return existing;
 
-    if (!sb || !sb.auth) return;
+    const startedAt = Date.now();
+    return new Promise((resolve) => {
+        const timer = setInterval(() => {
+            const client = getActiveSupabaseClient();
+            if (client && client.auth) {
+                clearInterval(timer);
+                resolve(client);
+            } else if (Date.now() - startedAt >= timeoutMs) {
+                clearInterval(timer);
+                resolve(getActiveSupabaseClient());
+            }
+        }, 120);
+    });
+}
+
+// Schema-resistenter Upsert in die cases-Tabelle (fängt fehlende optionale Spalten ab)
+async function upsertCaseRowToSupabase(sb, payload) {
+    const attempt = async (row) => sb.from('cases').upsert(row, { onConflict: 'case_id' });
+
+    let { error } = await attempt(payload);
+    if (!error) return { error: null };
+
+    // Falls älteres DB-Schema z. B. created_by oder is_public noch nicht hat, sauber zurückfallen
+    const msg = String(error.message || '').toLowerCase();
+    if (msg.includes('column') && msg.includes('does not exist')) {
+        const reduced = { ...payload };
+        if (msg.includes('created_by')) delete reduced.created_by;
+        if (msg.includes('user_id')) delete reduced.user_id;
+        if (msg.includes('is_public')) delete reduced.is_public;
+        console.warn('[CloudUpsert] Schema-Fallback aktiviert wegen:', error.message);
+        const retry = await attempt(reduced);
+        return retry;
+    }
+
+    return { error };
+}
+
+async function initCreatorHubAndCloudCases() {
+    const sb = await waitForSupabaseClient(8000);
+    if (!sb || !sb.auth) {
+        console.warn('[CloudSync] Supabase-Client nach Timeout nicht verfügbar – Offline-Modus aktiv.');
+        return;
+    }
 
     try {
         const { data: { session } } = await sb.auth.getSession();
         window.currentSessionUser = session?.user || null;
         setupCreatorHub(window.currentSessionUser);
 
-        sb.auth.onAuthStateChange(async (event, session) => {
-            window.currentSessionUser = session?.user || null;
-            setupCreatorHub(window.currentSessionUser);
+        await loadCasesFromDatabase();
+        await syncDepotWithSupabase();
+        if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
+            window.PharmacologyModule.syncFromCloud();
+        }
 
-            // Verhindert doppelten DB-Abruf beim initialen Seitenstart
-            if (event === 'INITIAL_SESSION') return;
+        // Auth-State-Listener nur einmalig registrieren
+        if (!window._medcheckAuthListenerBound) {
+            window._medcheckAuthListenerBound = true;
+            sb.auth.onAuthStateChange(async (event, nextSession) => {
+                const prevUserId = window.currentSessionUser?.id || null;
+                const nextUser = nextSession?.user || null;
+                window.currentSessionUser = nextUser;
+                setupCreatorHub(nextUser);
 
-            await loadCasesFromDatabase();
-            if (window.PharmacologyModule) window.PharmacologyModule.syncFromCloud();
-        });
+                if (event === 'INITIAL_SESSION') return;
+
+                // Bei echtem Account-Wechsel user-spezifische Caches sauber zurücksetzen
+                if (nextUser && prevUserId && nextUser.id !== prevUserId) {
+                    localStorage.setItem(FOLDER_SYNC_TIMESTAMP_KEY, '0');
+                    localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, '[]');
+                    localStorage.setItem(DELETED_FOLDERS_SET_KEY, '[]');
+                }
+
+                await loadCasesFromDatabase();
+                await syncDepotWithSupabase();
+                if (window.PharmacologyModule && typeof window.PharmacologyModule.syncFromCloud === 'function') {
+                    window.PharmacologyModule.syncFromCloud();
+                }
+            });
+        }
     } catch (e) {
-        console.warn("Creator Hub Auth-Prüfung fehlgeschlagen:", e);
+        console.warn('Creator Hub Auth-Prüfung fehlgeschlagen:', e);
     }
 }
 
@@ -5602,10 +6015,7 @@ function setupCreatorHub(currentUser) {
     const uploadSection = document.getElementById('creatorUploadSection');
     if (!uploadSection) return;
 
-    const isCreator = currentUser &&
-        currentUser.email &&
-        typeof CREATOR_EMAIL !== 'undefined' &&
-        currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+    const isCreator = isCreatorUser(currentUser);
 
     if (isCreator) {
         uploadSection.style.display = 'block';
@@ -5620,7 +6030,6 @@ function initDropZone() {
     const fileInput = document.getElementById('caseFileInput');
     if (!dropZone || !fileInput) return;
 
-    // Verhindert Mehrfach-Registrierung der Drop-Events bei Auth-State-Changes
     if (dropZone.dataset.initialized === 'true') return;
     dropZone.dataset.initialized = 'true';
 
@@ -5661,7 +6070,6 @@ function initDropZone() {
         const rawId = dt.getData('application/medcheck-case-id') || dt.getData('text/plain');
         const internalCaseId = rawId ? rawId.trim() : '';
 
-        // Prüfen, ob eine valide interne Case-ID (ohne Zeilenumbrüche/Leerzeichen) gedroppt wurde
         if (internalCaseId && !/\s/.test(internalCaseId) && (!dt.files || dt.files.length === 0)) {
             await handleInternalCaseUpload(internalCaseId);
             return;
@@ -5676,7 +6084,7 @@ function initDropZone() {
 async function handleInternalCaseUpload(caseId) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
-        alert("Fehler: Verbindung zu Supabase nicht gefunden.");
+        alert('Fehler: Verbindung zu Supabase nicht gefunden.');
         return;
     }
 
@@ -5689,8 +6097,8 @@ async function handleInternalCaseUpload(caseId) {
     }
 
     const allCases = typeof window.getRegisteredCases === 'function'
-        ? window.getRegisteredCases()
-        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+        ? window.getRegisteredCases({ ignoreSpecialtyFilter: true })
+        : [BUILTIN_DEMO_CASE, ...getRawCustomCases()];
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
 
     if (!targetCase) {
@@ -5704,29 +6112,28 @@ async function handleInternalCaseUpload(caseId) {
     renderStatus(title, 'loading', 'Wird mit Supabase Cloud synchronisiert...');
 
     try {
-        // Falls der Fall zuvor lokal versteckt/gelöscht war, von der Hidden-Liste nehmen
         unhideCloudCaseLocally(caseId);
+        unmarkFolderAsDeleted(field);
 
-        const { error } = await sb
-            .from('cases')
-            .upsert({
-                case_id: caseId,
-                title: title,
-                medical_field: field,
-                is_public: true,
-                user_id: currentUser.id,
-                created_by: currentUser.id,
-                content: targetCase
-            }, { onConflict: 'case_id' });
+        const { error } = await upsertCaseRowToSupabase(sb, {
+            case_id: caseId,
+            title: title,
+            medical_field: field,
+            is_public: true,
+            user_id: currentUser.id,
+            created_by: currentUser.id,
+            content: targetCase
+        });
 
         if (error) throw error;
 
+        if (window.cloudCaseIds instanceof Set) window.cloudCaseIds.add(caseId);
         renderStatus(title, 'success', `In Cloud veröffentlicht (${caseId})`);
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic([10, 40, 10]);
 
         await loadCasesFromDatabase();
     } catch (err) {
-        console.error("Upload Error:", err);
+        console.error('Upload Error:', err);
         renderStatus(title, 'error', `Upload fehlgeschlagen: ${err.message}`);
     }
 }
@@ -5734,7 +6141,7 @@ async function handleInternalCaseUpload(caseId) {
 async function handleCaseFiles(files) {
     const sb = getActiveSupabaseClient();
     if (!sb) {
-        alert("Fehler: Keine Supabase-Verbindung vorhanden.");
+        alert('Fehler: Keine Supabase-Verbindung vorhanden.');
         return;
     }
 
@@ -5742,7 +6149,7 @@ async function handleCaseFiles(files) {
     const currentUser = session?.user;
 
     if (!currentUser) {
-        alert("Bitte melde dich zuerst als Creator an.");
+        alert('Bitte melde dich zuerst als Creator an.');
         return;
     }
 
@@ -5760,69 +6167,58 @@ async function handleCaseFiles(files) {
             const rawContent = await file.text();
             const caseData = JSON.parse(rawContent);
 
-            const caseId = caseData.case_id || caseData.id;
+            const caseId = (caseData.case_id || caseData.id || '').trim();
             if (!caseId) throw new Error("Pflichtfeld 'case_id' fehlt.");
             caseData.case_id = caseId;
 
             caseData.folder_name = caseData.folder_name || resolveCaseFolderName(caseData);
+            unmarkFolderAsDeleted(caseData.folder_name);
+            unhideCloudCaseLocally(caseId);
             registerDynamicFolder(caseData.folder_name);
 
             const field = caseData.folder_name || caseData.metadata?.medical_field || caseData.medical_field || 'Allgemein';
             const title = caseData.metadata?.title || caseData.title || caseId;
 
-            // Falls der Fall zuvor lokal gelöscht war, wieder freigeben
-            unhideCloudCaseLocally(caseId);
-
-            const { error } = await sb
-                .from('cases')
-                .upsert({
-                    case_id: caseId,
-                    title: title,
-                    medical_field: field,
-                    is_public: true,
-                    user_id: currentUser.id,
-                    created_by: currentUser.id,
-                    content: caseData
-                }, { onConflict: 'case_id' });
+            const { error } = await upsertCaseRowToSupabase(sb, {
+                case_id: caseId,
+                title: title,
+                medical_field: field,
+                is_public: true,
+                user_id: currentUser.id,
+                created_by: currentUser.id,
+                content: caseData
+            });
 
             if (error) throw error;
 
             uploadedCount++;
             renderStatus(file.name, 'success', `Erfolgreich hochgeladen (${caseId})`);
         } catch (err) {
-            console.error("Upload Error:", err);
+            console.error('Upload Error:', err);
             renderStatus(file.name, 'error', `Fehler: ${err.message}`);
         }
     }
 
-    // Einmaliger Re-Sync nach Abschluss aller Datei-Uploads
     if (uploadedCount > 0) {
         await loadCasesFromDatabase();
     }
 }
 
-/**
- * Hilfsfunktion: Entfernt eine caseId von der lokalen "hidden_cloud_cases"-Sperrliste,
- * falls der Fall erneut hochgeladen oder importiert wird.
- */
+// Einheitlich auf HIDDEN_CLOUD_CASES_KEY (keine 3 divergierenden Keys mehr!)
 function unhideCloudCaseLocally(caseId) {
-    try {
-        const hidden = typeof getHiddenCloudCaseIds === 'function'
-            ? getHiddenCloudCaseIds()
-            : JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
-        if (hidden.includes(caseId)) {
-            const updated = hidden.filter(id => id !== caseId);
-            localStorage.setItem('hidden_cloud_cases', JSON.stringify(updated));
-        }
-    } catch (e) {
-        console.warn("Konnte hidden_cloud_cases nicht aktualisieren:", e);
+    if (!caseId) return;
+    if (typeof removeHiddenCloudCaseId === 'function') {
+        removeHiddenCloudCaseId(caseId);
     }
+    // Legacy-Key ebenfalls bereinigen, falls noch vorhanden
+    try {
+        const legacy = JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
+        if (Array.isArray(legacy) && legacy.includes(caseId)) {
+            localStorage.setItem('hidden_cloud_cases', JSON.stringify(legacy.filter(id => id !== caseId)));
+        }
+    } catch (_e) {}
 }
 
-/**
- * Entfernt einen Fall NUR aus der Supabase-Cloud (Unpublish).
- * Der Fall bleibt lokal auf dem eigenen Gerät im Dashboard erhalten.
- */
 async function unpublishCaseFromCloud(caseId) {
     if (!window.confirm(`Möchtest du den Fall "${caseId}" nur aus der Cloud entfernen?\n\nEr bleibt lokal auf deinem Gerät erhalten, ist aber für andere Nutzer nicht mehr online sichtbar.`)) {
         return;
@@ -5843,6 +6239,12 @@ async function unpublishCaseFromCloud(caseId) {
             window.cloudCaseIds.delete(caseId);
         }
 
+        // Fall lokal als privat markieren, damit Sync ihn nicht als gelöscht behandelt
+        const rawCases = getRawCustomCases().map(c =>
+            (c.case_id || c.id) === caseId ? { ...c, _syncedFromCloud: false } : c
+        );
+        saveRawCustomCases(rawCases);
+
         renderStatus(caseId, 'success', 'Aus der Cloud entfernt (nur noch lokal verfügbar)');
         await loadCasesFromDatabase();
     } catch (err) {
@@ -5850,23 +6252,11 @@ async function unpublishCaseFromCloud(caseId) {
     }
 }
 
-/**
- * NEU: Löscht einen Fall KOMPLETT aus dem Dashboard (Lokal + optional aus der Cloud).
- * Verhindert außerdem über 'hidden_cloud_cases', dass Cloud-Fälle beim nächsten Sync
- * wieder automatisch ins Dashboard zurückkehren.
- *
- * @param {string} caseId - Die ID des zu löschenden Falls
- * @param {object} [options] - { skipConfirm: boolean, alsoDeleteFromCloud: boolean }
- */
 async function deleteCaseCompletely(caseId, options = {}) {
     if (!caseId) return;
 
     const isCloudCase = window.cloudCaseIds instanceof Set && window.cloudCaseIds.has(caseId);
-    const currentUser = window.currentSessionUser;
-    const isCreator = currentUser &&
-        currentUser.email &&
-        typeof CREATOR_EMAIL !== 'undefined' &&
-        currentUser.email.toLowerCase() === CREATOR_EMAIL.toLowerCase();
+    const isCreator = isCreatorUser();
 
     if (!options.skipConfirm) {
         const msg = (isCloudCase && isCreator)
@@ -5876,7 +6266,6 @@ async function deleteCaseCompletely(caseId, options = {}) {
         if (!window.confirm(msg)) return;
     }
 
-    // 1. Falls der Fall in der Cloud liegt und der Creator löscht -> auch in Supabase löschen
     const shouldDeleteCloud = options.alsoDeleteFromCloud !== undefined
         ? options.alsoDeleteFromCloud
         : (isCloudCase && isCreator);
@@ -5890,57 +6279,36 @@ async function deleteCaseCompletely(caseId, options = {}) {
                     .delete()
                     .eq('case_id', caseId);
 
-                if (error) console.warn("Cloud-Löschung fehlgeschlagen:", error.message);
+                if (error) console.warn('Cloud-Löschung fehlgeschlagen:', error.message);
                 if (window.cloudCaseIds instanceof Set) window.cloudCaseIds.delete(caseId);
             } catch (err) {
-                console.warn("Fehler beim Löschen aus Supabase:", err);
+                console.warn('Fehler beim Löschen aus Supabase:', err);
             }
         }
     }
 
-    // 2. Fall auf die lokale Blacklist setzen, damit ein Cloud-Sync ihn nicht wiederherstellt
-    try {
-        const hiddenIds = typeof getHiddenCloudCaseIds === 'function'
-            ? getHiddenCloudCaseIds()
-            : JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
+    // Einheitliche Blacklist-Funktion aus Abschnitt 06 verwenden
+    addHiddenCloudCaseId(caseId);
 
-        if (!hiddenIds.includes(caseId)) {
-            hiddenIds.push(caseId);
-            localStorage.setItem('hidden_cloud_cases', JSON.stringify(hiddenIds));
+    const filteredCases = getRawCustomCases().filter(c => (c.case_id || c.id) !== caseId);
+    saveRawCustomCases(filteredCases);
+
+    try {
+        const overrides = getCaseFolderOverrides();
+        if (overrides && overrides[caseId]) {
+            delete overrides[caseId];
+            saveCaseFolderOverrides(overrides);
         }
     } catch (e) {
-        console.warn("Konnte hidden_cloud_cases nicht speichern:", e);
+        console.warn('Konnte Ordner-Override nicht bereinigen:', e);
     }
 
-    // 3. Aus 'custom_cases' im localStorage entfernen
-    try {
-        const customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]');
-        const filteredCases = customCases.filter(c => (c.case_id || c.id) !== caseId);
-        localStorage.setItem('custom_cases', JSON.stringify(filteredCases));
-    } catch (e) {
-        console.error("Fehler beim Entfernen aus custom_cases:", e);
-    }
-
-    // 4. Ordner-Override für diesen Fall bereinigen
-    try {
-        if (typeof getCaseFolderOverrides === 'function' && typeof saveCaseFolderOverrides === 'function') {
-            const overrides = getCaseFolderOverrides();
-            if (overrides && overrides[caseId]) {
-                delete overrides[caseId];
-                saveCaseFolderOverrides(overrides);
-            }
-        }
-    } catch (e) {
-        console.warn("Konnte Ordner-Override nicht bereinigen:", e);
-    }
-
-    // 5. UI sofort aktualisieren
     renderStatus(caseId, 'success', 'Fall komplett aus dem Dashboard entfernt');
     if (typeof renderDashboardCases === 'function') renderDashboardCases();
     if (typeof renderSubjectProgressDrawer === 'function') renderSubjectProgressDrawer();
+    if (typeof pushFolderConfigToSupabase === 'function') pushFolderConfigToSupabase();
 }
 
-// Global verfügbar machen (für Lösch-Buttons an den Dashboard-Kacheln)
 window.deleteCaseCompletely = deleteCaseCompletely;
 window.unpublishCaseFromCloud = unpublishCaseFromCloud;
 
@@ -5960,119 +6328,223 @@ function renderStatus(fileName, state, message) {
     item.innerHTML = `<span><strong>${escapeHtml(String(fileName))}</strong>: ${escapeHtml(String(message))}</span>`;
 }
 
+// Creator-Utility: Repariert bestehende Cloud-Fälle mit is_public = NULL/false per Knopfdruck
+window.publishAllCreatorCasesToPublic = async function() {
+    const sb = getActiveSupabaseClient();
+    if (!sb || !isCreatorUser()) {
+        alert('Diese Aktion ist nur für den Creator verfügbar.');
+        return;
+    }
+    const { data: { session } } = await sb.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid) return;
+
+    const { data: rows, error } = await sb.from('cases').select('case_id, medical_field, is_public');
+    if (error) {
+        alert(`Fehler beim Lesen der Cloud-Fälle: ${error.message}`);
+        return;
+    }
+
+    const targets = (rows || []).filter(r => !isSystemOrSolitaireCloudRow(r) && r.is_public !== true);
+    if (targets.length === 0) {
+        window.showScorePopup('✓ Alle Cloud-Fälle sind bereits öffentlich!', 'positive');
+        return;
+    }
+
+    const ids = targets.map(t => t.case_id);
+    const { error: updErr } = await sb
+        .from('cases')
+        .update({ is_public: true })
+        .in('case_id', ids);
+
+    if (updErr) {
+        alert(`Freischaltung fehlgeschlagen: ${updErr.message}`);
+        return;
+    }
+
+    window.showScorePopup(`☁️ ${ids.length} Fälle für alle User freigeschaltet!`, 'positive');
+    await loadCasesFromDatabase();
+};
+
 async function loadCasesFromDatabase() {
     const sb = getActiveSupabaseClient();
     if (!sb) return;
+
+    // Concurrency-Lock verhindert Race-Conditions beim gleichzeitigen Laden
+    if (isLoadingCloudCases) {
+        pendingCloudCasesReload = true;
+        return;
+    }
+    isLoadingCloudCases = true;
 
     try {
         const { data: { session } } = await sb.auth.getSession();
         const currentUser = session?.user || null;
         window.currentSessionUser = currentUser;
 
-        const { data, error } = await sb
+        // Account-Wechsel erkennen (z. B. nach Relogin im selben Browser)
+        if (currentUser) {
+            const lastUid = localStorage.getItem(LAST_SYNCED_USER_KEY);
+            if (lastUid && lastUid !== currentUser.id) {
+                localStorage.setItem(FOLDER_SYNC_TIMESTAMP_KEY, '0');
+                localStorage.setItem(HIDDEN_CLOUD_CASES_KEY, '[]');
+                localStorage.setItem(DELETED_FOLDERS_SET_KEY, '[]');
+            }
+            localStorage.setItem(LAST_SYNCED_USER_KEY, currentUser.id);
+        }
+
+        // Schema-sicheres SELECT ('*' statt starrer Spaltenliste, verhindert Totalausfall bei fehlender Spalte)
+        let queryResult = await sb
             .from('cases')
-            .select('case_id, title, medical_field, is_public, user_id, created_by, content')
+            .select('*')
             .order('created_at', { ascending: false });
 
+        // Falls created_at im Schema nicht existiert, ohne Sortierung abfragen
+        if (queryResult.error && String(queryResult.error.message || '').toLowerCase().includes('created_at')) {
+            queryResult = await sb.from('cases').select('*');
+        }
+
+        const { data, error } = queryResult;
+
         if (error) {
-            console.warn("Supabase-Fälle konnten nicht abgerufen werden:", error.message);
+            console.error('[CloudSync] Supabase-Fälle konnten nicht abgerufen werden:', error.message, error);
+            updateFolderSyncStatusBadge('error');
             return;
         }
 
-        // 1. NUR DIE EIGENE ORDNER-KONFIGURATION DES AKTUELLEN USERS LADEN
-        if (currentUser) {
-            const myConfigId = getUserFolderConfigCloudId(currentUser.id);
-            const myConfigRow = (data || []).find(d => d.case_id === myConfigId);
-            const metaConfig = currentUser.user_metadata?.medcheck_folder_config_v1;
+        const allRows = Array.isArray(data) ? data : [];
 
-            if (myConfigRow && myConfigRow.content) {
-                applyCloudFolderConfigIfNewer(myConfigRow.content);
-            } else if (metaConfig) {
-                applyCloudFolderConfigIfNewer(metaConfig);
+        // 1. EIGENE ORDNER-KONFIGURATION AUS ALLEN 3 QUELLEN NACH NEUESTEM TIMESTAMP LADEN
+        if (currentUser) {
+            const configCandidates = [];
+            const myConfigId = getUserFolderConfigCloudId(currentUser.id);
+            const myConfigRow = allRows.find(d => d.case_id === myConfigId);
+            if (myConfigRow?.content) configCandidates.push(myConfigRow.content);
+
+            const metaConfig = currentUser.user_metadata?.medcheck_folder_config_v1;
+            if (metaConfig) configCandidates.push(metaConfig);
+
+            try {
+                const { data: profRow } = await sb
+                    .from('user_profiles')
+                    .select('folder_config')
+                    .eq('id', currentUser.id)
+                    .maybeSingle();
+                if (profRow?.folder_config) configCandidates.push(profRow.folder_config);
+            } catch (_profErr) {}
+
+            if (configCandidates.length > 0) {
+                configCandidates.sort((a, b) => parseInt(b.updatedAt || '0', 10) - parseInt(a.updatedAt || '0', 10));
+                applyCloudFolderConfigIfNewer(configCandidates[0]);
             }
         }
 
-        // 2. NUR GETEILTE FÄLLE (is_public === true) ODER EIGENE FÄLLE FILTERN
-        const realCaseRows = (data || []).filter(dbRow => {
+        // 2. ÖFFENTLICHE FÄLLE + LEGACY-FÄLLE (is_public === null/undefined) + EIGENE PRIVATE FÄLLE
+        // Nur explizit als privat markierte Fälle (is_public === false) bleiben für andere User unsichtbar!
+        const realCaseRows = allRows.filter(dbRow => {
             const cId = dbRow.case_id;
-            if (!cId || isSystemOrSolitaireCloudRow(cId)) return false;
-            const isOwnCase = currentUser && (dbRow.user_id === currentUser.id || dbRow.created_by === currentUser.id);
-            return dbRow.is_public === true || isOwnCase;
+            if (!cId || isSystemOrSolitaireCloudRow(dbRow)) return false;
+
+            const isOwnCase = !!(currentUser && (
+                dbRow.user_id === currentUser.id ||
+                dbRow.created_by === currentUser.id
+            ));
+            const isExplicitlyPrivate = dbRow.is_public === false;
+
+            return !isExplicitlyPrivate || isOwnCase;
         });
 
         window.cloudCaseIds = new Set(realCaseRows.map(d => d.case_id));
 
-        if (realCaseRows.length > 0) {
-            let customCases = JSON.parse(localStorage.getItem('custom_cases') || '[]')
-                .filter(c => !isSystemOrSolitaireCloudRow(c));
-            const hiddenCloudIds = typeof getHiddenCloudCaseIds === 'function'
-                ? getHiddenCloudCaseIds()
-                : JSON.parse(localStorage.getItem('hidden_cloud_cases') || '[]');
-            const deletedFolders = getDeletedFoldersSet();
-            const overrides = getCaseFolderOverrides();
+        // 3. CLOUD-FÄLLE VERLUSTFREI IN LOCALSTORAGE MERGEN
+        let customCases = getRawCustomCases();
+        const hiddenCloudIds = new Set(getHiddenCloudCaseIds());
+        const deletedFolders = getDeletedFoldersSet();
+        const overrides = getCaseFolderOverrides();
 
-            realCaseRows.forEach(dbCase => {
-                const cloudCase = dbCase.content;
-                if (!cloudCase) return;
+        // Altfälle aus früherem Cloud-Sync entfernen, wenn sie in der Cloud inzwischen gelöscht/unpublished wurden
+        // (rein lokale Fälle ohne _syncedFromCloud bleiben unberührt!)
+        customCases = customCases.filter(c => {
+            const cId = c.case_id || c.id;
+            if (c._syncedFromCloud === true && !window.cloudCaseIds.has(cId)) {
+                return false;
+            }
+            return true;
+        });
 
-                const cId = cloudCase.case_id || cloudCase.id || dbCase.case_id;
-                if (!cId || isSystemOrSolitaireCloudRow(cId) || hiddenCloudIds.includes(cId)) return;
+        realCaseRows.forEach(dbCase => {
+            const rawContent = dbCase.content;
+            if (!rawContent || typeof rawContent !== 'object') return;
 
-                // Originales Fachgebiet aus dem Fall-JSON oder der DB-Spalte ermitteln
-                const originalFolder = (
-                    (dbCase.medical_field && dbCase.medical_field !== 'Allgemein' ? dbCase.medical_field : '') ||
-                    cloudCase.metadata?.medical_field ||
-                    cloudCase.folder_name ||
-                    'Allgemein'
-                ).trim();
+            const cloudCase = JSON.parse(JSON.stringify(rawContent));
+            const cId = cloudCase.case_id || cloudCase.id || dbCase.case_id;
+            if (!cId || isSystemOrSolitaireCloudRow(cId)) return;
 
-                // Wenn der User diesen Online-Ordner für sich gelöscht hat (und den Fall nicht manuell
-                // woandershin verschoben hat), wird der Fall komplett übersprungen
-                const userOverrideFolder = overrides[cId];
-                if (deletedFolders.has(originalFolder) && (!userOverrideFolder || deletedFolders.has(userOverrideFolder))) {
-                    return;
-                }
+            cloudCase.case_id = cId;
+            cloudCase._syncedFromCloud = true;
 
-                if (originalFolder && !deletedFolders.has(originalFolder)) {
-                    cloudCase.folder_name = originalFolder;
-                    if (cloudCase.metadata) cloudCase.metadata.medical_field = originalFolder;
-                    if (!overrides[cId] || overrides[cId] === 'Allgemein') {
-                        overrides[cId] = originalFolder;
-                    }
-                }
+            // Nur überspringen, wenn der User DIESEN spezifischen Fall explizit ausgeblendet hat
+            if (hiddenCloudIds.has(cId)) return;
 
-                applyFolderOverridesToCase(cloudCase);
-                registerDynamicFolder(cloudCase.folder_name);
+            const originalFolder = (
+                (dbCase.medical_field && dbCase.medical_field !== 'Allgemein' ? dbCase.medical_field : '') ||
+                cloudCase.metadata?.medical_field ||
+                cloudCase.folder_name ||
+                'Allgemein'
+            ).trim();
 
-                const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
-                if (idx !== -1) {
-                    customCases[idx] = cloudCase;
-                } else {
-                    customCases.push(cloudCase);
-                }
+            // Respektiert bestehende User-Overrides (inkl. bewusstem Verschieben nach 'Allgemein')!
+            if (!overrides[cId]) {
+                cloudCase.folder_name = deletedFolders.has(originalFolder) ? 'Allgemein' : originalFolder;
+                if (cloudCase.metadata) cloudCase.metadata.medical_field = cloudCase.folder_name;
+            }
 
-                if (typeof window.registerCaseDDs === 'function') {
-                    window.registerCaseDDs(cloudCase);
-                }
-            });
+            applyFolderOverridesToCase(cloudCase);
+            registerDynamicFolder(cloudCase.folder_name);
 
-            saveCaseFolderOverrides(overrides);
-            localStorage.setItem('custom_cases', JSON.stringify(customCases));
-        }
+            const idx = customCases.findIndex(c => (c.case_id || c.id) === cId);
+            if (idx !== -1) {
+                customCases[idx] = cloudCase;
+            } else {
+                customCases.push(cloudCase);
+            }
+
+            if (typeof window.registerCaseDDs === 'function') {
+                window.registerCaseDDs(cloudCase);
+            }
+        });
+
+        saveCaseFolderOverrides(overrides);
+        saveRawCustomCases(customCases);
+
+        console.info(`[CloudSync] ${realCaseRows.length} Cloud-Fälle synchronisiert (User: ${currentUser?.email || 'Gast'}).`);
 
         renderDashboardCases();
         if (typeof renderSubjectProgressDrawer === 'function') {
             renderSubjectProgressDrawer();
         }
+        window.dispatchEvent(new CustomEvent('cloudCasesSynced', {
+            detail: { count: realCaseRows.length }
+        }));
     } catch (err) {
-        console.error("Fehler bei loadCasesFromDatabase:", err);
+        console.error('Fehler bei loadCasesFromDatabase:', err);
+    } finally {
+        isLoadingCloudCases = false;
+        if (pendingCloudCasesReload) {
+            pendingCloudCasesReload = false;
+            setTimeout(() => loadCasesFromDatabase(), 150);
+        }
     }
 }
 
-// Automatischer Re-Sync, sobald die App auf iPhone / iPad aus dem Hintergrund geholt wird
+// Gedrosselter Re-Sync (max. alle 15 Sekunden), wenn App aus Hintergrund zurückkehrt
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        loadCasesFromDatabase();
+        const now = Date.now();
+        if (now - lastVisibilitySyncAt > 15000) {
+            lastVisibilitySyncAt = now;
+            loadCasesFromDatabase();
+        }
     }
 });
 // ==========================================================================
@@ -6814,10 +7286,9 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
     barsContainer.innerHTML = buckets.map((b, idx) => {
         const isCurrent = idx === currentBucketIdx;
         const heightPct = b.count > 0 ? Math.max(14, Math.min(100, Math.round((b.count / yTop) * 100))) : 8;
-        const barClass = b.count === 0
-            ? 'bar-empty'
-            : (isCurrent ? 'bar-Current' : (idx % 2 === 0 ? 'bar-pastel' : 'bar-primary'));
-
+       const barClass = b.count === 0
+    ? 'bar-empty'
+    : (isCurrent ? 'bar-current bar-Current' : (idx % 2 === 0 ? 'bar-pastel' : 'bar-primary'));
         return `
             <div class="bento-bar-col ${isCurrent ? 'is-current-week' : ''}" title="${b.label}. ${mName}: ${b.count} ${b.count === 1 ? 'Fall' : 'Fälle'} bearbeitet">
                 <span class="bento-bar-val">${b.count}</span>
