@@ -2368,10 +2368,11 @@ window.deleteCaseById = async function(caseId) {
         return;
     }
 
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases({ ignoreSpecialtyFilter: true }) : [
-        (typeof BUILTIN_DEMO_CASE !== 'undefined' ? BUILTIN_DEMO_CASE : null),
-        ...getRawCustomCases()
-    ].filter(Boolean);
+   const allCases = window.getRegisteredCases
+    ? window.getRegisteredCases({ ignoreSpecialtyFilter: true })
+    : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+const visibleSolvedCount = allCases.filter(c => solved.includes(c.case_id)).length;
 
     const targetCase = allCases.find(c => (c.case_id || c.id) === caseId);
     const title = targetCase?.metadata?.title || targetCase?.title || caseId;
@@ -7319,9 +7320,11 @@ function renderBentoMonthlyProgress(allCases, solvedIds) {
 }
 
 window.updateBentoDashboardWidgets = function() {
-    const allCases = window.getRegisteredCases ? window.getRegisteredCases() : [BUILTIN_DEMO_CASE, ...getCustomCases()];
-    const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-
+    const allCases = window.getRegisteredCases
+    ? window.getRegisteredCases({ ignoreSpecialtyFilter: true })
+    : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+const visibleSolvedCount = allCases.filter(c => solved.includes(c.case_id)).length;
     // 1. DREI KATEGORIE-FORTSCHRITTS-PILLS (Mini-Cards für die Top-Überordner)
     const miniContainer = document.getElementById('bento-mini-cards-container');
     if (miniContainer) {
@@ -7402,7 +7405,9 @@ window.updateBentoDashboardWidgets = function() {
     }
 
     // 3. DUAL-RING SVG AKTUALISIEREN
-    const solvedPct = allCases.length > 0 ? Math.round((solved.length / allCases.length) * 100) : 0;
+   const solvedPct = allCases.length > 0
+    ? Math.min(100, Math.round((visibleSolvedCount / allCases.length) * 100))
+    : 0;
     const outerCircle = document.getElementById('bento-ring-outer');
     const pctBadge = document.getElementById('bento-ring-pct-badge');
     if (outerCircle) {
@@ -7655,9 +7660,9 @@ function renderBookshelfFullscreenBoard() {
     const statsEl = document.getElementById('bs-studio-stats-text');
     if (!board) return;
 
-    const allCases = typeof window.getRegisteredCases === 'function'
-        ? window.getRegisteredCases()
-        : [BUILTIN_DEMO_CASE, ...getCustomCases()];
+   const allCases = typeof window.getRegisteredCases === 'function'
+    ? window.getRegisteredCases({ ignoreSpecialtyFilter: true })
+    : [BUILTIN_DEMO_CASE, ...getCustomCases()];
     const solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
     let savedOrder = JSON.parse(localStorage.getItem('medcheck_folder_order') || '[]');
 
