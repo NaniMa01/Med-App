@@ -1,6 +1,8 @@
 // ==========================================================================
-// js/audit.js – Editorial Clinical Audit, Patient-Triage & Active-Recall Engine (V4.1)
+// js/audit.js – Editorial Clinical Audit, Patient-Triage & Active-Recall Engine (V4.2)
 // Features:
+// - Selbstheilender Container- & Tab-Visibility-Guard (.hidden-Schutz)
+// - Sichtbare Error Boundary statt stillem Weißbild bei Laufzeitfehlern
 // - Patienten-Akten-Filter (Patient 1 / 2 / 3) mit Live-Fortschritt & Quick-Next
 // - Verlustfreier medizinischer Satz-/Absatz-Splitter & Hotspot-Boundary-Schutz
 // - Safari-kompatibler Akten-Scanner für Vitalparameter, Laborwerte & Segmente
@@ -51,36 +53,77 @@
         } catch (_e) {}
     }
 
+    // Findet #player-container oder legt ihn als Fallback sauber in #mode-container-audit an
+    function getAuditContainer() {
+        let container = document.getElementById('player-container');
+        if (container) return container;
+
+        const pane = document.getElementById('mode-container-audit');
+        if (pane) {
+            container = pane.querySelector('#audit-container, .audit-container');
+            if (container) return container;
+
+            const created = document.createElement('div');
+            created.id = 'player-container';
+            pane.appendChild(created);
+            return created;
+        }
+        return null;
+    }
+
+    function renderAuditDiagnosticBox(container, title, details) {
+        if (!container) return;
+        container.innerHTML = `
+            <div class="feedback-box feedback-error" style="display:block; margin:12px 0;">
+                <div style="font-weight:800; margin-bottom:6px;">⚠️ ${escapeAuditHtml(title)}</div>
+                <div style="font-size:0.84rem; line-height:1.5; margin-bottom:10px;">${escapeAuditHtml(details)}</div>
+                <button type="button" class="action-btn secondary btn-sm" onclick="window.renderTimeline()">
+                    ↻ Audit erneut laden
+                </button>
+            </div>
+        `;
+    }
+
     // ----------------------------------------------------------------------
     // 1. PERSISTENZ (FORTSCHRITT, HOTSPOTS, NOISE & ACTIVE RECALL)
     // ----------------------------------------------------------------------
+    function getDefaultAuditState() {
+        return {
+            clearedStepsCount: 0,
+            clearedStepsMap: {},
+            resolvedHotspotsMap: {},
+            resolvedNoiseMap: {},
+            userHypothesesMap: {},
+            hypothesisRewardedMap: {},
+            errorCategoryMap: {},
+            aiEvaluationsMap: {},
+            prematureClosureCount: 0
+        };
+    }
+
     function getAuditProgressState() {
         const caseData = getActiveCase();
         if (!caseData || !caseData.case_id || window.isSpecialtyBlindMode || typeof ProgressManager === 'undefined') {
-            return {
-                clearedStepsCount: 0,
-                clearedStepsMap: {},
-                resolvedHotspotsMap: {},
-                resolvedNoiseMap: {},
-                userHypothesesMap: {},
-                hypothesisRewardedMap: {},
-                errorCategoryMap: {},
-                aiEvaluationsMap: {},
-                prematureClosureCount: 0
-            };
+            return getDefaultAuditState();
         }
-        const saved = ProgressManager.getCaseProgress(caseData.case_id)?.audit || {};
-        return {
-            clearedStepsCount: saved.clearedStepsCount || 0,
-            clearedStepsMap: { ...(saved.clearedStepsMap || {}) },
-            resolvedHotspotsMap: { ...(saved.resolvedHotspotsMap || {}) },
-            resolvedNoiseMap: { ...(saved.resolvedNoiseMap || {}) },
-            userHypothesesMap: { ...(saved.userHypothesesMap || {}) },
-            hypothesisRewardedMap: { ...(saved.hypothesisRewardedMap || {}) },
-            errorCategoryMap: { ...(saved.errorCategoryMap || {}) },
-            aiEvaluationsMap: { ...(saved.aiEvaluationsMap || {}) },
-            prematureClosureCount: saved.prematureClosureCount || 0
-        };
+        try {
+            const rawSaved = ProgressManager.getCaseProgress(caseData.case_id)?.audit;
+            const saved = (rawSaved && typeof rawSaved === 'object') ? rawSaved : {};
+            return {
+                clearedStepsCount: Number(saved.clearedStepsCount) || 0,
+                clearedStepsMap: { ...(saved.clearedStepsMap && typeof saved.clearedStepsMap === 'object' ? saved.clearedStepsMap : {}) },
+                resolvedHotspotsMap: { ...(saved.resolvedHotspotsMap && typeof saved.resolvedHotspotsMap === 'object' ? saved.resolvedHotspotsMap : {}) },
+                resolvedNoiseMap: { ...(saved.resolvedNoiseMap && typeof saved.resolvedNoiseMap === 'object' ? saved.resolvedNoiseMap : {}) },
+                userHypothesesMap: { ...(saved.userHypothesesMap && typeof saved.userHypothesesMap === 'object' ? saved.userHypothesesMap : {}) },
+                hypothesisRewardedMap: { ...(saved.hypothesisRewardedMap && typeof saved.hypothesisRewardedMap === 'object' ? saved.hypothesisRewardedMap : {}) },
+                errorCategoryMap: { ...(saved.errorCategoryMap && typeof saved.errorCategoryMap === 'object' ? saved.errorCategoryMap : {}) },
+                aiEvaluationsMap: { ...(saved.aiEvaluationsMap && typeof saved.aiEvaluationsMap === 'object' ? saved.aiEvaluationsMap : {}) },
+                prematureClosureCount: Number(saved.prematureClosureCount) || 0
+            };
+        } catch (err) {
+            console.warn('[Audit] Progress-State korrupt, nutze Fallback:', err);
+            return getDefaultAuditState();
+        }
     }
 
     function saveAuditProgressState(partialAuditState) {
@@ -88,19 +131,23 @@
         if (!caseData || !caseData.case_id || window.isSpecialtyBlindMode || typeof ProgressManager === 'undefined') {
             return;
         }
-        const current = getAuditProgressState();
-        const nextState = {
-            ...current,
-            ...partialAuditState,
-            clearedStepsMap: { ...current.clearedStepsMap, ...(partialAuditState.clearedStepsMap || {}) },
-            resolvedHotspotsMap: { ...current.resolvedHotspotsMap, ...(partialAuditState.resolvedHotspotsMap || {}) },
-            resolvedNoiseMap: { ...current.resolvedNoiseMap, ...(partialAuditState.resolvedNoiseMap || {}) },
-            userHypothesesMap: { ...current.userHypothesesMap, ...(partialAuditState.userHypothesesMap || {}) },
-            hypothesisRewardedMap: { ...current.hypothesisRewardedMap, ...(partialAuditState.hypothesisRewardedMap || {}) },
-            errorCategoryMap: { ...current.errorCategoryMap, ...(partialAuditState.errorCategoryMap || {}) },
-            aiEvaluationsMap: { ...current.aiEvaluationsMap, ...(partialAuditState.aiEvaluationsMap || {}) }
-        };
-        ProgressManager.saveCaseState(caseData.case_id, { audit: nextState });
+        try {
+            const current = getAuditProgressState();
+            const nextState = {
+                ...current,
+                ...partialAuditState,
+                clearedStepsMap: { ...current.clearedStepsMap, ...(partialAuditState.clearedStepsMap || {}) },
+                resolvedHotspotsMap: { ...current.resolvedHotspotsMap, ...(partialAuditState.resolvedHotspotsMap || {}) },
+                resolvedNoiseMap: { ...current.resolvedNoiseMap, ...(partialAuditState.resolvedNoiseMap || {}) },
+                userHypothesesMap: { ...current.userHypothesesMap, ...(partialAuditState.userHypothesesMap || {}) },
+                hypothesisRewardedMap: { ...current.hypothesisRewardedMap, ...(partialAuditState.hypothesisRewardedMap || {}) },
+                errorCategoryMap: { ...current.errorCategoryMap, ...(partialAuditState.errorCategoryMap || {}) },
+                aiEvaluationsMap: { ...current.aiEvaluationsMap, ...(partialAuditState.aiEvaluationsMap || {}) }
+            };
+            ProgressManager.saveCaseState(caseData.case_id, { audit: nextState });
+        } catch (err) {
+            console.warn('[Audit] Progress konnte nicht gespeichert werden:', err);
+        }
     }
 
     // ----------------------------------------------------------------------
@@ -144,6 +191,7 @@
                 const flexRegex = new RegExp(escapedTokens.join('\\s+'), 'gi');
                 let m;
                 while ((m = flexRegex.exec(normCleanText)) !== null) {
+                    if (m[0].length === 0) break;
                     matches.push({ start: m.index, end: m.index + m[0].length });
                 }
             }
@@ -159,7 +207,7 @@
         const normCleanText = normalizeForMatch(cleanText);
 
         const ranges = [];
-        hotspots.forEach((hs, idx) => {
+        (Array.isArray(hotspots) ? hotspots : []).forEach((hs, idx) => {
             if (!hs || !hs.phrase) return;
             const foundList = findPhraseRangesInText(cleanText, normCleanText, hs.phrase);
             foundList.forEach(({ start, end }) => {
@@ -226,6 +274,10 @@
             }
         });
 
+        if (finalSegments.length === 0 && cleanText.trim()) {
+            return [{ text: cleanText.trim(), isHotspot: false, hotspotIndex: null }];
+        }
+
         return finalSegments;
     }
 
@@ -277,7 +329,8 @@
     function splitStepIntoEditorialParagraphs(rawText, hotspots = []) {
         if (!rawText) return [];
 
-        const normalizedRaw = String(rawText)
+        const textString = Array.isArray(rawText) ? rawText.join('\n\n') : String(rawText);
+        const normalizedRaw = textString
             .replace(/\r\n/g, '\n')
             .replace(/\\n/g, '\n')
             .replace(/^Patient\s*\d+\s*\n+/i, '')
@@ -372,20 +425,41 @@
     }
 
     // ----------------------------------------------------------------------
-    // 4. STYLESHEET (DARK & LIGHT MODE KONSISTENT + SCROLL-REVEAL-SCHUTZ)
+    // 4. STYLESHEET (DARK & LIGHT MODE KONSISTENT + SICHTBARKEITS-SCHUTZ)
     // ----------------------------------------------------------------------
     function injectAuditEnhancementStyles() {
         if (document.getElementById('mc-audit-v4-styles')) return;
         const style = document.createElement('style');
         style.id = 'mc-audit-v4-styles';
         style.textContent = `
-            /* Schutz vor EditorialScrollEngine: Audit-Abschnitte dürfen niemals auf opacity: 0 hängen bleiben */
+            /* Schutz vor EditorialScrollEngine & versehentlichem Ausblenden */
+            #player-container,
             #player-container .audit-step-container,
             #player-container .audit-step-container.scroll-reveal-item,
+            #player-container .audit-editorial-body,
             #player-container .audit-paragraph {
                 opacity: 1 !important;
                 transform: none !important;
                 visibility: visible !important;
+            }
+            #player-container .audit-editorial-body {
+                display: block !important;
+                color: var(--text-main, #f1f5f9);
+            }
+            #player-container .audit-paragraph {
+                display: block !important;
+                margin: 0 0 12px 0;
+                line-height: 1.72;
+                font-size: 0.95rem;
+                color: var(--text-main, #f1f5f9);
+            }
+            #player-container .audit-paragraph:last-child {
+                margin-bottom: 0;
+            }
+            #player-container .stealth-word,
+            #player-container .stealth-hotspot {
+                opacity: 1;
+                visibility: visible;
             }
             .audit-patient-triage-bar {
                 display: flex;
@@ -565,12 +639,16 @@
     // 5. PATIENTEN-AKTEN-GRUPPIERUNG & EPIKRISE-GENERATOR
     // ----------------------------------------------------------------------
     function extractStepPatientId(step) {
-        return step?.patient_id || (step?.phase?.match(/Patient\s*\d+/i)?.[0]?.toLowerCase().replace(/\s+/, '_')) || null;
+        if (!step || typeof step !== 'object') return null;
+        if (step.patient_id) return String(step.patient_id).trim();
+        const phaseStr = String(step.phase || '');
+        const match = phaseStr.match(/Patient\s*\d+/i);
+        return match ? match[0].toLowerCase().replace(/\s+/, '_') : null;
     }
 
     function detectPatientGroups(timeline, clearedMap) {
         const groups = {};
-        timeline.forEach((step, idx) => {
+        (Array.isArray(timeline) ? timeline : []).forEach((step, idx) => {
             const rawPid = extractStepPatientId(step);
             if (!rawPid) return;
             if (!groups[rawPid]) {
@@ -589,6 +667,7 @@
     }
 
     function getSynthesisText(hs) {
+        if (!hs || typeof hs !== 'object') return 'Keine detaillierte Synthese hinterlegt.';
         return hs.correct_pathophysiology
             || hs.synthesis
             || hs.correction
@@ -600,9 +679,10 @@
 
     function buildEpikriseSummaryHtml(timeline, clearedMap, resolvedHsMap, userHypothesesMap, prematureClosureCount) {
         const solvedErrors = [];
-        timeline.forEach((step, stepIdx) => {
-            (step.hotspots || []).forEach((hs, hsIdx) => {
-                if (!hs.is_error) return;
+        (Array.isArray(timeline) ? timeline : []).forEach((step, stepIdx) => {
+            if (!step || !Array.isArray(step.hotspots)) return;
+            step.hotspots.forEach((hs, hsIdx) => {
+                if (!hs || !hs.is_error) return;
                 const hsKey = `${stepIdx}_${hsIdx}`;
                 const status = resolvedHsMap[hsKey];
                 if (status === 'signal' || status === 'corrected' || clearedMap[stepIdx]) {
@@ -611,7 +691,7 @@
                         hotspotIndex: hsIdx,
                         stepNum: stepIdx + 1,
                         phase: step.phase || `Abschnitt ${stepIdx + 1}`,
-                        wrongPhrase: hs.phrase,
+                        wrongPhrase: hs.phrase || '',
                         userHypothesis: userHypothesesMap[hsKey] || '',
                         correction: getSynthesisText(hs)
                     });
@@ -673,229 +753,292 @@
     }
 
     // ----------------------------------------------------------------------
-    // 6. HAUPT-RENDERER FÜR DAS KLINISCHE AUDIT
+    // 6. HAUPT-RENDERER FÜR DAS KLINISCHE AUDIT (MIT ERROR BOUNDARY)
     // ----------------------------------------------------------------------
     function renderTimeline() {
         injectAuditEnhancementStyles();
-        const container = document.getElementById('player-container');
-        const caseData = getActiveCase();
-        if (!container || !caseData) return;
-
-        // Fallwechsel unabhängig von der Script-Ladereihenfolge zuverlässig erkennen
-        const currentCaseId = caseData.case_id || caseData.id || '__unknown__';
-        if (lastRenderedCaseId !== currentCaseId) {
-            lastRenderedCaseId = currentCaseId;
-            activePatientFilter = 'ALL';
-            sentenceHintActiveMap = {};
-        }
-
-        if (!Array.isArray(caseData.timeline) || caseData.timeline.length === 0) {
-            container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall sind keine Audit-Abschnitte hinterlegt.</div>';
+        const container = getAuditContainer();
+        if (!container) {
+            console.error('[Audit] Weder #player-container noch #mode-container-audit im DOM gefunden.');
             return;
         }
 
-        const auditState = getAuditProgressState();
-        const clearedMap = auditState.clearedStepsMap || {};
-        const resolvedHsMap = auditState.resolvedHotspotsMap || {};
-        const resolvedNoiseMap = auditState.resolvedNoiseMap || {};
-
-        const clearedCount = Object.keys(clearedMap).filter(k => clearedMap[k]).length;
-        setGlobalClearedStepsCount(clearedCount);
-
-        const badge = document.getElementById('badge-mode-audit');
-        if (badge) {
-            badge.innerText = `${clearedCount}/${caseData.timeline.length}`;
+        const caseData = getActiveCase();
+        if (!caseData) {
+            renderAuditDiagnosticBox(
+                container,
+                'Kein aktiver Fall geladen',
+                'window.activeCaseData ist aktuell leer. Bitte öffne einen Fall über das Dashboard oder stelle sicher, dass loadCaseById() window.activeCaseData setzt.'
+            );
+            return;
         }
 
-        const patientGroups = detectPatientGroups(caseData.timeline, clearedMap);
-        if (activePatientFilter !== 'ALL' && !patientGroups.some(g => g.id === activePatientFilter)) {
-            activePatientFilter = 'ALL';
-        }
+        try {
+            const currentCaseId = caseData.case_id || caseData.id || '__unknown__';
+            if (lastRenderedCaseId !== currentCaseId) {
+                lastRenderedCaseId = currentCaseId;
+                activePatientFilter = 'ALL';
+                sentenceHintActiveMap = {};
+            }
 
-        const patientTriageHtml = patientGroups.length > 1
-            ? `
-                <div class="audit-patient-triage-bar">
-                    <span style="font-size:0.72rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
-                        🏥 Stations-Akte:
-                    </span>
-                    <div class="audit-patient-pills">
-                        <button type="button" class="audit-patient-pill ${activePatientFilter === 'ALL' ? 'active' : ''}"
-                                onclick="window.setAuditPatientFilter('ALL')">
-                            Alle Abschnitte (${clearedCount}/${caseData.timeline.length})
-                        </button>
-                        ${patientGroups.map(pg => `
-                            <button type="button" class="audit-patient-pill ${activePatientFilter === pg.id ? 'active' : ''} ${pg.cleared === pg.total ? 'is-done' : ''}"
-                                    onclick="window.setAuditPatientFilter('${escapeAuditHtml(pg.id)}')">
-                                ${pg.cleared === pg.total ? '✓ ' : ''}${escapeAuditHtml(pg.label)} (${pg.cleared}/${pg.total})
+            if (!Array.isArray(caseData.timeline) || caseData.timeline.length === 0) {
+                container.innerHTML = '<div class="feedback-box feedback-neutral" style="display:block;">Für diesen Fall sind keine Audit-Abschnitte hinterlegt.</div>';
+                return;
+            }
+
+            const auditState = getAuditProgressState();
+            const clearedMap = auditState.clearedStepsMap || {};
+            const resolvedHsMap = auditState.resolvedHotspotsMap || {};
+            const resolvedNoiseMap = auditState.resolvedNoiseMap || {};
+
+            const clearedCount = Object.keys(clearedMap).filter(k => clearedMap[k]).length;
+            setGlobalClearedStepsCount(clearedCount);
+
+            const badge = document.getElementById('badge-mode-audit');
+            if (badge) {
+                badge.innerText = `${clearedCount}/${caseData.timeline.length}`;
+            }
+
+            const patientGroups = detectPatientGroups(caseData.timeline, clearedMap);
+            if (activePatientFilter !== 'ALL' && !patientGroups.some(g => g.id === activePatientFilter)) {
+                activePatientFilter = 'ALL';
+            }
+
+            const firstOpenStepIndex = caseData.timeline.findIndex((_, idx) => !clearedMap[idx]);
+
+            const patientTriageHtml = patientGroups.length > 1
+                ? `
+                    <div class="audit-patient-triage-bar">
+                        <span style="font-size:0.72rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
+                            🏥 Stations-Akte:
+                        </span>
+                        <div class="audit-patient-pills">
+                            <button type="button" class="audit-patient-pill ${activePatientFilter === 'ALL' ? 'active' : ''}"
+                                    onclick="window.setAuditPatientFilter('ALL')">
+                                Alle Abschnitte (${clearedCount}/${caseData.timeline.length})
                             </button>
-                        `).join('')}
+                            ${patientGroups.map(pg => `
+                                <button type="button" class="audit-patient-pill ${activePatientFilter === pg.id ? 'active' : ''} ${pg.cleared === pg.total ? 'is-done' : ''}"
+                                        onclick="window.setAuditPatientFilter('${escapeAuditHtml(pg.id)}')">
+                                    ${pg.cleared === pg.total ? '✓ ' : ''}${escapeAuditHtml(pg.label)} (${pg.cleared}/${pg.total})
+                                </button>
+                            `).join('')}
+                            ${firstOpenStepIndex !== -1 ? `
+                                <button type="button" class="audit-patient-pill"
+                                        onclick="window.jumpToNextOpenAuditStep()"
+                                        title="Direkt zum nächsten noch offenen Bericht springen">
+                                    ➔ Nächster offener
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
-                </div>
-            `
-            : '';
+                `
+                : '';
 
-        const radLinks = (window.RadiopaediaLinkEngine && typeof window.RadiopaediaLinkEngine.getLinksForCase === 'function')
-            ? window.RadiopaediaLinkEngine.getLinksForCase(caseData)
-            : [];
-
-        const stepsHtml = caseData.timeline.map((step, stepIndex) => {
-            const stepPatientId = extractStepPatientId(step);
-            if (activePatientFilter !== 'ALL' && stepPatientId !== activePatientFilter) {
-                return '';
-            }
-
-            const rawText = step.content || step.text || step.narrative || step.description || '';
-            const hotspots = Array.isArray(step.hotspots) ? step.hotspots : [];
-            const isStepCleared = !!clearedMap[stepIndex];
-
-            let foundErrorsCount = 0;
-            let unfoundErrorsCount = 0;
-            hotspots.forEach((hs, hIdx) => {
-                const st = resolvedHsMap[`${stepIndex}_${hIdx}`];
-                if (hs && hs.is_error) {
-                    if (st === 'signal' || st === 'corrected') foundErrorsCount++;
-                    else unfoundErrorsCount++;
+            // Sicher gekapselter Aufruf von RadiopaediaLinkEngine (kann das Audit nie mehr abschießen)
+            let radLinks = [];
+            try {
+                if (window.RadiopaediaLinkEngine && typeof window.RadiopaediaLinkEngine.getLinksForCase === 'function') {
+                    const res = window.RadiopaediaLinkEngine.getLinksForCase(caseData);
+                    if (Array.isArray(res)) radLinks = res;
                 }
-            });
-
-            const stepNoisePrefix = `${stepIndex}_`;
-            const stepNoiseCount = Object.keys(resolvedNoiseMap).filter(k => k.startsWith(stepNoisePrefix) && resolvedNoiseMap[k]).length;
-            const activeHintParaIdx = sentenceHintActiveMap[stepIndex];
-
-            const paragraphs = splitStepIntoEditorialParagraphs(rawText, hotspots);
-
-            const paragraphsHTML = paragraphs.map((paraText, paraIdx) => {
-                const segments = parseParagraphIntoSegments(paraText, hotspots);
-
-                const spansHTML = segments.map((seg, segIdx) => {
-                    const formattedSegHtml = formatClinicalNumbersInHtml(escapeAuditHtml(seg.text));
-                    if (seg.isHotspot) {
-                        const hsKey = `${stepIndex}_${seg.hotspotIndex}`;
-                        const savedHsStatus = resolvedHsMap[hsKey];
-                        let stateClasses = 'stealth-hotspot';
-                        if (savedHsStatus === 'signal') stateClasses += ' resolved-signal';
-                        else if (savedHsStatus === 'corrected') stateClasses += ' resolved-signal resolved-corrected';
-                        else if (savedHsStatus === 'noise') stateClasses += ' resolved-noise';
-
-                        return `<span class="${stateClasses}" data-hs-group="hs-${stepIndex}-${seg.hotspotIndex}" id="hs-${stepIndex}-${seg.hotspotIndex}" role="button" tabindex="0" onclick="window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex});}">${formattedSegHtml}</span>`;
-                    } else {
-                        const noiseKey = `${stepIndex}_${paraIdx}_${segIdx}`;
-                        const isNoiseResolved = !!resolvedNoiseMap[noiseKey];
-                        return `<span class="stealth-word ${isNoiseResolved ? 'resolved-noise' : ''}" data-noise-key="${noiseKey}" onclick="window.handleGenericChunkClick(this, ${stepIndex}, '${noiseKey}')">${formattedSegHtml}</span>`;
-                    }
-                }).join(' ');
-
-                const isHighlightedPara = (activeHintParaIdx === paraIdx && unfoundErrorsCount > 0 && !isStepCleared);
-                // sm-upgraded schützt Audit-Absätze vor EditorialScrollEngine.upgradeEditorialCallouts()
-                return `<p class="audit-paragraph sm-upgraded ${isHighlightedPara ? 'is-focus-sentence' : ''}">${spansHTML}</p>`;
-            }).join('');
-
-            const stepRadLinks = radLinks.filter(l => l.stepIndex !== null && Number(l.stepIndex) === stepIndex);
-            const stepRadHtml = stepRadLinks.map(link => {
-                const isJustUnlocked = lastUnlockedStudyId && String(link.id) === String(lastUnlockedStudyId);
-                return `
-                    <a href="${escapeAuditHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="mc-rad-link-pill ${isJustUnlocked ? 'audit-unlocked-rad' : ''}" title="${escapeAuditHtml(link.note || link.url)}">
-                        🩻 ${escapeAuditHtml(link.modality)}: ${escapeAuditHtml(link.title)} ↗
-                    </a>
-                `;
-            }).join('');
-
-            const focusAssistBtnHtml = (!isStepCleared && unfoundErrorsCount > 0 && stepNoiseCount >= 3)
-                ? `<button type="button" class="ghost-tool-btn" style="font-size:0.7rem; padding:3px 8px; border-color:rgba(245,158,11,0.45); color:#f59e0b;"
-                           onclick="window.activateOberarztFocus(${stepIndex})"
-                           title="Grenzt die Passage mit dem nächsten unentdeckten Fehler ein">
-                       🔍 Oberarzt-Fokus
-                   </button>`
-                : '';
-
-            const statusBadgesHtml = `
-                <div class="audit-step-status-strip">
-                    ${stepRadHtml}
-                    ${focusAssistBtnHtml}
-                    ${foundErrorsCount > 0 ? `<span class="case-status-pill audit-error-badge">🚨 ${foundErrorsCount} Fehler enttarnt</span>` : ''}
-                    ${isStepCleared ? `<span class="case-status-pill status-solved">✓ Validiert</span>` : ''}
-                </div>
-            `;
-
-            const fbClass = isStepCleared ? 'feedback-box feedback-success' : 'feedback-box';
-            const fbDisplay = isStepCleared ? 'block' : 'none';
-            const fbInitialContent = isStepCleared
-                ? '<strong>Abschnitt validiert:</strong> Dieser klinische Abschnitt wurde erfolgreich auditiert. Klicke auf markierte Phrasen, um die pathophysiologische Synthese erneut einzusehen.'
-                : '';
-
-            return `
-                <article class="audit-step-container is-in-view" id="audit-step-${stepIndex}">
-                    <header class="audit-step-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                        <div>
-                            <span class="audit-step-kicker">Abschnitt ${stepIndex + 1}</span>
-                            <h3 class="audit-step-title">${escapeAuditHtml(step.phase || 'Klinischer Verlauf')}</h3>
-                        </div>
-                        ${statusBadgesHtml}
-                    </header>
-
-                    <div class="step-content audit-editorial-body">
-                        ${paragraphsHTML}
-                    </div>
-
-                    <div class="${fbClass}" id="audit-fb-${stepIndex}" style="display:${fbDisplay};">
-                        ${fbInitialContent}
-                    </div>
-
-                    <div class="audit-step-footer" id="audit-footer-${stepIndex}" style="display:${isStepCleared ? 'none' : 'flex'};">
-                        <button type="button" class="action-btn secondary audit-clear-btn" id="clear-step-btn-${stepIndex}" onclick="window.clearStep(${stepIndex})">
-                            Abschnitt als fachlich korrekt freigeben
-                        </button>
-                    </div>
-                </article>
-            `;
-        }).join('');
-
-        let nextPatientBannerHtml = '';
-        if (activePatientFilter !== 'ALL' && patientGroups.length > 1) {
-            const currentPg = patientGroups.find(g => g.id === activePatientFilter);
-            if (currentPg && currentPg.cleared === currentPg.total) {
-                const nextPg = patientGroups.find(g => g.cleared < g.total);
-                nextPatientBannerHtml = `
-                    <div class="audit-patient-complete-card">
-                        <div style="font-weight:800; font-size:1rem; color:var(--color-symptom, #10b981); margin-bottom:4px;">
-                            ✅ Akte „${escapeAuditHtml(currentPg.label)}“ vollständig auditiert
-                        </div>
-                        <div style="font-size:0.84rem; color:var(--text-muted);">
-                            ${nextPg ? `Weiter zur nächsten Patientenakte auf Station:` : `Alle Patientenakten dieses Falls wurden erfolgreich abgeschlossen!`}
-                        </div>
-                        <div class="complete-actions">
-                            ${nextPg
-                                ? `<button type="button" class="action-btn btn-sm" onclick="window.setAuditPatientFilter('${escapeAuditHtml(nextPg.id)}')">Weiter zu ${escapeAuditHtml(nextPg.label)} ➔</button>`
-                                : `<button type="button" class="action-btn btn-sm" onclick="window.setAuditPatientFilter('ALL')">Gesamt-Epikrise anzeigen</button>`
-                            }
-                        </div>
-                    </div>
-                `;
+            } catch (radErr) {
+                console.warn('[Audit] RadiopaediaLinkEngine.getLinksForCase übersprungen:', radErr);
+                radLinks = [];
             }
-        }
 
-        const epikriseHtml = buildEpikriseSummaryHtml(
-            caseData.timeline,
-            clearedMap,
-            resolvedHsMap,
-            auditState.userHypothesesMap || {},
-            auditState.prematureClosureCount || 0
-        );
+            const stepsHtml = caseData.timeline.map((step, stepIndex) => {
+                if (!step || typeof step !== 'object') return '';
 
-        container.innerHTML = patientTriageHtml + stepsHtml + nextPatientBannerHtml + epikriseHtml;
+                const stepPatientId = extractStepPatientId(step);
+                if (activePatientFilter !== 'ALL' && stepPatientId !== activePatientFilter) {
+                    return '';
+                }
 
-        if (window.RadiopaediaLinkEngine && typeof window.RadiopaediaLinkEngine.refreshUI === 'function') {
-            window.RadiopaediaLinkEngine.refreshUI();
+                const rawText = step.content || step.text || step.narrative || step.description || step.body || '';
+                const hotspots = Array.isArray(step.hotspots) ? step.hotspots : [];
+                const isStepCleared = !!clearedMap[stepIndex];
+
+                let foundErrorsCount = 0;
+                let unfoundErrorsCount = 0;
+                hotspots.forEach((hs, hIdx) => {
+                    const st = resolvedHsMap[`${stepIndex}_${hIdx}`];
+                    if (hs && hs.is_error) {
+                        if (st === 'signal' || st === 'corrected') foundErrorsCount++;
+                        else unfoundErrorsCount++;
+                    }
+                });
+
+                const stepNoisePrefix = `${stepIndex}_`;
+                const stepNoiseCount = Object.keys(resolvedNoiseMap).filter(k => k.startsWith(stepNoisePrefix) && resolvedNoiseMap[k]).length;
+                const activeHintParaIdx = sentenceHintActiveMap[stepIndex];
+
+                const paragraphs = splitStepIntoEditorialParagraphs(rawText, hotspots);
+
+                const paragraphsHTML = paragraphs.length === 0
+                    ? `<p class="audit-paragraph sm-upgraded" style="color:var(--text-muted);"><em>(Kein Berichtstext in diesem Abschnitt hinterlegt.)</em></p>`
+                    : paragraphs.map((paraText, paraIdx) => {
+                        const segments = parseParagraphIntoSegments(paraText, hotspots);
+
+                        const spansHTML = segments.map((seg, segIdx) => {
+                            const formattedSegHtml = formatClinicalNumbersInHtml(escapeAuditHtml(seg.text));
+                            if (seg.isHotspot) {
+                                const hsKey = `${stepIndex}_${seg.hotspotIndex}`;
+                                const savedHsStatus = resolvedHsMap[hsKey];
+                                let stateClasses = 'stealth-hotspot';
+                                if (savedHsStatus === 'signal') stateClasses += ' resolved-signal';
+                                else if (savedHsStatus === 'corrected') stateClasses += ' resolved-signal resolved-corrected';
+                                else if (savedHsStatus === 'noise') stateClasses += ' resolved-noise';
+
+                                return `<span class="${stateClasses}" data-hs-group="hs-${stepIndex}-${seg.hotspotIndex}" id="hs-${stepIndex}-${seg.hotspotIndex}" role="button" tabindex="0" onclick="window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.evaluateAuditHotspot(${stepIndex}, ${seg.hotspotIndex});}">${formattedSegHtml}</span>`;
+                            } else {
+                                const noiseKey = `${stepIndex}_${paraIdx}_${segIdx}`;
+                                const isNoiseResolved = !!resolvedNoiseMap[noiseKey];
+                                return `<span class="stealth-word ${isNoiseResolved ? 'resolved-noise' : ''}" data-noise-key="${noiseKey}" onclick="window.handleGenericChunkClick(this, ${stepIndex}, '${noiseKey}')">${formattedSegHtml}</span>`;
+                            }
+                        }).join(' ');
+
+                        const isHighlightedPara = (activeHintParaIdx === paraIdx && unfoundErrorsCount > 0 && !isStepCleared);
+                        return `<p class="audit-paragraph sm-upgraded ${isHighlightedPara ? 'is-focus-sentence' : ''}">${spansHTML}</p>`;
+                    }).join('');
+
+                const stepRadLinks = radLinks.filter(l => l && l.stepIndex !== null && l.stepIndex !== undefined && Number(l.stepIndex) === stepIndex);
+                const stepRadHtml = stepRadLinks.map(link => {
+                    const isJustUnlocked = lastUnlockedStudyId && String(link.id) === String(lastUnlockedStudyId);
+                    return `
+                        <a href="${escapeAuditHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="mc-rad-link-pill ${isJustUnlocked ? 'audit-unlocked-rad' : ''}" title="${escapeAuditHtml(link.note || link.url)}">
+                            🩻 ${escapeAuditHtml(link.modality)}: ${escapeAuditHtml(link.title)} ↗
+                        </a>
+                    `;
+                }).join('');
+
+                const focusAssistBtnHtml = (!isStepCleared && unfoundErrorsCount > 0 && stepNoiseCount >= 3)
+                    ? `<button type="button" class="ghost-tool-btn" style="font-size:0.7rem; padding:3px 8px; border-color:rgba(245,158,11,0.45); color:#f59e0b;"
+                               onclick="window.activateOberarztFocus(${stepIndex})"
+                               title="Grenzt die Passage mit dem nächsten unentdeckten Fehler ein">
+                           🔍 Oberarzt-Fokus
+                       </button>`
+                    : '';
+
+                const statusBadgesHtml = `
+                    <div class="audit-step-status-strip">
+                        ${stepRadHtml}
+                        ${focusAssistBtnHtml}
+                        ${foundErrorsCount > 0 ? `<span class="case-status-pill audit-error-badge">🚨 ${foundErrorsCount} Fehler enttarnt</span>` : ''}
+                        ${isStepCleared ? `<span class="case-status-pill status-solved">✓ Validiert</span>` : ''}
+                    </div>
+                `;
+
+                const fbClass = isStepCleared ? 'feedback-box feedback-success' : 'feedback-box';
+                const fbDisplay = isStepCleared ? 'block' : 'none';
+                const fbInitialContent = isStepCleared
+                    ? '<strong>Abschnitt validiert:</strong> Dieser klinische Abschnitt wurde erfolgreich auditiert. Klicke auf markierte Phrasen, um die pathophysiologische Synthese erneut einzusehen.'
+                    : '';
+
+                return `
+                    <article class="audit-step-container is-in-view" id="audit-step-${stepIndex}">
+                        <header class="audit-step-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                <span class="audit-step-kicker">Abschnitt ${stepIndex + 1}</span>
+                                <h3 class="audit-step-title">${escapeAuditHtml(step.phase || 'Klinischer Verlauf')}</h3>
+                            </div>
+                            ${statusBadgesHtml}
+                        </header>
+
+                        <div class="step-content audit-editorial-body">
+                            ${paragraphsHTML}
+                        </div>
+
+                        <div class="${fbClass}" id="audit-fb-${stepIndex}" style="display:${fbDisplay};">
+                            ${fbInitialContent}
+                        </div>
+
+                        <div class="audit-step-footer" id="audit-footer-${stepIndex}" style="display:${isStepCleared ? 'none' : 'flex'};">
+                            <button type="button" class="action-btn secondary audit-clear-btn" id="clear-step-btn-${stepIndex}" onclick="window.clearStep(${stepIndex})">
+                                Abschnitt als fachlich korrekt freigeben
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            let nextPatientBannerHtml = '';
+            if (activePatientFilter !== 'ALL' && patientGroups.length > 1) {
+                const currentPg = patientGroups.find(g => g.id === activePatientFilter);
+                if (currentPg && currentPg.cleared === currentPg.total) {
+                    const nextPg = patientGroups.find(g => g.cleared < g.total);
+                    nextPatientBannerHtml = `
+                        <div class="audit-patient-complete-card">
+                            <div style="font-weight:800; font-size:1rem; color:var(--color-symptom, #10b981); margin-bottom:4px;">
+                                ✅ Akte „${escapeAuditHtml(currentPg.label)}“ vollständig auditiert
+                            </div>
+                            <div style="font-size:0.84rem; color:var(--text-muted);">
+                                ${nextPg ? `Weiter zur nächsten Patientenakte auf Station:` : `Alle Patientenakten dieses Falls wurden erfolgreich abgeschlossen!`}
+                            </div>
+                            <div class="complete-actions">
+                                ${nextPg
+                                    ? `<button type="button" class="action-btn btn-sm" onclick="window.setAuditPatientFilter('${escapeAuditHtml(nextPg.id)}')">Weiter zu ${escapeAuditHtml(nextPg.label)} ➔</button>`
+                                    : `<button type="button" class="action-btn btn-sm" onclick="window.setAuditPatientFilter('ALL')">Gesamt-Epikrise anzeigen</button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            const epikriseHtml = buildEpikriseSummaryHtml(
+                caseData.timeline,
+                clearedMap,
+                resolvedHsMap,
+                auditState.userHypothesesMap || {},
+                auditState.prematureClosureCount || 0
+            );
+
+            container.innerHTML = patientTriageHtml + stepsHtml + nextPatientBannerHtml + epikriseHtml;
+
+            try {
+                if (window.RadiopaediaLinkEngine && typeof window.RadiopaediaLinkEngine.refreshUI === 'function') {
+                    window.RadiopaediaLinkEngine.refreshUI();
+                }
+            } catch (radUiErr) {
+                console.warn('[Audit] RadiopaediaLinkEngine.refreshUI übersprungen:', radUiErr);
+            }
+        } catch (renderErr) {
+            console.error('[Audit] Fehler in renderTimeline():', renderErr);
+            renderAuditDiagnosticBox(
+                container,
+                'Fehler beim Rendern des Audits',
+                `${renderErr?.message || renderErr}`
+            );
         }
     }
 
     // ----------------------------------------------------------------------
-    // 7. INTERAKTIONS-HANDLER (FILTER, OBERARZT-FOKUS, FREIGABE & HOTSPOTS)
+    // 7. INTERAKTIONS-HANDLER (FILTER, QUICK-JUMP, FOKUS, FREIGABE & HOTSPOTS)
     // ----------------------------------------------------------------------
     window.setAuditPatientFilter = function(patientId) {
         activePatientFilter = patientId || 'ALL';
         if (typeof window.triggerHaptic === 'function') window.triggerHaptic(5);
         renderTimeline();
+    };
+
+    window.jumpToNextOpenAuditStep = function() {
+        const caseData = getActiveCase();
+        if (!caseData || !Array.isArray(caseData.timeline)) return;
+        const clearedMap = getAuditProgressState().clearedStepsMap || {};
+        const nextIdx = caseData.timeline.findIndex((_, idx) => !clearedMap[idx]);
+        if (nextIdx === -1) return;
+
+        const targetStep = caseData.timeline[nextIdx];
+        const targetPid = extractStepPatientId(targetStep);
+        if (activePatientFilter !== 'ALL' && targetPid && activePatientFilter !== targetPid) {
+            activePatientFilter = targetPid;
+            renderTimeline();
+        }
+        setTimeout(() => {
+            const el = document.getElementById(`audit-step-${nextIdx}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 40);
     };
 
     window.activateOberarztFocus = function(stepIndex) {
@@ -904,7 +1047,7 @@
 
         const auditState = getAuditProgressState();
         const resolvedHsMap = auditState.resolvedHotspotsMap || {};
-        const hotspots = step.hotspots || [];
+        const hotspots = Array.isArray(step.hotspots) ? step.hotspots : [];
 
         const nextUnfoundHs = hotspots.find((hs, idx) => {
             if (!hs || !hs.is_error) return false;
@@ -914,7 +1057,7 @@
 
         if (!nextUnfoundHs) return;
 
-        const rawText = step.content || step.text || step.narrative || step.description || '';
+        const rawText = step.content || step.text || step.narrative || step.description || step.body || '';
         const paragraphs = splitStepIntoEditorialParagraphs(rawText, hotspots);
         const normPhrase = normalizeForMatch(String(nextUnfoundHs.phrase || '').replace(/^\[|\]$/g, '').trim()).toLowerCase();
         const targetParaIdx = paragraphs.findIndex(p => normalizeForMatch(p).toLowerCase().includes(normPhrase));
@@ -956,7 +1099,7 @@
         if (!caseData || !caseData.timeline || !caseData.timeline[stepIndex]) return;
 
         const step = caseData.timeline[stepIndex];
-        const hotspots = step.hotspots || [];
+        const hotspots = Array.isArray(step.hotspots) ? step.hotspots : [];
         const auditState = getAuditProgressState();
         const resolvedHsMap = auditState.resolvedHotspotsMap || {};
 
@@ -1294,11 +1437,12 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
         const caseData = getActiveCase();
         const step = caseData?.timeline?.[stepIndex];
         const hs = step?.hotspots?.[hotspotIndex];
-        if (!caseData || !hs || typeof createDepotEntry !== 'function') return;
+        const saveFn = window.createDepotEntry || (typeof createDepotEntry === 'function' ? createDepotEntry : null);
+        if (!caseData || !hs || !saveFn) return;
 
         const synthesisText = getSynthesisText(hs);
 
-        await createDepotEntry({
+        await saveFn({
             case_id: caseData.case_id,
             case_title: caseData.metadata?.title || caseData.case_id,
             category: caseData.folder_name || caseData.metadata?.medical_field || 'Klinisches Audit',
@@ -1314,7 +1458,8 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
 
     window.saveAllAuditErrorsToDepot = async function(btnEl) {
         const caseData = getActiveCase();
-        if (!caseData || !Array.isArray(caseData.timeline) || typeof createDepotEntry !== 'function') return;
+        const saveFn = window.createDepotEntry || (typeof createDepotEntry === 'function' ? createDepotEntry : null);
+        if (!caseData || !Array.isArray(caseData.timeline) || !saveFn) return;
 
         const auditState = getAuditProgressState();
         const clearedMap = auditState.clearedStepsMap || {};
@@ -1328,13 +1473,13 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
         let exportedCount = 0;
         for (let stepIdx = 0; stepIdx < caseData.timeline.length; stepIdx++) {
             const step = caseData.timeline[stepIdx];
-            const hotspots = step.hotspots || [];
+            const hotspots = Array.isArray(step?.hotspots) ? step.hotspots : [];
             for (let hsIdx = 0; hsIdx < hotspots.length; hsIdx++) {
                 const hs = hotspots[hsIdx];
                 if (!hs || !hs.is_error) continue;
                 const status = resolvedHsMap[`${stepIdx}_${hsIdx}`];
                 if (status === 'signal' || status === 'corrected' || clearedMap[stepIdx]) {
-                    await createDepotEntry({
+                    await saveFn({
                         case_id: caseData.case_id,
                         case_title: caseData.metadata?.title || caseData.case_id,
                         category: caseData.folder_name || caseData.metadata?.medical_field || 'Klinisches Audit',
@@ -1350,6 +1495,42 @@ Bewerte in maximal 2–3 präzisen Sätzen auf Deutsch: Was stimmt an seiner Üb
             btnEl.textContent = exportedCount > 0 ? `✓ ${exportedCount} im Depot gesichert` : 'Keine Fehler offen';
         }
     };
+
+    // ----------------------------------------------------------------------
+    // 8. SELBSTHEILENDER TAB-VISIBILITY-HOOK (LADEREIHENFOLGEN-UNABHÄNGIG)
+    // ----------------------------------------------------------------------
+    function bindAuditModeVisibilityHook() {
+        if (typeof window.switchPlayerMode !== 'function' || window.switchPlayerMode._auditV42Wrapped) {
+            return;
+        }
+        const origSwitch = window.switchPlayerMode;
+        const wrappedSwitch = function(mode) {
+            const result = origSwitch.apply(this, arguments);
+            if (mode === 'audit') {
+                const pane = document.getElementById('mode-container-audit');
+                if (pane) {
+                    pane.classList.remove('hidden');
+                    pane.style.display = 'block';
+                }
+                const container = getAuditContainer();
+                const currentCase = getActiveCase();
+                const currentId = currentCase?.case_id || currentCase?.id || null;
+                if (container && (container.children.length === 0 || (currentId && lastRenderedCaseId !== currentId))) {
+                    renderTimeline();
+                }
+            }
+            return result;
+        };
+        wrappedSwitch._auditV42Wrapped = true;
+        window.switchPlayerMode = wrappedSwitch;
+    }
+
+    bindAuditModeVisibilityHook();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindAuditModeVisibilityHook);
+    } else {
+        setTimeout(bindAuditModeVisibilityHook, 0);
+    }
 
     // Globale Exporte
     window.parseParagraphIntoSegments = parseParagraphIntoSegments;
