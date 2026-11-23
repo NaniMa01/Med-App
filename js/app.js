@@ -187,7 +187,7 @@ const BUILTIN_DEMO_CASE = {
 };
 
 // ==========================================================================
-// 02. UNIVERSAL THEME ENGINE, BRIGHT-MODE CSS & REVERSIBLE INLINE-SANITIZER
+// 02. UNIVERSAL THEME ENGINE, BRIGHT-MODE CSS & SAFE PROPERTY-SANITIZER (V3.0)
 // ==========================================================================
 const THEME_STORAGE_KEY = 'medcheck_ui_theme';
 const THEME_META_COLORS = {
@@ -199,13 +199,13 @@ const THEME_META_COLORS = {
 };
 
 let lightSanitizeRaf = null;
+let isSanitizingLightTheme = false;
 
 function isBrightThemeActive(themeName = document.documentElement.getAttribute('data-theme')) {
     return themeName === 'daylight' || themeName === 'tropical';
 }
 
-// Injiziert ein globales, hochspezifisches Stylesheet, das ALLE Views & Challenges
-// im Bright Mode (daylight & tropical) auf ein einheitliches helles Klinik-Design bringt.
+// Injiziert ein globales, WCAG-AA-geprüftes Stylesheet für Daylight & Tropical
 function ensureUniversalBrightModeStyles() {
     if (document.getElementById('mc-universal-bright-mode-css')) return;
 
@@ -213,50 +213,78 @@ function ensureUniversalBrightModeStyles() {
     style.id = 'mc-universal-bright-mode-css';
     style.textContent = `
         /* ==================================================================
-           1. GLOBALE DESIGN-TOKENS FÜR BRIGHT MODE (DAYLIGHT & TROPICAL)
+           1. GLOBALE DESIGN-TOKENS FÜR BRIGHT MODE (WCAG AA >= 4.5:1)
            ================================================================== */
         html[data-theme="daylight"] {
+            color-scheme: light;
             --bg-app: #f1f5f9;
+            --bg-panel: #ffffff;
+            --bg-card: #ffffff;
+            --bg-elevated: #ffffff;
             --surface-primary: #ffffff;
             --surface-secondary: #f8fafc;
-            --surface-subtle: #f1f5f9;
+            --surface-subtle: #e2e8f0;
             --surface-elevated: #ffffff;
             --card-bg: #ffffff;
             --card-border: #cbd5e1;
+            --border-subtle: #e2e8f0;
             --divider-color: #e2e8f0;
             --text-main: #0f172a;
+            --text-secondary: #334155;
             --text-muted: #475569;
-            --text-muted-token: #64748b;
-            --text-dim: #64748b;
-            --accent-blue: #0284c7;
+            --text-muted-token: #475569;
+            --text-dim: #475569;
+            --accent-blue: #0369a1;
             --accent-cyan: #0369a1;
-            --primary-action: #0284c7;
-            --badge-primary-bg: rgba(2, 132, 199, 0.12);
+            --accent-purple: #6d28d9;
+            --primary-action: #0369a1;
+            --success: #047857;
+            --warning: #b45309;
+            --error: #b91c1c;
+            --color-symptom: #047857;
+            --color-risk: #b91c1c;
+            --color-diagnostics: #0369a1;
+            --color-therapy: #6d28d9;
+            --badge-primary-bg: rgba(3, 105, 161, 0.12);
             --badge-primary-text: #0369a1;
         }
 
         html[data-theme="tropical"] {
+            color-scheme: light;
             --bg-app: #fef3c7;
-            --surface-primary: #fffbeb;
+            --bg-panel: #fffbeb;
+            --bg-card: #fffdf5;
+            --bg-elevated: #ffffff;
+            --surface-primary: #fffdf7;
             --surface-secondary: #fef9c3;
             --surface-subtle: #fde68a;
             --surface-elevated: #ffffff;
-            --card-bg: #fffdf5;
-            --card-border: rgba(217, 119, 6, 0.28);
-            --divider-color: rgba(217, 119, 6, 0.18);
+            --card-bg: #fffdf7;
+            --card-border: rgba(180, 83, 9, 0.28);
+            --border-subtle: rgba(180, 83, 9, 0.2);
+            --divider-color: rgba(180, 83, 9, 0.2);
             --text-main: #1c1917;
+            --text-secondary: #44403c;
             --text-muted: #57534e;
-            --text-muted-token: #78716c;
-            --text-dim: #78716c;
-            --accent-blue: #0d9488;
+            --text-muted-token: #57534e;
+            --text-dim: #57534e;
+            --accent-blue: #0f766e;
             --accent-cyan: #0f766e;
-            --primary-action: #d97706;
-            --badge-primary-bg: rgba(13, 148, 136, 0.14);
+            --accent-purple: #6d28d9;
+            --primary-action: #b45309;
+            --success: #047857;
+            --warning: #92400e;
+            --error: #b91c1c;
+            --color-symptom: #047857;
+            --color-risk: #b91c1c;
+            --color-diagnostics: #0f766e;
+            --color-therapy: #6d28d9;
+            --badge-primary-bg: rgba(15, 118, 110, 0.14);
             --badge-primary-text: #0f766e;
         }
 
         /* ==================================================================
-           2. APP-SHELL, SIDEBARS, TOPBAR & BENTO-CONTAINER
+           2. APP-SHELL, SIDEBARS, TOPBAR, BENTO & NAVIGATION
            ================================================================== */
         html[data-theme="daylight"] body,
         html[data-theme="tropical"] body {
@@ -274,6 +302,10 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="daylight"] .super-folder,
         html[data-theme="daylight"] .category-folder,
         html[data-theme="daylight"] .case-card,
+        html[data-theme="daylight"] .specialty-card,
+        html[data-theme="daylight"] .sr-topic-group,
+        html[data-theme="daylight"] .sr-card,
+        html[data-theme="daylight"] .editorial-sticky-context-bar,
         html[data-theme="tropical"] .bento-left-sidebar,
         html[data-theme="tropical"] .bento-right-sidebar,
         html[data-theme="tropical"] .bento-topbar,
@@ -283,34 +315,233 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="tropical"] .bento-lesson-table-card,
         html[data-theme="tropical"] .super-folder,
         html[data-theme="tropical"] .category-folder,
-        html[data-theme="tropical"] .case-card {
+        html[data-theme="tropical"] .case-card,
+        html[data-theme="tropical"] .specialty-card,
+        html[data-theme="tropical"] .sr-topic-group,
+        html[data-theme="tropical"] .sr-card,
+        html[data-theme="tropical"] .editorial-sticky-context-bar {
             background: var(--surface-primary) !important;
             border-color: var(--card-border) !important;
             color: var(--text-main) !important;
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06) !important;
         }
 
         html[data-theme="daylight"] .super-folder-header,
         html[data-theme="daylight"] .category-header,
+        html[data-theme="daylight"] .bookshelf-super-header,
+        html[data-theme="daylight"] .folder-header,
         html[data-theme="tropical"] .super-folder-header,
-        html[data-theme="tropical"] .category-header {
+        html[data-theme="tropical"] .category-header,
+        html[data-theme="tropical"] .bookshelf-super-header,
+        html[data-theme="tropical"] .folder-header {
             background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .nav-item,
+        html[data-theme="daylight"] .folder-case-item,
+        html[data-theme="daylight"] .bento-folder-prog-name,
+        html[data-theme="daylight"] .bento-table-desc,
+        html[data-theme="daylight"] .bento-media-mentor-name,
+        html[data-theme="daylight"] .case-card h3,
+        html[data-theme="tropical"] .nav-item,
+        html[data-theme="tropical"] .folder-case-item,
+        html[data-theme="tropical"] .bento-folder-prog-name,
+        html[data-theme="tropical"] .bento-table-desc,
+        html[data-theme="tropical"] .bento-media-mentor-name,
+        html[data-theme="tropical"] .case-card h3 {
             color: var(--text-main) !important;
         }
 
+        html[data-theme="daylight"] .nav-item.active,
+        html[data-theme="tropical"] .nav-item.active {
+            background: var(--badge-primary-bg) !important;
+            color: var(--badge-primary-text) !important;
+            border-color: var(--accent-blue) !important;
+        }
+
+        html[data-theme="daylight"] .case-meta-source-pill,
+        html[data-theme="daylight"] .case-meta-xp,
+        html[data-theme="daylight"] .category-badge,
+        html[data-theme="daylight"] .super-count-pill,
+        html[data-theme="daylight"] .tag,
+        html[data-theme="tropical"] .case-meta-source-pill,
+        html[data-theme="tropical"] .case-meta-xp,
+        html[data-theme="tropical"] .category-badge,
+        html[data-theme="tropical"] .super-count-pill,
+        html[data-theme="tropical"] .tag {
+            background: var(--surface-secondary) !important;
+            color: var(--text-secondary) !important;
+            border-color: var(--card-border) !important;
+        }
+
         /* ==================================================================
-           3. PLAYER CHALLENGES (OVERVIEW, AUDIT, SYNAPSEN, KASKADE, QUIZ, DOCTORDLE)
+           3. BUTTONS, FORMULARE & STATUS-PILLS (KONTRASTSICHER)
+           ================================================================== */
+        html[data-theme="daylight"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+        html[data-theme="daylight"] textarea,
+        html[data-theme="daylight"] select,
+        html[data-theme="tropical"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+        html[data-theme="tropical"] textarea,
+        html[data-theme="tropical"] select {
+            background: var(--surface-primary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] input::placeholder,
+        html[data-theme="daylight"] textarea::placeholder,
+        html[data-theme="tropical"] input::placeholder,
+        html[data-theme="tropical"] textarea::placeholder {
+            color: var(--text-muted) !important;
+            opacity: 0.85;
+        }
+
+        html[data-theme="daylight"] .action-btn:not(.secondary):not(.mc-dialog-btn-danger),
+        html[data-theme="tropical"] .action-btn:not(.secondary):not(.mc-dialog-btn-danger) {
+            background: var(--primary-action) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+        }
+
+        html[data-theme="daylight"] .action-btn.mc-dialog-btn-danger,
+        html[data-theme="tropical"] .action-btn.mc-dialog-btn-danger {
+            background: #b91c1c !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+        }
+
+        html[data-theme="daylight"] .action-btn.secondary,
+        html[data-theme="daylight"] .ghost-tool-btn,
+        html[data-theme="daylight"] .folder-action-btn,
+        html[data-theme="daylight"] .bookshelf-add-btn,
+        html[data-theme="daylight"] .search-status-pill,
+        html[data-theme="daylight"] .bento-scope-pill,
+        html[data-theme="daylight"] .bento-action-circle-btn,
+        html[data-theme="tropical"] .action-btn.secondary,
+        html[data-theme="tropical"] .ghost-tool-btn,
+        html[data-theme="tropical"] .folder-action-btn,
+        html[data-theme="tropical"] .bookshelf-add-btn,
+        html[data-theme="tropical"] .search-status-pill,
+        html[data-theme="tropical"] .bento-scope-pill,
+        html[data-theme="tropical"] .bento-action-circle-btn {
+            background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .search-status-pill.active,
+        html[data-theme="daylight"] .bento-scope-pill.active,
+        html[data-theme="tropical"] .search-status-pill.active,
+        html[data-theme="tropical"] .bento-scope-pill.active {
+            background: var(--badge-primary-bg) !important;
+            color: var(--badge-primary-text) !important;
+            border-color: var(--accent-blue) !important;
+        }
+
+        html[data-theme="daylight"] .case-status-pill.status-solved,
+        html[data-theme="tropical"] .case-status-pill.status-solved {
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+            border-color: #6ee7b7 !important;
+        }
+
+        html[data-theme="daylight"] .case-status-pill.status-progress,
+        html[data-theme="tropical"] .case-status-pill.status-progress {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+            border-color: #fcd34d !important;
+        }
+
+        html[data-theme="daylight"] .case-status-pill.status-open,
+        html[data-theme="tropical"] .case-status-pill.status-open {
+            background: #e2e8f0 !important;
+            color: #334155 !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        /* ==================================================================
+           4. FEEDBACK-BOXEN & SPRINGER-CALLOUTS (MERKE / CAVE / PERLE)
+           ================================================================== */
+        html[data-theme="daylight"] .feedback-box,
+        html[data-theme="daylight"] .feedback-neutral,
+        html[data-theme="tropical"] .feedback-box,
+        html[data-theme="tropical"] .feedback-neutral {
+            background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .feedback-box.feedback-success,
+        html[data-theme="tropical"] .feedback-box.feedback-success {
+            background: #ecfdf5 !important;
+            color: #065f46 !important;
+            border-color: #6ee7b7 !important;
+        }
+
+        html[data-theme="daylight"] .feedback-box.feedback-error,
+        html[data-theme="tropical"] .feedback-box.feedback-error {
+            background: #fef2f2 !important;
+            color: #991b1b !important;
+            border-color: #fca5a5 !important;
+        }
+
+        html[data-theme="daylight"] .sm-callout-box.sm-merke,
+        html[data-theme="tropical"] .sm-callout-box.sm-merke {
+            background: #eff6ff !important;
+            color: #1e3a8a !important;
+            border-color: #93c5fd !important;
+        }
+
+        html[data-theme="daylight"] .sm-callout-box.sm-cave,
+        html[data-theme="tropical"] .sm-callout-box.sm-cave {
+            background: #fef2f2 !important;
+            color: #991b1b !important;
+            border-color: #fca5a5 !important;
+        }
+
+        html[data-theme="daylight"] .sm-callout-box.sm-pearl,
+        html[data-theme="tropical"] .sm-callout-box.sm-pearl {
+            background: #ecfdf5 !important;
+            color: #065f46 !important;
+            border-color: #6ee7b7 !important;
+        }
+
+        html[data-theme="daylight"] .sm-deep-dive-card,
+        html[data-theme="daylight"] .sm-deep-dive-trigger,
+        html[data-theme="daylight"] .sm-deep-dive-content,
+        html[data-theme="tropical"] .sm-deep-dive-card,
+        html[data-theme="tropical"] .sm-deep-dive-trigger,
+        html[data-theme="tropical"] .sm-deep-dive-content {
+            background: var(--surface-secondary) !important;
+            color: var(--text-main) !important;
+            border-color: var(--card-border) !important;
+        }
+
+        html[data-theme="daylight"] .med-term-highlight,
+        html[data-theme="tropical"] .med-term-highlight {
+            color: var(--accent-blue) !important;
+            border-bottom-color: var(--accent-blue) !important;
+        }
+
+        /* ==================================================================
+           5. PLAYER CHALLENGES (CORNELL, AUDIT, SYNAPSEN, KASKADE, QUIZ,
+              DOCTORDLE, FLASHCARDS, DEPOT, PHARMA, OSCE, COMMENTS)
            ================================================================== */
         html[data-theme="daylight"] .cornell-wrapper,
         html[data-theme="daylight"] .cornell-grid,
         html[data-theme="daylight"] .cornell-cues,
         html[data-theme="daylight"] .cornell-notes,
         html[data-theme="daylight"] .cornell-summary,
+        html[data-theme="daylight"] .cornell-sync-note-col,
         html[data-theme="daylight"] .synapses-container,
         html[data-theme="daylight"] .synapse-tile,
         html[data-theme="daylight"] .synapse-solved-row,
         html[data-theme="daylight"] .audit-step-container,
         html[data-theme="daylight"] .step-card,
+        html[data-theme="daylight"] .audit-epikrise-card,
+        html[data-theme="daylight"] .audit-epikrise-row,
         html[data-theme="daylight"] .cascade-disease-container,
         html[data-theme="daylight"] .cascade-slot,
         html[data-theme="daylight"] .cascade-chip,
@@ -321,18 +552,27 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="daylight"] .quiz-option,
         html[data-theme="daylight"] .doctordle-hint-card,
         html[data-theme="daylight"] .doctordle-input-wrapper input,
+        html[data-theme="daylight"] .flashcard-card,
+        html[data-theme="daylight"] .flashcard-front,
+        html[data-theme="daylight"] .flashcard-back,
         html[data-theme="daylight"] .depot-card,
         html[data-theme="daylight"] .depot-q-card,
+        html[data-theme="daylight"] .comment-card,
+        html[data-theme="daylight"] .osce-card,
+        html[data-theme="daylight"] .pharma-card,
         html[data-theme="tropical"] .cornell-wrapper,
         html[data-theme="tropical"] .cornell-grid,
         html[data-theme="tropical"] .cornell-cues,
         html[data-theme="tropical"] .cornell-notes,
         html[data-theme="tropical"] .cornell-summary,
+        html[data-theme="tropical"] .cornell-sync-note-col,
         html[data-theme="tropical"] .synapses-container,
         html[data-theme="tropical"] .synapse-tile,
         html[data-theme="tropical"] .synapse-solved-row,
         html[data-theme="tropical"] .audit-step-container,
         html[data-theme="tropical"] .step-card,
+        html[data-theme="tropical"] .audit-epikrise-card,
+        html[data-theme="tropical"] .audit-epikrise-row,
         html[data-theme="tropical"] .cascade-disease-container,
         html[data-theme="tropical"] .cascade-slot,
         html[data-theme="tropical"] .cascade-chip,
@@ -343,11 +583,81 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="tropical"] .quiz-option,
         html[data-theme="tropical"] .doctordle-hint-card,
         html[data-theme="tropical"] .doctordle-input-wrapper input,
+        html[data-theme="tropical"] .flashcard-card,
+        html[data-theme="tropical"] .flashcard-front,
+        html[data-theme="tropical"] .flashcard-back,
         html[data-theme="tropical"] .depot-card,
-        html[data-theme="tropical"] .depot-q-card {
+        html[data-theme="tropical"] .depot-q-card,
+        html[data-theme="tropical"] .comment-card,
+        html[data-theme="tropical"] .osce-card,
+        html[data-theme="tropical"] .pharma-card {
             background: var(--surface-primary) !important;
             border-color: var(--card-border) !important;
             color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .audit-editorial-body,
+        html[data-theme="daylight"] .audit-paragraph,
+        html[data-theme="daylight"] .audit-step-title,
+        html[data-theme="daylight"] .audit-fb-title,
+        html[data-theme="daylight"] .audit-fb-text,
+        html[data-theme="daylight"] .stealth-word,
+        html[data-theme="daylight"] .stealth-hotspot,
+        html[data-theme="daylight"] .cornell-prose-flow,
+        html[data-theme="daylight"] .cornell-summary p,
+        html[data-theme="tropical"] .audit-editorial-body,
+        html[data-theme="tropical"] .audit-paragraph,
+        html[data-theme="tropical"] .audit-step-title,
+        html[data-theme="tropical"] .audit-fb-title,
+        html[data-theme="tropical"] .audit-fb-text,
+        html[data-theme="tropical"] .stealth-word,
+        html[data-theme="tropical"] .stealth-hotspot,
+        html[data-theme="tropical"] .cornell-prose-flow,
+        html[data-theme="tropical"] .cornell-summary p {
+            color: var(--text-main) !important;
+        }
+
+        html[data-theme="daylight"] .stealth-hotspot.resolved-signal,
+        html[data-theme="tropical"] .stealth-hotspot.resolved-signal {
+            background: #fee2e2 !important;
+            color: #991b1b !important;
+            border-color: #f87171 !important;
+        }
+
+        html[data-theme="daylight"] .stealth-hotspot.resolved-corrected,
+        html[data-theme="tropical"] .stealth-hotspot.resolved-corrected {
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+            border-color: #34d399 !important;
+        }
+
+        html[data-theme="daylight"] .stealth-word.resolved-noise,
+        html[data-theme="daylight"] .stealth-hotspot.resolved-noise,
+        html[data-theme="tropical"] .stealth-word.resolved-noise,
+        html[data-theme="tropical"] .stealth-hotspot.resolved-noise {
+            background: #e2e8f0 !important;
+            color: #475569 !important;
+        }
+
+        html[data-theme="daylight"] .quiz-opt-btn.correct-highlight,
+        html[data-theme="tropical"] .quiz-opt-btn.correct-highlight {
+            background: #d1fae5 !important;
+            border-color: #059669 !important;
+            color: #065f46 !important;
+        }
+
+        html[data-theme="daylight"] .quiz-opt-btn.wrong-highlight,
+        html[data-theme="tropical"] .quiz-opt-btn.wrong-highlight {
+            background: #fee2e2 !important;
+            border-color: #dc2626 !important;
+            color: #991b1b !important;
+        }
+
+        html[data-theme="daylight"] .synapse-tile.selected,
+        html[data-theme="tropical"] .synapse-tile.selected {
+            background: var(--badge-primary-bg) !important;
+            border-color: var(--accent-blue) !important;
+            color: var(--badge-primary-text) !important;
         }
 
         html[data-theme="daylight"] .challenge-nav-bar,
@@ -375,7 +685,7 @@ function ensureUniversalBrightModeStyles() {
         }
 
         /* ==================================================================
-           4. SOLITAIRE ASSOCIATIONS JOURNEY (HELLES KARTENBLATT & TABLEAU)
+           6. SOLITAIRE ASSOCIATIONS JOURNEY
            ================================================================== */
         html[data-theme="daylight"] .sol-lobby-wrapper,
         html[data-theme="daylight"] .sol-game-wrapper,
@@ -403,7 +713,6 @@ function ensureUniversalBrightModeStyles() {
             box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
         }
 
-        /* Offene Solitaire-Spielkarten als edle helle Spielkarten darstellen */
         html[data-theme="daylight"] .sol-playing-card.sol-card-term,
         html[data-theme="tropical"] .sol-playing-card.sol-card-term {
             background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
@@ -415,22 +724,21 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="daylight"] .sol-playing-card.sol-card-category,
         html[data-theme="tropical"] .sol-playing-card.sol-card-category {
             background: linear-gradient(165deg, #fffbeb 0%, #fef3c7 100%) !important;
-            border: 1.5px solid #f59e0b !important;
+            border: 1.5px solid #d97706 !important;
             color: #1c1917 !important;
-            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.16) !important;
+            box-shadow: 0 4px 14px rgba(217, 119, 6, 0.16) !important;
         }
 
-        /* Verdeckte Kartenrückseiten im Bright Mode dezent klinisch-blau statt tiefschwarz */
         html[data-theme="daylight"] .sol-playing-card.sol-card-back,
         html[data-theme="tropical"] .sol-playing-card.sol-card-back {
             background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%) !important;
-            border: 1.5px solid #7dd3fc !important;
+            border: 1.5px solid #38bdf8 !important;
             color: #0369a1 !important;
         }
 
         html[data-theme="daylight"] .sol-card-back-inner,
         html[data-theme="tropical"] .sol-card-back-inner {
-            border-color: rgba(2, 132, 199, 0.25) !important;
+            border-color: rgba(3, 105, 161, 0.28) !important;
             color: #0369a1 !important;
         }
 
@@ -468,11 +776,11 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="tropical"] .sol-card-info-btn {
             background: rgba(15, 23, 42, 0.06) !important;
             color: #334155 !important;
-            border-color: rgba(15, 23, 42, 0.15) !important;
+            border-color: rgba(15, 23, 42, 0.18) !important;
         }
 
         /* ==================================================================
-           5. KLINIK-DUELL (LOBBY, SCOREBOARD & FRAGEN-ARENA)
+           7. KLINIK-DUELL & FRIENDS
            ================================================================== */
         html[data-theme="daylight"] .duel-header-card,
         html[data-theme="daylight"] .duel-search-card,
@@ -514,7 +822,7 @@ function ensureUniversalBrightModeStyles() {
         }
 
         /* ==================================================================
-           6. MINDMAP-LABOR V6.0 (CANVAS, KNOTEN, POOL & MASTERY-MODAL)
+           8. MINDMAP-LABOR & MODALS
            ================================================================== */
         html[data-theme="daylight"] .mm-header,
         html[data-theme="daylight"] .mm-preset-bar,
@@ -563,7 +871,7 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="daylight"] .mm-node-root,
         html[data-theme="tropical"] .mm-node-root {
             background: linear-gradient(135deg, #e0f2fe 0%, #ffffff 100%) !important;
-            border: 2px solid #0284c7 !important;
+            border: 2px solid #0369a1 !important;
             color: #0f172a !important;
         }
 
@@ -593,12 +901,11 @@ function ensureUniversalBrightModeStyles() {
         html[data-theme="daylight"] .mm-btn.active,
         html[data-theme="tropical"] .mm-preset-btn.active,
         html[data-theme="tropical"] .mm-btn.active {
-            background: rgba(2, 132, 199, 0.15) !important;
-            border-color: #0284c7 !important;
+            background: rgba(3, 105, 161, 0.14) !important;
+            border-color: #0369a1 !important;
             color: #0369a1 !important;
         }
 
-        /* Mindmap Mastery-Gate Modal & Import Modal im Bright Mode */
         html[data-theme="daylight"] .mm-synapse-modal-backdrop,
         html[data-theme="daylight"] .mm-modal-backdrop,
         html[data-theme="daylight"] .reveal-modal,
@@ -654,92 +961,274 @@ function ensureUniversalBrightModeStyles() {
 
         html[data-theme="daylight"] .mm-synapse-opt-btn:hover:not(:disabled),
         html[data-theme="tropical"] .mm-synapse-opt-btn:hover:not(:disabled) {
-            background: rgba(2, 132, 199, 0.12) !important;
-            border-color: #0284c7 !important;
+            background: rgba(3, 105, 161, 0.12) !important;
+            border-color: #0369a1 !important;
         }
 
         html[data-theme="daylight"] .mm-mastery-rationale-box,
         html[data-theme="tropical"] .mm-mastery-rationale-box {
-            background: rgba(16, 185, 129, 0.12) !important;
+            background: #ecfdf5 !important;
             color: #065f46 !important;
-            border-color: rgba(16, 185, 129, 0.4) !important;
+            border-color: #6ee7b7 !important;
         }
 
         html[data-theme="daylight"] .mm-mastery-nudge-box,
         html[data-theme="tropical"] .mm-mastery-nudge-box {
-            background: rgba(245, 158, 11, 0.14) !important;
+            background: #fef3c7 !important;
             color: #92400e !important;
-            border-left-color: #d97706 !important;
+            border-left-color: #b45309 !important;
+        }
+
+        /* Medizinische Bild-Viewer (CT/MRT/Röntgen) bleiben im Light Mode kontrastoptimiert dunkel */
+        html[data-theme="daylight"] [data-preserve-dark],
+        html[data-theme="tropical"] [data-preserve-dark] {
+            background: #0b1121 !important;
+            color: #f8fafc !important;
         }
     `;
     document.head.appendChild(style);
 }
 
-// Reversibler Inline-Style-Sanitizer:
-// Bereinigt dunkle Inline-Styles in ALLEN Views (inkl. Mindmap, Solitaire, Duell, Modals)
-// und stellt beim Wechsel zurück in den Dark Mode die Original-Styles 1:1 wieder her!
-function sanitizeLightThemeInlineStyles(rootEl = document.body) {
-    if (!rootEl) return;
-    const isLight = isBrightThemeActive();
+// --- WCAG Farb- & Luminanz-Helfer für präzise Kontrast-Korrektur ---
+function parseCssColorToRgb(colorStr) {
+    if (!colorStr || typeof colorStr !== 'string') return null;
+    const raw = colorStr.trim().toLowerCase();
+    if (!raw || raw === 'transparent' || raw === 'inherit' || raw === 'initial' || raw === 'unset' || raw.startsWith('var(')) {
+        return null;
+    }
+    if (raw === 'white') return { r: 255, g: 255, b: 255, a: 1 };
+    if (raw === 'black') return { r: 0, g: 0, b: 0, a: 1 };
 
-    if (!isLight) {
-        // Dark Mode aktiv: Alle zuvor gesicherten Original-Inline-Styles wiederherstellen
-        const modifiedEls = rootEl.querySelectorAll('[data-mc-orig-style]');
-        modifiedEls.forEach(el => {
-            const orig = el.getAttribute('data-mc-orig-style');
-            if (orig === '__EMPTY__') {
-                el.removeAttribute('style');
-            } else {
-                el.setAttribute('style', orig);
-            }
-            el.removeAttribute('data-mc-orig-style');
-        });
-        return;
+    const hexMatch = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (hexMatch) {
+        const hex = hexMatch[1];
+        if (hex.length === 3) {
+            return {
+                r: parseInt(hex[0] + hex[0], 16),
+                g: parseInt(hex[1] + hex[1], 16),
+                b: parseInt(hex[2] + hex[2], 16),
+                a: 1
+            };
+        }
+        return {
+            r: parseInt(hex.slice(0, 2), 16),
+            g: parseInt(hex.slice(2, 4), 16),
+            b: parseInt(hex.slice(4, 6), 16),
+            a: hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1
+        };
     }
 
-    const elements = rootEl.querySelectorAll('[style]');
-    elements.forEach(el => {
-        // Nur die kleinen Theme-Vorschau-Karten in den Einstellungen ausnehmen
-        if (el.closest('.theme-card')) return;
-
-        const currentStyle = el.getAttribute('style') || '';
-        if (!currentStyle) return;
-
-        // Original-Style beim allerersten Eingriff sichern
-        if (!el.hasAttribute('data-mc-orig-style')) {
-            el.setAttribute('data-mc-orig-style', currentStyle);
+    const rgbMatch = raw.match(/^rgba?\(\s*([\d.]+)\s*[,\s]\s*([\d.]+)\s*[,\s]\s*([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/);
+    if (rgbMatch) {
+        let a = 1;
+        if (rgbMatch[4] !== undefined) {
+            a = rgbMatch[4].endsWith('%') ? parseFloat(rgbMatch[4]) / 100 : parseFloat(rgbMatch[4]);
         }
+        return {
+            r: Math.min(255, Math.max(0, Number(rgbMatch[1]))),
+            g: Math.min(255, Math.max(0, Number(rgbMatch[2]))),
+            b: Math.min(255, Math.max(0, Number(rgbMatch[3]))),
+            a: isNaN(a) ? 1 : a
+        };
+    }
 
-        const origStyle = el.getAttribute('data-mc-orig-style') || currentStyle;
+    return null;
+}
 
-        // 1. Dunkle Inline-Hintergründe (rgba(6..30, ...) oder dunkle Hex-Codes) auf helle Oberfläche umstellen
-        if (
-            /rgba\(\s*(6|9|10|11|15|16|17|23|30)\s*,\s*(9|14|15|17|23|24|30|41)/i.test(origStyle) ||
-            /#(060913|090614|04110f|0b1121|0f172a|1e293b)/i.test(origStyle)
-        ) {
-            el.style.backgroundColor = 'var(--surface-secondary)';
-            el.style.backgroundImage = 'none';
-            el.style.color = 'var(--text-main)';
-            el.style.borderColor = 'var(--card-border)';
-        }
+function getRelativeLuminance({ r, g, b }) {
+    const channel = (v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
 
-        // 2. Fast unsichtbare weiße/transparente Pill-Hintergründe (z.B. rgba(255,255,255,0.05) in Solitaire)
-        if (/rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*0\.0[1-9]/i.test(origStyle)) {
-            el.style.backgroundColor = 'var(--surface-secondary)';
-            el.style.borderColor = 'var(--card-border)';
-        }
+// Wählt für zu helle Pastell-/Neonfarben eine kontraststarke dunkle Entsprechung im selben Farbton
+function mapLowContrastTextColorForBrightMode(rgb) {
+    const { r, g, b } = rgb;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const sat = max === 0 ? 0 : (max - min) / max;
 
-        // 3. Zu helle Pastell-Textfarben auf hellem Hintergrund kontraststark abdunkeln
-        if (/color\s*:\s*#(f8fafc|f1f5f9|e2e8f0|cbd5e1|94a3b8)/i.test(origStyle)) {
-            el.style.color = 'var(--text-main)';
-        } else if (/color\s*:\s*#(a7f3d0|6ee7b7|86efac)/i.test(origStyle)) {
-            el.style.color = '#065f46'; // Sattes Klinik-Smaragdgrün
-        } else if (/color\s*:\s*#(fecaca|fca5a5|fecdd3)/i.test(origStyle)) {
-            el.style.color = '#b91c1c'; // Sattes Karminrot
-        } else if (/color\s*:\s*#(fde68a|fcd34d)/i.test(origStyle)) {
-            el.style.color = '#92400e'; // Sattes Amber-Braun
+    // Neutrales Weiß / Hellgrau
+    if (sat < 0.18) return 'var(--text-main)';
+
+    // Rot / Rosa / Koralle
+    if (r >= g && r >= b && (r - g) > 35 && (r - b) > 20) return '#b91c1c';
+    // Gelb / Gold / Amber / Orange
+    if (r >= b && g >= b && r > 170 && g > 120) return '#92400e';
+    // Grün / Smaragd / Mint
+    if (g >= r && g >= b && (g - r) > 20) return '#065f46';
+    // Violett / Indigo / Magenta
+    if (b >= g && r > 120 && b > 140 && (r - g) > 15) return '#6d28d9';
+    // Cyan / Hellblau
+    if (b >= r) return '#0369a1';
+
+    return 'var(--text-main)';
+}
+
+const TRACKED_CSS_PROPS = {
+    bgColor: 'background-color',
+    bgImage: 'background-image',
+    color: 'color',
+    borderColor: 'border-color'
+};
+
+function isProtectedFromLightSanitizer(el) {
+    if (!el || el.nodeType !== 1) return true;
+    const tag = el.tagName;
+    if (tag === 'IMG' || tag === 'VIDEO' || tag === 'PICTURE' || tag === 'CANVAS' || tag === 'SVG' || tag === 'IFRAME' || tag === 'SOURCE') {
+        return true;
+    }
+    return !!el.closest(
+        '.theme-card, [data-preserve-dark], .imaging-viewer, .rad-viewer, .mc-rad-viewer, .mc-rad-lightbox, .radiopaedia-viewer, .dicom-viewer, .lightbox-stage'
+    );
+}
+
+function readBackupMap(el) {
+    try {
+        const raw = el.getAttribute('data-mc-theme-backup');
+        return raw ? JSON.parse(raw) : {};
+    } catch (_e) {
+        return {};
+    }
+}
+
+function writeBackupMap(el, map) {
+    if (Object.keys(map).length > 0) {
+        el.setAttribute('data-mc-theme-backup', JSON.stringify(map));
+    }
+}
+
+function restoreElementThemeProperties(el) {
+    const backup = readBackupMap(el);
+    Object.entries(backup).forEach(([key, saved]) => {
+        const cssProp = TRACKED_CSS_PROPS[key];
+        if (!cssProp) return;
+        if (saved && saved.val) {
+            el.style.setProperty(cssProp, saved.val, saved.prio || '');
+        } else {
+            el.style.removeProperty(cssProp);
         }
     });
+    el.removeAttribute('data-mc-theme-backup');
+    // Altlast-Attribut früherer Versionen bereinigen, OHNE el.setAttribute('style', ...) auszuführen!
+    if (el.hasAttribute('data-mc-orig-style')) {
+        el.removeAttribute('data-mc-orig-style');
+    }
+}
+
+// Reversibler Property-Sanitizer:
+// Ändert NUR Farb-/Hintergrund-Properties (NIEMALS display, visibility, opacity, transform oder url()-Bilder!)
+function sanitizeLightThemeInlineStyles(rootEl = document.body) {
+    if (!rootEl || isSanitizingLightTheme) return;
+    isSanitizingLightTheme = true;
+
+    try {
+        const isLight = isBrightThemeActive();
+
+        if (!isLight) {
+            // Dark Mode aktiv: Ausschließlich die zuvor geänderten Farb-Properties präzise zurücksetzen
+            rootEl.querySelectorAll('[data-mc-theme-backup], [data-mc-orig-style]').forEach(restoreElementThemeProperties);
+            return;
+        }
+
+        const elements = rootEl.querySelectorAll('[style]');
+        elements.forEach(el => {
+            if (isProtectedFromLightSanitizer(el)) return;
+
+            const backup = readBackupMap(el);
+            let backupChanged = false;
+
+            const setTracked = (key, newVal) => {
+                const cssProp = TRACKED_CSS_PROPS[key];
+                if (!cssProp) return;
+                if (!(key in backup)) {
+                    backup[key] = {
+                        val: el.style.getPropertyValue(cssProp),
+                        prio: el.style.getPropertyPriority(cssProp)
+                    };
+                    backupChanged = true;
+                }
+                el.style.setProperty(cssProp, newVal);
+            };
+
+            const origBgColorStr = ('bgColor' in backup) ? backup.bgColor.val : el.style.getPropertyValue('background-color');
+            const origBgImageStr = ('bgImage' in backup) ? backup.bgImage.val : el.style.getPropertyValue('background-image');
+            const origColorStr   = ('color' in backup)   ? backup.color.val   : el.style.getPropertyValue('color');
+
+            // 1. Echte url(...)-Hintergrundbilder (z. B. Fallbilder, Radiologie-Thumbnails) NIEMALS löschen!
+            const hasUrlBg = /url\s*\(/i.test(origBgImageStr || '');
+            let bgWasLightened = false;
+
+            if (!hasUrlBg) {
+                const bgRgb = parseCssColorToRgb(origBgColorStr);
+                const isDarkInlineBg = !!(
+                    bgRgb &&
+                    bgRgb.a >= 0.25 &&
+                    getRelativeLuminance(bgRgb) < 0.14 &&
+                    // Gesättigte Akzent-Buttons (z. B. sattes Blau/Grün/Rot) intakt lassen
+                    (Math.max(bgRgb.r, bgRgb.g, bgRgb.b) - Math.min(bgRgb.r, bgRgb.g, bgRgb.b)) < 55
+                );
+
+                // Sehr schwache weiße Glassmorphism-Pills aus dem Dark Mode (rgba(255,255,255,0.03..0.12))
+                const isGhostWhitePill = !!(
+                    bgRgb &&
+                    bgRgb.r > 235 && bgRgb.g > 235 && bgRgb.b > 235 &&
+                    bgRgb.a > 0 && bgRgb.a <= 0.15
+                );
+
+                // Dunkle Inline-Gradients (ohne url) erkennen
+                const isDarkGradient = !!(
+                    origBgImageStr &&
+                    /gradient\s*\(/i.test(origBgImageStr) &&
+                    /(rgba?\(\s*(0|4|6|9|10|11|15|16|17|23|30)\s*,|#(020617|04110f|060913|090614|0a0f1d|0b1121|0f172a|111827|1e293b))/i.test(origBgImageStr)
+                );
+
+                // Modal-Backdrops nicht aufhellen (diese sollen den Hintergrund dimmen)
+                const isBackdrop = el.classList.contains('modal') ||
+                    el.classList.contains('sidebar-overlay') ||
+                    /backdrop|overlay/i.test(el.className || '');
+
+                if (!isBackdrop && (isDarkInlineBg || isDarkGradient)) {
+                    setTracked('bgColor', 'var(--surface-secondary)');
+                    if (isDarkGradient) setTracked('bgImage', 'none');
+                    setTracked('borderColor', 'var(--card-border)');
+                    bgWasLightened = true;
+                } else if (!isBackdrop && isGhostWhitePill) {
+                    setTracked('bgColor', 'var(--surface-secondary)');
+                    setTracked('borderColor', 'var(--card-border)');
+                    bgWasLightened = true;
+                }
+            }
+
+            // 2. Kontrastprüfung für Inline-Textfarben (nur wenn Element KEINEN dunklen/gesättigten Hintergrund hat)
+            const textRgb = parseCssColorToRgb(origColorStr);
+            if (textRgb && textRgb.a >= 0.4) {
+                const textLum = getRelativeLuminance(textRgb);
+                // Luminanz > 0.34 hat auf weißem/hellem Hintergrund < 4.5:1 Kontrast -> gezielt abdunkeln
+                if (textLum > 0.34) {
+                    let sittingOnDarkBg = false;
+                    if (!bgWasLightened) {
+                        const computedBg = parseCssColorToRgb(getComputedStyle(el).backgroundColor);
+                        if (computedBg && computedBg.a >= 0.7 && getRelativeLuminance(computedBg) < 0.25) {
+                            sittingOnDarkBg = true;
+                        }
+                    }
+
+                    if (!sittingOnDarkBg) {
+                        setTracked('color', mapLowContrastTextColorForBrightMode(textRgb));
+                    }
+                }
+            }
+
+            if (backupChanged) {
+                writeBackupMap(el, backup);
+            }
+        });
+    } finally {
+        isSanitizingLightTheme = false;
+    }
 }
 
 function applyAppTheme(themeName) {
@@ -761,20 +1250,22 @@ function applyAppTheme(themeName) {
         btn.classList.toggle('active', btn.getAttribute('data-theme-value') === validTheme);
     });
 
-    localStorage.setItem(THEME_STORAGE_KEY, validTheme);
+    try {
+        localStorage.setItem(THEME_STORAGE_KEY, validTheme);
+    } catch (_e) {}
 
-    // Sofort kompletten Body (alle Views, Challenges & Modals) synchronisieren
+    // Sofort kompletten Body farb-synchronisieren, ohne Layout-/Display-Zustände anzutasten
     requestAnimationFrame(() => sanitizeLightThemeInlineStyles(document.body));
 }
 window.applyAppTheme = applyAppTheme;
 
-// Überwacht den gesamten document.body statt nur #player-view!
+// Überwacht dynamisch nachgeladene Views & Challenges im Bright Mode
 function initPlayerLightModeObserver() {
     ensureUniversalBrightModeStyles();
     if (!document.body || typeof MutationObserver === 'undefined') return;
 
     const observer = new MutationObserver(() => {
-        if (!isBrightThemeActive()) return;
+        if (!isBrightThemeActive() || isSanitizingLightTheme) return;
         if (lightSanitizeRaf) cancelAnimationFrame(lightSanitizeRaf);
         lightSanitizeRaf = requestAnimationFrame(() => {
             sanitizeLightThemeInlineStyles(document.body);
@@ -783,6 +1274,7 @@ function initPlayerLightModeObserver() {
 
     observer.observe(document.body, { childList: true, subtree: true });
 }
+
 // ==========================================================================
 // 03. PROGRESS MANAGER & PERSISTENCE (LOCALSTORAGE)
 // ==========================================================================
@@ -791,7 +1283,8 @@ const ProgressManager = {
 
     getAll() {
         try {
-            return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || {};
+            const parsed = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '{}');
+            return (parsed && typeof parsed === 'object') ? parsed : {};
         } catch (e) {
             console.error('Fehler beim Lesen des Progress-Speichers:', e);
             return {};
@@ -824,7 +1317,11 @@ const ProgressManager = {
         const all = this.getAll();
         if (all[caseId] && all[caseId][challengeKey]) {
             delete all[caseId][challengeKey];
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+            try {
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+            } catch (e) {
+                console.error('LocalStorage Schreibfehler:', e);
+            }
         }
     },
 
@@ -836,7 +1333,9 @@ const ProgressManager = {
         const all = this.getAll();
         if (all[caseId]) {
             delete all[caseId];
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+            try {
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
+            } catch (_e) {}
         }
 
         try {
@@ -852,20 +1351,23 @@ const ProgressManager = {
         if (!caseId || window.isSpecialtyBlindMode) return;
         this.resetCaseChallengesForReview(caseId);
 
-        let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
-        solved = solved.filter(id => id !== caseId);
-        localStorage.setItem('solved_cases', JSON.stringify(solved));
+        try {
+            let solved = JSON.parse(localStorage.getItem('solved_cases') || '[]');
+            if (!Array.isArray(solved)) solved = [];
+            solved = solved.filter(id => id !== caseId);
+            localStorage.setItem('solved_cases', JSON.stringify(solved));
+        } catch (_e) {}
     }
 };
 window.ProgressManager = ProgressManager;
 
 window.saveChallengeProgress = function(challengeKey, data) {
-    if (!activeCaseData) return;
-    ProgressManager.saveCaseState(activeCaseData.case_id, {
+    const currentCase = window.activeCaseData || (typeof activeCaseData !== 'undefined' ? activeCaseData : null);
+    if (!currentCase || !currentCase.case_id) return;
+    ProgressManager.saveCaseState(currentCase.case_id, {
         [challengeKey]: data
     });
 };
-
 // ==========================================================================
 // 04. GLOBALE DIFFERENZIALDIAGNOSE-BIBLIOTHEK (DD-POOL)
 // ==========================================================================
