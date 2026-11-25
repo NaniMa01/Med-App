@@ -915,9 +915,9 @@ const CaseEditorModule = (() => {
                             ${hotspots.map((hs, hIdx) => {
                                 const check = checkHotspotInContent(step.content, hs.phrase);
                                 const pillClass = check.ok ? 'ok' : 'warn';
-                                const pillText = check.bracketed
-                                    ? '✓ [Phrase] im Text gefunden'
-                                    : (check.ok ? '⚠️ Im Text (ohne [Klammern])' : '⚠️ Nicht im Text gefunden');
+                              const pillText = check.ok
+    ? (check.bracketed ? '✓ [Phrase] im Text gefunden' : '✓ Exakt im Text gefunden')
+    : '⚠️ Nicht im Text gefunden';
 
                                 return `
                                     <div class="ce-hotspot-box ${hs.is_error ? 'is-error-hs' : 'is-ok-hs'}">
@@ -1044,16 +1044,14 @@ const CaseEditorModule = (() => {
                 if (!newPhrase) return;
 
                 let text = draftCase.timeline[sIdx].content || '';
-                if (oldPhrase && text.includes(`[${oldPhrase}]`)) {
-                    text = text.split(`[${oldPhrase}]`).join(`[${newPhrase}]`);
-                } else if (oldPhrase && text.includes(oldPhrase)) {
-                    text = text.split(oldPhrase).join(`[${newPhrase}]`);
-                } else if (text.includes(newPhrase) && !text.includes(`[${newPhrase}]`)) {
-                    text = text.split(newPhrase).join(`[${newPhrase}]`);
-                } else {
-                    showStatus('warn', 'Bisherige Phrase wurde im Text nicht mehr gefunden – bitte Klammern [Phrase] kurz direkt im Fließtext anpassen.');
-                    return;
-                }
+if (oldPhrase && text.includes(`[${oldPhrase}]`)) {
+    text = text.split(`[${oldPhrase}]`).join(`[${newPhrase}]`);
+} else if (oldPhrase && text.includes(oldPhrase)) {
+    text = text.split(oldPhrase).join(newPhrase);
+} else {
+    showStatus('warn', 'Bisherige Phrase wurde im Text nicht mehr gefunden – bitte kurz direkt im Schritt-Text anpassen.');
+    return;
+}
 
                 draftCase.timeline[sIdx].content = text;
                 contentTa.value = text;
