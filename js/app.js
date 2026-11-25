@@ -4734,13 +4734,18 @@ function applySpecialtyFilters(caseData) {
 window.applySpecialtyFilters = applySpecialtyFilters;
 
 window.loadCaseById = function(caseId, opts = {}) {
+    // Falls der Creator-Editor noch offen war, beim Fallwechsel sauber schließen
+    if (window.CaseEditorModule && window.CaseEditorModule.isEditing()) {
+        window.CaseEditorModule.close(true);
+    }
+
     if (!opts.isEmergency && window.EmergencyManager && typeof window.EmergencyManager.exitSession === 'function') {
         window.EmergencyManager.exitSession();
     }
     const specialtyMode = !!opts.specialty || !!window.isSpecialtyBlindMode;
     window.isSpecialtyBlindMode = specialtyMode;
 
-    let targetCase = window.getRegisteredCases().find(c => c.case_id === caseId);
+    let targetCase = opts.overrideCase || window.getRegisteredCases().find(c => c.case_id === caseId);
 
     if (!targetCase) { 
         alert("Fall nicht gefunden!"); 
@@ -4752,7 +4757,7 @@ window.loadCaseById = function(caseId, opts = {}) {
     }
 
     activeCaseData = JSON.parse(JSON.stringify(targetCase));
-    window.registerCaseDDs(activeCaseData);
+    window.activeCaseData = activeCaseData; // Garantiert konsistenten Zugriff für Module (cornell.js, case-editor.js)
     if (specialtyMode) applySpecialtyFilters(activeCaseData);
     const saved = (specialtyMode || opts.resetForReview) ? {} : (ProgressManager.getCaseProgress(caseId) || {});
 
@@ -4839,6 +4844,14 @@ window.loadCaseById = function(caseId, opts = {}) {
     if (typeof window.checkFinalCompletion === 'function') {
         window.checkFinalCompletion();
     }
+};
+window.applyUpdatedCaseToPlayer = function(updatedCase, targetTab = 'overview') {
+    if (!updatedCase || !updatedCase.case_id) return;
+    window.loadCaseById(updatedCase.case_id, {
+        overrideCase: updatedCase,
+        startMode: targetTab,
+        specialty: !!window.isSpecialtyBlindMode
+    });
 };
 
 window.renderOverview = function() {
@@ -6706,7 +6719,7 @@ async function handleCaseFiles(files) {
         await loadCasesFromDatabase();
     }
 }
-
+window.CaseEditorModule?.syncCreatorButtonVisibility();
 // Einheitlich auf HIDDEN_CLOUD_CASES_KEY (keine 3 divergierenden Keys mehr!)
 function unhideCloudCaseLocally(caseId) {
     if (!caseId) return;
