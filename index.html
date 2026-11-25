@@ -399,6 +399,9 @@
                             <button type="button" class="action-btn secondary btn-sm" onclick="window.practiceCurrentCaseAsMindmap()" title="Diesen Fall als interaktive Mindmap üben" style="padding: 5px 10px; font-size: 0.75rem;">
                                 🧠 Als Mindmap
                             </button>
+                            <button type="button" class="action-btn secondary btn-sm" id="btn-creator-edit-case" onclick="window.CaseEditorModule?.toggle()" title="Diesen Fall direkt umschreiben & global für alle speichern" style="display: none; padding: 5px 10px; font-size: 0.75rem; border-color: rgba(56, 189, 248, 0.45); color: var(--accent-cyan, #38bdf8);">
+    ✏️ Bearbeiten
+</button>
                             <button type="button" class="action-btn secondary btn-sm" onclick="window.resetCurrentCaseEntirely()" title="Alle Challenges dieses Falls zurücksetzen" style="padding: 5px 10px; font-size: 0.75rem;">
                                 🔄 Fall neu starten
                             </button>
@@ -924,6 +927,7 @@
     <script src="js/gamification.js"></script>
     <script src="js/app.js"></script>
     <script src="js/cornell.js"></script>
+    <script src="js/case-editor.js"></script>
     <script src="js/osce.js"></script>
 </body>
 </html>
